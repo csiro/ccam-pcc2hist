@@ -23,7 +23,6 @@ module work
    logical :: extra_snow
 !  Flag for presence of extra 6, 12 and 18 hourly rain fields
    logical :: extra_rain, extra_rain_3hr
-   logical :: agrid = .true.
 !  Record number for the netcdf input file
    integer, save :: nrec
    integer, save :: maxrec ! Length of record dimension.
@@ -38,9 +37,6 @@ module work
    integer, public, save :: nxhis, nyhis
    real, dimension(:,:), allocatable, private :: costh, sinth
    real, dimension(:,:), allocatable, private :: costh_lc, sinth_lc
-
-   real, dimension(:,:), allocatable, target, private :: aabb
-   real, dimension(:,:), pointer, private :: aa, bb
 
    public :: initialise, fix_winds, final_init, check_cc2histfile
    public :: paraopen, paraclose
@@ -83,6 +79,9 @@ contains
       use s2p_m
 
       integer, intent(in) :: il, jl, kl, ksoil, kice
+      
+      ! MJT notes - possibly allocate for pil and pjl*pnpan for lproc files
+      ! instead of using global arrays
 
       allocate ( psl(il,jl), pmsl(il,jl), zs(il,jl), tsu(il,jl), soilt(il,jl) )
       allocate ( u(il,jl,kl), v(il,jl,kl), t(il,jl,kl), q(il,jl,kl) )
@@ -237,7 +236,7 @@ contains
                      if ( needfld(varlist(ivar)%vname) .or. needfld(name) ) then
                         call vread( varlist(ivar)%vname, taux)
                         call vread( name, tauy)
-                        call fix_winds(agrid, taux, tauy)
+                        call fix_winds(taux, tauy)
                         call savehist ( varlist(ivar)%vname, taux )
                         call savehist ( name, tauy )
                      end if
@@ -314,7 +313,7 @@ contains
            needfld("ubot")   .or. needfld("vbot")   .or. &
            needfld("uas")    .or. needfld("vas")    .or. &
            needfld("d10") ) then
-         call fix_winds(agrid, u, v)
+         call fix_winds(u, v)
          call vsavehist ( "u", u )
          call vsavehist ( "v", v )
          call savehist ( "ubot", u(:,:,1) )
@@ -462,7 +461,7 @@ contains
       read(un_in) u
       read(un_in) v
       if ( .not. skip ) then
-         call fix_winds(agrid, u, v)
+         call fix_winds(u, v)
          call vsavehist ( "u", u )
          call vsavehist ( "v", v )
       end if
@@ -653,6 +652,7 @@ contains
                            kdate, ktime, ntracers, ksoil, kice, debug,        &
                            nqg )
 
+      use mpidata_m
       use netcdf
       use newmpar_m
       use history
@@ -664,7 +664,6 @@ contains
       use parm_m, only : rlong0, rlat0, schmidt ! Share with final_init
       use physparams, only : erad
       use vertutils_m, only : sig2ds
-      use darlam
 
       real, intent(inout)  :: hres
       real, intent(inout)  :: minlon, maxlon, dlon, minlat, maxlat, dlat
@@ -692,89 +691,89 @@ contains
 !     Read the header here because doing the CC grid initialisation before
 !     alloc_indata minimises the total memory requirements
 
-            nrec = 1
-            ! Get the total number of timesteps
-            ierr = nf90_inq_dimid ( ncid, "time", dimid )
-            call check_ncerr(ierr, "Error getting time dimension")
-            ierr = nf90_inquire_dimension ( ncid, dimid, len=maxrec )
-            call check_ncerr(ierr,"Error getting number of sets")
-            ! Get integer and real headers from attibutes. First check the 
-            ! lengths of these.
-            ierr = nf90_inquire_attribute(ncid, nf90_global, "int_header", len=hlen)
-            call check_ncerr(ierr, "Error getting int_header length")
-            if ( hlen < 43 ) then
-               print*, "Error - insufficient header information: int_header too short"
-               stop
-            end if
-            allocate (int_header(hlen))
-            ierr = nf90_get_att(ncid, nf90_global, "int_header", int_header)
-            call check_ncerr(ierr, "Error getting int_header")
-            ! Only a few values are used
-            il = int_header(1)
-            jl = int_header(2)
-            kl = int_header(3)
-            ik = il  ! These are only set once
-            jk = jl
-            kk = kl
-!            kwt = int_header(19)  ! No longer used
-            nsd = int_header(5)
-            ndt = int_header(14)
-            ms = int_header(34)
-            nqg = int_header(23)
-            ilt = int_header(42)
-            ntrac = int_header(43)
+      nrec = 1
+      ! Get the total number of timesteps
+      ierr = nf90_inq_dimid ( ncid, "time", dimid )
+      call check_ncerr(ierr, "Error getting time dimension")
+      ierr = nf90_inquire_dimension ( ncid, dimid, len=maxrec )
+      call check_ncerr(ierr,"Error getting number of sets")
+      ! Get integer and real headers from attibutes. First check the 
+      ! lengths of these.
+      ierr = nf90_inquire_attribute(ncid, nf90_global, "int_header", len=hlen)
+      call check_ncerr(ierr, "Error getting int_header length")
+      if ( hlen < 43 ) then
+         print*, "Error - insufficient header information: int_header too short"
+         stop
+      end if
+      allocate (int_header(hlen))
+      ierr = nf90_get_att(ncid, nf90_global, "int_header", int_header)
+      call check_ncerr(ierr, "Error getting int_header")
+      ! Only a few values are used
+      il = int_header(1)
+      jl = int_header(2)
+      kl = int_header(3)
+      ik = il  ! These are only set once
+      jk = jl
+      kk = kl
+!     kwt = int_header(19)  ! No longer used
+      nsd = int_header(5)
+      ndt = int_header(14)
+      ms = int_header(34)
+      nqg = int_header(23)
+      ilt = int_header(42)
+      ntrac = int_header(43)
 
-            ierr = nf90_inquire_attribute(ncid, nf90_global, "real_header", len=hlen)
-            call check_ncerr(ierr, "Error getting real_header length")
-            if ( hlen < 8 ) then
-               print*, "Error - insufficient header information: real_header too short"
-               stop
-            end if
-            allocate (real_header(hlen))
-            ierr = nf90_get_att(ncid, nf90_global, "real_header", real_header)
-            call check_ncerr(ierr, "Error getting real_header")
-            ! Only a few values are used
-            rlong0 = real_header(5)
-            rlat0 = real_header(6)
-            schmidt = real_header(7)
-            if(schmidt <= 0. .or. schmidt > 1.) then
-               !  Some old model initial conditions
-               rlong0 = real_header(6)
-               rlat0  = real_header(7)
-               schmidt = real_header(8)
-            endif
-            ! Need date for setting time origin. Call getdate with nrec=1
-            nrec = 1
-            call getdate(kdate, ktime, ieof)
-            if ( ieof /= 0 ) then
-               print*, "Error in initialisation, empty netcdf file"
-               stop
-            end if
+      ierr = nf90_inquire_attribute(ncid, nf90_global, "real_header", len=hlen)
+      call check_ncerr(ierr, "Error getting real_header length")
+      if ( hlen < 8 ) then
+         print*, "Error - insufficient header information: real_header too short"
+         stop
+      end if
+      allocate (real_header(hlen))
+      ierr = nf90_get_att(ncid, nf90_global, "real_header", real_header)
+      call check_ncerr(ierr, "Error getting real_header")
+      ! Only a few values are used
+      rlong0 = real_header(5)
+      rlat0 = real_header(6)
+      schmidt = real_header(7)
+      if(schmidt <= 0. .or. schmidt > 1.) then
+         !  Some old model initial conditions
+         rlong0 = real_header(6)
+         rlat0  = real_header(7)
+         schmidt = real_header(8)
+      endif
+      ! Need date for setting time origin. Call getdate with nrec=1
+      nrec = 1
+      call getdate(kdate, ktime, ieof)
+      if ( ieof /= 0 ) then
+         print*, "Error in initialisation, empty netcdf file"
+         stop
+      end if
 
-         if ( debug ) then 
-            print*, "HEADER "
-            write(*,'("kdate",i10," ktime",i6," ktau",i6)') kdate, ktime, ktau
-            write(*,'("il",i4," jl",i4," kl",i4)') il, jl, kl
-            write(*,'("nsd",i2," nqg",i3," ntrac",i3)') nsd, nqg, ntrac 
-!         m,nsd,meso,nx1,nps  &
+      if ( debug ) then 
+         print*, "HEADER "
+         write(*,'("kdate",i10," ktime",i6," ktau",i6)') kdate, ktime, ktau
+         write(*,'("il",i4," jl",i4," kl",i4)') il, jl, kl
+         write(*,'("nsd",i2," nqg",i3," ntrac",i3)') nsd, nqg, ntrac 
+!          m,nsd,meso,nx1,nps  &
 !         ,mex,mup,nem,nx2,nmi,ndt,npsav,rundate,nhor,nkuo,khdif,kwt         &
 !         ,nx3,nx4,timer,timeg,dslocal,nvad,nqg                              &
 !         ,nx5,nrun,nrunx,khor,ksc,kountr,ndiur,nhort,nhorps,nsoil           &
 !         ,ms,ntsur,nrad,kuocb,nvmix,ntsea,nonl,nextout,ilt,ntrac         &
 !         ,difknbd,rhkuo,du,tanl,
-            write(*,'("rlong0",f8.2," rlat0",f8.2," schmidt",f6.3)') &
-                  rlong0, rlat0, schmidt
-         end if
-         if ( nqg >= 8 ) then
-            ksoil = ms
-         else
-            ksoil = 2
-         end if
-         if ( nqg >= 11 ) then
-            kice = ms
-         else
-            kice = 0
-         end if
+         write(*,'("rlong0",f8.2," rlat0",f8.2," schmidt",f6.3)') &
+               rlong0, rlat0, schmidt
+      end if
+      if ( nqg >= 8 ) then
+         ksoil = ms
+      else
+         ksoil = 2
+      end if
+      if ( nqg >= 11 ) then
+         kice = ms
+      else
+         kice = 0
+      end if
 
 
       if ( ilt > 1 ) then
@@ -812,7 +811,7 @@ contains
       iquad=1+il*((8*npanels)/(npanels+4))
 
       call setxyz ( il, jl, kl, npanels, ifull, iquad, idiag, id, jd,        &
-                 rlong0, rlat0, schmidt, schm13, ntang, erad )
+                rlong0, rlat0, schmidt, schm13, ntang, erad )
 
       if ( int_default == int_none ) then
          nxhis = il
@@ -861,51 +860,55 @@ contains
 !     To save memory de-allocate a number of arrays defined by setxyz
 !     that aren't needed by cc2hist.
       deallocate ( f, fu, fv, dmdx, dmdy, dmdxv, dmdyu )
-      allocate ( nface(nxhis,nyhis) )
-      allocate ( xg(nxhis,nyhis), yg(nxhis,nyhis) )
-      allocate ( hlon(nxhis), hlat(nyhis) )
-      if ( int_default == int_none ) then
-         hlat = (/ ( real(j), j=1,nyhis ) /)
-         hlon = (/ ( real(i), i=1,nxhis ) /)
-      else
-         !     Set lats and longs
-         do j=1,nyhis
-            hlat(j) = minlat + (j-1)*(maxlat-minlat)/(nyhis-1)
-         end do
-         if ( maxlon - minlon == 360.0 ) then
-            do i=1,nxhis
-               hlon(i) = minlon + (i-1)*(maxlon-minlon)/nxhis
-            end do
-         else
-            do i=1,nxhis
-               hlon(i) = minlon + (i-1)*(maxlon-minlon)/(nxhis-1)
-            end do
-         end if
-         do j=1,nyhis
-            do i=1,nxhis
-               call latltoij ( hlon(i), hlat(j), xg(i,j), yg(i,j), nface(i,j),&
-                               rlong0, rlat0, schmidt, schm13 )
-            enddo
-         enddo
 
-      end if
+      if ( myid == 0 ) then
+
+         allocate ( nface(nxhis,nyhis) )
+         allocate ( xg(nxhis,nyhis), yg(nxhis,nyhis) )
+         allocate ( hlon(nxhis), hlat(nyhis) )
+         if ( int_default == int_none ) then
+            hlat = (/ ( real(j), j=1,nyhis ) /)
+            hlon = (/ ( real(i), i=1,nxhis ) /)
+         else
+            !     Set lats and longs
+            do j=1,nyhis
+               hlat(j) = minlat + (j-1)*(maxlat-minlat)/(nyhis-1)
+            end do
+            if ( maxlon - minlon == 360.0 ) then
+               do i=1,nxhis
+                  hlon(i) = minlon + (i-1)*(maxlon-minlon)/nxhis
+               end do
+            else
+               do i=1,nxhis
+                  hlon(i) = minlon + (i-1)*(maxlon-minlon)/(nxhis-1)
+               end do
+            end if
+            do j=1,nyhis
+               do i=1,nxhis
+                  call latltoij ( hlon(i), hlat(j), xg(i,j), yg(i,j), nface(i,j),&
+                                  rlong0, rlat0, schmidt, schm13 )
+               enddo
+            enddo
+
+         end if
+
+      end if   
 
 !     These aren't needed now.
       deallocate ( xx4, yy4 )
 
    end subroutine initialise
 
-   subroutine final_init(agrid, varlist, nvars)
+   subroutine final_init(varlist, nvars)
       ! Some final initialisation that requires needfld, so can only be done
       ! after openhist has been called.
+      use mpidata_m
       use newmpar_m
       use history, only : needfld
       use xyzinfo_m
       use indices_m
       use parm_m, only : rlong0, rlat0
       use physparams, only : pi
-      use darlam
-      logical, intent(in)  :: agrid
       type(input_var), dimension(:) :: varlist
       integer, intent(in) :: nvars
       real :: sinlong, coslong, sinlat, coslat
@@ -933,11 +936,6 @@ contains
            needfld("u10max") .or. needfld("v10max") .or.      &
            needfld("uas") .or.  needfld("vas") .or.           &
            needfld("d10") ) then
-         if ( .not. agrid ) then
-            allocate ( aabb(il,-jl+1:jl) )
-            aa => aabb(:,-jl+1:jl)
-            bb => aabb
-         end if
 
          allocate ( costh(il,jl), sinth(il,jl) )
 
@@ -972,20 +970,6 @@ contains
             end do
          end do
 
-         if ( darlam_grid ) then
-            allocate ( costh_lc(il,jl), sinth_lc(il,jl) )
-            do j=1,jl
-               do i=1,il
-                  iq = i + (j-1)*il
-                  rlongdeg = rlong(iq)*(180./pi)
-                  rlatdeg = rlat(iq)*(180./pi)
-                  call lconij(rlongdeg,rlatdeg,ri,rj,theta_lc) ! for theta_lc
-                  sinth_lc(i,j) = sin(theta_lc*pi/180.)
-                  costh_lc(i,j) = cos(theta_lc*pi/180.)
-               end do
-            end do
-         end if
-
       end if
 !     x, y, z, ax, ay, az, bx, by, bz no longer needed.
 !     ax etc are pointers to setxyz private arrays so the space can't be freed.
@@ -993,60 +977,36 @@ contains
 
    end subroutine final_init
    
-   subroutine fix_winds2 ( agrid, u, v )
+   subroutine fix_winds2 ( u, v )
 !     Convert winds from grid directions to standard zonal and meridional.
       use staguv_m
       use newmpar_m
       use xyzinfo_m
-      use darlam
-      logical, intent(in) :: agrid
       real, dimension(:,:), intent(inout) :: u, v
       real, dimension(il,jl) :: uzon, vmer
 
-      if ( .not. agrid ) then  ! For agrid winds are not staggered.
-         aa(:,1:jl) = u(:,:)
-         bb(:,1:jl) = v(:,:)
-         call unstaguv(aa,bb,u,v)
-      end if
       uzon = costh*u - sinth*v
       vmer = sinth*u + costh*v
-      if ( darlam_grid ) then
-         u = vmer*sinth_lc + uzon*costh_lc
-         v = vmer*costh_lc - uzon*sinth_lc
-      else
 !        Now save these back to the original arrays.
          u = uzon
          v = vmer
-      end if
    end subroutine fix_winds2
 
-   subroutine fix_winds3 ( agrid, u, v )
+   subroutine fix_winds3 ( u, v )
 !     Convert winds from grid directions to standard zonal and meridional.
       use staguv_m
       use newmpar_m
       use xyzinfo_m
-      use darlam
-      logical, intent(in) :: agrid
       real, dimension(:,:,:), intent(inout) :: u, v
       real, dimension(il,jl) :: uzon, vmer
       integer :: k
 
       do k=1,kl
-         if ( .not. agrid ) then  ! For agrid winds are not staggered.
-            aa(:,1:jl) = u(:,:,k)
-            bb(:,1:jl) = v(:,:,k)
-            call unstaguv(aa,bb,u(:,:,k),v(:,:,k))
-         end if
          uzon(:,:) = costh*u(:,:,k) - sinth*v(:,:,k)
          vmer(:,:) = sinth*u(:,:,k) + costh*v(:,:,k)
-         if ( darlam_grid ) then
-            u(:,:,k) = vmer*sinth_lc + uzon*costh_lc
-            v(:,:,k) = vmer*costh_lc - uzon*sinth_lc
-         else
 !           Now save these back to the original arrays.
             u(:,:,k) = uzon
             v(:,:,k) = vmer
-         end if
       enddo
    end subroutine fix_winds3
 
@@ -1680,6 +1640,8 @@ contains
          end if
       end do
    end function is_soil_var
+
+   ! MJT notes - this could be modified for parallel files
 
    ! From ccam infile.f
    subroutine fill_cc(a_io,value)

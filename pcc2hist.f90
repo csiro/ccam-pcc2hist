@@ -17,7 +17,6 @@ program cc2hist
    use interp_m
    use checkver_m
    use parm_m, only : rlong0, rlat0, schmidt
-   use darlam
 
    implicit none
 
@@ -38,6 +37,8 @@ program cc2hist
    character(len=10) :: name
    character(len=80) :: longname
    real :: minsig = 0., maxsig = 1.0
+   logical :: darlam_grid    ! depreciated !!!
+   logical :: agrid = .true. ! depreciated !!!
 
    namelist /input/ kta, ktb, ktc, ndate, ntime, &
                     minlon, maxlon, dlon, minlat, maxlat, dlat, &
@@ -189,6 +190,11 @@ program cc2hist
       print *,"Darlam is no longer supported"
       stop
    end if
+   if ( .not. agrid ) then
+      print *,"C-grid is no longer supported"
+      stop
+   end if
+   
 
 !  Check whether ndate and ntime have been set
    use_date = .false.
@@ -289,36 +295,36 @@ program cc2hist
 
    allocate ( extra_atts(5) )
 
-   extra_atts(1:5) = (/ hist_att("il", NF90_INT, 0., il, ""),     &
-                        hist_att("kl", NF90_INT, 0., kl, ""),     &
+   extra_atts(1:5) = (/ hist_att("il", NF90_INT, 0., il, ""),             &
+                        hist_att("kl", NF90_INT, 0., kl, ""),             &
                         hist_att("rlong0", NF90_REAL, rlong0, 0, ""),     &
-                        hist_att("rlat0", NF90_REAL, rlat0, 0, ""),     &
+                        hist_att("rlat0", NF90_REAL, rlat0, 0, ""),       &
                         hist_att("schmidt", NF90_REAL, schmidt, 0, "") /)
 
    if ( calendar /= "" ) then
       if ( cf_compliant ) then
          if ( use_plevs ) then
-            call openhist( il, jl, nlev, plevs(1:nplevs), "_test", hlon, hlat, &
-                           basetime, year=1, nxout=nxhis, nyout=nyhis,         &
+            call openhist( il, jl, nlev, plevs(1:nplevs), "_test", hlon, hlat,    &
+                           basetime, year=1, nxout=nxhis, nyout=nyhis,            &
                            source=source, histfilename=ofile, pressure=use_plevs, &
-                           extra_atts=extra_atts, nsoil=ksoil, zsoil=zsoil,    &
+                           extra_atts=extra_atts, nsoil=ksoil, zsoil=zsoil,       &
                            calendar=calendar )
          else
             call openhist( il, jl, nlev, sig(minlev:maxlev), "_test", hlon, hlat, &
-                          basetime, year=1, nxout=nxhis, nyout=nyhis,            &
-                          source=source, histfilename=ofile,                     &
-                          extra_atts=extra_atts, nsoil=ksoil, zsoil=zsoil,       &
+                          basetime, year=1, nxout=nxhis, nyout=nyhis,             &
+                          source=source, histfilename=ofile,                      &
+                          extra_atts=extra_atts, nsoil=ksoil, zsoil=zsoil,        &
                           calendar=calendar )
          end if
       else
          if ( use_plevs ) then
-            call openhist ( il, jl, nlev, plevs(1:nplevs), "_test", hlon, hlat, &
-                            basetime, year=1, nxout=nxhis, nyout=nyhis,         &
+            call openhist ( il, jl, nlev, plevs(1:nplevs), "_test", hlon, hlat,    &
+                            basetime, year=1, nxout=nxhis, nyout=nyhis,            &
                             source=source, histfilename=ofile, pressure=use_plevs, &
                             extra_atts=extra_atts, calendar=calendar )
          else
-            call openhist ( il, jl, nlev, sig(minlev:maxlev), "_test", hlon, hlat, &
-                            basetime, year=1, nxout=nxhis, nyout=nyhis,            &
+            call openhist ( il, jl, nlev, sig(minlev:maxlev), "_test", hlon, hlat,    &
+                            basetime, year=1, nxout=nxhis, nyout=nyhis,               &
                             source=source, histfilename=ofile, extra_atts=extra_atts, &
                             calendar=calendar )
          end if
@@ -326,32 +332,32 @@ program cc2hist
    else
        if ( cf_compliant ) then
          if ( use_plevs ) then
-            call openhist( il, jl, nlev, plevs(1:nplevs), "_test", hlon, hlat, &
-                           basetime, year=1, nxout=nxhis, nyout=nyhis,         &
+            call openhist( il, jl, nlev, plevs(1:nplevs), "_test", hlon, hlat,    &
+                           basetime, year=1, nxout=nxhis, nyout=nyhis,            &
                            source=source, histfilename=ofile, pressure=use_plevs, &
                            extra_atts=extra_atts, nsoil=ksoil, zsoil=zsoil )
          else
             call openhist( il, jl, nlev, sig(minlev:maxlev), "_test", hlon, hlat, &
-                          basetime, year=1, nxout=nxhis, nyout=nyhis,            &
-                          source=source, histfilename=ofile,                     &
+                          basetime, year=1, nxout=nxhis, nyout=nyhis,             &
+                          source=source, histfilename=ofile,                      &
                           extra_atts=extra_atts, nsoil=ksoil, zsoil=zsoil )
          end if
       else
          if ( use_plevs ) then
-            call openhist ( il, jl, nlev, plevs(1:nplevs), "_test", hlon, hlat, &
-                            basetime, year=1, nxout=nxhis, nyout=nyhis,         &
+            call openhist ( il, jl, nlev, plevs(1:nplevs), "_test", hlon, hlat,    &
+                            basetime, year=1, nxout=nxhis, nyout=nyhis,            &
                             source=source, histfilename=ofile, pressure=use_plevs, &
                             extra_atts=extra_atts )
          else
-            call openhist ( il, jl, nlev, sig(minlev:maxlev), "_test", hlon, hlat, &
-                            basetime, year=1, nxout=nxhis, nyout=nyhis,            &
+            call openhist ( il, jl, nlev, sig(minlev:maxlev), "_test", hlon, hlat,     &
+                            basetime, year=1, nxout=nxhis, nyout=nyhis,                &
                             source=source, histfilename=ofile, extra_atts=extra_atts )
          end if
       end if  
    end if
 
 !  needfld calls are only valid after openhist
-   call final_init(agrid,varlist,nvars)
+   call final_init(varlist,nvars)
 
    if (needfld("zg")) then
       call initheight(kl,sig)

@@ -2,7 +2,6 @@
 /Makefile -text
 /cc2hist_work.f90 -text
 /checkver_m.f90 -text
-/darlam.f90 -text
 /getopt_m.f90 -text
 /gldata_m.f90 -text
 /height_m.f90 -text

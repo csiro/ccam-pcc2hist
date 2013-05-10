@@ -796,13 +796,17 @@ contains
          nyhis = ny
       end if
 
-      if ( size(hlat) /= nyhis ) then
-         print*, " Error, mismatch in number of latitudes ", size(hlat), nyhis
-         stop
-      end if
-      if ( size(hlon) /= nxhis ) then
-         print*, " Error, mismatch in number of longitudes ", size(hlon), nxhis
-         stop
+      if ( myid == 0 ) then
+
+         if ( size(hlat) /= nyhis ) then
+            print*, " Error, mismatch in number of latitudes ", size(hlat), nyhis
+            stop
+         end if
+         if ( size(hlon) /= nxhis ) then
+            print*, " Error, mismatch in number of longitudes ", size(hlon), nxhis
+            stop
+         end if
+      
       end if
 
       if ( present ( doublerow ) ) then
@@ -921,6 +925,8 @@ contains
          print*, "Warning, more than one history file used so requested name"
          print*, "is ignored"
       end if
+
+      if ( myid == 0 ) then
 
 !     First file may be old average format. If this is the case it has
 !     to be handled differently
@@ -1054,8 +1060,6 @@ contains
 
 !        Leave define mode
          
-         if ( myid == 0 ) then
-         
          ierr = nf90_enddef ( ncid )
          call check_ncerr(ierr, "Error from enddef")
 
@@ -1158,9 +1162,9 @@ contains
          call check_ncerr(ierr, "Error syncing history file")
 #endif
 
-         end if
-
       end do  ! Loop over files
+      
+      end if
 
 !     Allocate the array to hold all the history data
 !     Calculate the size by summing the number of fields of each variable

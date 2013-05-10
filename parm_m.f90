@@ -29,7 +29,6 @@ module parm_m
    real(kind=rx), public, save    :: restol =  5.0e-6_rx
    real(kind=rx), public, save    :: tbar = 0.0_rx
    integer, public, save :: norder = 4 ! Order of FD approx. in nonlin
-   logical, public, save :: agrid = .true.  ! Use A grid
    integer, public, save :: nrot = 1
    integer, public, save :: nupg = 0  ! Old value, JLM now uses 1
    integer, public, save :: nuv = 0
