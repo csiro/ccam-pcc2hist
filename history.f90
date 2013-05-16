@@ -275,6 +275,10 @@ module history
 
    logical, public :: cf_compliant = .false.
 
+!  MPI working arrays
+   real, dimension(:,:,:), allocatable, save, private :: hist_a
+   real, dimension(:,:), allocatable, save, private :: hist_g
+
 contains
 
 !-------------------------------------------------------------------
@@ -1192,17 +1196,24 @@ contains
 
 !     In multi-month runs of the climate model it may already be allocated
       if (allocated(histarray)) then
-         if ( .not. all ( shape(histarray) == (/nx,ny,hsize/) ) ) then
+         if ( .not. all ( shape(histarray) == (/pil,pjl*pnpan*lproc,hsize/) ) ) then
             print*, "Error: size of histarray has changed"
-            print*, size(histarray), nx, ny, hsize
+            print*, size(histarray), pil, pjl*pnpan*lproc, hsize
             stop
          end if
       else
-         allocate ( histarray(nx,ny,hsize), stat=ierr )
+         allocate ( histarray(pil,pjl*pnpan*lproc,hsize), stat=ierr )
          if ( ierr /= 0 ) then
             print*, "Error: Failed to allocate history array of size", &
-                 nx*ny*hsize, "words"
+                 pil*pjl*pnpan*lproc*hsize, "words"
             stop
+         end if
+         if ( myid == 0 ) then
+            allocate( hist_a(pil,pjl*pnpan,pnproc) )
+            allocate( hist_g(nx,ny) )
+         else
+            allocate( hist_a(0,0,0) )
+            allocate( hist_g(0,0) )
          end if
       end if
 
@@ -1308,6 +1319,7 @@ contains
             zdim = dims%z
          end if
          if ( vinfo%ave_type(ifile) == hist_fixed ) then
+! #ifdef usenc3
             ierr = nf90_def_var ( ncid, vinfo%name, vtype, &
                                 (/ dims%x, dims%y, zdim /), vid )
          else
@@ -1321,6 +1333,25 @@ contains
          else
             ierr = nf90_def_var ( ncid, vinfo%name, vtype, &
                                 (/ dims%x, dims%y, dims%t /), vid )
+! #else
+!            ierr = nf90_def_var ( ncid, vinfo%name, vtype, &
+!                                (/ dims%x, dims%y, zdim /), &
+!                                 vid, deflate_level=1 )
+!         else
+!            ierr = nf90_def_var ( ncid, vinfo%name, vtype, &
+!                                (/ dims%x, dims%y, zdim, dims%t /), &
+!                                 vid, deflate_level=1 )
+!         end if
+!      else
+!         if ( vinfo%ave_type(ifile) == hist_fixed ) then
+!            ierr = nf90_def_var ( ncid, vinfo%name, vtype, &
+!                                (/ dims%x, dims%y /), vid, &
+!                                deflate_level=1 )
+!         else
+!            ierr = nf90_def_var ( ncid, vinfo%name, vtype, &
+!                                (/ dims%x, dims%y, dims%t /), &
+!                                 vid, deflate_level=1 )
+! #endif
          end if
       end if
       if ( ierr /= 0 ) then
@@ -1450,7 +1481,11 @@ contains
       if ( hist_debug > 0 ) then
          print*, "Creating file ", filename
       end if
+#ifdef usenc3
       ierr = nf90_create(filename, NF90_CLOBBER, ncid)
+#else
+      ierr = nf90_create(filename, nf90_netcdf4, ncid)
+#endif
       call check_ncerr ( ierr, "Error in creating history file" )
                
 !     Create dimensions, lon, lat and rec
@@ -2022,6 +2057,8 @@ contains
 !-------------------------------------------------------------------
    subroutine writehist ( istep, endofrun, year, month, interp, time, time_bnds )
 
+      use mpidata_m
+      include 'mpif.h'
       integer, intent(in) :: istep
       logical, intent(in), optional :: endofrun
       integer, intent(in), optional :: year, month !  For old format files
@@ -2037,6 +2074,7 @@ contains
       optional :: interp
 
       integer ierr, vid, ifld
+      integer ip, n
       integer, dimension(4) :: start3D, count3D
       integer, dimension(3) :: start2D, count2D
       integer :: istart, iend
@@ -2046,7 +2084,7 @@ contains
 !     Temporary for interpolated output
       real, dimension ( nxhis, nyhis ) :: htemp
       logical :: doinc
-
+      
       if ( require_interp .and. .not. present(interp) ) then
          print*, " Error, interp argument required for writehist "
          stop
@@ -2110,6 +2148,8 @@ contains
 
          histset(ifile) = histset(ifile) + 1
 
+         if ( myid == 0 ) then
+
          if ( ifile == 1 .and. ihtype(ifile) == hist_oave ) then
             if ( .not. ( present(year) .and. present(month) ) ) then
                print*, "Error year and month arguments to writehist are "
@@ -2152,6 +2192,8 @@ contains
          start2D = (/ 1, 1, histset(ifile) /)
          count2D = (/ nxhis, nyhis, 1 /)
          count3D = (/ nxhis, nyhis, 1, 1 /)
+         
+         end if
 
          do ifld = 1,totflds
             if ( .not. histinfo(ifld)%used(ifile) ) then
@@ -2197,38 +2239,58 @@ contains
                   end if
                else
 
-                  if ( present(interp) ) then
-                     call interp ( histarray(:,:,k), htemp,          &
-                                   histinfo(ifld)%int_type )
+                  call MPI_Gather(histarray(:,:,k),pil*pjl*pnpan*lproc,MPI_REAL,hist_a,pil*pjl*pnpan*lproc,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+                  
+                  if (ierr/=0) stop
+               
+                  if ( myid == 0 ) then
+                  
+                     do ip = 0,pnproc-1   
+                        do n = 0,pnpan-1
+                           hist_g(1+ioff(ip,n):pil+ioff(ip,n),1+joff(ip,n)+n*pil_g:pjl+joff(ip,n)+n*pil_g) = &
+                              hist_a(1:pil,1+n*pjl:(n+1)*pjl,ip+1)
+                        end do
+                     end do
+
+                     if ( present(interp) ) then
+                        call interp ( hist_g, htemp,          &
+                                      histinfo(ifld)%int_type )
+                     else
+                        htemp = hist_g(:,:)
+                     end if
+
+                     if ( hbytes(ifile) == 2 ) then
+                        addoff = histinfo(ifld)%addoff(ifile)
+                        sf = histinfo(ifld)%scalef(ifile)
+                        umin = sf * vmin + addoff
+                        umax = sf * vmax + addoff
+                        where ( fpequal(htemp, missing_value) )
+                           htemp = NF90_FILL_SHORT
+                        elsewhere
+!                       Put the scaled array back in the original and let
+!                       netcdf take care of conversion to int2
+                           htemp = nint((max(umin,min(umax,htemp))-addoff)/sf)
+                        endwhere
+                     end if
+                  
+                  end if
+                  
+               end if
+
+               if ( myid == 0 ) then
+
+                  if ( nlev > 1 .or. histinfo(ifld)%multilev ) then
+                     start3D = (/ 1, 1, k+1-istart, histset(ifile) /)
+                     ierr = nf90_put_var ( ncid, vid, htemp, start=start3D, &
+                                           count=count3D )
                   else
-                     htemp = histarray(:,:,k)
+                     ierr = nf90_put_var ( ncid, vid, htemp, start=start2D, &
+                                           count=count2D )
                   end if
-
-                  if ( hbytes(ifile) == 2 ) then
-                     addoff = histinfo(ifld)%addoff(ifile)
-                     sf = histinfo(ifld)%scalef(ifile)
-                     umin = sf * vmin + addoff
-                     umax = sf * vmax + addoff
-                     where ( fpequal(htemp, missing_value) )
-                        htemp = NF90_FILL_SHORT
-                     elsewhere
-!                    Put the scaled array back in the original and let
-!                    netcdf take care of conversion to int2
-                        htemp = nint((max(umin,min(umax,htemp))-addoff)/sf)
-                     endwhere
-                  end if
+                  call check_ncerr(ierr, &
+                    "Error writing history variable "//histinfo(ifld)%name )
+                 
                end if
-
-               if ( nlev > 1 .or. histinfo(ifld)%multilev ) then
-                  start3D = (/ 1, 1, k+1-istart, histset(ifile) /)
-                  ierr = nf90_put_var ( ncid, vid, htemp, start=start3D, &
-                                        count=count3D )
-               else
-                  ierr = nf90_put_var ( ncid, vid, htemp, start=start2D, &
-                                        count=count2D )
-               end if
-               call check_ncerr(ierr, &
-                 "Error writing history variable "//histinfo(ifld)%name )
 
             end do   ! k loop
 
@@ -2247,8 +2309,10 @@ contains
 !        Sync the file so that if the program crashes for some reason 
 !        there will still be useful output.
 #ifdef outsync
-         ierr = nf90_sync ( ncid )
-         call check_ncerr(ierr, "Error syncing history file")
+         if ( myid == 0 ) then
+            ierr = nf90_sync ( ncid )
+            call check_ncerr(ierr, "Error syncing history file")
+         end if
 #endif
 
       end do ! Loop over files

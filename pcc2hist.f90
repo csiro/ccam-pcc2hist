@@ -456,35 +456,33 @@ program cc2hist
       end if
 
 !     Time in hours
-      if ( myid == 0 ) then
-         if  ( use_steps ) then
-            time=real(ktau)
-         else
-            iyr = kdate/10000
-            imon = modulo(kdate,10000) / 100
-            iday = modulo(kdate,100)
-            ihr = ktime/100
-!           Need to extend to work over more than one month.
-            time = (iday - base_day)*24 + ihr-base_hr
-         end if
-         if ( cf_compliant ) then 
-            time = time/1440. ! Days
-            ! History data at time t, really represents values over the preceeding
-            ! period in the case of accumulated or average fields.
-            ! Should this be the history file time increment or the increment
-            ! set for cc2hist?
-            time_bnds = (/time_prev,time/)
-            call writehist ( ktau, interp=ints, time=time, time_bnds=time_bnds )
-            time_prev = time
-         else
-            call writehist ( ktau, interp=ints, time=time)
-         end if
+      if  ( use_steps ) then
+         time=real(ktau)
+      else
+         iyr = kdate/10000
+         imon = modulo(kdate,10000) / 100
+         iday = modulo(kdate,100)
+         ihr = ktime/100
+!        Need to extend to work over more than one month.
+         time = (iday - base_day)*24 + ihr-base_hr
+      end if
+      if ( cf_compliant ) then 
+         time = time/1440. ! Days
+         ! History data at time t, really represents values over the preceeding
+         ! period in the case of accumulated or average fields.
+         ! Should this be the history file time increment or the increment
+         ! set for cc2hist?
+         time_bnds = (/time_prev,time/)
+         call writehist ( ktau, interp=ints, time=time, time_bnds=time_bnds )
+         time_prev = time
+      else
+         call writehist ( ktau, interp=ints, time=time)
       end if
 
    end do timeloop
 
+   call writehist(ktau, interp=ints, time=time, endofrun=.true. )
    if ( myid == 0 ) then
-      call writehist(ktau, interp=ints, time=time, endofrun=.true. )
       call closehist
    end if
    call paraclose

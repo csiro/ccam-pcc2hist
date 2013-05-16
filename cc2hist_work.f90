@@ -1,5 +1,6 @@
 module work
 
+   use mpidata_m
    use netcdf
    use ncutils_m, only : check_ncerr
    use gldata
@@ -28,15 +29,9 @@ module work
    integer, save :: maxrec ! Length of record dimension.
    integer, save :: ncid  ! ID of the input file
 
-!  Parallel input
-   integer, dimension(:), save, allocatable, private :: ncid_in
-   integer, dimension(:,:), save, allocatable, private :: ioff, joff
-   integer, save :: pil, pjl, pnpan, pnproc, lproc
-
    real, allocatable, dimension(:), public, save :: hlon, hlat
    integer, public, save :: nxhis, nyhis
    real, dimension(:,:), allocatable, private :: costh, sinth
-   real, dimension(:,:), allocatable, private :: costh_lc, sinth_lc
 
    public :: initialise, fix_winds, final_init, check_cc2histfile
    public :: paraopen, paraclose
@@ -83,22 +78,22 @@ contains
       ! MJT notes - possibly allocate for pil and pjl*pnpan for lproc files
       ! instead of using global arrays
 
-      allocate ( psl(il,jl), pmsl(il,jl), zs(il,jl), tsu(il,jl), soilt(il,jl) )
-      allocate ( u(il,jl,kl), v(il,jl,kl), t(il,jl,kl), q(il,jl,kl) )
-      allocate ( pwc(il,jl), ql(il,jl,kl), qf(il,jl,kl) )
-      allocate ( tgg(il,jl,ksoil), wetfrac(il,jl,ksoil), wbice(il,jl,kice) )
-      allocate ( snowvar(il,jl,3), isflag(il,jl), tscrn3hr(il, jl, 8) )
-      allocate ( taux(il,jl), tauy(il,jl) )
+      allocate ( psl(pil,pjl*pnpan*lproc), pmsl(pil,pjl*pnpan*lproc), zs(pil,pjl*pnpan*lproc), tsu(pil,pjl*pnpan*lproc), soilt(pil,pjl*pnpan*lproc) )
+      allocate ( u(pil,pjl*pnpan*lproc,kl), v(pil,pjl*pnpan*lproc,kl), t(pil,pjl*pnpan*lproc,kl), q(pil,pjl*pnpan*lproc,kl) )
+      allocate ( pwc(pil,pjl*pnpan*lproc), ql(pil,pjl*pnpan*lproc,kl), qf(pil,pjl*pnpan*lproc,kl) )
+      allocate ( tgg(pil,pjl*pnpan*lproc,ksoil), wetfrac(pil,pjl*pnpan*lproc,ksoil), wbice(pil,pjl*pnpan*lproc,kice) )
+      allocate ( snowvar(pil,pjl*pnpan*lproc,3), isflag(pil,pjl*pnpan*lproc), tscrn3hr(pil,pjl*pnpan*lproc, 8) )
+      allocate ( taux(pil,pjl*pnpan*lproc), tauy(pil,pjl*pnpan*lproc) )
       if ( needfld("zg") ) then
          if ( use_plevs ) then
-            allocate ( zstd(il,jl,nplevs) )
+            allocate ( zstd(pil,pjl*pnpan*lproc,nplevs) )
          else
 !           Sigma level height calculation requires all levels.
-            allocate ( zstd(il,jl,kl) )
+            allocate ( zstd(pil,pjl*pnpan*lproc,kl) )
          end if
       end if
       if ( needfld("rh") ) then
-         allocate ( rh(il,jl,kl) )
+         allocate ( rh(pil,pjl*pnpan*lproc,kl) )
       end if
 
    end subroutine alloc_indata
@@ -106,7 +101,6 @@ contains
    subroutine getdate ( kdate, ktime, ieof) 
 
 !     Get record data from header
-      use mpidata_m
       integer, intent(out) :: kdate, ktime, ieof
       integer :: ik, jk, kk, ierr, vid
 
@@ -139,7 +133,6 @@ contains
 
    subroutine infile ( varlist, nvars, skip )
       ! For netcdf input
-      use mpidata_m
       use history, only : savehist, needfld
       use physparams, only : grav
       use s2p_m
@@ -149,9 +142,9 @@ contains
       integer, intent(in) :: nvars
       logical, intent(in)  :: skip
       integer :: k, ivar
-      real, dimension(ik,jk) :: vave, lmask, tss_s, utmp, dtmp, mtmp
-      real, dimension(ik,jk) :: wind_norm
-      real, dimension(ik,jk,kk) :: ttmp
+      real, dimension(pil,pjl*pnpan*lproc) :: vave, lmask, tss_s, utmp, dtmp, mtmp
+      real, dimension(pil,pjl*pnpan*lproc) :: wind_norm
+      real, dimension(pil,pjl*pnpan*lproc,kk) :: ttmp
       character(len=10) :: name
       real, parameter :: spval=999.
       real, parameter :: tfreeze = 271.38
@@ -438,111 +431,9 @@ contains
       end select
    end function need3dfld
 
-   subroutine inshallow(skip)
-      use s2p_m 
-      use history
-      logical, intent(in) :: skip
-      integer :: kdate, ktime, ieof
-
-      read(un_in,iostat=ieof) ik, jk, kk, kdate, ktime, ktau, ndt,  &
-                           rlong0, rlat0, schmidt
-
-      if ( ieof /= 0 ) then
-         ! This should never happen, EOF should be caught by getdate.
-         print*, "Error, unexpected EOF in inshallow"
-         stop
-      end if
-
-      if ( first_in ) then
-         allocate ( u(ik,jk,kk), v(ik,jk,kk) )
-      end if
-
-      call readsave3 ( "zg", .not. skip )
-      read(un_in) u
-      read(un_in) v
-      if ( .not. skip ) then
-         call fix_winds(u, v)
-         call vsavehist ( "u", u )
-         call vsavehist ( "v", v )
-      end if
-
-      first_in = .false.
-
-   end subroutine inshallow
-
-   subroutine incom(skip)
-      logical, intent(in) :: skip
-      integer :: kdate, ktime, ieof
-      integer :: ik, jk, kk
-
-      read(un_in,iostat=ieof) ik, jk, kk, kdate, ktime, ktau, ndt,  &
-                           rlong0, rlat0, schmidt
-      if ( ieof /= 0 ) then
-         ! This should never happen, EOF should be caught by getdate.
-         print*, "Error, unexpected EOF in incom"
-         stop
-      end if
-
-      read(un_in) sig
-
-      call readsave2 ( "egm", .not. skip )
-      call readsave2 ( "fgm", .not. skip ) 
-      call readsave3 ( "dqc", .not. skip  )
-      call readsave3 ( "dql", .not. skip  )
-      call readsave3 ( "dqv", .not. skip  )
-      call readsave3 ( "dtc", .not. skip  )
-      call readsave3 ( "dtl", .not. skip  )
-      call readsave3 ( "dtv", .not. skip  )
-      call readsave3 ( "dtlw", .not. skip  )
-      call readsave3 ( "dtsw", .not. skip  )
-      call readsave3 ( "duv", .not. skip  )
-      call readsave3 ( "dvv", .not. skip  )
-      call readsave3 ( "omg", .not. skip  )
-
-   end subroutine incom
-
-   subroutine inrad(skip)
-      logical, intent(in) :: skip
-      integer :: kdate, ktime, ieof, ierr
-      real, dimension(ik,jk) :: var
-
-      read(un_in,iostat=ieof) ik, jk, kk, kdate, ktime, ktau, ndt,  &
-                           rlong0, rlat0, schmidt
-      if ( ieof /= 0 ) then
-         ! This should never happen, EOF should be caught by getdate.
-         print*, "Error, unexpected EOF in inrad"
-         stop
-      end if
-
-      read(un_in) sig
-
-      call readsave2 ( "sint", .not. skip  )
-      call readsave2 ( "sot", .not. skip  ) 
-      call readsave2 ( "soc", .not. skip  )
-      call readsave2 ( "sgn", .not. skip  )
-      call readsave2 ( "rtu", .not. skip  )
-      call readsave2 ( "rtc", .not. skip  )
-      call readsave2 ( "rgn", .not. skip  )
-      call readsave2 ( "cld", .not. skip  )
-      call readsave2 ( "cll", .not. skip  )
-      call readsave2 ( "clm", .not. skip  )
-      call readsave2 ( "clh", .not. skip  )
-      call readsave2 ( "tsh", .not. skip  )
-      call readsave2 ( "tsl", .not. skip  )
-      ! Some files had qscr_ave as an extra field. Try reading this. If it
-      ! fails then assume it's not present
-      read ( unit=un_in, iostat=ierr ) var
-      backspace ( unit=un_in )
-      if ( ierr == 0 ) then
-         call readsave2 ( "qscr_ave", .not. skip  )
-      end if
-
-   end subroutine inrad
-
    subroutine vread2(name, var, required, vread_err)
 
       ! Routine to read a variable from either a fortran binary or netcdf file.
-      use mpidata_m
       character(len=*), intent(in) :: name
       real, dimension(:,:), intent(out) :: var
       logical, intent(in), optional :: required
@@ -556,11 +447,7 @@ contains
          req = .true.
       end if
 
-      if ( myid == 0 ) then
-         call paravar2a(name,var,nrec,req,v_err)
-      else
-         call paravar2b(name,nrec,req,v_err)
-      end if
+      call paravar2a(name,var,nrec,req,v_err)
       
       if ( .not. req ) then
          vread_err = v_err
@@ -574,17 +461,12 @@ contains
    subroutine vread3(name, var)
 
       ! Routine to read a variable from either a fortran binary or netcdf file. 
-      use mpidata_m
       character(len=*), intent(in) :: name
       real, dimension(:,:,:), intent(out) :: var
       integer :: pkl
 
       pkl = size(var,3)
-      if ( myid == 0 ) then
-         call paravar3a(name,var,nrec,pkl)
-      else
-         call paravar3b(name,nrec,pkl)
-      end if
+      call paravar3a(name,var,nrec,pkl)
 
    end subroutine vread3
    
@@ -595,7 +477,7 @@ contains
       character(len=*), intent(in) :: name
       logical, intent(in), optional :: save_flag, required
       character(len=*), intent(in), optional :: input_name
-      real, dimension(ik,jk) :: array
+      real, dimension(pil,pjl*pnpan*lproc) :: array
       character(len=50) :: nname
       integer :: ierr
 
@@ -628,7 +510,7 @@ contains
       character(len=*), intent(in) :: name
       logical, intent(in), optional :: save_flag
       character(len=*), intent(in), optional :: input_name
-      real, dimension(ik,jk,kk) :: array
+      real, dimension(pil,pjl*pnpan*lproc,kk) :: array
       character(len=50) :: nname
 
       if ( present(save_flag) ) then
@@ -652,7 +534,6 @@ contains
                            kdate, ktime, ntracers, ksoil, kice, debug,        &
                            nqg )
 
-      use mpidata_m
       use netcdf
       use newmpar_m
       use history
@@ -810,8 +691,12 @@ contains
       ijk=il*jl*kl
       iquad=1+il*((8*npanels)/(npanels+4))
 
-      call setxyz ( il, jl, kl, npanels, ifull, iquad, idiag, id, jd,        &
-                rlong0, rlat0, schmidt, schm13, ntang, erad )
+      if ( myid == 0 ) then
+
+          call setxyz ( il, jl, kl, npanels, ifull, iquad, idiag, id, jd,        &
+                    rlong0, rlat0, schmidt, schm13, ntang, erad )
+                    
+      end if
 
       if ( int_default == int_none ) then
          nxhis = il
@@ -857,12 +742,12 @@ contains
          end if
       end if
 
-!     To save memory de-allocate a number of arrays defined by setxyz
-!     that aren't needed by cc2hist.
-      deallocate ( f, fu, fv, dmdx, dmdy, dmdxv, dmdyu )
 
       if ( myid == 0 ) then
 
+!        To save memory de-allocate a number of arrays defined by setxyz
+!        that aren't needed by cc2hist.
+         deallocate ( f, fu, fv, dmdx, dmdy, dmdxv, dmdyu )
          allocate ( nface(nxhis,nyhis) )
          allocate ( xg(nxhis,nyhis), yg(nxhis,nyhis) )
          allocate ( hlon(nxhis), hlat(nyhis) )
@@ -892,44 +777,51 @@ contains
 
          end if
 
-      end if   
+!        These aren't needed now.
+         deallocate ( xx4, yy4 )
 
-!     These aren't needed now.
-      deallocate ( xx4, yy4 )
+      end if   
 
    end subroutine initialise
 
    subroutine final_init(varlist, nvars)
       ! Some final initialisation that requires needfld, so can only be done
       ! after openhist has been called.
-      use mpidata_m
       use newmpar_m
       use history, only : needfld
       use xyzinfo_m
       use indices_m
       use parm_m, only : rlong0, rlat0
       use physparams, only : pi
+      include 'mpif.h'
       type(input_var), dimension(:) :: varlist
       integer, intent(in) :: nvars
+      real, dimension(:,:), allocatable :: costh_g, sinth_g
+      real, dimension(:,:,:), allocatable :: c_io
       real :: sinlong, coslong, sinlat, coslat
       real :: polenx, poleny, polenz, zonx, zony, zonz, den
       real :: theta_lc, rlongdeg, rlatdeg, ri, rj
       integer :: i, j, iq, ivar
+      integer :: ierr, ip, n
       logical :: need_rotate
+      
+      if ( myid == 0 ) then
 
-      deallocate ( em )
-      deallocate ( i_wu, i_sv, i_eu, i_nv )
+         deallocate ( em )
+         deallocate ( i_wu, i_sv, i_eu, i_nv )
+      
+      end if
 
 !     There may be extra fields that require rotation, not set in the standard
 !     list. Check all names to see if any vector fields are set
 !     Still require the test on names for non-netcdf inputs.
       need_rotate = .false.
-         do ivar=1,nvars
-            if ( varlist(ivar)%vector .and. needfld(varlist(ivar)%vname) ) then
-               need_rotate = .true.
-               exit
-            end if
-         end do
+      do ivar=1,nvars
+         if ( varlist(ivar)%vector .and. needfld(varlist(ivar)%vname) ) then
+            need_rotate = .true.
+            exit
+         end if
+      end do
 
       if ( need_rotate .or. needfld("u") .or. needfld("v") .or.   &
            needfld("taux") .or. needfld("tauy") .or.          &
@@ -937,7 +829,12 @@ contains
            needfld("uas") .or.  needfld("vas") .or.           &
            needfld("d10") ) then
 
-         allocate ( costh(il,jl), sinth(il,jl) )
+         allocate ( costh(pil,pjl*pnpan*lproc), sinth(pil,pjl*pnpan*lproc) )
+         
+         if ( myid == 0 ) then
+         
+           allocate ( costh_g(il,jl), sinth_g(il,jl) )
+           allocate ( c_io(pil,pjl*pnpan,pnproc) )
 
 !     For calculating zonal and meridional wind components, use the
 !     following information, where theta is the angle between the
@@ -949,31 +846,67 @@ contains
 !      using (r . a)=0, sinth collapses to az/sqrt(x**2 + y**2)
 
 !     For rotated coordinated version, see JMcG's notes
-         coslong=cos(rlong0*pi/180.)
-         sinlong=sin(rlong0*pi/180.)
-         coslat=cos(rlat0*pi/180.)
-         sinlat=sin(rlat0*pi/180.)
-         polenx=-coslat
-         poleny=0.
-         polenz=sinlat
-         do j=1,jl
-            do i=1,il
-               iq = i + (j-1)*il
-!              Set up unit zonal vector components
-               zonx = poleny*z(iq)-polenz*y(iq)
-               zony = polenz*x(iq)-polenx*z(iq)
-               zonz = polenx*y(iq)-poleny*x(iq)
-!              Allow for poles by taking max
-               den = sqrt( max(zonx**2 + zony**2 + zonz**2,1.e-7) )
-               costh(i,j) =  (zonx*ax(iq)+zony*ay(iq)+zonz*az(iq))/den
-               sinth(i,j) = -(zonx*bx(iq)+zony*by(iq)+zonz*bz(iq))/den
+            coslong=cos(rlong0*pi/180.)
+            sinlong=sin(rlong0*pi/180.)
+            coslat=cos(rlat0*pi/180.)
+            sinlat=sin(rlat0*pi/180.)
+            polenx=-coslat
+            poleny=0.
+            polenz=sinlat
+            do j=1,jl
+               do i=1,il
+                  iq = i + (j-1)*il
+!                 Set up unit zonal vector components
+                  zonx = poleny*z(iq)-polenz*y(iq)
+                  zony = polenz*x(iq)-polenx*z(iq)
+                  zonz = polenx*y(iq)-poleny*x(iq)
+!                 Allow for poles by taking max
+                  den = sqrt( max(zonx**2 + zony**2 + zonz**2,1.e-7) )
+                  costh_g(i,j) =  (zonx*ax(iq)+zony*ay(iq)+zonz*az(iq))/den
+                  sinth_g(i,j) = -(zonx*bx(iq)+zony*by(iq)+zonz*bz(iq))/den
+               end do
             end do
-         end do
+
+            do ip = 0,pnproc-1   
+               do n = 0,pnpan-1
+                  c_io(1:pil,1+n*pjl:(n+1)*pjl,ip+1) = &
+                    costh_g(1+ioff(ip,n):pil+ioff(ip,n),1+joff(ip,n)+n*pil_g:pjl+joff(ip,n)+n*pil_g)
+               end do
+            end do
+     
+         else
+            allocate( c_io(0,0,0) )
+         end if 
+
+         call MPI_Scatter(c_io,pil*pjl*pnpan*lproc,MPI_REAL,costh,pil*pjl*pnpan*lproc,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+
+         if ( myid == 0 ) then
+            do ip = 0,pnproc-1   
+               do n = 0,pnpan-1
+                  c_io(1:pil,1+n*pjl:(n+1)*pjl,ip+1) = &
+                    sinth_g(1+ioff(ip,n):pil+ioff(ip,n),1+joff(ip,n)+n*pil_g:pjl+joff(ip,n)+n*pil_g)
+               end do
+            end do
+         end if
+
+         call MPI_Scatter(c_io,pil*pjl*pnpan*lproc,MPI_REAL,sinth,pil*pjl*pnpan*lproc,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+
+         if ( myid == 0 ) then
+            deallocate( costh_g, sinth_g )
+         end if
+         deallocate( c_io )
 
       end if
-!     x, y, z, ax, ay, az, bx, by, bz no longer needed.
-!     ax etc are pointers to setxyz private arrays so the space can't be freed.
-      deallocate ( x, y, z ) 
+      
+      if ( myid == 0 ) then
+      
+!       x, y, z, ax, ay, az, bx, by, bz no longer needed.
+!       ax etc are pointers to setxyz private arrays so the space can't be freed.
+        deallocate ( x, y, z )
+        
+      end if
+      
+
 
    end subroutine final_init
    
@@ -983,7 +916,7 @@ contains
       use newmpar_m
       use xyzinfo_m
       real, dimension(:,:), intent(inout) :: u, v
-      real, dimension(il,jl) :: uzon, vmer
+      real, dimension(pil,pjl*pnpan*lproc) :: uzon, vmer
 
       uzon = costh*u - sinth*v
       vmer = sinth*u + costh*v
@@ -998,7 +931,7 @@ contains
       use newmpar_m
       use xyzinfo_m
       real, dimension(:,:,:), intent(inout) :: u, v
-      real, dimension(il,jl) :: uzon, vmer
+      real, dimension(pil,pjl*pnpan*lproc) :: uzon, vmer
       integer :: k
 
       do k=1,kl
@@ -1438,12 +1371,12 @@ contains
    
    subroutine calc_rh ( t, q, ql, qf, psl, sig, rh )
       use moistfuncs
-      real, dimension(ik,jk,kk), intent(in) :: t, q, ql, qf
-      real, dimension(ik,jk), intent(in) :: psl
+      real, dimension(pil,pjl*pnpan*lproc,kk), intent(in) :: t, q, ql, qf
+      real, dimension(pil,pjl*pnpan*lproc), intent(in) :: psl
       real, dimension(kk), intent(in) :: sig
-      real, dimension(ik,jk,kk), intent(out) :: rh
-      real, dimension(ik,jk) :: p, tliq, fice, qsw, qc
-      real, dimension(ik,jk) :: qsi, qsl, deles
+      real, dimension(pil,pjl*pnpan*lproc,kk), intent(out) :: rh
+      real, dimension(pil,pjl*pnpan*lproc) :: p, tliq, fice, qsw, qc
+      real, dimension(pil,pjl*pnpan*lproc) :: qsi, qsl, deles
       real, parameter :: tfrz  = 273.1
       real, parameter :: tice  = 233.15
       real, parameter :: cp    = 1004.64
@@ -1641,18 +1574,48 @@ contains
       end do
    end function is_soil_var
 
-   ! MJT notes - this could be modified for parallel files
-
    ! From ccam infile.f
-   subroutine fill_cc(a_io,value)
+   subroutine fill_cc(b_io,value)
+!     routine fills in interior of an array which has undefined points
+      include 'mpif.h'
+      real, intent(inout) :: b_io(pil,pjl*pnpan*lproc)         ! input and output array
+      real, intent(in)    :: value                             ! array value denoting undefined
+      real, dimension(0,0,0) :: c_io
+      integer :: ierr
+      
+      if ( myid == 0 ) then
+         call fill_cc0(b_io,value)
+      else
+         call MPI_Gather(b_io,pil*pjl*pnpan*lproc,MPI_REAL,c_io,pil*pjl*pnpan*lproc,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+         call MPI_Scatter(c_io,pil*pjl*pnpan*lproc,MPI_REAL,b_io,pil*pjl*pnpan*lproc,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+      end if
+      
+   end subroutine fill_cc
+
+   subroutine fill_cc0(b_io,value)
 !     routine fills in interior of an array which has undefined points
       use newmpar_m
       use indices_m
-      real, intent(inout) :: a_io(il,jl)         ! input and output array
+      include 'mpif.h'
+      real, intent(inout) :: b_io(pil,pjl*pnpan*lproc)         ! input and output array
       real, intent(in)    :: value            ! array value denoting undefined
+      real, dimension(il,jl) :: a_io
+      real, dimension(pil,pjl*pnpan,pnproc) :: c_io
       real b(ifull), a(ifull)
       integer :: num, nrem, iq, neighb, ierr, i, j
+      integer :: ip, n
       real :: av, avx
+      
+      call MPI_Gather(b_io,pil*pjl*pnpan*lproc,MPI_REAL,c_io,pil*pjl*pnpan*lproc,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+
+      do ip = 0,pnproc-1   
+         do n = 0,pnpan-1
+            a_io(1+ioff(ip,n):pil+ioff(ip,n),1+joff(ip,n)+n*pil_g:pjl+joff(ip,n)+n*pil_g) = &
+               c_io(1:pil,1+n*pjl:(n+1)*pjl,ip+1)
+         end do
+      end do
+      
+      if ( myid == 0 ) then
       
       ! Really just a reshape
       do j=1,jl
@@ -1711,19 +1674,28 @@ contains
             a_io(i,j) = a(iq)
          end do
       end do
-   end subroutine fill_cc
+      
+      end if
+
+      do ip = 0,pnproc-1   
+         do n = 0,pnpan-1
+            c_io(1:pil,1+n*pjl:(n+1)*pjl,ip+1) = &
+              a_io(1+ioff(ip,n):pil+ioff(ip,n),1+joff(ip,n)+n*pil_g:pjl+joff(ip,n)+n*pil_g)
+         end do
+      end do
+      
+      call MPI_Scatter(c_io,pil*pjl*pnpan*lproc,MPI_REAL,b_io,pil*pjl*pnpan*lproc,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+      
+   end subroutine fill_cc0
    
    subroutine paraopen(ifile,nmode,ncid)
-  
-      use mpidata_m
   
       include 'mpif.h'
   
       integer, intent(in) :: nmode
       integer, intent(out) :: ncid
       integer ier, ip, n, rip, ierr
-      integer pil_g, pjl_g
-      integer, dimension(3) :: jdum
+      integer, dimension(5) :: jdum
       integer, dimension(54) :: int_header
       character(len=*), intent(in) :: ifile
       character(len=266) :: pfile
@@ -1731,25 +1703,25 @@ contains
 
       if (myid==0) then      
   
-      ! parallel file input
-      ip = 0
-      write(pfile,"(a,'.',i6.6)") trim(ifile), ip
-      ierr = nf90_open(pfile, nmode, ncid)
-      call check_ncerr(ierr, "Error opening file")
+         ! parallel file input
+         ip = 0
+         write(pfile,"(a,'.',i6.6)") trim(ifile), ip
+         ierr = nf90_open(pfile, nmode, ncid)
+         call check_ncerr(ierr, "Error opening file")
       
-      write(6,*) "Using parallel input files"
+         write(6,*) "Using parallel input files"
       
-      ! parallel metadata
-      ier = nf90_get_att(ncid, nf90_global, "nproc", pnproc)
-      call check_ncerr(ier, "nproc")
+         ! parallel metadata
+         ier = nf90_get_att(ncid, nf90_global, "nproc", pnproc)
+         call check_ncerr(ier, "nproc")
       
-      allocate(ioff(0:pnproc-1,0:5),joff(0:pnproc-1,0:5))
+         allocate(ioff(0:pnproc-1,0:5),joff(0:pnproc-1,0:5))
       
       end if
       
       call MPI_Bcast(pnproc,1,MPI_INTEGER,0,MPI_COMM_WORLD,ier)
-      lproc=pnproc/nproc !number of files each mpi_proc will work on      
-      allocate(ncid_in(0:lproc-1))
+      lproc = pnproc/nproc !number of files each mpi_proc will work on      
+      allocate( ncid_in(0:lproc-1) )
       
       if ( myid /= 0 ) then
       
@@ -1808,13 +1780,17 @@ contains
          jdum(1) = pil
          jdum(2) = pjl
          jdum(3) = pnpan
+         jdum(4) = pil_g
+         jdum(5) = pjl_g
       
       end if
       
-      call MPI_Bcast(jdum(1:3),3,MPI_INTEGER,0,MPI_COMM_WORLD,ier)
+      call MPI_Bcast(jdum(1:5),5,MPI_INTEGER,0,MPI_COMM_WORLD,ier)
       pil   = jdum(1)
       pjl   = jdum(2)
       pnpan = jdum(3)
+      pil_g = jdum(4)
+      pjl_g = jdum(5)
       
    end subroutine paraopen
    
@@ -1829,20 +1805,14 @@ contains
    end subroutine paraclose
    
    subroutine paravar2a(name,var,nrec,required,vread_err)
-      use mpidata_m
-      include 'mpif.h'
       integer, intent(in) :: nrec
       integer, intent(out) :: vread_err
-      integer ip, n, pil_g, pjl_g, vid, ierr, vartyp
+      integer ip, n, vid, ierr, vartyp
       real, dimension(:,:), intent(out) :: var
       real, dimension(pil,pjl*pnpan,0:lproc-1) :: inarray2
-      real, dimension(pil,pjl*pnpan,pnproc) :: inarray2gather
       real addoff, sf
       logical, intent(in) :: required
       character(len=*), intent(in) :: name
-
-      pil_g = size(var,1)
-      pjl_g = size(var,2)
    
       ierr = nf90_inq_varid (ncid_in(0), name, vid )
       ! If the variable has the required flag set to false, and the 
@@ -1872,76 +1842,18 @@ contains
             inarray2 = addoff + inarray2*sf
          end if
       end if
-      
-      call MPI_GATHER(inarray2,pil*pjl*pnpan*lproc,MPI_REAL,inarray2gather,pil*pjl*pnpan*lproc,MPI_REAL,0,MPI_COMM_WORLD,ierr)
-         
-      do ip = 0,pnproc-1   
-         do n = 0,pnpan-1
-            var(1+ioff(ip,n):pil+ioff(ip,n),1+joff(ip,n)+n*pil_g:pjl+joff(ip,n)+n*pil_g) = &
-               inarray2gather(1:pil,1+n*pjl:(n+1)*pjl,ip+1)
-         end do
-      end do
+   
+      var = reshape( inarray2, (/ pil,pjl*pnpan*lproc /) )
    
    end subroutine paravar2a
 
-   subroutine paravar2b(name,nrec,required,vread_err)
-      use mpidata_m
-      include 'mpif.h'
-      integer, intent(in) :: nrec
-      integer, intent(out) :: vread_err
-      integer ip, ierr, vid, vartyp
-      real, dimension(pil,pjl*pnpan,0:lproc-1) :: inarray2
-      real, dimension(0,0,0) :: inarray2gather
-      real addoff, sf
-      logical, intent(in) :: required
-      character(len=*), intent(in) :: name
-  
-      ierr = nf90_inq_varid (ncid_in(0), name, vid )
-      ! If the variable has the required flag set to false, and the 
-      ! vread_err argument is present, then return an error flag rather
-      ! then abort if the variable isn't found.
-      if ( .not. required .and. ierr /= NF90_NOERR ) then
-         vread_err = ierr
-         return
-      end if
-      call check_ncerr(ierr, "Error getting vid for "//name)
-      
-      do ip = 0,lproc-1
-         ierr = nf90_get_var ( ncid_in(ip), vid, inarray2(:,:,ip), start=(/ 1, 1, nrec /), count=(/ pil, pjl*pnpan, 1 /) )
-         call check_ncerr(ierr, "Error getting var "//name)
-      end do
-
-!     Check the type of the variable
-      ierr = nf90_inquire_variable ( ncid_in(0), vid, xtype=vartyp)
-      if ( vartyp == NF90_SHORT ) then
-         ierr = nf90_get_att ( ncid_in(0), vid, "add_offset", addoff )
-         call check_ncerr(ierr, "Error getting add_offset attribute")
-         ierr = nf90_get_att ( ncid_in(0), vid, "scale_factor", sf )
-         call check_ncerr (ierr,"Error getting scale_factor attribute")
-         if ( all( inarray2 == -32501. ) ) then
-            inarray2 = NF90_FILL_FLOAT
-         else
-            inarray2 = addoff + inarray2*sf
-         end if
-      end if
-      
-      call MPI_GATHER(inarray2,pil*pjl*pnpan*lproc,MPI_REAL,inarray2gather,pil*pjl*pnpan*lproc,MPI_REAL,0,MPI_COMM_WORLD,ierr)
-   
-   end subroutine paravar2b
-   
    subroutine paravar3a(name,var,nrec,pkl)
-      use mpidata_m
-      include 'mpif.h'
       integer, intent(in) :: nrec, pkl
-      integer ip, n, pil_g, pjl_g, vid, ierr, vartyp
+      integer ip, n, vid, ierr, vartyp
       real, dimension(:,:,:), intent(out) :: var
       real, dimension(pil,pjl*pnpan,pkl,0:lproc-1) :: inarray3
-      real, dimension(pil,pjl*pnpan,pkl,pnproc) :: inarray3gather
       real addoff, sf
       character(len=*), intent(in) :: name
-
-      pil_g = size(var,1)
-      pjl_g = size(var,2)
 
       ierr = nf90_inq_varid (ncid_in(0), name, vid )
       call check_ncerr(ierr, "Error getting vid for "//name)
@@ -1964,51 +1876,9 @@ contains
          end if
       end if
       
-      call MPI_GATHER(inarray3,pil*pjl*pnpan*pkl*lproc,MPI_REAL,inarray3gather,pil*pjl*pkl*pnpan*lproc,MPI_REAL,0,MPI_COMM_WORLD,ierr)
-
-      do ip = 0,pnproc-1      
-         do n = 0,pnpan-1
-            var(1+ioff(ip,n):pil+ioff(ip,n),1+joff(ip,n)+n*pil_g:pjl+joff(ip,n)+n*pil_g,:) = &
-               inarray3gather(1:pil,1+n*pjl:(n+1)*pjl,:,ip+1)
-         end do
-      end do
+      var = reshape( inarray3, (/ pil,pjl*pnpan*lproc,pkl /) )
    
    end subroutine paravar3a
-
-   subroutine paravar3b(name,nrec,pkl)
-      use mpidata_m
-      include 'mpif.h'
-      integer, intent(in) :: nrec, pkl
-      integer ip, ierr, vid, vartyp
-      real, dimension(pil,pjl*pnpan,pkl,0:lproc-1) :: inarray3
-      real, dimension(0,0,0,0) :: inarray3gather
-      real addoff, sf
-      character(len=*), intent(in) :: name
-
-      ierr = nf90_inq_varid (ncid_in(0), name, vid )
-      call check_ncerr(ierr, "Error getting vid for "//name)
-      
-      do ip = 0,lproc-1
-         ierr = nf90_get_var ( ncid_in(ip), vid, inarray3(:,:,:,ip), start=(/ 1, 1, 1, nrec /), count=(/ pil, pjl*pnpan, pkl, 1 /) )
-         call check_ncerr(ierr, "Error getting var "//name)
-      end do
-
-      ierr = nf90_inquire_variable ( ncid_in(0), vid, xtype=vartyp)
-      if ( vartyp == NF90_SHORT ) then
-         ierr = nf90_get_att ( ncid_in(0), vid, "add_offset", addoff )
-         call check_ncerr(ierr, "Error getting add_offset attribute")
-         ierr = nf90_get_att ( ncid_in(0), vid, "scale_factor", sf )
-         call check_ncerr (ierr,"Error getting scale_factor attribute")
-         if ( all( inarray3 == -32501. ) ) then
-           inarray3 = NF90_FILL_FLOAT
-         else
-           inarray3 = addoff + inarray3*sf
-         end if
-      end if
-      
-      call MPI_GATHER(inarray3,pil*pjl*pnpan*pkl*lproc,MPI_REAL,inarray3gather,pil*pjl*pkl*pnpan*lproc,MPI_REAL,0,MPI_COMM_WORLD,ierr)
-
-   end subroutine paravar3b
 
    subroutine proc_setup(il_g,jl_g,nproc,nin,il,jl,ioff,joff,npan)
       integer, intent(in) :: il_g, jl_g, nproc, nin
