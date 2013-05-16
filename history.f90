@@ -1319,7 +1319,7 @@ contains
             zdim = dims%z
          end if
          if ( vinfo%ave_type(ifile) == hist_fixed ) then
-! #ifdef usenc3
+#ifdef usenc3
             ierr = nf90_def_var ( ncid, vinfo%name, vtype, &
                                 (/ dims%x, dims%y, zdim /), vid )
          else
@@ -1333,25 +1333,25 @@ contains
          else
             ierr = nf90_def_var ( ncid, vinfo%name, vtype, &
                                 (/ dims%x, dims%y, dims%t /), vid )
-! #else
-!            ierr = nf90_def_var ( ncid, vinfo%name, vtype, &
-!                                (/ dims%x, dims%y, zdim /), &
-!                                 vid, deflate_level=1 )
-!         else
-!            ierr = nf90_def_var ( ncid, vinfo%name, vtype, &
-!                                (/ dims%x, dims%y, zdim, dims%t /), &
-!                                 vid, deflate_level=1 )
-!         end if
-!      else
-!         if ( vinfo%ave_type(ifile) == hist_fixed ) then
-!            ierr = nf90_def_var ( ncid, vinfo%name, vtype, &
-!                                (/ dims%x, dims%y /), vid, &
-!                                deflate_level=1 )
-!         else
-!            ierr = nf90_def_var ( ncid, vinfo%name, vtype, &
-!                                (/ dims%x, dims%y, dims%t /), &
-!                                 vid, deflate_level=1 )
-! #endif
+#else
+            ierr = nf90_def_var ( ncid, vinfo%name, vtype, &
+                                (/ dims%x, dims%y, zdim /), &
+                                 vid, deflate_level=1 )
+         else
+            ierr = nf90_def_var ( ncid, vinfo%name, vtype, &
+                                (/ dims%x, dims%y, zdim, dims%t /), &
+                                 vid, deflate_level=1 )
+         end if
+      else
+         if ( vinfo%ave_type(ifile) == hist_fixed ) then
+            ierr = nf90_def_var ( ncid, vinfo%name, vtype, &
+                                (/ dims%x, dims%y /), vid, &
+                                deflate_level=1 )
+         else
+            ierr = nf90_def_var ( ncid, vinfo%name, vtype, &
+                                (/ dims%x, dims%y, dims%t /), &
+                                 vid, deflate_level=1 )
+#endif
          end if
       end if
       if ( ierr /= 0 ) then
