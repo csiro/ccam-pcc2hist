@@ -37,8 +37,8 @@ program cc2hist
    character(len=10) :: name
    character(len=80) :: longname
    real :: minsig = 0., maxsig = 1.0
-   logical :: darlam_grid    ! depreciated !!!
-   logical :: agrid = .true. ! depreciated !!!
+   logical :: darlam_grid = .false. ! depreciated !!!
+   logical :: agrid = .true.        ! depreciated !!!
 
    namelist /input/ kta, ktb, ktc, ndate, ntime, &
                     minlon, maxlon, dlon, minlat, maxlat, dlat, &
