@@ -1849,7 +1849,7 @@ contains
 
    subroutine paravar3a(name,var,nrec,pkl)
       integer, intent(in) :: nrec, pkl
-      integer ip, n, vid, ierr, vartyp
+      integer ip, n, vid, ierr, vartyp, k
       real, dimension(:,:,:), intent(out) :: var
       real, dimension(pil,pjl*pnpan,pkl,0:lproc-1) :: inarray3
       real addoff, sf
@@ -1876,7 +1876,9 @@ contains
          end if
       end if
       
-      var = reshape( inarray3, (/ pil,pjl*pnpan*lproc,pkl /) )
+      do k = 1,pkl
+        var(:,:,k) = reshape( inarray3(:,:,k,:), (/ pil,pjl*pnpan*lproc /) )
+      end do
    
    end subroutine paravar3a
 
