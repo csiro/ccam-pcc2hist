@@ -427,8 +427,10 @@ program cc2hist
             end if
          end if
 
-         if ( kt < ktau ) then
-            print*, "WARNING: Searching for step", kt
+         if ( myid == 0 ) then
+            if ( kt < ktau ) then
+               print*, "WARNING: Searching for step", kt
+            end if
          end if
 
          call infile(varlist, nvars, skip)
