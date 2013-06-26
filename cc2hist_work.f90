@@ -1602,7 +1602,9 @@ contains
       real, dimension(il,jl) :: a_io
       real, dimension(pil,pjl*pnpan,pnproc) :: c_io
       real b(ifull), a(ifull)
-      integer :: num, nrem, iq, neighb, ierr, i, j
+      integer imin(0:5), imax(0:5), jmin(0:5), jmax(0:5)
+      integer iminb, imaxb, jminb, jmaxb
+      integer :: nrem, iq, neighb, ierr, i, j
       integer :: ip, n
       real :: av, avx
       
@@ -1624,13 +1626,24 @@ contains
             a(iq) = a_io(i,j)
          end do
       end do
-      num=0
+      
+      imin=1
+      imax=il
+      jmin=1
+      jmax=il
+      
       nrem = 1    ! Just for first iteration
 !     nrem_gmin used to avoid infinite loops, e.g. for no sice
       do while ( nrem > 0 )
          nrem=0
-         num=num+1
-         do iq=1,ifull
+         do n=0,5
+          iminb=il
+          imaxb=1
+          jminb=il
+          jmaxb=1
+          do j=jmin(n),jmax(n)
+           do i=imin(n),imax(n)
+            iq=i+(j-1)*il+n*il*il
             b(iq)=a(iq)
             if(a(iq)==value)then
                neighb=0
@@ -1656,13 +1669,20 @@ contains
                   avx=av
                else
                   nrem=nrem+1   ! current number of points without a neighbour
+                  iminb=min(i,iminb)
+                  imaxb=max(i,imaxb)
+                  jminb=min(j,jminb)
+                  jmaxb=max(j,jmaxb)
                endif
             endif
+           end do
+          end do
+          imin(n)=iminb
+          imax(n)=imaxb
+          jmin(n)=jminb
+          jmax(n)=jmaxb
          end do
          a(:)=b(:)
-!         if(nrem>0)then
-!            print*, "FILL", num, nrem, avx
-!         endif                  ! (nrem>0)
          if ( nrem == ifull ) then
             print*, "Error in fill_cc - no points defined"
             return
@@ -1707,6 +1727,10 @@ contains
          ip = 0
          write(pfile,"(a,'.',i6.6)") trim(ifile), ip
          ierr = nf90_open(pfile, nmode, ncid)
+	 if ( ierr /= nf90_noerr ) then
+            write(pfile,"(a,'.',i4.4)") trim(ifile), ip
+            ierr = nf90_open(pfile, nmode, ncid)
+	 end if
          call check_ncerr(ierr, "Error opening file")
       
          write(6,*) "Using parallel input files"
@@ -1714,6 +1738,12 @@ contains
          ! parallel metadata
          ier = nf90_get_att(ncid, nf90_global, "nproc", pnproc)
          call check_ncerr(ier, "nproc")
+
+         if (mod(pnproc,nproc)/=0) then
+            write(6,*) "ERROR: Number of processors is not a factor of the number of files"
+            write(6,*) "nproc,pnproc ",nproc,pnproc
+            call MPI_Abort(MPI_COMM_WORLD,-1,ierr)
+         end if
       
          allocate(ioff(0:pnproc-1,0:5),joff(0:pnproc-1,0:5))
       
@@ -1729,7 +1759,11 @@ contains
             rip = myid*lproc + ip
             write(pfile,"(a,'.',i6.6)") trim(ifile), rip
             ier = nf90_open ( pfile, nmode, ncid_in(ip) )
-            if (ier /= 0 ) then
+	    if (ier /= nf90_noerr ) then
+               write(pfile,"(a,'.',i4.4)") trim(ifile), rip
+               ier = nf90_open ( pfile, nmode, ncid_in(ip) )
+	    end if
+            if (ier /= nf90_noerr ) then
                write(6,*) "ERROR: Cannot open ",trim(pfile)
                call check_ncerr(ier, "open")
             end if
@@ -1743,7 +1777,11 @@ contains
             rip = ip
             write(pfile,"(a,'.',i6.6)") trim(ifile), rip
             ier = nf90_open ( pfile, nmode, ncid_in(ip) )
-            if (ier /= 0 ) then
+	    if ( ier /= nf90_noerr ) then
+               write(pfile,"(a,'.',i4.4)") trim(ifile), rip
+               ier = nf90_open ( pfile, nmode, ncid_in(ip) )
+	    end if
+            if ( ier /= nf90_noerr ) then
                write(6,*) "ERROR: Cannot open ",trim(pfile)
                call check_ncerr(ier, "open")
             end if
