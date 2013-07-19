@@ -28,6 +28,7 @@
 /s2p_m.f90 -text
 /setxyz_m.f90 -text
 /sitop_m.f90 -text
+/stacklimit.c -text
 /staguv_m.f90 -text
 /usage_m.f90 -text
 /utilities.f90 -text

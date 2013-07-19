@@ -18,13 +18,16 @@ interp_m.o jimcc_m.o jimco_m.o jim_utils.o latltoij_m.o newmpar_m.o nfft_m.o \
 parm_m.o precis_m.o s2p_m.o setxyz_m.o sitop_m.o staguv_m.o usage_m.o \
 xyzinfo_m.o utilities.o history.o getopt_m.o utils_m.o ncutils_m.o \
 kinds_m.o physparams.o vertutils_m.o moistfuncs.o hyblevs_m.o checkver_m.o \
-mpidata_m.o
+mpidata_m.o stacklimit.o
 
 pcc2hist: $(OBJ)
 	$(FC) -o $@ $(FFLAGS) $(LDFLAGS) $(OBJ) $(LIBS)
 
 
 .SUFFIXES:.f90
+
+stacklimit.o: stacklimit.c
+	cc -c stacklimit.c
 
 .f90.o:
 	$(FC) -c $(FFLAGS) $(INC) $(LIBS) $<

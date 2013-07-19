@@ -62,6 +62,11 @@ program cc2hist
    integer :: veg_int
    real :: time_prev = 0.
 
+#ifndef stacklimit
+   ! For linux only
+   call setstacklimit(-1)
+#endif
+
    call MPI_Init(ierr)
    call MPI_Comm_size(MPI_COMM_WORLD, nproc, ierr) ! Find number of processes
    call MPI_Comm_rank(MPI_COMM_WORLD, myid, ierr)  ! Find local processor id
