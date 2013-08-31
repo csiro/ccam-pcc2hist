@@ -1719,7 +1719,7 @@ contains
       integer, dimension(54) :: int_header
       character(len=*), intent(in) :: ifile
       character(len=266) :: pfile
-      character(len=7) :: sdecomp
+      character(len=8) :: sdecomp
 
       if (myid==0) then      
   
@@ -1802,6 +1802,11 @@ contains
             case ("uniform")
                do n = 0,5
                   call proc_setup_uniform(pil_g, pjl_g, pnproc, n, pil, pjl, ioff(:,n), &
+	                                  joff(:,n), pnpan)
+               end do
+            case ("uniform1")
+               do n = 0,5
+                  call proc_setup_dix(pil_g, pjl_g, pnproc, n, pil, pjl, ioff(:,n), &
 	                                  joff(:,n), pnpan)
                end do
             case ("face")
@@ -1981,7 +1986,6 @@ contains
       integer, intent(in) :: il_g, jl_g, nproc, nin
       integer, intent(out) :: il, jl, npan
       integer, dimension(0:) :: ioff, joff
-      integer, parameter :: npanels=5
       integer :: i, j, n, nxproc, nyproc
 
       npan=6
@@ -2039,5 +2043,37 @@ contains
       end do
 
    end subroutine proc_setup_uniform
+
+   subroutine proc_setup_dix(il_g,jl_g,nproc,nin,il,jl,ioff,joff,npan)
+      integer, intent(in) :: il_g, jl_g, nproc, nin
+      integer, intent(out) :: il, jl, npan
+      integer, dimension(0:) :: ioff, joff
+      integer :: i, j, n, nxproc, nyproc
+
+      npan=6
+      nxproc = nint(sqrt(real(nproc)))
+      do nxproc = nint(sqrt(real(nproc))), 1, -1
+         ! This will always exit eventually because it's trivially true 
+         ! for nxproc=1
+         nyproc = nproc / nxproc
+         if ( modulo(nproc,nxproc) == 0 .and. &
+              modulo(il_g,nxproc) == 0  .and. &
+              modulo(il_g,nyproc) == 0 ) exit
+      end do
+      nyproc = nproc / nxproc
+      if ( nxproc*nyproc /= nproc ) then
+         print*, "Error in splitting up faces"
+         stop
+      end if
+      il = il_g/nxproc
+      jl = il_g/nyproc
+
+      ! Offsets
+      do n=0,nproc-1
+         joff(n) = (n/nxproc) * jl
+         ioff(n) = modulo(n,nxproc)*il
+      end do
+
+   end subroutine proc_setup_dix
 
 end module work
