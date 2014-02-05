@@ -1,7 +1,7 @@
 FC = mpif90
 FFLAGS = -O -xHost -fpp -ipo -ftz
 INC = -I $(NETCDF_ROOT)/include
-LIBS = -L $(NETCDF_ROOT)/lib -L $(HDF5_HOME)/lib -lnetcdf -lnetcdff -lhdf5 -lhdf5_hl
+LIBS = -L $(NETCDF_ROOT)/lib -lnetcdf -lnetcdff
 
 
 SRC = pcc2hist.f90 cc2hist_work.f90 gldata_m.f90 height_m.f90 indices_m.f90 \

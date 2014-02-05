@@ -274,6 +274,8 @@ module history
    integer, public :: int_default=0
 
    logical, public :: cf_compliant = .false.
+   
+   logical, public :: cordex_compliant = .false.
 
 !  MPI working arrays
    real, dimension(:,:,:), allocatable, save, private :: hist_a

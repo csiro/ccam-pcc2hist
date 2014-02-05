@@ -133,7 +133,7 @@ contains
 
    subroutine infile ( varlist, nvars, skip )
       ! For netcdf input
-      use history, only : savehist, needfld
+      use history, only : savehist, needfld, cordex_compliant
       use physparams, only : grav
       use s2p_m
       use height_m
@@ -142,7 +142,8 @@ contains
       integer, intent(in) :: nvars
       logical, intent(in)  :: skip
       integer :: k, ivar
-      real, dimension(pil,pjl*pnpan*lproc) :: vave, lmask, tss_s, utmp, dtmp, mtmp
+      real, dimension(pil,pjl*pnpan*lproc) :: vave, lmask, tss_s, uten, dtmp
+      real, dimension(pil,pjl*pnpan*lproc) :: rgn, rgd, sgn, sgd
       real, dimension(pil,pjl*pnpan*lproc) :: wind_norm
       real, dimension(pil,pjl*pnpan*lproc,kk) :: ttmp
       character(len=10) :: name
@@ -170,6 +171,10 @@ contains
                   call vread( "zht", zs )
                   zs = zs / grav
                   call savehist ( "zs", zs )
+               else if ( varlist(ivar)%vname == "orog" ) then
+                  call vread( "zht", zs )
+                  zs = zs / grav
+                  call savehist ( "orog", zs )
                else if ( varlist(ivar)%vname == "soilt" ) then
                   call vread( "soilt", soilt )
                   call savehist("soilt", soilt)
@@ -180,6 +185,13 @@ contains
                         lmask = 0.
                      end where
                      call savehist("land_mask", lmask)
+                  else if ( needfld("sftlf") ) then
+                     where ( soilt > 0.5 )
+                        lmask = 100.
+                     elsewhere
+                        lmask = 0.
+                     end where
+                     call savehist("sftlf", lmask)
                   endif
                else
                   call readsave2 ( varlist(ivar)%vname )
@@ -193,8 +205,130 @@ contains
 
          if ( varlist(ivar)%ndims == 2 ) then
             select case ( varlist(ivar)%vname )
+            case ( "clivi" )
+               call readsave2 (varlist(ivar)%vname, input_name="iwp_ave")
+            case ( "clh" )
+               call vread( "clh", dtmp )
+               if ( cordex_compliant ) then
+                  dtmp = dtmp*100.
+               end if
+               call savehist ( "clh", dtmp )
+            case ( "cll" )
+               call vread( "cll", dtmp )
+               if ( cordex_compliant ) then
+                  dtmp = dtmp*100.
+               end if
+               call savehist ( "cll", dtmp )
+            case ( "clm" )
+               call vread( "clm", dtmp )
+               if ( cordex_compliant ) then
+                  dtmp = dtmp*100.
+               end if
+               call savehist ( "clm", dtmp )
+            case ( "clt" )
+               call vread( "cld", dtmp )
+               dtmp = dtmp*100.
+               call savehist ( "clt", dtmp )
+            case ( "clwvi" )
+               call readsave2 (varlist(ivar)%vname, input_name="lwp_ave")
+            case ( "evspsbl" )
+               call vread( "evap", dtmp )
+               dtmp = dtmp/1000.
+               call savehist ( "evspsbl", dtmp )
+            case ( "hfls" )
+               call vread( "eg_ave", dtmp )
+               dtmp = -dtmp
+               call savehist ( "hfls", dtmp )
+            case ( "hfss" )
+               call vread( "fg_ave", dtmp )
+               dtmp = -dtmp
+               call savehist ( "hfss", dtmp )
+            case ( "huss" )
+               call vread( "qgscrn", dtmp )
+               dtmp = dtmp/(dtmp+1.)
+               call savehist ( "huss", dtmp )
+            case ( "mrros" )
+               call vread( "runoff", dtmp )
+               dtmp = dtmp/86400.
+               call savehist ( "mrros", dtmp )
+            case ( "pr" )
+               call vread( "rnd", dtmp )
+               dtmp = dtmp/86400.
+               call savehist ( "pr", dtmp )
+            case ( "prc" )
+               call vread( "rnc", dtmp )
+               dtmp = dtmp/86400.
+               call savehist ( "prc", dtmp )
             case ( "psl" )
                call readsave2 (varlist(ivar)%vname, input_name="pmsl")
+            case ( "psf" )
+               call vread( "psf", psl )
+               psl = 1.0e3 * exp(psl)   ! hPa
+               call savehist ( "ps", psl )
+               ! This relies on surface pressure coming before the 3D variables
+               if ( use_plevs ) call sitop_setup(sig, plevs(1:nplevs), psl)
+            case ( "rgdn_ave" )
+               call vread( "rgdn_ave", rgd )
+               call savehist( "rgdn_ave", rgd )
+            case ( "rgn_ave" )
+               call vread( "rgn_ave", rgn )
+               call savehist( "rgn_ave", rgn )
+            case ( "rlds" )
+               call readsave2 (varlist(ivar)%vname, input_name="rgdn_ave")
+            case ( "rlut" )
+               call vread( "rtu_ave", dtmp )
+               dtmp = -dtmp
+               call savehist ( "rlut", dtmp )
+            case ( "rsds" )
+               call readsave2 (varlist(ivar)%vname, input_name="sgdn_ave")
+            case ( "rsdt" )
+               call readsave2 (varlist(ivar)%vname, input_name="sint_ave")
+            case ( "rsut" )
+               call vread( "sot_ave", dtmp )
+               dtmp = -dtmp
+               call savehist ( "rsut", dtmp )
+            case ( "sfcwind" )
+               call vread( "u10", uten )
+               call savehist( "sfcwind", uten )
+            case ( "sgdn_ave" )
+               call vread( "sgdn_ave", sgd )
+               call savehist( "sgdn_ave", sgd )
+            case ( "sgn_ave" )
+               call vread( "sgn_ave", sgn )
+               call savehist( "sgn_ave", sgn )
+            case ( "snw" )
+               call vread( "snd", dtmp )
+               dtmp = dtmp/1000.
+               call savehist ( "snw", dtmp )
+            case ( "sund" )
+               call vread( "sunhours", dtmp )
+               dtmp = dtmp*3600.
+               call savehist ( "sund", dtmp )
+            case ( "tas" )
+               call readsave2 (varlist(ivar)%vname, input_name="tscrn")
+            case ( "tasmax" )
+               call readsave2 (varlist(ivar)%vname, input_name="tmaxscr")
+            case ( "tasmin" )
+               call readsave2 (varlist(ivar)%vname, input_name="tminscr")
+            case ( "tauu" )
+               call readsave2 (varlist(ivar)%vname, input_name="taux")
+            case ( "tauv" )
+               call readsave2 (varlist(ivar)%vname, input_name="tauy")
+            case ( "ts" )
+               call vread( "tsu", tsu )
+               ! Some (all?) initial conditions have tsu negative over ocean
+               call savehist("ts", abs(tsu))
+               if ( needfld("tsea") ) then
+                  ! Use soilt as a land-sea mask (integer but read as float)
+                  where ( soilt > 0.5 )
+                     tss_s = spval
+                  elsewhere
+                     ! Use the maxval to ignore ice points.
+                     tss_s = max(tfreeze, abs(tsu))
+                  end where
+                  call fill_cc(tss_s, spval)
+                  call savehist ( "tsea", tss_s )
+               end if
             case ( "tsu" )
                call vread( "tsu", tsu )
                ! Some (all?) initial conditions have tsu negative over ocean
@@ -210,15 +344,11 @@ contains
                   call fill_cc(tss_s, spval)
                   call savehist ( "tsea", tss_s )
                end if
-             case ( "psf" )
-               call vread( "psf", psl )
-               psl = 1.0e3 * exp(psl)   ! hPa
-               call savehist ( "ps", psl )
-               ! This relies on surface pressure coming before the 3D variables
-               if ( use_plevs ) call sitop_setup(sig, plevs(1:nplevs), psl)
-             case ( "u10" )
-               call vread( "u10", utmp )
-               call savehist( "u10", utmp )
+            case ( "u10" )
+               call vread( "u10", uten )
+               call savehist( "u10", uten )
+            case ( "zmla" )
+               call readsave2 (varlist(ivar)%vname, input_name="pblh")
             case default
                if ( varlist(ivar)%vector) then
                   if (varlist(ivar)%xcmpnt) then
@@ -318,24 +448,20 @@ contains
             end where
             call savehist( "d10", dtmp )
           end if
-
           if ( needfld("uas") .or. needfld("vas") ) then
              wind_norm(:,:) = sqrt(u(:,:,1)*u(:,:,1)+v(:,:,1)*v(:,:,1))
           end if
           if ( needfld("uas") ) then
-
             where ( wind_norm > 0.0 )
-               dtmp=u(:,:,1)*utmp/wind_norm
+               dtmp=u(:,:,1)*uten/wind_norm
             elsewhere
                dtmp=0.0
             end where
-
             call savehist ( "uas", dtmp )
           end if
-
           if ( needfld("vas") ) then
             where ( wind_norm > 0.0 )
-               dtmp=v(:,:,1)*utmp/wind_norm
+               dtmp=v(:,:,1)*uten/wind_norm
             elsewhere
                dtmp=0.0
             end where
@@ -350,6 +476,13 @@ contains
          end do
          pwc = 100.*psl/grav * pwc
          call savehist ( "pwc", pwc )
+      else if ( needfld("prw") ) then
+         pwc = 0.0
+         do k=1,kk
+            pwc = pwc + dsig(k)*q(:,:,k)
+         end do
+         pwc = 100.*psl/grav * pwc
+         call savehist ( "prw", pwc )
       end if
 
       if ( needfld("zg") ) then
@@ -396,6 +529,16 @@ contains
             vave = vave + dsig(k)*v(:,:,k)*t(:,:,k)
          end do
          call savehist( "vavevt", vave)
+      end if
+      
+      if ( needfld("rsus") ) then
+         dtmp = sgn - sgd
+         call savehist( "rsus", dtmp )
+      end if
+
+      if ( needfld("rlus") ) then
+         dtmp = rgn - rgd
+         call savehist( "rlus", dtmp )
       end if
 
       first_in = .false.
@@ -945,7 +1088,7 @@ contains
 
    subroutine get_var_list(varlist, nvars)
       ! Get a list of the variables in the input file
-      use history, only : addfld, int_default, cf_compliant
+      use history, only : addfld, int_default, cf_compliant, cordex_compliant
       use interp_m, only : int_nearest, int_none
       use physparams, only : grav, rdry
       use s2p_m, only: use_plevs, plevs
@@ -1198,14 +1341,91 @@ contains
          end if
          if ( varlist(ivar)%vname == "pmsl" ) then
             varlist(ivar)%vname = "psl"
+         else if ( varlist(ivar)%vname == "psf" ) then
+            cycle  ! Skip this one to avoid messages about it never being set
          else if ( varlist(ivar)%vname == "zht" ) then
             varlist(ivar)%vname = "zs"
             varlist(ivar)%units = "m"
             varlist(ivar)%long_name = "Surface height"
             xmin = 0.
             xmax = 9000.
-         else if ( varlist(ivar)%vname == "psf" ) then
-            cycle  ! Skip this one to avoid messages about it never being set
+         end if
+         if ( cordex_compliant ) then
+            if ( varlist(ivar)%vname == "cld" ) then
+               varlist(ivar)%vname = "clt"
+            else if ( varlist(ivar)%vname == "eg_ave" ) then
+               varlist(ivar)%vname = "hfls"
+            else if ( varlist(ivar)%vname == "evap" ) then
+               varlist(ivar)%vname = "evspsbl"
+               varlist(ivar)%units = "kg/m2/s"
+               varlist(ivar)%long_name = "Surface Evaporation"
+               xmin = 0.
+               xmax = 0.013
+            else if ( varlist(ivar)%vname == "fg_ave" ) then
+               varlist(ivar)%vname = "hfss"
+            else if ( varlist(ivar)%vname == "iwp_ave" ) then
+               varlist(ivar)%vname = "clivi"
+            else if ( varlist(ivar)%vname == "lwp_ave" ) then
+               varlist(ivar)%vname = "clwvi"
+            else if ( varlist(ivar)%vname == "pblh" ) then
+               varlist(ivar)%vname = "zmla"
+            else if ( varlist(ivar)%vname == "rgdn_ave" ) then
+               varlist(ivar)%vname = "rlds"
+            else if ( varlist(ivar)%vname == "rnd" ) then
+               varlist(ivar)%vname = "pr"
+               varlist(ivar)%units = "kg/m2/s"
+               varlist(ivar)%long_name = "Precipitation"
+               xmin = 0.
+               xmax = 0.013
+            else if ( varlist(ivar)%vname == "rnc" ) then
+               varlist(ivar)%vname = "prc"
+               varlist(ivar)%units = "kg/m2/s"
+               varlist(ivar)%long_name = "Convective Precipitation"
+               xmin = 0.
+               xmax = 0.013
+            else if ( varlist(ivar)%vname == "runoff" ) then
+               varlist(ivar)%vname = "mrros"
+               varlist(ivar)%units = "kg/m2/s"
+               varlist(ivar)%long_name = "Total Runoff"
+               xmin = 0.
+               xmax = 0.013
+            else if ( varlist(ivar)%vname == "rtu_ave" ) then
+               varlist(ivar)%vname = "rlut"
+            else if ( varlist(ivar)%vname == "sint_ave" ) then
+               varlist(ivar)%vname = "rsdt"
+            else if ( varlist(ivar)%vname == "snd" ) then
+               varlist(ivar)%vname = "snw"
+               varlist(ivar)%units = "kg/m2"
+               varlist(ivar)%long_name = "Snow Amount"
+               xmin = 0.
+               xmax = 6.5
+            else if ( varlist(ivar)%vname == "sot_ave" ) then
+               varlist(ivar)%vname = "rsut"
+            else if ( varlist(ivar)%vname == "sunhours" ) then
+               varlist(ivar)%vname = "sund"
+               varlist(ivar)%units = "s"
+               varlist(ivar)%long_name = "Sunshine Hours"
+               xmin = 0.
+               xmax = 86400.
+            else if ( varlist(ivar)%vname == "taux" ) then
+               varlist(ivar)%vname = "tauu"
+            else if ( varlist(ivar)%vname == "tauy" ) then
+               varlist(ivar)%vname = "tauv"
+            else if ( varlist(ivar)%vname == "tmaxscr" ) then
+               varlist(ivar)%vname = "tasmax"
+            else if ( varlist(ivar)%vname == "tminscr" ) then
+               varlist(ivar)%vname = "tasmin"
+            else if ( varlist(ivar)%vname == "tscrn" ) then
+               varlist(ivar)%vname = "tas"
+            else if ( varlist(ivar)%vname == "tscrn" ) then
+               varlist(ivar)%vname = "tas"
+            else if ( varlist(ivar)%vname == "tsu" ) then
+               varlist(ivar)%vname = "ts"
+            else if ( varlist(ivar)%vname == "u10" ) then
+               varlist(ivar)%vname = "sfcwind"
+            else if ( varlist(ivar)%vname == "zs" ) then
+               varlist(ivar)%vname = "orog"
+            end if
          end if
          call cc_cfproperties(varlist(ivar), std_name, cell_methods)
          if ( varlist(ivar)%fixed ) then
@@ -1243,12 +1463,21 @@ contains
       ! Extra fields are handled explicitly
       call addfld ( "ps", "Surface pressure", "hPa", 0., 1200., 1, &
                      std_name="surface_air_pressure" )
-      call addfld ( "pwc", "Precipitable water column", "kg/m^2", 0.0, 100.0, 1, std_name="atmosphere_water_vapor_content")
       call addfld ( "tsea", "Sea surface temperature", "K", 150., 350., 1, &
                      std_name="sea_surface_temperature" )
-      call addfld ( "land_mask", "Land-sea mask", "",  0.0, 1.0, 1, &
-                     ave_type="fixed", int_type=int_nearest )
-      call addfld ( "d10", "10m wind direction", "deg", 0.0, 360.0, 1 )
+      if ( cordex_compliant ) then
+         call addfld ( "prw", "Precipitable water column", "kg/m2", 0.0, 100.0, 1, std_name="atmosphere_water_vapor_content")
+         call addfld ( "sftlf", "Land-sea mask", "",  0.0, 1.0, 1, &
+                        ave_type="fixed", int_type=int_nearest )
+         call addfld ( "huss", "2m specific humidity", "none", 0., 0.06, 1 )
+         call addfld ( "rlus", "Upwelling Longwave radiation", "W/m2", -1000., 1000., 1 )
+         call addfld ( "rsus", "Upwelling Shortwave radiation", "W/m2", -1000., 1000., 1 )
+      else
+         call addfld ( "pwc", "Precipitable water column", "kg/m2", 0.0, 100.0, 1, std_name="atmosphere_water_vapor_content")
+         call addfld ( "land_mask", "Land-sea mask", "",  0.0, 1.0, 1, &
+                        ave_type="fixed", int_type=int_nearest )
+         call addfld ( "d10", "10m wind direction", "deg", 0.0, 360.0, 1 )
+      end if
       call addfld ( "uas", "x-component 10m wind", "m/s", -100.0, 100.0, 1 )
       call addfld ( "vas", "y-component 10m wind", "m/s", -100.0, 100.0, 1 )
       ! Packing is not going to work well in this case
@@ -1288,7 +1517,6 @@ contains
          ! Should have std_name = volume_fraction_of_water_in_soil, units=1
          ! Mentioned in Gregory email 2005-12-01. In official list?
          !call addfld('wb','Soil moisture','frac',0.,1.,ksoil,soil=.true.)
-         call addfld('wetfrac','Soil moisture','frac',0.,1.,ksoil,soil=.true.)
       end if
 
    end subroutine get_var_list

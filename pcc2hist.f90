@@ -30,7 +30,7 @@ program cc2hist
 
    character(len=MAX_ARGLEN) :: optarg
    integer :: opt, nopt
-   type(loption), dimension(3) :: longopts
+   type(loption), dimension(4) :: longopts
    integer :: longind
    integer :: kta=0, ktb=999999, ktc=-1, ndate=-1, ntime=-1, k
    integer :: sdate=-1, edate=-1, stime=-1, etime=-1
@@ -78,6 +78,7 @@ program cc2hist
    longopts(1) = loption ( "interp", 1, 0)
    longopts(2) = loption ( "vextrap", 1, 0 )
    longopts(3) = loption ( "cf", 0, 0 )
+   longopts(4) = loption ( "cordex", 0, 0 )
    ifile = ""
    ofile = ""
    do
@@ -146,6 +147,8 @@ program cc2hist
             end select
          case ( 3 )
             cf_compliant = .true.
+         case ( 4 )
+            cordex_compliant = .true.
          case default
             print*, "Unexpected result processing long options", longind
             stop
@@ -433,9 +436,9 @@ program cc2hist
          end if
 
          if ( myid == 0 ) then
-            if ( kt < ktau ) then
-               print*, "WARNING: Searching for step", kt
-            end if
+           if ( kt < ktau ) then
+              print*, "WARNING: Searching for step", kt
+           end if
          end if
 
          call infile(varlist, nvars, skip)
