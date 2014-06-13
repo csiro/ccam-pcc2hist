@@ -5,7 +5,13 @@ program cc2hist
 !  taken from John's plotting program plotg.f.
 
 !  It uses the f90 shallow water model versions of routines setxyz and staguv.
+    
+!  Modified by MJT to use MPI when reading parallel input files (pcc2hist).
 
+#ifndef usenc3
+   use mpi
+#endif
+    
    use history
    use getopt_m
    use mpidata_m
@@ -20,7 +26,9 @@ program cc2hist
 
    implicit none
 
+#ifdef usenc3
    include 'mpif.h'
+#endif
 
    character(len=MAX_ARGLEN) :: ifile, ofile
 
@@ -40,10 +48,11 @@ program cc2hist
    logical :: darlam_grid = .false. ! depreciated !!!
    logical :: agrid = .true.        ! depreciated !!!
 
-   namelist /input/ kta, ktb, ktc, ndate, ntime, &
-                    minlon, maxlon, dlon, minlat, maxlat, dlat, &
+   namelist /input/ kta, ktb, ktc, ndate, ntime,                      &
+                    minlon, maxlon, dlon, minlat, maxlat, dlat,       &
                     minlev, maxlev, minsig, maxsig, use_plevs, plevs, &
-                    sdate, edate, stime, etime, darlam_grid
+                    use_meters, mlevs, sdate, edate, stime, etime,    &
+                    darlam_grid
 
    integer :: kt, kdate, ktime, ierr, ieof, ntracers
    logical :: all=.false., debug=.false.
@@ -168,7 +177,7 @@ program cc2hist
 
 !  If filenames were not set as options look for them as arguments
    if ( len_trim(ifile) == 0 .and. len_trim(ofile) == 0 ) then
-      if ( iargc() /= nopt+1 ) then
+      if ( command_argument_count() /= nopt+1 ) then
          if ( myid == 0 ) then
             print*, "Missing filenames"
          end if
@@ -188,9 +197,7 @@ program cc2hist
 !  This should be extended to allow specifying all pressure levels on the
 !  command line too?
    if ( .not. all ) then
-      if ( myid==0 ) then
-         write(6,*) "reading cc.nml"
-      end if
+      if ( myid==0 ) print *,"reading cc.nml"
       open(1,file='cc.nml')
       read(1,input)
    end if
@@ -203,6 +210,10 @@ program cc2hist
       stop
    end if
    
+   if ( use_plevs .and. use_meters ) then
+      print *,"Cannot both use_plevs and use_meters together"
+      stop
+   end if
 
 !  Check whether ndate and ntime have been set
    use_date = .false.
@@ -230,8 +241,9 @@ program cc2hist
    use_steps = .not. use_date 
 
    call check_plevs
+   call check_meters
    
-  
+   ! Open parallel input files  
    call paraopen(ifile, NF90_NOWRITE, ncid)
    ! Check that this file wasn't produced by cc2hist itself
    call check_cc2histfile()
@@ -262,7 +274,7 @@ program cc2hist
       print*, " Check minlev, maxlev, minsig, maxsig "
       stop
    end if
-   if ( use_plevs) then
+   if ( use_plevs .or. use_meters ) then
       nlev = nplevs
    end if
 
@@ -283,6 +295,8 @@ program cc2hist
    else
       write(source,"(a,a,a,a)" ) "CSIRO conformal-octagon model. Input file: ",& 
              trim(ifile), " Processed by cc2hist ", cc2hist_revision
+      print *,"conformal-octagon no longer supported"
+      stop
    end if
    if ( len_trim(optionstring) /= 0 ) then
       source = trim(source) // " Options:" // trim(optionstring)
@@ -317,6 +331,12 @@ program cc2hist
                            source=source, histfilename=ofile, pressure=use_plevs, &
                            extra_atts=extra_atts, nsoil=ksoil, zsoil=zsoil,       &
                            calendar=calendar )
+         else if ( use_meters ) then
+            call openhist( il, jl, nlev, mlevs(1:nplevs), "_test", hlon, hlat,    &
+                           basetime, year=1, nxout=nxhis, nyout=nyhis,            &
+                           source=source, histfilename=ofile, height=use_meters,  &
+                           extra_atts=extra_atts, nsoil=ksoil, zsoil=zsoil,       &
+                           calendar=calendar )   
          else
             call openhist( il, jl, nlev, sig(minlev:maxlev), "_test", hlon, hlat, &
                           basetime, year=1, nxout=nxhis, nyout=nyhis,             &
@@ -329,6 +349,11 @@ program cc2hist
             call openhist ( il, jl, nlev, plevs(1:nplevs), "_test", hlon, hlat,    &
                             basetime, year=1, nxout=nxhis, nyout=nyhis,            &
                             source=source, histfilename=ofile, pressure=use_plevs, &
+                            extra_atts=extra_atts, calendar=calendar )
+         else if ( use_meters ) then
+            call openhist ( il, jl, nlev, mlevs(1:nplevs), "_test", hlon, hlat,    &
+                            basetime, year=1, nxout=nxhis, nyout=nyhis,            &
+                            source=source, histfilename=ofile, height=use_meters,  &
                             extra_atts=extra_atts, calendar=calendar )
          else
             call openhist ( il, jl, nlev, sig(minlev:maxlev), "_test", hlon, hlat,    &
@@ -344,6 +369,11 @@ program cc2hist
                            basetime, year=1, nxout=nxhis, nyout=nyhis,            &
                            source=source, histfilename=ofile, pressure=use_plevs, &
                            extra_atts=extra_atts, nsoil=ksoil, zsoil=zsoil )
+         else if ( use_meters ) then
+            call openhist( il, jl, nlev, mlevs(1:nplevs), "_test", hlon, hlat,    &
+                           basetime, year=1, nxout=nxhis, nyout=nyhis,            &
+                           source=source, histfilename=ofile, height=use_meters,  &
+                           extra_atts=extra_atts, nsoil=ksoil, zsoil=zsoil )
          else
             call openhist( il, jl, nlev, sig(minlev:maxlev), "_test", hlon, hlat, &
                           basetime, year=1, nxout=nxhis, nyout=nyhis,             &
@@ -356,6 +386,11 @@ program cc2hist
                             basetime, year=1, nxout=nxhis, nyout=nyhis,            &
                             source=source, histfilename=ofile, pressure=use_plevs, &
                             extra_atts=extra_atts )
+         else if ( use_meters ) then
+            call openhist ( il, jl, nlev, mlevs(1:nplevs), "_test", hlon, hlat,    &
+                            basetime, year=1, nxout=nxhis, nyout=nyhis,            &
+                            source=source, histfilename=ofile, height=use_meters,  &
+                            extra_atts=extra_atts )
          else
             call openhist ( il, jl, nlev, sig(minlev:maxlev), "_test", hlon, hlat,     &
                             basetime, year=1, nxout=nxhis, nyout=nyhis,                &
@@ -367,8 +402,8 @@ program cc2hist
 !  needfld calls are only valid after openhist
    call final_init(varlist,nvars)
 
-   if (needfld("zg")) then
-      call initheight(kl,sig)
+   if ( needfld("zg") .or. use_meters ) then
+      call initheight( kl, sig )
    end if
 
 !  If ktc is still -1 and ndate and ntime aren't set then process all fields
@@ -492,9 +527,7 @@ program cc2hist
    end do timeloop
 
    call writehist(ktau, interp=ints, time=time, endofrun=.true. )
-   if ( myid == 0 ) then
-      call closehist
-   end if
+   if ( myid == 0 ) call closehist
    call paraclose
 
    call MPI_Finalize(ierr)

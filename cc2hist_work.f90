@@ -75,17 +75,14 @@ contains
 
       integer, intent(in) :: il, jl, kl, ksoil, kice
       
-      ! MJT notes - possibly allocate for pil and pjl*pnpan for lproc files
-      ! instead of using global arrays
-
-      allocate ( psl(pil,pjl*pnpan*lproc), pmsl(pil,pjl*pnpan*lproc), zs(pil,pjl*pnpan*lproc), tsu(pil,pjl*pnpan*lproc), soilt(pil,pjl*pnpan*lproc) )
-      allocate ( u(pil,pjl*pnpan*lproc,kl), v(pil,pjl*pnpan*lproc,kl), t(pil,pjl*pnpan*lproc,kl), q(pil,pjl*pnpan*lproc,kl) )
-      allocate ( pwc(pil,pjl*pnpan*lproc), ql(pil,pjl*pnpan*lproc,kl), qf(pil,pjl*pnpan*lproc,kl) )
+      allocate ( psl(pil,pjl*pnpan*lproc),   pmsl(pil,pjl*pnpan*lproc), zs(pil,pjl*pnpan*lproc),    tsu(pil,pjl*pnpan*lproc) )
+      allocate ( soilt(pil,pjl*pnpan*lproc), u(pil,pjl*pnpan*lproc,kl), v(pil,pjl*pnpan*lproc,kl),  t(pil,pjl*pnpan*lproc,kl) )
+      allocate ( q(pil,pjl*pnpan*lproc,kl),  pwc(pil,pjl*pnpan*lproc),  ql(pil,pjl*pnpan*lproc,kl), qf(pil,pjl*pnpan*lproc,kl) )
       allocate ( tgg(pil,pjl*pnpan*lproc,ksoil), wetfrac(pil,pjl*pnpan*lproc,ksoil), wbice(pil,pjl*pnpan*lproc,kice) )
-      allocate ( snowvar(pil,pjl*pnpan*lproc,3), isflag(pil,pjl*pnpan*lproc), tscrn3hr(pil,pjl*pnpan*lproc, 8) )
-      allocate ( taux(pil,pjl*pnpan*lproc), tauy(pil,pjl*pnpan*lproc) )
+      allocate ( snowvar(pil,pjl*pnpan*lproc,3), isflag(pil,pjl*pnpan*lproc),        tscrn3hr(pil,pjl*pnpan*lproc,8) )
+      allocate ( taux(pil,pjl*pnpan*lproc),      tauy(pil,pjl*pnpan*lproc) )
       if ( needfld("zg") ) then
-         if ( use_plevs ) then
+         if ( use_plevs .or. use_meters ) then
             allocate ( zstd(pil,pjl*pnpan*lproc,nplevs) )
          else
 !           Sigma level height calculation requires all levels.
@@ -94,6 +91,9 @@ contains
       end if
       if ( needfld("rh") ) then
          allocate ( rh(pil,pjl*pnpan*lproc,kl) )
+      end if
+      if ( use_meters ) then
+         allocate( hstd(pil,pjl*pnpan*lproc,kl) )
       end if
 
    end subroutine alloc_indata
@@ -147,7 +147,7 @@ contains
       real, dimension(pil,pjl*pnpan*lproc) :: wind_norm
       real, dimension(pil,pjl*pnpan*lproc,kk) :: ttmp
       character(len=10) :: name
-      real, parameter :: spval=999.
+      real, parameter :: spval   = 999.
       real, parameter :: tfreeze = 271.38
 
       ! With a netcdf file there's no need to read in order to skip.
@@ -159,7 +159,7 @@ contains
       if ( first_in ) then
          call alloc_indata ( ik, jk, kk, ksoil, kice )
       end if
-
+      
       do ivar=1,nvars
          ! Just write the input with no further processing
 
@@ -371,13 +371,31 @@ contains
          else
             select case ( varlist(ivar)%vname )
             case ( "temp" )
-               if ( need3dfld("temp")) then
+               ! temp should be the first of the 3D fields
+               if ( use_meters ) then
+                  ! assum 2D zs is already loaded above
+                  ! MJT notes - reading mixr skips ahead in the input file
+                  ! possibly reorder temp, mixr, u and v in CCAM
                   call vread( "temp", t)
+                  call vread( "mixr", q)
+                  ! psl will not be used in height
+                  call height( t, q, zs, psl, sig, hstd )
+                  do k=1,size(hstd,dim=3)
+                     hstd(:,:,k) = hstd(:,:,k) - zs/grav
+                  end do
+                  call mitop_setup( sig, mlevs(1:nplevs), hstd )
+               end if
+               if ( need3dfld("temp")) then
+                  if ( .not. use_meters ) then
+                     call vread( "temp", t)
+                  end if
                   call vsavehist ( "temp", t )
                end if
             case ( "mixr" )
                if ( need3dfld("mixr")) then
-                  call vread( "mixr", q )
+                  if ( .not. use_meters ) then
+                     call vread( "mixr", q )
+                  end if
                   call vsavehist ( "mixr", q )
                end if
             case ( "qlg" )
@@ -488,6 +506,11 @@ contains
       if ( needfld("zg") ) then
          if ( use_plevs ) then
             call height ( t, q, zs, psl, sig, zstd, plevs(1:nplevs) )
+            call savehist ( "zg", zstd )
+         else if ( use_meters ) then
+            do k=1,nplevs
+              zstd(:,:,k)=mlevs(k)
+            end do
             call savehist ( "zg", zstd )
          else
             call height ( t, q, zs, psl, sig, zstd )
@@ -936,7 +959,11 @@ contains
       use indices_m
       use parm_m, only : rlong0, rlat0
       use physparams, only : pi
+#ifdef usenc3
       include 'mpif.h'
+#else
+      use mpi
+#endif
       type(input_var), dimension(:) :: varlist
       integer, intent(in) :: nvars
       real, dimension(:,:), allocatable :: costh_g, sinth_g
@@ -949,10 +976,8 @@ contains
       logical :: need_rotate
       
       if ( myid == 0 ) then
-
          deallocate ( em )
          deallocate ( i_wu, i_sv, i_eu, i_nv )
-      
       end if
 
 !     There may be extra fields that require rotation, not set in the standard
@@ -1042,11 +1067,9 @@ contains
       end if
       
       if ( myid == 0 ) then
-      
 !       x, y, z, ax, ay, az, bx, by, bz no longer needed.
 !       ax etc are pointers to setxyz private arrays so the space can't be freed.
         deallocate ( x, y, z )
-        
       end if
       
 
@@ -1091,7 +1114,7 @@ contains
       use history, only : addfld, int_default, cf_compliant, cordex_compliant
       use interp_m, only : int_nearest, int_none
       use physparams, only : grav, rdry
-      use s2p_m, only: use_plevs, plevs
+      use s2p_m, only: use_plevs, plevs, use_meters, mlevs
       type(input_var), dimension(:), pointer :: varlist
       integer, intent(out) :: nvars
       integer :: ierr, ndimensions, nvariables, ndims, ivar, int_type, xtype
@@ -1127,25 +1150,25 @@ contains
       ! Force it to be first by having an extra 0 iteration on the loop
       ! Some special purpose outputs don't have psf, so only treat cases where
       ! use_plevs=T in this way.
-      if ( use_plevs ) then
-         ivar_start = 0
-      else
+      !if ( use_plevs ) then
+      !   ivar_start = 0
+      !else
          ivar_start = 1
-      end if
+      !end if
       do ivar=ivar_start,nvariables
-         if ( ivar == 0 ) then
-            ierr = nf90_inq_varid ( ncid, "psf", vid )
-            call check_ncerr(ierr, "Error getting vid for psf")
-            ierr = nf90_inquire_variable (ncid, vid, name=vname, ndims=ndims, dimids=dimids, xtype=xtype)
-            call check_ncerr(ierr, "nf90_inquire_variable error")
-         else
+         !if ( ivar == 0 ) then
+         !   ierr = nf90_inq_varid ( ncid, "psf", vid )
+         !   call check_ncerr(ierr, "Error getting vid for psf")
+         !   ierr = nf90_inquire_variable (ncid, vid, name=vname, ndims=ndims, dimids=dimids, xtype=xtype)
+         !   call check_ncerr(ierr, "nf90_inquire_variable error")
+         !else
             ierr = nf90_inquire_variable (ncid, ivar, name=vname, ndims=ndims, dimids=dimids, xtype=xtype)
             call check_ncerr(ierr, "nf90_inquire_variable error")
-            if ( use_plevs .and. vname == "psf" ) then
-               ! This has already been handled above
-               cycle
-            end if
-         end if
+            !if ( use_plevs .and. vname == "psf" ) then
+            !   ! This has already been handled above
+            !   cycle
+            !end if
+         !end if
 !         print*, ivar, vname, ndims, dimids(1:ndims)
          if ( ndims == 4 ) then
             ! Should be lon, lat, lev, time
@@ -1485,6 +1508,8 @@ contains
       ! for scaling
       if ( use_plevs ) then
          topsig = plevs(nlev) / 1000.
+      else if ( use_meters ) then
+         topsig = exp(-grav*mlevs(nlev)/(300.*rdry))
       else
          topsig = sig(kk)
       end if
@@ -1805,7 +1830,11 @@ contains
    ! From ccam infile.f
    subroutine fill_cc(b_io,value)
 !     routine fills in interior of an array which has undefined points
+#ifdef usenc3
       include 'mpif.h'
+#else
+      use mpi
+#endif
       real, intent(inout) :: b_io(pil,pjl*pnpan*lproc)         ! input and output array
       real, intent(in)    :: value                             ! array value denoting undefined
       real, dimension(0,0,0) :: c_io
@@ -1824,7 +1853,11 @@ contains
 !     routine fills in interior of an array which has undefined points
       use newmpar_m
       use indices_m
+#ifdef usenc3
       include 'mpif.h'
+#else
+      use mpi
+#endif
       real, intent(inout) :: b_io(pil,pjl*pnpan*lproc)         ! input and output array
       real, intent(in)    :: value            ! array value denoting undefined
       real, dimension(il,jl) :: a_io
@@ -1847,81 +1880,81 @@ contains
       
       if ( myid == 0 ) then
       
-      ! Really just a reshape
-      do j=1,jl
-         do i=1,il
-            iq = i + (j-1)*il
-            a(iq) = a_io(i,j)
+         ! Really just a reshape
+         do j=1,jl
+            do i=1,il
+               iq = i + (j-1)*il
+               a(iq) = a_io(i,j)
+            end do
          end do
-      end do
       
-      imin=1
-      imax=il
-      jmin=1
-      jmax=il
+         imin=1
+         imax=il
+         jmin=1
+         jmax=il
       
-      nrem = 1    ! Just for first iteration
-!     nrem_gmin used to avoid infinite loops, e.g. for no sice
-      do while ( nrem > 0 )
-         nrem=0
-         do n=0,5
-          iminb=il
-          imaxb=1
-          jminb=il
-          jmaxb=1
-          do j=jmin(n),jmax(n)
-           do i=imin(n),imax(n)
-            iq=i+(j-1)*il+n*il*il
-            b(iq)=a(iq)
-            if(a(iq)==value)then
-               neighb=0
-               av=0.
-               if(a(i_n(iq)).ne.value)then
-                  neighb=neighb+1
-                  av=av+a(i_n(iq))
-               endif
-               if(a(i_e(iq)).ne.value)then
-                  neighb=neighb+1
-                  av=av+a(i_e(iq))
-               endif
-               if(a(i_w(iq)).ne.value)then
-                  neighb=neighb+1
-                  av=av+a(i_w(iq))
-               endif
-               if(a(i_s(iq)).ne.value)then
-                  neighb=neighb+1
-                  av=av+a(i_s(iq))
-               endif
-               if(neighb>0)then
-                  b(iq)=av/neighb
-                  avx=av
-               else
-                  nrem=nrem+1   ! current number of points without a neighbour
-                  iminb=min(i,iminb)
-                  imaxb=max(i,imaxb)
-                  jminb=min(j,jminb)
-                  jmaxb=max(j,jmaxb)
-               endif
-            endif
-           end do
-          end do
-          imin(n)=iminb
-          imax(n)=imaxb
-          jmin(n)=jminb
-          jmax(n)=jmaxb
+         nrem = 1    ! Just for first iteration
+!        nrem_gmin used to avoid infinite loops, e.g. for no sice
+         do while ( nrem > 0 )
+            nrem=0
+            do n=0,5
+               iminb=il
+               imaxb=1
+               jminb=il
+               jmaxb=1
+               do j=jmin(n),jmax(n)
+                  do i=imin(n),imax(n)
+                     iq=i+(j-1)*il+n*il*il
+                     b(iq)=a(iq)
+                     if ( a(iq)==value ) then
+                        neighb=0
+                        av=0.
+                        if ( a(i_n(iq))/=value ) then
+                           neighb=neighb+1
+                           av=av+a(i_n(iq))
+                        end if
+                        if ( a(i_e(iq))/=value ) then
+                           neighb=neighb+1
+                           av=av+a(i_e(iq))
+                        end if
+                        if ( a(i_w(iq))/=value ) then
+                           neighb=neighb+1
+                           av=av+a(i_w(iq))
+                        end if
+                        if ( a(i_s(iq))/=value ) then
+                           neighb=neighb+1
+                           av=av+a(i_s(iq))
+                        end if
+                        if ( neighb>0 ) then
+                           b(iq)=av/neighb
+                           avx=av
+                        else
+                           nrem=nrem+1   ! current number of points without a neighbour
+                           iminb=min(i,iminb)
+                           imaxb=max(i,imaxb)
+                           jminb=min(j,jminb)
+                           jmaxb=max(j,jmaxb)
+                        end if
+                     end if
+                  end do
+               end do
+               imin(n)=iminb
+               imax(n)=imaxb
+               jmin(n)=jminb
+               jmax(n)=jmaxb
+            end do
+            a(:)=b(:)
+            if ( nrem == ifull ) then
+               print*, "Error in fill_cc - no points defined"
+               return
+            end if
          end do
-         a(:)=b(:)
-         if ( nrem == ifull ) then
-            print*, "Error in fill_cc - no points defined"
-            return
-         end if
-      end do
-      do j=1,jl
-         do i=1,il
-            iq = i + (j-1)*il
-            a_io(i,j) = a(iq)
+         do j=1,jl
+            do i=1,il
+               iq = i + (j-1)*il
+               a_io(i,j) = a(iq)
+            end do
          end do
-      end do
       
       end if
 
@@ -1938,7 +1971,11 @@ contains
    
    subroutine paraopen(ifile,nmode,ncid)
   
+#ifdef usenc3
       include 'mpif.h'
+#else
+      use mpi
+#endif
   
       integer, intent(in) :: nmode
       integer, intent(out) :: ncid
@@ -1955,10 +1992,10 @@ contains
          ip = 0
          write(pfile,"(a,'.',i6.6)") trim(ifile), ip
          ierr = nf90_open(pfile, nmode, ncid)
-	 if ( ierr /= nf90_noerr ) then
+         if ( ierr /= nf90_noerr ) then
             write(pfile,"(a,'.',i4.4)") trim(ifile), ip
             ierr = nf90_open(pfile, nmode, ncid)
-	 end if
+         end if
          call check_ncerr(ierr, "Error opening file")
       
          write(6,*) "Using parallel input files"
@@ -1967,13 +2004,13 @@ contains
          ier = nf90_get_att(ncid, nf90_global, "nproc", pnproc)
          call check_ncerr(ier, "nproc")
 
-         if (mod(pnproc,nproc)/=0) then
+         if ( mod(pnproc,nproc)/=0 ) then
             write(6,*) "ERROR: Number of processors is not a factor of the number of files"
             write(6,*) "nproc,pnproc ",nproc,pnproc
             call MPI_Abort(MPI_COMM_WORLD,-1,ierr)
          end if
       
-         allocate(ioff(0:pnproc-1,0:5),joff(0:pnproc-1,0:5))
+         allocate( ioff(0:pnproc-1,0:5), joff(0:pnproc-1,0:5) )
       
       end if
       
@@ -1987,10 +2024,10 @@ contains
             rip = myid*lproc + ip
             write(pfile,"(a,'.',i6.6)") trim(ifile), rip
             ier = nf90_open ( pfile, nmode, ncid_in(ip) )
-	    if (ier /= nf90_noerr ) then
+            if (ier /= nf90_noerr ) then
                write(pfile,"(a,'.',i4.4)") trim(ifile), rip
                ier = nf90_open ( pfile, nmode, ncid_in(ip) )
-	    end if
+            end if
             if (ier /= nf90_noerr ) then
                write(6,*) "ERROR: Cannot open ",trim(pfile)
                call check_ncerr(ier, "open")
@@ -2005,10 +2042,10 @@ contains
             rip = ip
             write(pfile,"(a,'.',i6.6)") trim(ifile), rip
             ier = nf90_open ( pfile, nmode, ncid_in(ip) )
-	    if ( ier /= nf90_noerr ) then
+            if ( ier /= nf90_noerr ) then
                write(pfile,"(a,'.',i4.4)") trim(ifile), rip
                ier = nf90_open ( pfile, nmode, ncid_in(ip) )
-	    end if
+            end if
             if ( ier /= nf90_noerr ) then
                write(6,*) "ERROR: Cannot open ",trim(pfile)
                call check_ncerr(ier, "open")
@@ -2044,7 +2081,7 @@ contains
                   joff(:,n) = joff(:,0)
                end do
             case default
-               write(6,*) "ERROR: Unknown decomposition ",trim(sdecomp)
+               print *,"ERROR: Unknown decomposition ",trim(sdecomp)
                stop
          end select
       

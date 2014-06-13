@@ -741,10 +741,10 @@ contains
    end subroutine addfld
    
 !-------------------------------------------------------------------
-   subroutine openhist ( nx, ny, nl, sig, suffix, hlon, hlat, basetime, &
+   subroutine openhist ( nx, ny, nl, sig, suffix, hlon, hlat, basetime,       &
                          doublerow, year, nxout, nyout, source, histfilename, &
-                         pressure, extra_atts, hybrid_levels, anf, bnf, p0, &
-                         calendar, nsoil, zsoil )
+                         pressure, height, extra_atts, hybrid_levels, anf,    &
+                         bnf, p0, calendar, nsoil, zsoil )
 !
 !     Create netCDF history files using information in histinfo array.
 !
@@ -765,6 +765,7 @@ contains
       character(len=*), intent(in), optional :: histfilename
 !     Output uses sigma or pressure as vertical coordinate
       logical, intent(in), optional :: pressure
+      logical, intent(in), optional :: height
       type(hist_att), dimension(:), optional :: extra_atts
       logical, intent(in), optional :: hybrid_levels
       real, dimension(:), intent(in), optional :: anf, bnf
@@ -782,7 +783,7 @@ contains
       integer :: ncid, vid, ifile, ivar, istart, iend, ilev
       character(len=80) :: longname, units
       character(len=MAX_NAMELEN) :: vname
-      logical :: used, multilev, use_plevs, use_hyblevs
+      logical :: used, multilev, use_plevs, use_hyblevs, use_meters
       integer, dimension(totflds) :: coord_heights
       integer :: kc, ncoords, k
       logical :: soil_used
@@ -1042,19 +1043,23 @@ contains
          if ( present(pressure) ) then
             use_plevs = pressure
          end if
+         use_meters = .false.
+         if ( present(height) ) then
+            use_meters = height
+         end if
          use_hyblevs = .false.
          if ( present(hybrid_levels) ) then
             use_hyblevs = hybrid_levels
          end if
          if ( soil_used ) then
             ! Better to define a new local nsoil variable?
-            call create_ncfile ( filename, nxhis, nyhis, size(sig), multilev, &
-                 use_plevs, use_hyblevs, basetime, coord_heights(1:ncoords), ncid, dims, dimvars, &
-                 source, extra_atts, calendar, nsoil, zsoil )
+            call create_ncfile ( filename, nxhis, nyhis, size(sig), multilev,                   &
+                 use_plevs, use_meters, use_hyblevs, basetime, coord_heights(1:ncoords), ncid,  &
+                 dims, dimvars, source, extra_atts, calendar, nsoil, zsoil )
          else
-            call create_ncfile ( filename, nxhis, nyhis, size(sig), multilev, &
-                 use_plevs, use_hyblevs, basetime, coord_heights(1:ncoords), ncid, dims, dimvars, &
-                 source, extra_atts, calendar)
+            call create_ncfile ( filename, nxhis, nyhis, size(sig), multilev,                   &
+                 use_plevs, use_meters, use_hyblevs, basetime, coord_heights(1:ncoords), ncid,  &
+                 dims, dimvars, source, extra_atts, calendar)
          end if
          histid(ifile) = ncid
 
@@ -1453,14 +1458,14 @@ contains
    end subroutine create_ncvar
   
 !---------------------------------------------------------------------------
-   subroutine create_ncfile ( filename, nxhis, nyhis, nlev, multilev, &
-                 use_plevs, use_hyblevs, basetime, coord_heights, ncid, dims, dimvars, &
-                 source, extra_atts, calendar, nsoil, zsoil )
+   subroutine create_ncfile ( filename, nxhis, nyhis, nlev, multilev,                &
+                 use_plevs, use_meters, use_hyblevs, basetime, coord_heights, ncid,  &
+                 dims, dimvars, source, extra_atts, calendar, nsoil, zsoil )
 
       use mpidata_m
       character(len=*), intent(in) :: filename
       integer, intent(in) :: nxhis, nyhis, nlev
-      logical, intent(in) :: multilev, use_plevs, use_hyblevs
+      logical, intent(in) :: multilev, use_plevs, use_meters, use_hyblevs
       character(len=*), intent(in) :: basetime
       integer, dimension(:), intent(in) :: coord_heights
       integer, intent(out) :: ncid
@@ -1506,7 +1511,11 @@ contains
 
 !     Only create the lev dimension if one of the variables actually uses it
       if ( multilev ) then
-         ierr = nf90_def_dim ( ncid, "lev", nlev, dims%z )
+         if ( use_meters ) then
+            ierr = nf90_def_dim ( ncid, "alt", nlev, dims%z )
+         else
+            ierr = nf90_def_dim ( ncid, "lev", nlev, dims%z )
+         end if
          call check_ncerr(ierr,"Error creating lev dimension")
          if ( hist_debug > 5 ) print*, "Created lev dimension, id",  dims%z
       end if
@@ -1589,16 +1598,31 @@ contains
       end if
 
       if ( multilev ) then
-         ierr = nf90_def_var ( ncid, "lev", NF90_FLOAT, dims%z, dimvars%z )
-         call check_ncerr(ierr)
          if ( use_plevs ) then
+            ierr = nf90_def_var ( ncid, "lev", NF90_FLOAT, dims%z, dimvars%z )
+            call check_ncerr(ierr)
             ierr = nf90_put_att ( ncid, dimvars%z, "long_name", "pressure_level" )
             call check_ncerr(ierr)
             ierr = nf90_put_att ( ncid, dimvars%z, "units", "hPa" )
             call check_ncerr(ierr)
+            ierr = nf90_put_att ( ncid, dimvars%z, "positive", "down" )
+            call check_ncerr(ierr)
+         else if ( use_meters ) then
+            ierr = nf90_def_var ( ncid, "alt", NF90_FLOAT, dims%z, dimvars%z )
+            call check_ncerr(ierr)
+            ierr = nf90_put_att ( ncid, dimvars%z, "standard_name", "height" )
+            call check_ncerr(ierr)
+            ierr = nf90_put_att ( ncid, dimvars%z, "long_name", "vertical distance above the surface" )
+            call check_ncerr(ierr)
+            ierr = nf90_put_att ( ncid, dimvars%z, "units", "m" )
+            call check_ncerr(ierr)
+            ierr = nf90_put_att ( ncid, dimvars%z, "positive", "up" )
+            call check_ncerr(ierr)
          else if ( use_hyblevs ) then
             ! This is required for grads to recognise it's a vertical dimension
             ! Allowed by CF convention
+            ierr = nf90_def_var ( ncid, "lev", NF90_FLOAT, dims%z, dimvars%z )
+            call check_ncerr(ierr)
             ierr = nf90_put_att ( ncid, dimvars%z, "units", "level" )
             call check_ncerr(ierr)
             ierr = nf90_put_att ( ncid, dimvars%z, "standard_name", "atmosphere_hybrid_sigma_pressure_coordinate" )
@@ -1607,14 +1631,18 @@ contains
             call check_ncerr(ierr)
             ierr = nf90_put_att ( ncid, dimvars%z, "comment",  "p(k) = anf(k)*P0 + bnf(k)*ps, Coordinate value is anf(k)+ bnf(k)")
             call check_ncerr(ierr)
+            ierr = nf90_put_att ( ncid, dimvars%z, "positive", "down" )
+            call check_ncerr(ierr)
          else
+            ierr = nf90_def_var ( ncid, "lev", NF90_FLOAT, dims%z, dimvars%z )
+            call check_ncerr(ierr)
             ierr = nf90_put_att ( ncid, dimvars%z, "long_name", "sigma_level" )
             call check_ncerr(ierr)
             ierr = nf90_put_att ( ncid, dimvars%z, "units", "sigma_level" )
             call check_ncerr(ierr)
+            ierr = nf90_put_att ( ncid, dimvars%z, "positive", "down" )
+            call check_ncerr(ierr)
          end if
-         ierr = nf90_put_att ( ncid, dimvars%z, "positive", "down" )
-         call check_ncerr(ierr)
          ierr = nf90_put_att ( ncid, dimvars%z, "axis", "Z" )
          call check_ncerr(ierr)
       end if

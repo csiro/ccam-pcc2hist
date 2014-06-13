@@ -8,5 +8,6 @@ module gldata
    real, dimension(:,:,:), allocatable, save :: tgg, wetfrac, wbice, snowvar, tscrn3hr
    real, dimension(:,:), allocatable, save :: taux, tauy
    real, allocatable, dimension(:,:,:) :: zstd
+   real, allocatable, dimension(:,:,:) :: hstd
    integer, dimension(:,:), allocatable, save :: isflag
 end module gldata
