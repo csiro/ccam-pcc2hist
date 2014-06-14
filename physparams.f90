@@ -19,5 +19,6 @@ module physparams
    real, parameter :: tomg = 2*7.2921233e-5 ! 2*omega
    real, parameter :: pi = 3.14159265358979 !Good ol' pi
    real, parameter :: degtorad = pi/180.
+   real, parameter :: stdlapse = 6.5e-3
 
 end module physparams

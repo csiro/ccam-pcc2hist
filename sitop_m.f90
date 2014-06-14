@@ -332,15 +332,19 @@ contains
    end subroutine sitop
 
    
-   subroutine mitop_setup ( sigr, mtrlvs, height)
+   subroutine mitop_setup ( sigr, mtrlvs, height, tg, qg )
 
       ! Setup for mitop. Calculate things that don't depend on the field
       ! being interpolated.
 
+      use physparams
       use utils_m, only : assert, search_fgt
       real, dimension(:), intent(in)       :: sigr      ! Sigma levels
       real, dimension(:), intent(in)       :: mtrlvs    ! Height levels
-      real, dimension(:,:,:), intent(in)     :: height  ! Output levels
+      real, dimension(:,:,:), intent(in)   :: height    ! Output levels
+      real, dimension(:,:,:), intent(in)   :: tg        ! Temperature
+      real, dimension(:,:,:), intent(in)   :: qg        ! Water vapor
+      real, dimension(size(tg,dim=1),size(tg,dim=3)) :: tv
       real, parameter :: cmu1=0.5, clmdam=0.5
 
       integer :: i, k, ii, ns, iii, kp, ks
@@ -379,15 +383,21 @@ contains
       end if
 
 !     Reverse data and heights.
+      z=grav/stdlapse
       do j=1,iy
+         tv = tg(:,j,:) * (epsil+qg(:,j,:))/(epsil*(1.+qg(:,j,:)))    
          do i=1,ix
             ii = 1
             do k=1,nprlvs
-               do while ( height(i,j,ii+1)<mtrlvs(k) .and. ii<nsgm1 )
-                  ii = ii+1
-               end do
-               z = (mtrlvs(k)-height(i,j,ii))/(height(i,j,ii+1)-height(i,j,ii))
-               sig(i,nprlvs+1-k,j) = max(min(siglvs(nsglvs-ii+1)-z*h(nsglvs-ii),1.),0.)
+               if ( mtrlvs(k)<height(i,j,1) ) then
+                  sig(i,nprlvs+1-k,j) = (grav*mtrlvs(k)/(tv(i,1)*z)+1.)**(-z/rdry)
+               else
+                  do while ( height(i,j,ii+1)<mtrlvs(k) .and. ii<nsgm1 )
+                     ii = ii+1
+                  end do
+                  sig(i,nprlvs+1-k,j) = siglvs(nsglvs-ii+1) &
+                      *exp(-2.*grav/rdry*(mtrlvs(k)-height(i,j,ii))/(tv(i,ii)+tv(i,ii+1)))
+               end if
             end do
          end do
       end do

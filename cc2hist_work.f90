@@ -383,7 +383,7 @@ contains
                   do k=1,size(hstd,dim=3)
                      hstd(:,:,k) = hstd(:,:,k) - zs/grav
                   end do
-                  call mitop_setup( sig, mlevs(1:nplevs), hstd )
+                  call mitop_setup( sig, mlevs(1:nplevs), hstd, t, q )
                end if
                if ( need3dfld("temp")) then
                   if ( .not. use_meters ) then
