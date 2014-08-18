@@ -2269,7 +2269,8 @@ contains
                   end if
                else
 
-                  call MPI_Gather(histarray(:,:,k),pil*pjl*pnpan*lproc,MPI_REAL,hist_a,pil*pjl*pnpan*lproc,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+                  call MPI_Gather(histarray(:,:,k),pil*pjl*pnpan*lproc,MPI_REAL,hist_a,pil*pjl*pnpan*lproc,MPI_REAL,0, &
+                                  MPI_COMM_WORLD,ierr)
                
                   if ( myid == 0 ) then
                   
