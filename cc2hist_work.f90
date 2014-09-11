@@ -145,6 +145,7 @@ contains
       real, dimension(pil,pjl*pnpan*lproc) :: vave, lmask, tss_s, uten, dtmp
       real, dimension(pil,pjl*pnpan*lproc) :: rgn, rgd, sgn, sgd
       real, dimension(pil,pjl*pnpan*lproc) :: wind_norm
+      real, dimension(pil,pjl*pnpan*lproc) :: uastmp, vastmp
       real, dimension(pil,pjl*pnpan*lproc,kk) :: ttmp
       character(len=10) :: name
       real, parameter :: spval   = 999.
@@ -448,45 +449,55 @@ contains
       call savehist( "tbot", t(:,:,1))
       call savehist( "qbot", q(:,:,1))
 
-      if ( needfld("u") .or. needfld("v")           .or. &
-           needfld("vaveuq") .or. needfld("vavevq") .or. &
-           needfld("vaveut") .or. needfld("vavevt") .or. &
-           needfld("ubot")   .or. needfld("vbot")   .or. &
-           needfld("uas")    .or. needfld("vas")    .or. &
-           needfld("d10") ) then
-         call fix_winds(u, v)
-         call vsavehist ( "u", u )
-         call vsavehist ( "v", v )
-         call savehist ( "ubot", u(:,:,1) )
-         call savehist ( "vbot", v(:,:,1) )
-          if ( needfld("d10") ) then
-            dtmp=atan2(-u(:,:,1),-v(:,:,1))*180./3.1415927
-            where (dtmp.lt.0.)
-              dtmp=dtmp+360.
-            end where
-            call savehist( "d10", dtmp )
-          end if
-          if ( needfld("uas") .or. needfld("vas") ) then
-             wind_norm(:,:) = sqrt(u(:,:,1)*u(:,:,1)+v(:,:,1)*v(:,:,1))
-          end if
-          if ( needfld("uas") ) then
-            where ( wind_norm > 0.0 )
-               dtmp=u(:,:,1)*uten/wind_norm
-            elsewhere
-               dtmp=0.0
-            end where
-            call savehist ( "uas", dtmp )
-          end if
-          if ( needfld("vas") ) then
-            where ( wind_norm > 0.0 )
-               dtmp=v(:,:,1)*uten/wind_norm
-            elsewhere
-               dtmp=0.0
-            end where
-            call savehist ( "vas", dtmp )
-          end if
+      if ( kk > 1) then
+         if ( needfld("u") .or. needfld("v")           .or. &
+              needfld("vaveuq") .or. needfld("vavevq") .or. &
+              needfld("vaveut") .or. needfld("vavevt") .or. &
+              needfld("ubot")   .or. needfld("vbot")   .or. &
+              needfld("uas")    .or. needfld("vas")    .or. &
+              needfld("d10") ) then
+            call fix_winds(u, v)
+            call vsavehist ( "u", u )
+            call vsavehist ( "v", v )
+            call savehist ( "ubot", u(:,:,1) )
+            call savehist ( "vbot", v(:,:,1) )
+            if ( needfld("d10") ) then
+               dtmp=atan2(-u(:,:,1),-v(:,:,1))*180./3.1415927
+               where (dtmp.lt.0.)
+                 dtmp=dtmp+360.
+               end where
+               call savehist( "d10", dtmp )
+             end if
+             if ( needfld("uas") .or. needfld("vas") ) then
+                wind_norm(:,:) = sqrt(u(:,:,1)*u(:,:,1)+v(:,:,1)*v(:,:,1))
+             end if
+             if ( needfld("uas") ) then
+               where ( wind_norm > 0.0 )
+                  dtmp=u(:,:,1)*uten/wind_norm
+               elsewhere
+                  dtmp=0.0
+               end where
+               call savehist ( "uas", dtmp )
+             end if
+             if ( needfld("vas") ) then
+               where ( wind_norm > 0.0 )
+                  dtmp=v(:,:,1)*uten/wind_norm
+               elsewhere
+                  dtmp=0.0
+               end where
+               call savehist ( "vas", dtmp )
+             end if
+         end if
+      else
+         if ( needfld("uas") .or. needfld("vas") ) then
+            call vread( "uas", uastmp )
+            call vread( "vas", vastmp )
+            call fix_winds(uastmp, vastmp)
+            call savehist( "uas", uastmp )
+            call savehist( "vas", vastmp )
+         end if
       end if
-
+          
       if ( needfld("pwc") ) then
          pwc = 0.0
          do k=1,kk
