@@ -145,7 +145,6 @@ contains
       real, dimension(pil,pjl*pnpan*lproc) :: vave, lmask, tss_s, uten, dtmp
       real, dimension(pil,pjl*pnpan*lproc) :: rgn, rgd, sgn, sgd
       real, dimension(pil,pjl*pnpan*lproc) :: wind_norm
-      real, dimension(pil,pjl*pnpan*lproc) :: uastmp, vastmp
       real, dimension(pil,pjl*pnpan*lproc,kk) :: ttmp
       character(len=10) :: name
       real, parameter :: spval   = 999.
@@ -487,14 +486,6 @@ contains
                end where
                call savehist ( "vas", dtmp )
              end if
-         end if
-      else
-         if ( needfld("uas") .or. needfld("vas") ) then
-            call vread( "uas", uastmp )
-            call vread( "vas", vastmp )
-            call fix_winds(uastmp, vastmp)
-            call savehist( "uas", uastmp )
-            call savehist( "vas", vastmp )
          end if
       end if
           
@@ -1515,8 +1506,10 @@ contains
                         ave_type="fixed", int_type=int_nearest )
          call addfld ( "d10", "10m wind direction", "deg", 0.0, 360.0, 1 )
       end if
-      call addfld ( "uas", "x-component 10m wind", "m/s", -100.0, 100.0, 1 )
-      call addfld ( "vas", "y-component 10m wind", "m/s", -100.0, 100.0, 1 )
+      if ( kk > 1 ) then
+         call addfld ( "uas", "x-component 10m wind", "m/s", -100.0, 100.0, 1 )
+         call addfld ( "vas", "y-component 10m wind", "m/s", -100.0, 100.0, 1 )
+      end if
       ! Packing is not going to work well in this case
       ! For height, estimate the height of the top level and use that
       ! for scaling
