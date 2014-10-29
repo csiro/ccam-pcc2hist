@@ -75,12 +75,11 @@ contains
 
       integer, intent(in) :: il, jl, kl, ksoil, kice
       
-      allocate ( psl(pil,pjl*pnpan*lproc),   pmsl(pil,pjl*pnpan*lproc), zs(pil,pjl*pnpan*lproc),    tsu(pil,pjl*pnpan*lproc) )
+      allocate ( psl(pil,pjl*pnpan*lproc),   zs(pil,pjl*pnpan*lproc) )
       allocate ( soilt(pil,pjl*pnpan*lproc), u(pil,pjl*pnpan*lproc,kl), v(pil,pjl*pnpan*lproc,kl),  t(pil,pjl*pnpan*lproc,kl) )
-      allocate ( q(pil,pjl*pnpan*lproc,kl),  pwc(pil,pjl*pnpan*lproc),  ql(pil,pjl*pnpan*lproc,kl), qf(pil,pjl*pnpan*lproc,kl) )
-      allocate ( tgg(pil,pjl*pnpan*lproc,ksoil), wetfrac(pil,pjl*pnpan*lproc,ksoil), wbice(pil,pjl*pnpan*lproc,kice) )
-      allocate ( snowvar(pil,pjl*pnpan*lproc,3), isflag(pil,pjl*pnpan*lproc),        tscrn3hr(pil,pjl*pnpan*lproc,8) )
-      allocate ( taux(pil,pjl*pnpan*lproc),      tauy(pil,pjl*pnpan*lproc) )
+      allocate ( q(pil,pjl*pnpan*lproc,kl),  ql(pil,pjl*pnpan*lproc,kl), qf(pil,pjl*pnpan*lproc,kl) )
+      allocate ( tgg(pil,pjl*pnpan*lproc,ksoil), wbice(pil,pjl*pnpan*lproc,kice) )
+      allocate ( snowvar(pil,pjl*pnpan*lproc,3) )
       if ( needfld("zg") ) then
          if ( use_plevs .or. use_meters ) then
             allocate ( zstd(pil,pjl*pnpan*lproc,nplevs) )
@@ -142,10 +141,9 @@ contains
       integer, intent(in) :: nvars
       logical, intent(in)  :: skip
       integer :: k, ivar
-      real, dimension(pil,pjl*pnpan*lproc) :: vave, lmask, tss_s, uten, dtmp
+      real, dimension(pil,pjl*pnpan*lproc) :: uten, dtmp, ctmp
       real, dimension(pil,pjl*pnpan*lproc) :: rgn, rgd, sgn, sgd
       real, dimension(pil,pjl*pnpan*lproc) :: wind_norm
-      real, dimension(pil,pjl*pnpan*lproc,kk) :: ttmp
       character(len=10) :: name
       real, parameter :: spval   = 999.
       real, parameter :: tfreeze = 271.38
@@ -180,18 +178,18 @@ contains
                   call savehist("soilt", soilt)
                   if ( needfld("land_mask") ) then
                      where ( soilt > 0.5 )
-                        lmask = 1.
+                        dtmp = 1.
                      elsewhere
-                        lmask = 0.
+                        dtmp = 0.
                      end where
-                     call savehist("land_mask", lmask)
+                     call savehist("land_mask", dtmp)
                   else if ( needfld("sftlf") ) then
                      where ( soilt > 0.5 )
-                        lmask = 100.
+                        dtmp = 100.
                      elsewhere
-                        lmask = 0.
+                        dtmp = 0.
                      end where
-                     call savehist("sftlf", lmask)
+                     call savehist("sftlf", dtmp)
                   endif
                else
                   call readsave2 ( varlist(ivar)%vname )
@@ -315,34 +313,34 @@ contains
             case ( "tauv" )
                call readsave2 (varlist(ivar)%vname, input_name="tauy")
             case ( "ts" )
-               call vread( "tsu", tsu )
+               call vread( "tsu", dtmp )
                ! Some (all?) initial conditions have tsu negative over ocean
-               call savehist("ts", abs(tsu))
+               call savehist("ts", abs(dtmp))
                if ( needfld("tsea") ) then
                   ! Use soilt as a land-sea mask (integer but read as float)
                   where ( soilt > 0.5 )
-                     tss_s = spval
+                     ctmp = spval
                   elsewhere
                      ! Use the maxval to ignore ice points.
-                     tss_s = max(tfreeze, abs(tsu))
+                     ctmp = max(tfreeze, abs(dtmp))
                   end where
-                  call fill_cc(tss_s, spval)
-                  call savehist ( "tsea", tss_s )
+                  call fill_cc(ctmp, spval)
+                  call savehist ( "tsea", ctmp )
                end if
             case ( "tsu" )
-               call vread( "tsu", tsu )
+               call vread( "tsu", dtmp )
                ! Some (all?) initial conditions have tsu negative over ocean
-               call savehist("tsu", abs(tsu))
+               call savehist("tsu", abs(dtmp))
                if ( needfld("tsea") ) then
                   ! Use soilt as a land-sea mask (integer but read as float)
                   where ( soilt > 0.5 )
-                     tss_s = spval
+                     ctmp = spval
                   elsewhere
                      ! Use the maxval to ignore ice points.
-                     tss_s = max(tfreeze, abs(tsu))
+                     ctmp = max(tfreeze, abs(dtmp))
                   end where
-                  call fill_cc(tss_s, spval)
-                  call savehist ( "tsea", tss_s )
+                  call fill_cc(ctmp, spval)
+                  call savehist ( "tsea", ctmp )
                end if
             case ( "u10" )
                call vread( "u10", uten )
@@ -357,11 +355,11 @@ contains
                      ! name of other component
                      name = varlist(varlist(ivar)%othercmpnt)%vname
                      if ( needfld(varlist(ivar)%vname) .or. needfld(name) ) then
-                        call vread( varlist(ivar)%vname, taux)
-                        call vread( name, tauy)
-                        call fix_winds(taux, tauy)
-                        call savehist ( varlist(ivar)%vname, taux )
-                        call savehist ( name, tauy )
+                        call vread( varlist(ivar)%vname, ctmp)
+                        call vread( name, dtmp)
+                        call fix_winds(ctmp, dtmp)
+                        call savehist ( varlist(ivar)%vname, ctmp )
+                        call savehist ( name, dtmp )
                      end if
                   endif
                else
@@ -435,9 +433,9 @@ contains
                ! Only in cf_compliant mode
                do k=1,ksoil
                   write(name,'(a,i1)') 'wetfrac', k
-                  call vread(name,wetfrac(:,:,k))
+                  call vread(name,tgg(:,:,k))
                end do
-               call savehist("wetfrac", wetfrac)
+               call savehist("wetfrac", tgg)
             case default
                call readsave3 (varlist(ivar)%vname)
             end select
@@ -490,19 +488,19 @@ contains
       end if
           
       if ( needfld("pwc") ) then
-         pwc = 0.0
+         dtmp = 0.0
          do k=1,kk
-            pwc = pwc + dsig(k)*q(:,:,k)
+            dtmp = dtmp + dsig(k)*q(:,:,k)
          end do
-         pwc = 100.*psl/grav * pwc
-         call savehist ( "pwc", pwc )
+         dtmp = 100.*psl/grav * dtmp
+         call savehist ( "pwc", dtmp )
       else if ( needfld("prw") ) then
-         pwc = 0.0
+         dtmp = 0.0
          do k=1,kk
-            pwc = pwc + dsig(k)*q(:,:,k)
+            dtmp = dtmp + dsig(k)*q(:,:,k)
          end do
-         pwc = 100.*psl/grav * pwc
-         call savehist ( "prw", pwc )
+         dtmp = 100.*psl/grav * dtmp
+         call savehist ( "prw", dtmp )
       end if
 
       if ( needfld("zg") ) then
@@ -528,32 +526,32 @@ contains
       ! Note that these are just vertical averages, not vertical integrals
       ! Use the winds that have been rotatated to the true directions
       if ( needfld("vaveuq") ) then
-         vave = 0.0
+         dtmp = 0.0
          do k=1,kk
-            vave = vave + dsig(k)*u(:,:,k)*q(:,:,k)
+            dtmp = dtmp + dsig(k)*u(:,:,k)*q(:,:,k)
          end do
-         call savehist( "vaveuq", vave)
+         call savehist( "vaveuq", dtmp)
       end if
       if ( needfld("vavevq") ) then
-         vave = 0.0
+         dtmp = 0.0
          do k=1,kk
-            vave = vave + dsig(k)*v(:,:,k)*q(:,:,k)
+            dtmp = dtmp + dsig(k)*v(:,:,k)*q(:,:,k)
          end do
-         call savehist( "vavevq", vave)
+         call savehist( "vavevq", dtmp)
       end if
       if ( needfld("vaveut") ) then
-         vave = 0.0
+         dtmp = 0.0
          do k=1,kk
-            vave = vave + dsig(k)*u(:,:,k)*t(:,:,k)
+            dtmp = dtmp + dsig(k)*u(:,:,k)*t(:,:,k)
          end do
-         call savehist( "vaveut", vave)
+         call savehist( "vaveut", dtmp)
       end if
       if ( needfld("vavevt") ) then
-         vave = 0.0
+         dtmp = 0.0
          do k=1,kk
-            vave = vave + dsig(k)*v(:,:,k)*t(:,:,k)
+            dtmp = dtmp + dsig(k)*v(:,:,k)*t(:,:,k)
          end do
-         call savehist( "vavevt", vave)
+         call savehist( "vavevt", dtmp)
       end if
       
       if ( needfld("rsus") ) then
@@ -1999,10 +1997,10 @@ contains
          ip = 0
          write(pfile,"(a,'.',i6.6)") trim(ifile), ip
          ierr = nf90_open(pfile, nmode, ncid)
-         if ( ierr /= nf90_noerr ) then
-            write(pfile,"(a,'.',i4.4)") trim(ifile), ip
-            ierr = nf90_open(pfile, nmode, ncid)
-         end if
+         !if ( ierr /= nf90_noerr ) then
+         !   write(pfile,"(a,'.',i4.4)") trim(ifile), ip
+         !   ierr = nf90_open(pfile, nmode, ncid)
+         !end if
          call check_ncerr(ierr, "Error opening file")
       
          write(6,*) "Using parallel input files"
@@ -2031,10 +2029,10 @@ contains
             rip = myid*lproc + ip
             write(pfile,"(a,'.',i6.6)") trim(ifile), rip
             ier = nf90_open ( pfile, nmode, ncid_in(ip) )
-            if (ier /= nf90_noerr ) then
-               write(pfile,"(a,'.',i4.4)") trim(ifile), rip
-               ier = nf90_open ( pfile, nmode, ncid_in(ip) )
-            end if
+            !if (ier /= nf90_noerr ) then
+            !   write(pfile,"(a,'.',i4.4)") trim(ifile), rip
+            !   ier = nf90_open ( pfile, nmode, ncid_in(ip) )
+            !end if
             if (ier /= nf90_noerr ) then
                write(6,*) "ERROR: Cannot open ",trim(pfile)
                call check_ncerr(ier, "open")
@@ -2049,10 +2047,10 @@ contains
             rip = ip
             write(pfile,"(a,'.',i6.6)") trim(ifile), rip
             ier = nf90_open ( pfile, nmode, ncid_in(ip) )
-            if ( ier /= nf90_noerr ) then
-               write(pfile,"(a,'.',i4.4)") trim(ifile), rip
-               ier = nf90_open ( pfile, nmode, ncid_in(ip) )
-            end if
+            !if ( ier /= nf90_noerr ) then
+            !   write(pfile,"(a,'.',i4.4)") trim(ifile), rip
+            !   ier = nf90_open ( pfile, nmode, ncid_in(ip) )
+            !end if
             if ( ier /= nf90_noerr ) then
                write(6,*) "ERROR: Cannot open ",trim(pfile)
                call check_ncerr(ier, "open")
