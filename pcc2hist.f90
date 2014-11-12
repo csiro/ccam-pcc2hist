@@ -138,7 +138,7 @@ program cc2hist
                optionstring = optionstring(:len_trim(optionstring)) // " --interp=none"
             case default
                print*, "Expected nearest, linear or none for interp option"
-               stop
+               call MPI_ABORT(MPI_COMM_WORLD,-1,ierr)
             end select
          case ( 2 )
             select case ( optarg )
@@ -152,7 +152,7 @@ program cc2hist
                optionstring = optionstring(:len_trim(optionstring)) // " --vextrap=missing"
             case default
                print*, "Expected linear, none or missing for vextrap option"
-               stop
+               call MPI_ABORT(MPI_COMM_WORLD,-1,ierr)
             end select
          case ( 3 )
             cf_compliant = .true.
@@ -160,7 +160,7 @@ program cc2hist
             cordex_compliant = .true.
          case default
             print*, "Unexpected result processing long options", longind
-            stop
+            call MPI_ABORT(MPI_COMM_WORLD,-1,ierr)
          end select
       case default
          if ( myid == 0 ) then
@@ -172,7 +172,7 @@ program cc2hist
 
    if ( vextrap == vextrap_missing .and. int_default == int_normal ) then
       print*, "For missing option to work, must set interp to linear or nearest"
-      stop
+      call MPI_ABORT(MPI_COMM_WORLD,-1,ierr)
    end if
 
 !  If filenames were not set as options look for them as arguments
@@ -190,7 +190,7 @@ program cc2hist
 
    if ( len_trim(ifile) == 0 .or. len_trim(ofile) == 0 ) then
       print*, "Error setting input/output filenames"
-      stop
+      call MPI_ABORT(MPI_COMM_WORLD,-1,ierr)
    end if
 
 !  Only read the input namelist if the all flag hasn't been set.
@@ -203,16 +203,16 @@ program cc2hist
    end if
    if ( darlam_grid ) then
       print *,"Darlam is no longer supported"
-      stop
+      call MPI_ABORT(MPI_COMM_WORLD,-1,ierr)
    end if
    if ( .not. agrid ) then
       print *,"C-grid is no longer supported"
-      stop
+      call MPI_ABORT(MPI_COMM_WORLD,-1,ierr)
    end if
    
    if ( use_plevs .and. use_meters ) then
       print *,"Cannot both use_plevs and use_meters together"
-      stop
+      call MPI_ABORT(MPI_COMM_WORLD,-1,ierr)
    end if
 
 !  Check whether ndate and ntime have been set
@@ -259,12 +259,12 @@ program cc2hist
    minlev = max(1, minlev)
    maxlev = min(kl, maxlev)
 !  Now find the index of the first sigma level above maxsig
-   do k=minlev,maxlev
+   do k = minlev,maxlev
       if ( sig(k) <= maxsig ) exit
    end do
    minlev = k
 !  Sigma level below minsig
-   do k=maxlev,minlev,-1
+   do k = maxlev,minlev,-1
       if ( sig(k) >= minsig ) exit
    end do
    maxlev = k
@@ -276,6 +276,8 @@ program cc2hist
    end if
    if ( use_plevs .or. use_meters ) then
       nlev = nplevs
+      minlev = 1
+      maxlev = kl
    end if
 
    call get_var_list(varlist,nvars)

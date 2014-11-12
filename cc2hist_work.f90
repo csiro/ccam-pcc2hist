@@ -527,28 +527,28 @@ contains
       ! Use the winds that have been rotatated to the true directions
       if ( needfld("vaveuq") ) then
          dtmp = 0.0
-         do k=1,kk
+         do k = 1,kk
             dtmp = dtmp + dsig(k)*u(:,:,k)*q(:,:,k)
          end do
          call savehist( "vaveuq", dtmp)
       end if
       if ( needfld("vavevq") ) then
          dtmp = 0.0
-         do k=1,kk
+         do k = 1,kk
             dtmp = dtmp + dsig(k)*v(:,:,k)*q(:,:,k)
          end do
          call savehist( "vavevq", dtmp)
       end if
       if ( needfld("vaveut") ) then
          dtmp = 0.0
-         do k=1,kk
+         do k = 1,kk
             dtmp = dtmp + dsig(k)*u(:,:,k)*t(:,:,k)
          end do
          call savehist( "vaveut", dtmp)
       end if
       if ( needfld("vavevt") ) then
          dtmp = 0.0
-         do k=1,kk
+         do k = 1,kk
             dtmp = dtmp + dsig(k)*v(:,:,k)*t(:,:,k)
          end do
          call savehist( "vavevt", dtmp)
@@ -1809,7 +1809,7 @@ contains
       integer :: k
 
       is_soil_var = .false.
-      do k=1,ksoil
+      do k = 1,ksoil
          write(tmpname,'(a,i1)') 'tgg', k
          if ( vname == tmpname ) then
             is_soil_var = .true.
@@ -1823,7 +1823,7 @@ contains
       !      return
       !   end if
       !end do
-      do k=1,ksoil
+      do k = 1,ksoil
          write(tmpname,'(a,i1)') 'wetfrac', k
          if ( vname == tmpname ) then
             is_soil_var = .true.
@@ -2164,6 +2164,7 @@ contains
    end subroutine paravar2a
 
    subroutine paravar3a(name,var,nrec,pkl)
+      use s2p_m, only : minlev, maxlev
       integer, intent(in) :: nrec, pkl
       integer ip, n, vid, ierr, vartyp, k
       real, dimension(:,:,:), intent(out) :: var
@@ -2176,7 +2177,8 @@ contains
          ierr = nf90_inq_varid ( ncid_in(ip), name, vid )
          call check_ncerr(ierr, "Error getting vid for "//name)
           
-         ierr = nf90_get_var ( ncid_in(ip), vid, inarray3(:,:,:), start=(/ 1, 1, 1, nrec /), count=(/ pil, pjl*pnpan, pkl, 1 /) )
+         ierr = nf90_get_var ( ncid_in(ip), vid, inarray3(:,:,minlev:maxlev), start=(/ 1, 1, minlev, nrec /), &
+                               count=(/ pil, pjl*pnpan, pkl, maxlev-minlev+1 /) )
          call check_ncerr(ierr, "Error getting var "//name)
       
          ierr = nf90_inquire_variable ( ncid_in(ip), vid, xtype=vartyp )
@@ -2192,7 +2194,7 @@ contains
             end if
          end if
       
-         var(:,1+ip*pjl*pnpan:(ip+1)*pjl*pnpan,1:pkl) = inarray3(:,:,:)
+         var(:,1+ip*pjl*pnpan:(ip+1)*pjl*pnpan,minlev:maxlev) = inarray3(:,:,minlev:maxlev)
          
       end do
    
