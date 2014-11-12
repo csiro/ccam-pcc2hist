@@ -371,7 +371,7 @@ contains
             case ( "temp" )
                ! temp should be the first of the 3D fields
                if ( use_meters ) then
-                  ! assum 2D zs is already loaded above
+                  ! assume that 2D zs is previously loaded
                   ! MJT notes - reading mixr skips ahead in the input file
                   ! possibly reorder temp, mixr, u and v in CCAM
                   call vread( "temp", t)
@@ -508,8 +508,8 @@ contains
             call height ( t, q, zs, psl, sig, zstd, plevs(1:nplevs) )
             call savehist ( "zg", zstd )
          else if ( use_meters ) then
-            do k=1,nplevs
-              zstd(:,:,k)=mlevs(k)
+            do k = 1,nplevs
+               zstd(:,:,k) = mlevs(k)
             end do
             call savehist ( "zg", zstd )
          else
@@ -2110,7 +2110,7 @@ contains
    subroutine paraclose
       integer ip, ierr
       
-      do ip=0,lproc-1
+      do ip = 0,lproc-1
          ierr = nf90_close(ncid_in(ip))
       end do
       deallocate(ncid_in)
@@ -2122,41 +2122,44 @@ contains
       integer, intent(out) :: vread_err
       integer ip, n, vid, ierr, vartyp
       real, dimension(:,:), intent(out) :: var
-      real, dimension(pil,pjl*pnpan,0:lproc-1) :: inarray2
+      real, dimension(pil,pjl*pnpan) :: inarray2
       real addoff, sf
       logical, intent(in) :: required
       character(len=*), intent(in) :: name
    
-      ierr = nf90_inq_varid (ncid_in(0), name, vid )
       ! If the variable has the required flag set to false, and the 
       ! vread_err argument is present, then return an error flag rather
       ! then abort if the variable isn't found.
-      if ( .not. required .and. ierr /= NF90_NOERR ) then
-         vread_err = ierr
+      if ( .not. required ) then
+         vread_err = NF90_NOERR
          return
       end if
-      call check_ncerr(ierr, "Error getting vid for "//name)
       
       do ip = 0,lproc-1
-         ierr = nf90_get_var ( ncid_in(ip), vid, inarray2(:,:,ip), start=(/ 1, 1, nrec /), count=(/ pil, pjl*pnpan, 1 /) )
+         
+         ierr = nf90_inq_varid (ncid_in(ip), name, vid ) 
+         call check_ncerr(ierr, "Error getting vid for "//name)
+          
+         ierr = nf90_get_var ( ncid_in(ip), vid, inarray2(:,:), start=(/ 1, 1, nrec /), count=(/ pil, pjl*pnpan, 1 /) )
          call check_ncerr(ierr, "Error getting var "//name)
-      end do
 
-!     Check the type of the variable
-      ierr = nf90_inquire_variable ( ncid_in(0), vid, xtype=vartyp)
-      if ( vartyp == NF90_SHORT ) then
-         ierr = nf90_get_att ( ncid_in(0), vid, "add_offset", addoff )
-         call check_ncerr(ierr, "Error getting add_offset attribute")
-         ierr = nf90_get_att ( ncid_in(0), vid, "scale_factor", sf )
-         call check_ncerr (ierr,"Error getting scale_factor attribute")
-         if ( all( inarray2 == -32501. ) ) then
-            inarray2 = NF90_FILL_FLOAT
-         else
-            inarray2 = addoff + inarray2*sf
+!        Check the type of the variable
+         ierr = nf90_inquire_variable ( ncid_in(ip), vid, xtype=vartyp)
+         if ( vartyp == NF90_SHORT ) then
+            if ( all( inarray2 == -32501. ) ) then
+               inarray2 = NF90_FILL_FLOAT
+            else
+               ierr = nf90_get_att ( ncid_in(ip), vid, "add_offset", addoff )
+               call check_ncerr(ierr, "Error getting add_offset attribute")
+               ierr = nf90_get_att ( ncid_in(ip), vid, "scale_factor", sf )
+               call check_ncerr (ierr,"Error getting scale_factor attribute")
+               inarray2 = addoff + inarray2*sf
+            end if
          end if
-      end if
    
-      var = reshape( inarray2, (/ pil,pjl*pnpan*lproc /) )
+         var(:,1+ip*pjl*pnpan:(ip+1)*pjl*pnpan) = inarray2(:,:)
+         
+      end do
    
    end subroutine paravar2a
 
@@ -2164,33 +2167,33 @@ contains
       integer, intent(in) :: nrec, pkl
       integer ip, n, vid, ierr, vartyp, k
       real, dimension(:,:,:), intent(out) :: var
-      real, dimension(pil,pjl*pnpan,pkl,0:lproc-1) :: inarray3
+      real, dimension(pil,pjl*pnpan,pkl) :: inarray3
       real addoff, sf
       character(len=*), intent(in) :: name
 
-      ierr = nf90_inq_varid (ncid_in(0), name, vid )
-      call check_ncerr(ierr, "Error getting vid for "//name)
-      
       do ip = 0,lproc-1
-         ierr = nf90_get_var ( ncid_in(ip), vid, inarray3(:,:,:,ip), start=(/ 1, 1, 1, nrec /), count=(/ pil, pjl*pnpan, pkl, 1 /) )
+
+         ierr = nf90_inq_varid ( ncid_in(ip), name, vid )
+         call check_ncerr(ierr, "Error getting vid for "//name)
+          
+         ierr = nf90_get_var ( ncid_in(ip), vid, inarray3(:,:,:), start=(/ 1, 1, 1, nrec /), count=(/ pil, pjl*pnpan, pkl, 1 /) )
          call check_ncerr(ierr, "Error getting var "//name)
-      end do
       
-      ierr = nf90_inquire_variable ( ncid_in(0), vid, xtype=vartyp)
-      if ( vartyp == NF90_SHORT ) then
-         ierr = nf90_get_att ( ncid_in(0), vid, "add_offset", addoff )
-         call check_ncerr(ierr, "Error getting add_offset attribute")
-         ierr = nf90_get_att ( ncid_in(0), vid, "scale_factor", sf )
-         call check_ncerr (ierr,"Error getting scale_factor attribute")
-         if ( all( inarray3 == -32501. ) ) then
-           inarray3 = NF90_FILL_FLOAT
-         else
-           inarray3 = addoff + inarray3*sf
+         ierr = nf90_inquire_variable ( ncid_in(ip), vid, xtype=vartyp )
+         if ( vartyp == NF90_SHORT ) then
+            if ( all( inarray3 == -32501. ) ) then
+               inarray3 = NF90_FILL_FLOAT
+            else
+               ierr = nf90_get_att ( ncid_in(ip), vid, "add_offset", addoff )
+               call check_ncerr(ierr, "Error getting add_offset attribute")
+               ierr = nf90_get_att ( ncid_in(ip), vid, "scale_factor", sf )
+               call check_ncerr (ierr,"Error getting scale_factor attribute")                
+               inarray3 = addoff + inarray3*sf
+            end if
          end if
-      end if
       
-      do k = 1,pkl
-        var(:,:,k) = reshape( inarray3(:,:,k,:), (/ pil,pjl*pnpan*lproc /) )
+         var(:,1+ip*pjl*pnpan:(ip+1)*pjl*pnpan,1:pkl) = inarray3(:,:,:)
+         
       end do
    
    end subroutine paravar3a
@@ -2277,7 +2280,7 @@ contains
       jl = il_g/nyproc
 
       ! Offsets
-      do n=0,nproc-1
+      do n = 0,nproc-1
         select case(nin)
            case(0)
               joff(n) = (n/nxproc) * jl
@@ -2339,7 +2342,7 @@ contains
       jl = il_g/nyproc
 
       ! Offsets
-      do n=0,nproc-1
+      do n = 0,nproc-1
          joff(n) = (n/nxproc) * jl
          ioff(n) = modulo(n,nxproc)*il
       end do
