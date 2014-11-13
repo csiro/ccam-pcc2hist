@@ -137,7 +137,7 @@ contains
       maxlev=nsglvs-minval(jaa)+1
       call MPI_AllReduce(minlev,minlev_g,1,MPI_INTEGER,MPI_MIN,MPI_COMM_WORLD,ierr)
       call MPI_AllReduce(maxlev,maxlev_g,1,MPI_INTEGER,MPI_MAX,MPI_COMM_WORLD,ierr)
-      minlev = minlev_g
+      minlev = max( minlev_g-1, 1 )
       maxlev = min( maxlev_g+1, nsglvs )
       
    end subroutine sitop_setup
@@ -485,7 +485,7 @@ contains
       maxlev=nsglvs-minval(jaa)+1
       call MPI_AllReduce(minlev,minlev_g,1,MPI_INTEGER,MPI_MIN,MPI_COMM_WORLD,ierr)
       call MPI_AllReduce(maxlev,maxlev_g,1,MPI_INTEGER,MPI_MAX,MPI_COMM_WORLD,ierr)
-      minlev = minlev_g
+      minlev = max( minlev_g-1, 1 )
       maxlev = min( maxlev_g+1, nsglvs )
       
    end subroutine mitop_setup
