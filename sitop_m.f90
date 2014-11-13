@@ -17,19 +17,25 @@ module sitop_m
    real, private, allocatable, save, dimension(:) :: siglvs, h, x1, x2, a, c
 
 contains
-   subroutine sitop_setup ( sigr, prelvs, press)
+   subroutine sitop_setup ( sigr, prelvs, press, maxlev, minlev )
 
       ! Setup for sitop. Calculate things that don't depend on the field
       ! being interpolated.
-
       use utils_m, only : assert, search_fgt
+#ifdef usenc3
+      include 'mpif.h'
+#else
+      use mpi
+#endif
       real, dimension(:), intent(in)       :: sigr   ! Sigma levels
       real, dimension(:), intent(in)       :: prelvs ! Pressure levels
       real, dimension(:,:), intent(in)     :: press  ! Surface pressure
       real, parameter :: cmu1=0.5, clmdam=0.5
 
+      integer, intent(inout) :: maxlev, minlev
       integer :: i, k, ii, ns, iii, kp, ks
       integer :: j, j1, jj 
+      integer :: maxlev_g, minlev_g, ierr
       real :: v1, w1, v2, w2, h1, h2, h3, z
 
 !----------------------------------------------------------------------
@@ -46,29 +52,29 @@ contains
          allocate ( siglvs(nsglvs), h(nsglvs), x1(nsglvs), x2(nsglvs), &
                     a(nsglvs), c(nsglvs) )
 
-         c(1)=cmu1
-         a(nsglvs)=clmdam
+         c(1) = cmu1
+         a(nsglvs) = clmdam
 !        Sigma levels in increasing order
          siglvs = sigr(nsglvs:1:-1)
          nsgm1 = nsglvs-1
-         do i=1,nsgm1
+         do i = 1,nsgm1
             h(i) = siglvs(i+1)-siglvs(i)
          end do
-         do i=2,nsgm1
+         do i = 2,nsgm1
             x1(i) = 0.5/(h(i)+h(i-1))
             x2(i) = h(i)/h(i-1)
             a(i) = h(i)*x1(i)
             c(i) = h(i-1)*x1(i)
          end do
-         c(nsglvs)=0.0
+         c(nsglvs) = 0.
       end if
 
 !     Reverse data and pressure levels.
-      do k=1,nprlvs
+      do k = 1,nprlvs
          sig(:,nprlvs+1-k,:) = prelvs(k)/press
       end do
 
-      do j=1,iy
+      do j = 1,iy
 !
 !     mexup1, mexup2    mexdn1,mexdn2    min1,min2 set
 !     the upper and lower limits on upward and downward
@@ -76,57 +82,64 @@ contains
 !     if there are no levels in a given class,the limits are
 !     set to zero.
 !
-         do i=1,ix
-            mexup1(i,j)=0
-            mexup2(i,j)=0
-            do ii=1,nprlvs
-               if(sig(i,ii,j).lt.siglvs(1)) mexup2(i,j)=ii
+         do i = 1,ix
+            mexup1(i,j) = 0
+            mexup2(i,j) = 0
+            do ii = 1,nprlvs
+               if ( sig(i,ii,j)<siglvs(1) ) mexup2(i,j)=ii
             end do
-            if(mexup2(i,j).gt.0) mexup1(i,j)=1
+            if ( mexup2(i,j)>0 ) mexup1(i,j)=1
             mexdn1(i,j)=0
             mexdn2(i,j)=0
             do ii=1,nprlvs
                iii=nprlvs+1-ii
-               if(sig(i,iii,j).gt.siglvs(nsglvs)) mexdn1(i,j)=iii
+               if ( sig(i,iii,j)>siglvs(nsglvs) ) mexdn1(i,j)=iii
             end do
-            if(mexdn1(i,j).gt.0) mexdn2(i,j)=nprlvs
+            if ( mexdn1(i,j)>0 ) mexdn2(i,j)=nprlvs
 
-            if (mexup2(i,j).eq.0) then
+            if ( mexup2(i,j)==0 ) then
                !             no upward extrapolation
-               if(mexdn1(i,j).eq.0) then
+               if ( mexdn1(i,j)==0 ) then
                   min1(i,j)=1
                   min2(i,j)=nprlvs
                else
                   min1(i,j)=1
                   min2(i,j)=mexdn1(i,j)-1
-                  if(mexdn1(i,j).eq.1) min1(i,j)=0
+                  if ( mexdn1(i,j)==1 ) min1(i,j)=0
                end if
             else 
 !
 !         upward extrapolation
 !
-               if (mexdn1(i,j).eq.0) then
+               if ( mexdn1(i,j)==0 ) then
                   min1(i,j)=mexup2(i,j)+1
                   min2(i,j)=nprlvs
-                  if(mexup2(i,j).ge.nprlvs) min1(i,j)=0
-                  if(mexup2(i,j).ge.nprlvs) min2(i,j)=0
+                  if ( mexup2(i,j)>=nprlvs ) min1(i,j)=0
+                  if ( mexup2(i,j)>=nprlvs ) min2(i,j)=0
                else
                   min1(i,j)=mexup2(i,j)+1
                   min2(i,j)=mexdn1(i,j)-1
-                  if(mexdn1(i,j).eq.(mexup2(i,j)+1)) min1(i,j)=0
-                  if(mexdn1(i,j).eq.(mexup2(i,j)+1)) min2(i,j)=0
+                  if ( mexdn1(i,j)==(mexup2(i,j)+1) ) min1(i,j)=0
+                  if ( mexdn1(i,j)==(mexup2(i,j)+1) ) min2(i,j)=0
                end if
             end if
          end do
 
 !        Calculate jaa, the index of the lowest sigma level above the
 !        given pressure level.
-         do kp=1,nprlvs 
+         do kp = 1,nprlvs 
             jaa(:,kp,j) = search_fgt(siglvs(:nsgm1),sig(:,kp,j),nsgm1,ix)
          end do
-
-      end do
          
+      end do
+
+      minlev=nsglvs-maxval(jaa)+1
+      maxlev=nsglvs-minval(jaa)+1
+      call MPI_AllReduce(minlev,minlev_g,1,MPI_INTEGER,MPI_MIN,MPI_COMM_WORLD,ierr)
+      call MPI_AllReduce(maxlev,maxlev_g,1,MPI_INTEGER,MPI_MAX,MPI_COMM_WORLD,ierr)
+      minlev = minlev_g
+      maxlev = min( maxlev_g+1, nsglvs )
+      
    end subroutine sitop_setup
 
 
@@ -217,14 +230,14 @@ contains
 !
 !     calculate spline derivatives at orginal points
 !
-         gd(:,1)=-c(1)
-         do ns=2,nsglvs
-            x3 = 1.0 / (1.0+a(ns)*gd(:,ns-1))
+         gd(:,1) = -c(1)
+         do ns = 2,nsglvs
+            x3 = 1. / (1.+a(ns)*gd(:,ns-1))
             gd(:,ns) = -c(ns)*x3
             d(:,ns) = (d(:,ns)-a(ns)*d(:,ns-1)) * x3
          end do
          gd(:,nsglvs) = d(:,nsglvs)
-         do ns=1,nsgm1
+         do ns = 1,nsgm1
             k = nsglvs-ns
             gd(:,k) = gd(:,k)*gd(:,k+1)+d(:,k)
          end do
@@ -241,65 +254,66 @@ contains
 !
 !     Do interpolation
 !
-         if(maxmin1.eq.0) go to 300
+         if ( maxmin1/=0 ) then
 
-         do ii=max(1,minmin1),maxmin2
-            do i=1,ix
-!           Use max to ensure stay in array bounds. Any points where this
-!           is used will be fixed in the extrapolation section.
-               j1=max(jaa(i,ii,j)-1,1)
-               jj=jaa(i,ii,j)
-               v1=siglvs(jaa(i,ii,j))-sig(i,ii,j)
-               w1=sig(i,ii,j)-siglvs(j1)
-               v2=v1*v1
-               w2=w1*w1
-               h1=h(j1)
-               h2=1.0/(h1*h1)
-               h3=h2/h1
-               z=(gd(i,j1)*v2*w1-gd(i,jaa(i,ii,j))*w2*v1)*h2
-               gp(i,ii) = z + (gs(i,j1)*v2*(w1+w1+h1)+  &
-                             gs(i,jaa(i,ii,j))*w2*(v1+v1+h1))*h3
+            do ii = max(1,minmin1),maxmin2
+               do i = 1,ix
+!              Use max to ensure stay in array bounds. Any points where this
+!              is used will be fixed in the extrapolation section.
+                  j1=max(jaa(i,ii,j)-1,1)
+                  jj=jaa(i,ii,j)
+                  v1=siglvs(jaa(i,ii,j))-sig(i,ii,j)
+                  w1=sig(i,ii,j)-siglvs(j1)
+                  v2=v1*v1
+                  w2=w1*w1
+                  h1=h(j1)
+                  h2=1.0/(h1*h1)
+                  h3=h2/h1
+                  z=(gd(i,j1)*v2*w1-gd(i,jaa(i,ii,j))*w2*v1)*h2
+                  gp(i,ii) = z + (gs(i,j1)*v2*(w1+w1+h1)+  &
+                                gs(i,jaa(i,ii,j))*w2*(v1+v1+h1))*h3
+               end do
             end do
-         end do
+            
+         end if
 !
 !     linear extrapolation
 !
 !     here we use the options of extrapolation as explained above
 !
 !
-300      continue
          select case ( vextrap )
          case ( vextrap_lin ) 
-            do i=1,ix
-               if(mexup1(i,j).ne.0) then
-                  do ii=1,mexup2(i,j)
+            do i = 1,ix
+               if ( mexup1(i,j)/=0 ) then
+                  do ii = 1,mexup2(i,j)
                      gp(i,ii) = gs(i,1)+gd(i,1)*(sig(i,ii,j)-siglvs(1))
                   end do
                end if
-               if(mexdn1(i,j).ne.0) then
-                  do ii=mexdn1(i,j),nprlvs
+               if ( mexdn1(i,j)/=0 ) then
+                  do ii = mexdn1(i,j),nprlvs
                      gp(i,ii) = gs(i,nsglvs)+gd(i,nsglvs)*(sig(i,ii,j)-siglvs(nsglvs))
                   end do
                end if
             end do
          case ( vextrap_none )
-            do i=1,ix
-               do ii=1,mexup2(i,j)
+            do i = 1,ix
+               do ii = 1,mexup2(i,j)
                   gp(i,ii) = gs(i,1)
                end do
-               if(mexdn1(i,j).ne.0) then
-                  do ii=mexdn1(i,j),nprlvs
+               if ( mexdn1(i,j)/=0 ) then
+                  do ii = mexdn1(i,j),nprlvs
                      gp(i,ii) = gs(i,nsglvs)
                   end do
                end if
             end do
          case ( vextrap_missing )
-            do i=1,ix
-               do ii=1,mexup2(i,j)
+            do i = 1,ix
+               do ii = 1,mexup2(i,j)
                   gp(i,ii) = NF90_FILL_FLOAT 
                end do
-               if(mexdn1(i,j).ne.0) then
-                  do ii=mexdn1(i,j),nprlvs
+               if ( mexdn1(i,j)/=0 ) then
+                  do ii = mexdn1(i,j),nprlvs
                      gp(i,ii) = NF90_FILL_FLOAT
                   end do
                end if
@@ -307,13 +321,13 @@ contains
          case ( vextrap_t )
             ! Extrapolate using the specified lapse rate
             ! temp = ts[0,0] * sig ** k
-            do i=1,ix
+            do i = 1,ix
                ! Linear extrapolation at the top.
-               do ii=1,mexup2(i,j)
+               do ii = 1,mexup2(i,j)
                   gp(i,ii) = gs(i,1)+gd(i,1)*(sig(i,ii,j)-siglvs(1))
                end do
-               if(mexdn1(i,j).ne.0) then
-                  do ii=mexdn1(i,j),nprlvs
+               if ( mexdn1(i,j)/=0 ) then
+                  do ii = mexdn1(i,j),nprlvs
                      gp(i,ii) = gs(i,nsglvs)*(sig(i,ii,j)/siglvs(nsglvs))**konst
                   end do
                end if
@@ -323,8 +337,8 @@ contains
             stop
          end select
 
-         do ii=1,nprlvs
-            gridp(:,j,nprlvs+1-ii)=gp(:,ii)
+         do ii = 1,nprlvs
+            gridp(:,j,nprlvs+1-ii) = gp(:,ii)
          end do
 
       end do
@@ -332,13 +346,17 @@ contains
    end subroutine sitop
 
    
-   subroutine mitop_setup ( sigr, mtrlvs, height, tg, qg )
+   subroutine mitop_setup ( sigr, mtrlvs, height, tg, qg, maxlev, minlev )
 
       ! Setup for mitop. Calculate things that don't depend on the field
       ! being interpolated.
-
       use physparams
       use utils_m, only : assert, search_fgt
+#ifdef usenc3
+      include 'mpif.h'
+#else
+      use mpi
+#endif
       real, dimension(:), intent(in)       :: sigr      ! Sigma levels
       real, dimension(:), intent(in)       :: mtrlvs    ! Height levels
       real, dimension(:,:,:), intent(in)   :: height    ! Output levels
@@ -347,8 +365,10 @@ contains
       real, dimension(size(tg,dim=1),size(tg,dim=3)) :: tv
       real, parameter :: cmu1=0.5, clmdam=0.5
 
+      integer, intent(inout) :: maxlev, minlev
       integer :: i, k, ii, ns, iii, kp, ks
       integer :: j, j1, jj 
+      integer :: maxlev_g, minlev_g, ierr
       real :: v1, w1, v2, w2, h1, h2, h3, z
 
 !----------------------------------------------------------------------
@@ -365,30 +385,30 @@ contains
          allocate ( siglvs(nsglvs), h(nsglvs), x1(nsglvs), x2(nsglvs), &
                     a(nsglvs), c(nsglvs) )
 
-         c(1)=cmu1
-         a(nsglvs)=clmdam
+         c(1) = cmu1
+         a(nsglvs) = clmdam
 !        Sigma levels in increasing order
          siglvs = sigr(nsglvs:1:-1)
          nsgm1 = nsglvs-1
-         do i=1,nsgm1
+         do i = 1,nsgm1
             h(i) = siglvs(i+1)-siglvs(i)
          end do
-         do i=2,nsgm1
+         do i = 2,nsgm1
             x1(i) = 0.5/(h(i)+h(i-1))
             x2(i) = h(i)/h(i-1)
             a(i) = h(i)*x1(i)
             c(i) = h(i-1)*x1(i)
          end do
-         c(nsglvs) = 0.0
+         c(nsglvs) = 0.
       end if
 
 !     Reverse data and heights.
       z=grav/stdlapse
-      do j=1,iy
+      do j = 1,iy
          tv = tg(:,j,:) * (epsil+qg(:,j,:))/(epsil*(1.+qg(:,j,:)))    
-         do i=1,ix
+         do i = 1,ix
             ii = 1
-            do k=1,nprlvs
+            do k = 1,nprlvs
                if ( mtrlvs(k)<height(i,j,1) ) then
                   sig(i,nprlvs+1-k,j) = (grav*mtrlvs(k)/(tv(i,1)*z)+1.)**(-z/rdry)
                else
@@ -455,12 +475,19 @@ contains
 
 !        Calculate jaa, the index of the lowest sigma level above the
 !        given pressure level.
-         do kp=1,nprlvs 
+         do kp = 1,nprlvs 
             jaa(:,kp,j) = search_fgt(siglvs(:nsgm1),sig(:,kp,j),nsgm1,ix)
          end do
 
       end do
-         
+
+      minlev=nsglvs-maxval(jaa)+1
+      maxlev=nsglvs-minval(jaa)+1
+      call MPI_AllReduce(minlev,minlev_g,1,MPI_INTEGER,MPI_MIN,MPI_COMM_WORLD,ierr)
+      call MPI_AllReduce(maxlev,maxlev_g,1,MPI_INTEGER,MPI_MAX,MPI_COMM_WORLD,ierr)
+      minlev = minlev_g
+      maxlev = min( maxlev_g+1, nsglvs )
+      
    end subroutine mitop_setup
 
    
@@ -468,12 +495,9 @@ contains
 
 
 !     This routine interpolates a field "grids" on sigma surfaces
-!     to "gridp" on pressure surfaces
+!     to "gridp" on height surfaces
 !     The interpolation is performed using cubic splines
-!     prelvs(nprlvs) are the pressure levels and siglvs(nsglvs) those
-!     of sigma
-!     "press" is the surface pressure and "ix" and "iy" specify the
-!     size of the horizontal grid
+!     "ix" and "iy" specify the size of the horizontal grid
 !
 !     All features of the interpolating spline are determined except
 !     for the impostion of one condition at each end
@@ -529,14 +553,14 @@ contains
       call assert ( nprlvs == size ( gridp, dim=3 ), &
                   "Error, number of height levels doesn't match in mitop" )
 
-      do j=1,iy
+      do j = 1,iy
      
-         do ns=1,nsglvs
+         do ns = 1,nsglvs
             gs(:,nsglvs+1-ns) = grids(:,j,ns)
          end do
          d(:,1) = 1.5*(gs(:,2)-gs(:,1)) / h(1)
          d(:,nsglvs) = 1.5*(gs(:,nsglvs)-gs(:,nsglvs-1)) / h(nsglvs-1)
-         do ns=2,nsgm1
+         do ns = 2,nsgm1
             d(:,ns) = 3.0*x1(ns)*( (gs(:,ns)-gs(:,ns-1))*x2(ns) + &
                                    (gs(:,ns+1)-gs(:,ns))/x2(ns) )
          end do
@@ -544,13 +568,13 @@ contains
 !     calculate spline derivatives at orginal points
 !
          gd(:,1)=-c(1)
-         do ns=2,nsglvs
+         do ns = 2,nsglvs
             x3 = 1.0 / (1.0+a(ns)*gd(:,ns-1))
             gd(:,ns) = -c(ns)*x3
             d(:,ns) = (d(:,ns)-a(ns)*d(:,ns-1)) * x3
          end do
          gd(:,nsglvs) = d(:,nsglvs)
-         do ns=1,nsgm1
+         do ns = 1,nsgm1
             k = nsglvs-ns
             gd(:,k) = gd(:,k)*gd(:,k+1)+d(:,k)
          end do
@@ -567,10 +591,10 @@ contains
 !
 !     Do interpolation
 !
-         if ( maxmin1.ne.0 ) then
+         if ( maxmin1/=0 ) then
 
-            do ii=max(1,minmin1),maxmin2
-               do i=1,ix
+            do ii = max(1,minmin1),maxmin2
+               do i = 1,ix
 !              Use max to ensure stay in array bounds. Any points where this
 !              is used will be fixed in the extrapolation section.
                   j1=max(jaa(i,ii,j)-1,1)
@@ -587,6 +611,7 @@ contains
                                 gs(i,jaa(i,ii,j))*w2*(v1+v1+h1))*h3
                end do
             end do
+            
          end if
 !
 !     linear extrapolation
@@ -596,36 +621,36 @@ contains
 !
          select case ( vextrap )
          case ( vextrap_lin ) 
-            do i=1,ix
-               if(mexup1(i,j).ne.0) then
-                  do ii=1,mexup2(i,j)
+            do i = 1,ix
+               if ( mexup1(i,j)/=0 ) then
+                  do ii = 1,mexup2(i,j)
                      gp(i,ii) = gs(i,1)+gd(i,1)*(sig(i,ii,j)-siglvs(1))
                   end do
                end if
-               if(mexdn1(i,j).ne.0) then
-                  do ii=mexdn1(i,j),nprlvs
+               if ( mexdn1(i,j)/=0 ) then
+                  do ii = mexdn1(i,j),nprlvs
                      gp(i,ii) = gs(i,nsglvs)+gd(i,nsglvs)*(sig(i,ii,j)-siglvs(nsglvs))
                   end do
                end if
             end do
          case ( vextrap_none )
-            do i=1,ix
-               do ii=1,mexup2(i,j)
+            do i = 1,ix
+               do ii = 1,mexup2(i,j)
                   gp(i,ii) = gs(i,1)
                end do
-               if(mexdn1(i,j).ne.0) then
-                  do ii=mexdn1(i,j),nprlvs
+               if ( mexdn1(i,j)/=0 ) then
+                  do ii = mexdn1(i,j),nprlvs
                      gp(i,ii) = gs(i,nsglvs)
                   end do
                end if
             end do
          case ( vextrap_missing )
-            do i=1,ix
-               do ii=1,mexup2(i,j)
+            do i = 1,ix
+               do ii = 1,mexup2(i,j)
                   gp(i,ii) = NF90_FILL_FLOAT 
                end do
-               if(mexdn1(i,j).ne.0) then
-                  do ii=mexdn1(i,j),nprlvs
+               if ( mexdn1(i,j)/=0 ) then
+                  do ii = mexdn1(i,j),nprlvs
                      gp(i,ii) = NF90_FILL_FLOAT
                   end do
                end if
@@ -633,13 +658,13 @@ contains
          case ( vextrap_t )
             ! Extrapolate using the specified lapse rate
             ! temp = ts[0,0] * sig ** k
-            do i=1,ix
+            do i = 1,ix
                ! Linear extrapolation at the top.
-               do ii=1,mexup2(i,j)
+               do ii = 1,mexup2(i,j)
                   gp(i,ii) = gs(i,1)+gd(i,1)*(sig(i,ii,j)-siglvs(1))
                end do
-               if(mexdn1(i,j).ne.0) then
-                  do ii=mexdn1(i,j),nprlvs
+               if ( mexdn1(i,j)/=0 ) then
+                  do ii = mexdn1(i,j),nprlvs
                      gp(i,ii) = gs(i,nsglvs)*(sig(i,ii,j)/siglvs(nsglvs))**konst
                   end do
                end if
@@ -649,7 +674,7 @@ contains
             stop
          end select
 
-         do ii=1,nprlvs
+         do ii = 1,nprlvs
             gridp(:,j,nprlvs+1-ii)=gp(:,ii)
          end do
 

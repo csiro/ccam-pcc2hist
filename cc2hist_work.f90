@@ -264,7 +264,7 @@ contains
                psl = 1.0e3 * exp(psl)   ! hPa
                call savehist ( "ps", psl )
                ! This relies on surface pressure coming before the 3D variables
-               if ( use_plevs ) call sitop_setup(sig, plevs(1:nplevs), psl)
+               if ( use_plevs ) call sitop_setup(sig, plevs(1:nplevs), psl, maxlev, minlev)
             case ( "rgdn_ave" )
                call vread( "rgdn_ave", rgd )
                call savehist( "rgdn_ave", rgd )
@@ -371,6 +371,8 @@ contains
             case ( "temp" )
                ! temp should be the first of the 3D fields
                if ( use_meters ) then
+                  minlev = 1
+                  maxlev = kk
                   ! assume that 2D zs is previously loaded
                   ! MJT notes - reading mixr skips ahead in the input file
                   ! possibly reorder temp, mixr, u and v in CCAM
@@ -381,7 +383,7 @@ contains
                   do k=1,size(hstd,dim=3)
                      hstd(:,:,k) = hstd(:,:,k) - zs/grav
                   end do
-                  call mitop_setup( sig, mlevs(1:nplevs), hstd, t, q )
+                  call mitop_setup( sig, mlevs(1:nplevs), hstd, t, q, maxlev, minlev )
                end if
                if ( need3dfld("temp")) then
                   if ( .not. use_meters ) then
