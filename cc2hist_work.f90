@@ -2178,7 +2178,7 @@ contains
          call check_ncerr(ierr, "Error getting vid for "//name)
           
          ierr = nf90_get_var ( ncid_in(ip), vid, inarray3(:,:,minlev:maxlev), start=(/ 1, 1, minlev, nrec /), &
-                               count=(/ pil, pjl*pnpan, pkl, maxlev-minlev+1 /) )
+                               count=(/ pil, pjl*pnpan, maxlev-minlev+1, 1 /) )
          call check_ncerr(ierr, "Error getting var "//name)
       
          ierr = nf90_inquire_variable ( ncid_in(ip), vid, xtype=vartyp )
