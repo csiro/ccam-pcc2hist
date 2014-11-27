@@ -8,4 +8,5 @@ module gldata
    real, dimension(:,:,:), allocatable, save :: tgg, wbice, snowvar
    real, allocatable, dimension(:,:,:) :: zstd
    real, allocatable, dimension(:,:,:) :: hstd
+   real, allocatable, dimension(:,:,:) :: tmp3d
 end module gldata

@@ -88,8 +88,8 @@ contains
             allocate ( zstd(pil,pjl*pnpan*lproc,kl) )
          end if
       end if
-      if ( needfld("rh") ) then
-         allocate ( rh(pil,pjl*pnpan*lproc,kl) )
+      if ( needfld("press") .or. needfld("theta") .or. needfld("rh") ) then
+        allocate( tmp3d(pil,pjl*pnpan*lproc,kl) )
       end if
       if ( use_meters ) then
          allocate( hstd(pil,pjl*pnpan*lproc,kl) )
@@ -133,7 +133,7 @@ contains
    subroutine infile ( varlist, nvars, skip )
       ! For netcdf input
       use history, only : savehist, needfld, cordex_compliant
-      use physparams, only : grav
+      use physparams, only : grav, rdry, cp
       use s2p_m
       use height_m
       use sitop_m
@@ -384,11 +384,10 @@ contains
                      hstd(:,:,k) = hstd(:,:,k) - zs/grav
                   end do
                   call mitop_setup( sig, mlevs(1:nplevs), hstd, t, q, maxlev, minlev )
+               else if ( need3dfld("temp") ) then
+                  call vread( "temp", t)
                end if
-               if ( need3dfld("temp")) then
-                  if ( .not. use_meters ) then
-                     call vread( "temp", t)
-                  end if
+               if ( need3dfld("temp") ) then
                   call vsavehist ( "temp", t )
                end if
             case ( "mixr" )
@@ -520,11 +519,25 @@ contains
          end if
       end if
 
+      if ( needfld("press") ) then
+         do k=1,kk
+            tmp3d(:,:,k) = psl*sig(k)
+         end do
+         call vsavehist ( "press", tmp3d )
+      end if
+      
       if ( needfld("rh") ) then
-         call calc_rh ( t, q, ql, qf, psl, sig, rh )
-         call vsavehist ( "rh", rh )
+         call calc_rh ( t, q, ql, qf, psl, sig, tmp3d )
+         call vsavehist ( "rh", tmp3d )
       end if
 
+      if ( needfld("theta") ) then
+         do k=1,kk
+            tmp3d(:,:,k) = t(:,:,k)*(psl*sig(k)/1.e5)**(-rdry/cp)
+         end do
+         call vsavehist ( "theta", tmp3d )
+      end if
+      
       ! Note that these are just vertical averages, not vertical integrals
       ! Use the winds that have been rotatated to the true directions
       if ( needfld("vaveuq") ) then
@@ -578,7 +591,8 @@ contains
       select case ( name )
       case ( "temp" )
          needed = needfld("temp") .or. needfld("zg") .or. needfld("rh") .or. &
-                  needfld("tbot") .or. needfld("vaveut") .or. needfld("vaveut")
+                  needfld("tbot") .or. needfld("vaveut") .or.                &
+                  needfld("vaveut") .or. needfld("theta")
       case ( "mixr" )
          needed = needfld("mixr") .or. needfld("zg") .or. needfld("rh") .or. &
                   needfld("pwc") .or. needfld("qbot") .or. &
@@ -1528,7 +1542,9 @@ contains
       topheight = 1000*(floor(0.001*topheight)+1)
       call addfld ( "zg", "Geopotential height", "m", 0., topheight, nlev, &
                      multilev=.true., std_name="geopotential_height" )
-
+      call addfld ( "press", "Air pressure", "hPa", 0., 1500., nlev,       &
+                     multilev=.true., std_name="air_pressure" )
+      
       ! If the output uses pressure levels save the lowest sigma level of
       ! the basic fields.
       call addfld ( "tbot", "Air temperature at lowest sigma level", "K", 100., 400., 1 )
@@ -1542,6 +1558,7 @@ contains
       call addfld ( "vaveut", "Vertical average of zonal temperature flux", "m/s K", -1e4, 1e4, 1, std_name=std_name )
       call addfld ( "vavevt", "Vertical average of meridional temperature flux", "m/s K", -1e4, 2e4, 1, std_name=std_name )
       call addfld ( "rh", "Relative humidity", "%", 0., 110., nlev,  multilev=.true., std_name="relative_humidity" )
+      call addfld ( "theta", "Potential temperature", "K", 150., 450., nlev, multilev=.true., std_name="potential_temperature" )
 
       if ( cf_compliant ) then
          ! Define as an extra field for now
