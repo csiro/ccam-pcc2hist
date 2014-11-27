@@ -1558,7 +1558,7 @@ contains
       call addfld ( "vaveut", "Vertical average of zonal temperature flux", "m/s K", -1e4, 1e4, 1, std_name=std_name )
       call addfld ( "vavevt", "Vertical average of meridional temperature flux", "m/s K", -1e4, 2e4, 1, std_name=std_name )
       call addfld ( "rh", "Relative humidity", "%", 0., 110., nlev,  multilev=.true., std_name="relative_humidity" )
-      call addfld ( "theta", "Potential temperature", "K", 150., 450., nlev, multilev=.true., std_name="potential_temperature" )
+      call addfld ( "theta", "Potential temperature", "K", 150., 1200., nlev, multilev=.true., std_name="potential_temperature" )
 
       if ( cf_compliant ) then
          ! Define as an extra field for now
