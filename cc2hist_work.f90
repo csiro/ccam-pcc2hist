@@ -533,7 +533,7 @@ contains
 
       if ( needfld("theta") ) then
          do k=1,kk
-            tmp3d(:,:,k) = t(:,:,k)*(psl*sig(k)/1.e5)**(-rdry/cp)
+            tmp3d(:,:,k) = t(:,:,k)*(psl*sig(k)/1.e3)**(-rdry/cp)
          end do
          call vsavehist ( "theta", tmp3d )
       end if
