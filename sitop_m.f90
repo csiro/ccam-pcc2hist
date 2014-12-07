@@ -133,12 +133,14 @@ contains
          
       end do
 
-      minlev=nsglvs-maxval(jaa)+1
-      maxlev=nsglvs-minval(jaa)+1
-      call MPI_AllReduce(minlev,minlev_g,1,MPI_INTEGER,MPI_MIN,MPI_COMM_WORLD,ierr)
-      call MPI_AllReduce(maxlev,maxlev_g,1,MPI_INTEGER,MPI_MAX,MPI_COMM_WORLD,ierr)
-      minlev = max( minlev_g-2, 1 )
-      maxlev = min( maxlev_g+2, nsglvs )
+      !minlev=nsglvs-maxval(jaa)+1
+      !maxlev=nsglvs-minval(jaa)+1
+      !call MPI_AllReduce(minlev,minlev_g,1,MPI_INTEGER,MPI_MIN,MPI_COMM_WORLD,ierr)
+      !call MPI_AllReduce(maxlev,maxlev_g,1,MPI_INTEGER,MPI_MAX,MPI_COMM_WORLD,ierr)
+      !minlev = max( minlev_g-2, 1 )
+      !maxlev = min( maxlev_g+2, nsglvs )
+      minlev = 1
+      maxlev = nsglvs
       
    end subroutine sitop_setup
 
@@ -481,12 +483,14 @@ contains
 
       end do
 
-      minlev=nsglvs-maxval(jaa)+1
-      maxlev=nsglvs-minval(jaa)+1
-      call MPI_AllReduce(minlev,minlev_g,1,MPI_INTEGER,MPI_MIN,MPI_COMM_WORLD,ierr)
-      call MPI_AllReduce(maxlev,maxlev_g,1,MPI_INTEGER,MPI_MAX,MPI_COMM_WORLD,ierr)
-      minlev = max( minlev_g-2, 1 )
-      maxlev = min( maxlev_g+2, nsglvs )
+      !minlev=nsglvs-maxval(jaa)+1
+      !maxlev=nsglvs-minval(jaa)+1
+      !call MPI_AllReduce(minlev,minlev_g,1,MPI_INTEGER,MPI_MIN,MPI_COMM_WORLD,ierr)
+      !call MPI_AllReduce(maxlev,maxlev_g,1,MPI_INTEGER,MPI_MAX,MPI_COMM_WORLD,ierr)
+      !minlev = max( minlev_g-2, 1 )
+      !maxlev = min( maxlev_g+2, nsglvs )
+      minlev = 1
+      maxlev = nsglvs
       
    end subroutine mitop_setup
 
