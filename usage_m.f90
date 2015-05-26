@@ -3,12 +3,17 @@ module usage_m
    contains
    subroutine usage()
    use mpidata_m
+#ifndef usenc3
+   use mpi
+#endif
+#ifdef usenc3
    include 'mpif.h'
+#endif
    integer ierr
    if (myid==0) then
       write(*,"(a)") &
-"Usage: cc2hist [-r res] [-t type] input_file output_file", &
-"  cc2hist -h for full list of options and more information."
+"Usage: mpirun -np nproc pcc2hist [-h] [-r res] [-v] [input_file] [output_file]", &
+"  pcc2hist -h for full list of options and more information."
    end if
    call mpi_barrier(MPI_COMM_WORLD,ierr)
    call mpi_abort(MPI_COMM_WORLD,-1,ierr)
@@ -21,33 +26,22 @@ module usage_m
    character(len=*), intent(in) :: version
    if (myid==0) then
       write(*,"(a)") &
-"cc2hist is a program to convert from the CSIRO conformal cubic atmospheric", &
+"pcc2hist is a program to convert from the CSIRO conformal cubic atmospheric", &
 "model history file to a regular lat-lon netcdf file suitable",  &
 "for processing by other programs.", &
 "", &
-"Usage: cc2hist [-h] [-a] [-g grid] [-r res] [-t type] input_file output_file",&
+"Usage: mpirun -np nproc pcc2hist [-h] [-r res] [-v] [input_file] [output_file]",&
 "", &
 "Command line options are", &
 "", &
 " -h for help (this message)", &
 "", &
-" -a to process entire file (all variables and times)", &
-"", &
 " -r res where res is the resolution in degrees of the output file", &
 "   (Default resolution is approximately equal to model resolution).", &
+"", &
+" -v for version number", &
 ""
 
-   print*, "        Set type of the input file "
-   print*, " -t h (default) Conformal model history file "
-   print*, " -t r           Conformal model radstats file "
-   print*, " -t c           Conformal model COMPARE diagnostics file "
-   print*, " -t s           Shallow water model history file "
-   print*, ""
-   print*, " Note that the model history file may be a netcdf file. This is"
-   print*, " recognised automatically."
-   print*, " -g a (default) Model uses A grid"
-   print*, " -g c           Model uses C grid"
-   print*, ""
    print*, "There are also several options controlling the horizontal interpolation"
    print*, "and extrapolation to pressure levels below the surface"
    print*, " --interp=linear  Use bi-linear horizonal interpolation rather than standard bicubic"
@@ -60,9 +54,8 @@ module usage_m
    print*, "below surface with standard lapse rate and to use end values for"
    print*, "other fields."
    print*
-   print*, "If the -a option is not used then the program reads a control namelist"
-   print*, "file from standard input. The namelist is called 'input' and the"
-   print*, "variables are"
+   print*, "The program reads a control namelist file called cc.nml. The namelist"
+   print*, "is called 'input' and the variables are"
    print*, ""
    print*, " NAME        TYPE     DEFAULT   FUNCTION"
    print*, ""
@@ -102,6 +95,10 @@ module usage_m
    print*, "the top and bottom model levels. This may give odd results so be"
    print*, "careful."
    print*, ""
+   print*, "It is also possible to interpolate to height in meters using"
+   print*, "use_meters = T"
+   print*, "mlevs = 10, 50, 100, 1000"
+   print*, ""
    print*, "A second namelist section allows precise control over which"
    print*, "variables are saved. For example"
    print*, "&histnl"
@@ -114,17 +111,17 @@ module usage_m
    print*, 'hnames = "all", xnames="sdot"'
    print*, "will save everything but the vertical velocity."
    print*, "The hfreq and htype fields are required and should not be changed"
-   print*, "for normal use. For more information on averaging options see the"
-   print*, "header of the file sphere:~dix043/src/lib90/history.f90"
+   print*, "for normal use."
    print*, ""
-   print*, "There is also an option for output on the DARLAM Lambert conformal"
-   print*, "grid. To use this set darlam_grid=.true. in the input namelist."
-   print*, "The program then expects a darlam grid namelist to follow immediately"
-   print*, "(i.e. before histnl). This must set values for "
-   print*, " il, jl, ds, du, tanl, rnml, stl1, stl2"
-   print*, "Note that there are no defaults for these"
-   print*, ""
-   print*, "Complaints and suggestions to martin.dix@csiro.au"
+   print*, "Command line options can be replaced with the following namelist options"
+   print*, "ifile            = input_file"
+   print*, "ofile            = output_file"
+   print*, "hres             = res"
+   print*, "int_default      = 0 (bicubic), 1 (nearest), 2 (bilinear), 5 (none)"
+   print*, "vextrap          = 0 (default), 1 (linear), 2 (none), 3 (missing),"
+   print*, "                   4 (lapse rate)"
+   print*, "cf_compliant     = true or false"
+   print*, "cordex_compliant = true or false"
    print*, ""
    print*, "cc2hist version ", trim(version)
  

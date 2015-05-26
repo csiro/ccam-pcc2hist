@@ -45,14 +45,13 @@ program cc2hist
    character(len=10) :: name
    character(len=80) :: longname
    real :: minsig = 0., maxsig = 1.0
-   logical :: darlam_grid = .false. ! depreciated !!!
-   logical :: agrid = .true.        ! depreciated !!!
 
    namelist /input/ kta, ktb, ktc, ndate, ntime,                      &
                     minlon, maxlon, dlon, minlat, maxlat, dlat,       &
                     minlev, maxlev, minsig, maxsig, use_plevs, plevs, &
                     use_meters, mlevs, sdate, edate, stime, etime,    &
-                    darlam_grid
+                    hres, debug, ifile, ofile, int_default, vextrap,  &
+                    cf_compliant, cordex_compliant
 
    integer :: kt, kdate, ktime, ierr, ieof, ntracers
    logical :: all=.false., debug=.false.
@@ -91,25 +90,11 @@ program cc2hist
    ifile = ""
    ofile = ""
    do
-      call getopt("adg:hi:o:r:t:v",nopt,opt,optarg,longopts,longind)
+      call getopt("d:hi:o:r:t:v",nopt,opt,optarg,longopts,longind)
       if ( opt == -1 ) exit  ! End of options
       select case ( char(opt) )
-      case ( "a" )
-         all = .true.
       case ( "d" )
          debug = .true.
-      case ( "g" ) 
-         select case ( optarg )
-         case ( "a" )
-            agrid = .true.
-         case ( "c" )
-            agrid = .false.
-         case  default
-            if ( myid == 0 ) then
-               print*, "Error: unknown grid type with -g "
-            end if
-            call usage()
-         end select
       case ( "h" ) 
          call help(cc2hist_revision)
       case ( "i" ) 
@@ -120,7 +105,7 @@ program cc2hist
          read(optarg,*) hres
       case ("v")
          if ( myid == 0 ) then
-            print*, "cc2hist ", cc2hist_revision
+            print*, "pcc2hist ", cc2hist_revision
          end if
       case ( char(0) )
          ! Long options that don't have a short form
@@ -170,6 +155,11 @@ program cc2hist
       end select
    end do
 
+   ! Read namelist - allows overwriting of command line options
+   if ( myid==0 ) print *,"reading cc.nml"
+   open(1,file='cc.nml')
+   read(1,input)   
+   
    if ( vextrap == vextrap_missing .and. int_default == int_normal ) then
       print*, "For missing option to work, must set interp to linear or nearest"
       call MPI_ABORT(MPI_COMM_WORLD,-1,ierr)
@@ -193,23 +183,6 @@ program cc2hist
       call MPI_ABORT(MPI_COMM_WORLD,-1,ierr)
    end if
 
-!  Only read the input namelist if the all flag hasn't been set.
-!  This should be extended to allow specifying all pressure levels on the
-!  command line too?
-   if ( .not. all ) then
-      if ( myid==0 ) print *,"reading cc.nml"
-      open(1,file='cc.nml')
-      read(1,input)
-   end if
-   if ( darlam_grid ) then
-      print *,"Darlam is no longer supported"
-      call MPI_ABORT(MPI_COMM_WORLD,-1,ierr)
-   end if
-   if ( .not. agrid ) then
-      print *,"C-grid is no longer supported"
-      call MPI_ABORT(MPI_COMM_WORLD,-1,ierr)
-   end if
-   
    if ( use_plevs .and. use_meters ) then
       print *,"Cannot both use_plevs and use_meters together"
       call MPI_ABORT(MPI_COMM_WORLD,-1,ierr)

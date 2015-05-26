@@ -888,11 +888,7 @@ contains
 !        appropriate to the resolution. 360/(4*il) is the approx resolution
 !        along the equator for the cube and 360/(6*il) for the octagon
          if ( hres == 0.0 ) then
-            if ( npanels == 5 ) then
-               hres = ceiling ( 90.0/il )
-            else
-               hres = ceiling ( 60.0/il )
-            end if
+            hres = ceiling ( 90.0*schmidt/il )
          end if
          if ( maxlon < minlon ) then
             print*, "Warning: specified maxlon < minlon - swapping"
@@ -1882,8 +1878,8 @@ contains
 #else
       use mpi
 #endif
-      real, intent(inout) :: b_io(pil,pjl*pnpan*lproc)         ! input and output array
-      real, intent(in)    :: value            ! array value denoting undefined
+      real, dimension(pil,pjl*pnpan*lproc), intent(inout) :: b_io ! input and output array
+      real, intent(in)    :: value                                ! array value denoting undefined
       real, dimension(il,jl) :: a_io
       real, dimension(pil,pjl*pnpan,pnproc) :: c_io
       real b(ifull), a(ifull)

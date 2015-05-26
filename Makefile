@@ -1,5 +1,5 @@
 FC = mpif90
-FFLAGS = -O -xHost -fpp -ipo -ftz
+FFLAGS = -O -xHost -fpp -ftz
 INC = -I $(NETCDF_ROOT)/include
 LIBS = -L $(NETCDF_ROOT)/lib -lnetcdf -lnetcdff
 
