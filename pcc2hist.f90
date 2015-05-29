@@ -54,7 +54,7 @@ program cc2hist
                     cf_compliant, cordex_compliant
 
    integer :: kt, kdate, ktime, ierr, ieof, ntracers
-   logical :: all=.false., debug=.false.
+   logical :: debug=.false.
    logical :: use_date, use_steps
    include 'revision.h'
    character(len=256) :: source, optionstring=""
@@ -255,12 +255,8 @@ program cc2hist
 
    call get_var_list(varlist,nvars)
 
-   if ( all ) then
-      call set_hnames("all")
-   else
-      call histnamelist(1)
-      close(1)
-   end if
+   call histnamelist(1)
+   close(1)
 
 !  openhist has to be called before any data is read because it allocates
 !  the memory.
@@ -384,9 +380,6 @@ program cc2hist
 !  If ktc is still -1 and ndate and ntime aren't set then process all fields
    if ( ktc == -1 ) then
       ktc = 1
-      if ( .not. use_date ) then
-         all = .true.
-      end if
    end if
 
    timeloop: do kt=kta,ktb,ktc
@@ -402,12 +395,7 @@ program cc2hist
             print*, "KTAU, KT", ktau, kt
          end if
          
-         if  ( all ) then ! Date/time doesn't matter
-            if ( debug ) then
-               print*, " Saving (all) "
-            end if
-            skip = .false.
-         else if ( use_steps ) then
+         if ( use_steps ) then
 !           Check whether the correct time has been found
             if ( ktau < kt ) then
                skip = .true.
