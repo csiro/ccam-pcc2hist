@@ -460,9 +460,9 @@ contains
             call savehist ( "ubot", u(:,:,1) )
             call savehist ( "vbot", v(:,:,1) )
             if ( needfld("d10") ) then
-               dtmp=atan2(-u(:,:,1),-v(:,:,1))*180./3.1415927
-               where (dtmp.lt.0.)
-                 dtmp=dtmp+360.
+               dtmp = atan2(-u(:,:,1),-v(:,:,1))*180./3.1415927
+               where ( dtmp < 0. )
+                 dtmp = dtmp+360.
                end where
                call savehist( "d10", dtmp )
              end if
@@ -471,17 +471,17 @@ contains
              end if
              if ( needfld("uas") ) then
                where ( wind_norm > 0.0 )
-                  dtmp=u(:,:,1)*uten/wind_norm
+                  dtmp = u(:,:,1)*uten/wind_norm
                elsewhere
-                  dtmp=0.0
+                  dtmp = 0.0
                end where
                call savehist ( "uas", dtmp )
              end if
              if ( needfld("vas") ) then
                where ( wind_norm > 0.0 )
-                  dtmp=v(:,:,1)*uten/wind_norm
+                  dtmp = v(:,:,1)*uten/wind_norm
                elsewhere
-                  dtmp=0.0
+                  dtmp = 0.0
                end where
                call savehist ( "vas", dtmp )
              end if
@@ -1858,13 +1858,14 @@ contains
       real, intent(inout) :: b_io(pil,pjl*pnpan*lproc)         ! input and output array
       real, intent(in)    :: value                             ! array value denoting undefined
       real, dimension(0,0,0) :: c_io
-      integer :: ierr
+      integer :: ierr, lsize
       
       if ( myid == 0 ) then
          call fill_cc0(b_io,value)
       else
-         call MPI_Gather(b_io,pil*pjl*pnpan*lproc,MPI_REAL,c_io,pil*pjl*pnpan*lproc,MPI_REAL,0,MPI_COMM_WORLD,ierr)
-         call MPI_Scatter(c_io,pil*pjl*pnpan*lproc,MPI_REAL,b_io,pil*pjl*pnpan*lproc,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+         lsize = pil*pjl*pnpan*lproc
+         call MPI_Gather(b_io,lsize,MPI_REAL,c_io,lsize,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+         call MPI_Scatter(c_io,lsize,MPI_REAL,b_io,lsize,MPI_REAL,0,MPI_COMM_WORLD,ierr)
       end if
       
    end subroutine fill_cc
@@ -1880,112 +1881,102 @@ contains
 #endif
       real, dimension(pil,pjl*pnpan*lproc), intent(inout) :: b_io ! input and output array
       real, intent(in)    :: value                                ! array value denoting undefined
-      real, dimension(il,jl) :: a_io
       real, dimension(pil,pjl*pnpan,pnproc) :: c_io
-      real b(ifull), a(ifull)
-      integer imin(0:5), imax(0:5), jmin(0:5), jmax(0:5)
+      real, dimension(ifull) :: b, a
+      integer, dimension(0:5) :: imin, imax, jmin, jmax
       integer iminb, imaxb, jminb, jmaxb
       integer :: nrem, iq, neighb, ierr, i, j
-      integer :: ip, n
+      integer :: ip, n, lsize
       real :: av, avx
       
-      call MPI_Gather(b_io,pil*pjl*pnpan*lproc,MPI_REAL,c_io,pil*pjl*pnpan*lproc,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+      lsize = pil*pjl*pnpan*lproc
+      call MPI_Gather(b_io,lsize,MPI_REAL,c_io,lsize,MPI_REAL,0,MPI_COMM_WORLD,ierr)
 
       do ip = 0,pnproc-1   
          do n = 0,pnpan-1
-            a_io(1+ioff(ip,n):pil+ioff(ip,n),1+joff(ip,n)+n*pil_g:pjl+joff(ip,n)+n*pil_g) = &
-               c_io(1:pil,1+n*pjl:(n+1)*pjl,ip+1)
-         end do
-      end do
-      
-      if ( myid == 0 ) then
-      
-         ! Really just a reshape
-         do j=1,jl
-            do i=1,il
-               iq = i + (j-1)*il
-               a(iq) = a_io(i,j)
-            end do
-         end do
-      
-         imin=1
-         imax=il
-         jmin=1
-         jmax=il
-      
-         nrem = 1    ! Just for first iteration
-!        nrem_gmin used to avoid infinite loops, e.g. for no sice
-         do while ( nrem > 0 )
-            nrem=0
-            do n=0,5
-               iminb=il
-               imaxb=1
-               jminb=il
-               jmaxb=1
-               do j=jmin(n),jmax(n)
-                  do i=imin(n),imax(n)
-                     iq=i+(j-1)*il+n*il*il
-                     b(iq)=a(iq)
-                     if ( a(iq)==value ) then
-                        neighb=0
-                        av=0.
-                        if ( a(i_n(iq))/=value ) then
-                           neighb=neighb+1
-                           av=av+a(i_n(iq))
-                        end if
-                        if ( a(i_e(iq))/=value ) then
-                           neighb=neighb+1
-                           av=av+a(i_e(iq))
-                        end if
-                        if ( a(i_w(iq))/=value ) then
-                           neighb=neighb+1
-                           av=av+a(i_w(iq))
-                        end if
-                        if ( a(i_s(iq))/=value ) then
-                           neighb=neighb+1
-                           av=av+a(i_s(iq))
-                        end if
-                        if ( neighb>0 ) then
-                           b(iq)=av/neighb
-                           avx=av
-                        else
-                           nrem=nrem+1   ! current number of points without a neighbour
-                           iminb=min(i,iminb)
-                           imaxb=max(i,imaxb)
-                           jminb=min(j,jminb)
-                           jmaxb=max(j,jmaxb)
-                        end if
-                     end if
-                  end do
+            do j = 1,pjl
+               do i = 1,pil
+                  iq = i+ioff(ip,n) + (j+joff(ip,n)+n*pil_g-1)*il
+                  a(iq) = c_io(i,j+n*pjl,ip+1)
                end do
-               imin(n)=iminb
-               imax(n)=imaxb
-               jmin(n)=jminb
-               jmax(n)=jmaxb
             end do
-            a(:)=b(:)
-            if ( nrem == ifull ) then
-               print*, "Error in fill_cc - no points defined"
-               return
-            end if
-         end do
-         do j=1,jl
-            do i=1,il
-               iq = i + (j-1)*il
-               a_io(i,j) = a(iq)
-            end do
-         end do
-      
-      end if
-
-      do ip = 0,pnproc-1   
-         do n = 0,pnpan-1
-            c_io(1:pil,1+n*pjl:(n+1)*pjl,ip+1) = &
-              a_io(1+ioff(ip,n):pil+ioff(ip,n),1+joff(ip,n)+n*pil_g:pjl+joff(ip,n)+n*pil_g)
          end do
       end do
       
-      call MPI_Scatter(c_io,pil*pjl*pnpan*lproc,MPI_REAL,b_io,pil*pjl*pnpan*lproc,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+      imin=1
+      imax=il
+      jmin=1
+      jmax=il
+      
+      nrem = 1    ! Just for first iteration
+!     nrem_gmin used to avoid infinite loops, e.g. for no sice
+      do while ( nrem > 0 )
+         nrem=0
+         do n=0,5
+            iminb=il
+            imaxb=1
+            jminb=il
+            jmaxb=1
+            do j=jmin(n),jmax(n)
+               do i=imin(n),imax(n)
+                  iq=i+(j-1)*il+n*il*il
+                  b(iq)=a(iq)
+                  if ( a(iq)==value ) then
+                     neighb=0
+                     av=0.
+                     if ( a(i_n(iq))/=value ) then
+                        neighb=neighb+1
+                        av=av+a(i_n(iq))
+                     end if
+                     if ( a(i_e(iq))/=value ) then
+                        neighb=neighb+1
+                        av=av+a(i_e(iq))
+                     end if
+                     if ( a(i_w(iq))/=value ) then
+                        neighb=neighb+1
+                        av=av+a(i_w(iq))
+                     end if
+                     if ( a(i_s(iq))/=value ) then
+                        neighb=neighb+1
+                        av=av+a(i_s(iq))
+                     end if
+                     if ( neighb>0 ) then
+                        b(iq)=av/neighb
+                        avx=av
+                     else
+                        nrem=nrem+1   ! current number of points without a neighbour
+                        iminb=min(i,iminb)
+                        imaxb=max(i,imaxb)
+                        jminb=min(j,jminb)
+                        jmaxb=max(j,jmaxb)
+                     end if
+                  end if
+               end do
+            end do
+            imin(n)=iminb
+            imax(n)=imaxb
+            jmin(n)=jminb
+            jmax(n)=jmaxb
+         end do
+         a(:)=b(:)
+         if ( nrem == ifull ) then
+            print*, "Error in fill_cc - no points defined"
+            exit
+         end if
+      end do
+ 
+      do ip = 0,pnproc-1   
+         do n = 0,pnpan-1
+            do j = 1,pjl
+               do i = 1,pil
+                 iq = i+ioff(ip,n) + (j+joff(ip,n)+n*pil_g-1)*il
+                 c_io(i,j+n*pjl,ip+1) = a(iq)
+               end do
+            end do
+         end do
+      end do
+      
+      call MPI_Scatter(c_io,lsize,MPI_REAL,b_io,lsize,MPI_REAL,0,MPI_COMM_WORLD,ierr)
       
    end subroutine fill_cc0
    

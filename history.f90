@@ -101,10 +101,10 @@ module history
    public :: set_missval
 
 !  Private internal routines
-   private :: bindex_hname, initval, &
-              sortlist, create_ncvar, create_ncfile, create_oldfile,    &
-              oldwrite, savehist2D, savehist3D, hashkey, qindex_hname,  &
-              savehist_work, gsavehist2D, gsavehist3D
+   private :: bindex_hname, initval, sortlist, create_ncvar,            &
+              create_ncfile, create_oldfile, oldwrite, savehist2D,      &
+              savehist3D, hashkey, qindex_hname, savehist_work,         &
+              gsavehist2D, gsavehist3D
 
    character(len=50), public, parameter :: &
         history_revision = "$Revision: 7.10 $"
@@ -137,7 +137,7 @@ module history
    integer, parameter :: MAX_KEYLEN = 10
 
 !  Maximum number of history files
-   integer, parameter :: MAX_HFILES = 10
+   integer, parameter :: MAX_HFILES = 1
 !  Actual number of history files used
 !  Set huge value as a trap if openhist not called.
    integer, save :: nhfiles=-huge(1)
@@ -278,8 +278,8 @@ module history
    logical, public :: cordex_compliant = .false.
 
 !  MPI working arrays
-   real, dimension(:,:,:), allocatable, save, private :: hist_a
-   real, dimension(:,:), allocatable, save, private :: hist_g
+   real, dimension(:,:,:,:), allocatable, save, private :: hist_a
+   real, dimension(:,:,:), allocatable, save, private :: hist_g
 
 contains
 
@@ -785,7 +785,7 @@ contains
       character(len=MAX_NAMELEN) :: vname
       logical :: used, multilev, use_plevs, use_hyblevs, use_meters
       integer, dimension(totflds) :: coord_heights
-      integer :: kc, ncoords, k
+      integer :: kc, ncoords, k, pkl
       logical :: soil_used
       real :: dx, dy
       
@@ -894,17 +894,14 @@ contains
             end if
             
 !           Find the name in histinfo to set the used flag.
-            ifld = bindex_hname ( xnames(ivar,ifile), &
-                                  inames(1:totflds), totflds )
+            ifld = bindex_hname ( xnames(ivar,ifile), inames(1:totflds), totflds )
             if ( ifld == 0 ) then
-               print*, "Error - excluded history variable ", xnames(ivar,ifile),  &
-                    " is not known. "
+               print*, "Error - excluded history variable ", xnames(ivar,ifile)," is not known. "
                stop
             end if
             histinfo(ifld)%used(ifile) = .false.
             if ( hist_debug > 4 ) then
-               print*,  " Overriding used for ", ifld, ivar, ifile, &
-                       xnames(ivar,ifile), histinfo(ifld)%name
+               print*,  " Overriding used for ", ifld, ivar, ifile, xnames(ivar,ifile), histinfo(ifld)%name
             end if
 
          end do
@@ -935,253 +932,253 @@ contains
 
       if ( myid == 0 ) then
 
-!     First file may be old average format. If this is the case it has
-!     to be handled differently
-      if ( ihtype(1) == hist_oave ) then
+!        First file may be old average format. If this is the case it has
+!        to be handled differently
+         if ( ihtype(1) == hist_oave ) then
 
-         ifile=1
-         if ( present(histfilename) ) then
-            ! Use histfile as a path in this case
-            oldprefix = trim(histfilename) // "/s"
-         else
-            oldprefix = "s"
-         end if
-
-         do ifld = 1, totflds
-
-            if ( .not. histinfo(ifld)%used(ifile) ) then
-               cycle
+            ifile = 1
+            if ( present(histfilename) ) then
+               ! Use histfile as a path in this case
+               oldprefix = trim(histfilename) // "/s"
+            else
+               oldprefix = "s"
             end if
 
-!           lookup again to get long name and units
-            vname = histinfo(ifld)%name
-            longname = histinfo(ifld)%long_name
-            units = histinfo(ifld)%units
+            do ifld = 1, totflds
 
-            do ilev=1,histinfo(ifld)%nlevels
-               if ( histinfo(ifld)%nlevels == 1 ) then
-                  vname = histinfo(ifld)%name
-               else
-                  write(vname,"(a,i2.2)") trim(histinfo(ifld)%name), ilev
-               end if
-               write(filename,"(a,a,a,a)" ) trim(oldprefix), trim(vname), &
-                                            trim(suffix), ".nc"
-!              Check if this file exists. If it does there's no more to
-!              do, if not go on to create it.
-               inquire(file=filename, exist=used)
-               if ( used ) then
-                  if ( hist_debug > 0 ) then
-                     print*, "Using existing file ", filename
-                  end if
+               if ( .not. histinfo(ifld)%used(ifile) ) then
                   cycle
-               else
+               end if
 
-                  if ( .not. present(year) ) then
-                     print*, " Year argument to openhist is required for old format files"
+!              lookup again to get long name and units
+               vname = histinfo(ifld)%name
+               longname = histinfo(ifld)%long_name
+               units = histinfo(ifld)%units
+
+               do ilev=1,histinfo(ifld)%nlevels
+                  if ( histinfo(ifld)%nlevels == 1 ) then
+                     vname = histinfo(ifld)%name
+                  else
+                     write(vname,"(a,i2.2)") trim(histinfo(ifld)%name), ilev
+                  end if
+                  write(filename,"(a,a,a,a)" ) trim(oldprefix), trim(vname), &
+                                               trim(suffix), ".nc"
+!                 Check if this file exists. If it does there's no more to
+!                 do, if not go on to create it.
+                  inquire(file=filename, exist=used)
+                  if ( used ) then
+                     if ( hist_debug > 0 ) then
+                        print*, "Using existing file ", filename
+                     end if
+                     cycle
+                  else
+
+                     if ( .not. present(year) ) then
+                        print*, " Year argument to openhist is required for old format files"
+                        stop
+                     end if
+                     call create_oldfile ( filename, nxhis, nyhis, hbytes(ifile),&
+                                           vname, longname, units, &
+                                           histinfo(ifld)%valid_min, &
+                                           histinfo(ifld)%valid_max, &
+                                           hlat, hlon, year )
+
+                  end if
+
+               end do
+            end do
+            istart = 2
+         else
+            istart = 1
+         end if ! ihtype(1) == hist_oave
+
+!        The rest of the history files are much simpler with multilevel variables
+         do ifile = istart, nhfiles
+
+            soil_used = .false.
+            if ( present(histfilename) .and. nhfiles == 1 ) then
+               filename = histfilename
+            else
+               write(filename,"(a,i1,a,a)" ) "hist", ifile, trim(suffix), ".nc"
+            end if
+!           Is it possible to do a masked maxval?
+            multilev = .false.
+            ncoords = 0
+            do ifld=1,totflds
+               if ( hist_debug > 4 ) then
+                  print*, "Checking variable properties", ifld, &
+                       histinfo(ifld)%name, histinfo(ifld)%used(ifile), &
+                       histinfo(ifld)%nlevels, histinfo(ifld)%soil
+               end if
+               if ( .not. histinfo(ifld)%used(ifile) ) cycle
+
+               ! From here only considering variables that are used in this file
+
+               multilev = multilev .or. histinfo(ifld)%nlevels > 1 .or. &
+                          histinfo(ifld)%multilev
+
+               ! Check if the file has any soil variables
+               soil_used = soil_used .or. histinfo(ifld)%soil
+
+               ! Get a list of the coordinate heights if any
+               if ( histinfo(ifld)%coord_height > -huge(1.) ) then
+                  ! Check if it's already in list
+                  do kc=1,ncoords
+                     if ( nint(histinfo(ifld)%coord_height) == coord_heights(kc) ) then
+                        exit
+                     end if
+                  end do
+                  if ( kc > ncoords ) then
+                     ! Value not found
+                     ncoords = kc
+                     coord_heights(ncoords) = histinfo(ifld)%coord_height
+                  end if
+               end if
+            end do
+
+            use_plevs = .false.
+            if ( present(pressure) ) then
+               use_plevs = pressure
+            end if
+            use_meters = .false.
+            if ( present(height) ) then
+               use_meters = height
+            end if
+            use_hyblevs = .false.
+            if ( present(hybrid_levels) ) then
+               use_hyblevs = hybrid_levels
+            end if
+            if ( soil_used ) then
+               ! Better to define a new local nsoil variable?
+               call create_ncfile ( filename, nxhis, nyhis, size(sig), multilev,                   &
+                    use_plevs, use_meters, use_hyblevs, basetime, coord_heights(1:ncoords), ncid,  &
+                    dims, dimvars, source, extra_atts, calendar, nsoil, zsoil )
+            else
+               call create_ncfile ( filename, nxhis, nyhis, size(sig), multilev,                   &
+                    use_plevs, use_meters, use_hyblevs, basetime, coord_heights(1:ncoords), ncid,  &
+                    dims, dimvars, source, extra_atts, calendar)
+            end if
+            histid(ifile) = ncid
+
+            do ifld=1,totflds
+               if ( histinfo(ifld)%used(ifile) ) then
+                  call create_ncvar(histinfo(ifld), ncid, ifile, dims)
+               end if
+            end do
+
+!           Leave define mode
+         
+            ierr = nf90_enddef ( ncid )
+            call check_ncerr(ierr, "Error from enddef")
+
+!           Turn off the data filling to save time.
+            ierr = nf90_set_fill ( ncid, NF90_NOFILL, old_mode)
+            call check_ncerr(ierr, "Error from set_fill")
+
+            ierr = nf90_put_var ( ncid, dimvars%y, hlat )
+            call check_ncerr(ierr,"Error writing latitudes")
+            ierr = nf90_put_var ( ncid, dimvars%x, hlon )
+            call check_ncerr(ierr,"Error writing longitudes")
+            if ( cf_compliant ) then
+               ! Calculate bounds assuming a regular lat-lon grid
+               ! Perhaps have optional arguments for the other cases?
+               allocate ( lat_bnds(2,size(hlat)), lon_bnds(2,size(hlon)) )
+               ! Check if regular grid
+               if ( maxval(hlon(2:)-hlon(:nx-1)) - minval(hlon(2:)-hlon(:nx-1)) < 1e-4*maxval(hlon(2:)-hlon(:nx-1)) ) then
+                  dx = hlon(2) - hlon(1)
+                  lon_bnds(1,:) = hlon - 0.5*dx
+                  lon_bnds(2,:) = hlon + 0.5*dx
+                  ierr = nf90_put_var ( ncid, dimvars%x_b, lon_bnds )
+                  call check_ncerr(ierr,"Error writing longitude bounds")
+               end if
+               if ( maxval(hlat(2:)-hlat(:ny-1)) - minval(hlat(2:)-hlat(:ny-1)) < 1e-4*maxval(hlat(2:)-hlat(:ny-1)) ) then
+                  dy = hlat(2) - hlat(1)
+                  lat_bnds(1,:) = hlat - 0.5*dy
+                  lat_bnds(2,:) = hlat + 0.5*dy
+                  where ( lat_bnds < -90. ) 
+                     lat_bnds = -90.
+                  end where
+                  where ( lat_bnds > 90. ) 
+                     lat_bnds = 90.
+                  end where
+                  ierr = nf90_put_var ( ncid, dimvars%y_b, lat_bnds )
+                  call check_ncerr(ierr,"Error writing latitude bounds")
+               end if
+            end if
+            if ( multilev ) then
+               ierr = nf90_put_var ( ncid, dimvars%z, sig )
+               call check_ncerr(ierr,"Error writing levels")
+               if ( use_hyblevs ) then
+                  if ( .not. present(anf) ) then
+                     print*, "Error, missing anf argument"
                      stop
                   end if
-                  call create_oldfile ( filename, nxhis, nyhis, hbytes(ifile),&
-                                        vname, longname, units, &
-                                        histinfo(ifld)%valid_min, &
-                                        histinfo(ifld)%valid_max, &
-                                        hlat, hlon, year )
-
-               end if
-
-            end do
-         end do
-         istart = 2
-      else
-         istart = 1
-      end if ! ihtype(1) == hist_oave
-
-!     The rest of the history files are much simpler with multilevel variables
-      do ifile = istart, nhfiles
-
-         soil_used = .false.
-         if ( present(histfilename) .and. nhfiles == 1 ) then
-            filename = histfilename
-         else
-            write(filename,"(a,i1,a,a)" ) "hist", ifile, trim(suffix), ".nc"
-         end if
-!        Is it possible to do a masked maxval?
-         multilev = .false.
-         ncoords = 0
-         do ifld=1,totflds
-            if ( hist_debug > 4 ) then
-               print*, "Checking variable properties", ifld, &
-                    histinfo(ifld)%name, histinfo(ifld)%used(ifile), &
-                    histinfo(ifld)%nlevels, histinfo(ifld)%soil
-            end if
-            if ( .not. histinfo(ifld)%used(ifile) ) cycle
-
-            ! From here only considering variables that are used in this file
-
-            multilev = multilev .or. histinfo(ifld)%nlevels > 1 .or. &
-                       histinfo(ifld)%multilev
-
-            ! Check if the file has any soil variables
-            soil_used = soil_used .or. histinfo(ifld)%soil
-
-            ! Get a list of the coordinate heights if any
-            if ( histinfo(ifld)%coord_height > -huge(1.) ) then
-               ! Check if it's already in list
-               do kc=1,ncoords
-                  if ( nint(histinfo(ifld)%coord_height) == coord_heights(kc) ) then
-                     exit
+                  ierr = nf90_inq_varid(ncid, "anf", vid)
+                  call check_ncerr(ierr,"Error getting vid for anf")
+                  ierr = nf90_put_var(ncid, vid, anf)
+                  call check_ncerr(ierr,"Error writing anf")
+                  if ( .not. present(bnf) ) then
+                     print*, "Error, missing bnf argument"
+                     stop
                   end if
+                  ierr = nf90_inq_varid(ncid, "bnf", vid)
+                  call check_ncerr(ierr,"Error getting vid for bnf")
+                  ierr = nf90_put_var(ncid, vid, bnf)
+                  call check_ncerr(ierr,"Error writing bnf")
+                  if ( .not. present(p0) ) then
+                     print*, "Error, missing p0 argument"
+                     stop
+                  end if
+                  ierr = nf90_inq_varid(ncid, "P0", vid)
+                  call check_ncerr(ierr,"Error getting vid for p0")
+                  ierr = nf90_put_var(ncid, vid, p0)
+                  call check_ncerr(ierr,"Error writing p0")
+               end if
+            end if
+            if ( soil_used .and. present(zsoil) ) then
+               ierr = nf90_put_var ( ncid, dimvars%zsoil, zsoil )
+               call check_ncerr(ierr,"Error writing depths")
+               ! Soil bounds
+               allocate(zsoil_bnds(2, nsoil))
+               zsoil_bnds(1,1) = 0.
+               zsoil_bnds(2,1) = 2.*zsoil(1)
+               do k=1,nsoil
+                  ! Levels are middle of layers
+                  zsoil_bnds(2,k) = zsoil_bnds(2,k-1) + 2*(zsoil(k)-zsoil_bnds(2,k-1))
+                  zsoil_bnds(1,k) = zsoil_bnds(2,k-1)
                end do
-               if ( kc > ncoords ) then
-                  ! Value not found
-                  ncoords = kc
-                  coord_heights(ncoords) = histinfo(ifld)%coord_height
+               ierr = nf90_put_var ( ncid, dimvars%zsoil_b, zsoil_bnds )
+               call check_ncerr(ierr,"Error writing depths")
+            end if
+
+            do kc=1,ncoords
+               if ( coord_heights(kc) < 10 ) then
+                  write(vname, "(a,i1.1)") "height", coord_heights(kc)
+               else
+                  write(vname, "(a,i2.2)") "height", coord_heights(kc)
                end if
-            end if
-         end do
-
-         use_plevs = .false.
-         if ( present(pressure) ) then
-            use_plevs = pressure
-         end if
-         use_meters = .false.
-         if ( present(height) ) then
-            use_meters = height
-         end if
-         use_hyblevs = .false.
-         if ( present(hybrid_levels) ) then
-            use_hyblevs = hybrid_levels
-         end if
-         if ( soil_used ) then
-            ! Better to define a new local nsoil variable?
-            call create_ncfile ( filename, nxhis, nyhis, size(sig), multilev,                   &
-                 use_plevs, use_meters, use_hyblevs, basetime, coord_heights(1:ncoords), ncid,  &
-                 dims, dimvars, source, extra_atts, calendar, nsoil, zsoil )
-         else
-            call create_ncfile ( filename, nxhis, nyhis, size(sig), multilev,                   &
-                 use_plevs, use_meters, use_hyblevs, basetime, coord_heights(1:ncoords), ncid,  &
-                 dims, dimvars, source, extra_atts, calendar)
-         end if
-         histid(ifile) = ncid
-
-         do ifld=1,totflds
-            if ( histinfo(ifld)%used(ifile) ) then
-               call create_ncvar(histinfo(ifld), ncid, ifile, dims)
-            end if
-         end do
-
-!        Leave define mode
-         
-         ierr = nf90_enddef ( ncid )
-         call check_ncerr(ierr, "Error from enddef")
-
-!        Turn off the data filling to save time.
-         ierr = nf90_set_fill ( ncid, NF90_NOFILL, old_mode)
-         call check_ncerr(ierr, "Error from set_fill")
-
-         ierr = nf90_put_var ( ncid, dimvars%y, hlat )
-         call check_ncerr(ierr,"Error writing latitudes")
-         ierr = nf90_put_var ( ncid, dimvars%x, hlon )
-         call check_ncerr(ierr,"Error writing longitudes")
-         if ( cf_compliant ) then
-            ! Calculate bounds assuming a regular lat-lon grid
-            ! Perhaps have optional arguments for the other cases?
-            allocate ( lat_bnds(2,size(hlat)), lon_bnds(2,size(hlon)) )
-            ! Check if regular grid
-            if ( maxval(hlon(2:)-hlon(:nx-1)) - minval(hlon(2:)-hlon(:nx-1)) < 1e-4*maxval(hlon(2:)-hlon(:nx-1)) ) then
-               dx = hlon(2) - hlon(1)
-               lon_bnds(1,:) = hlon - 0.5*dx
-               lon_bnds(2,:) = hlon + 0.5*dx
-               ierr = nf90_put_var ( ncid, dimvars%x_b, lon_bnds )
-               call check_ncerr(ierr,"Error writing longitude bounds")
-            end if
-            if ( maxval(hlat(2:)-hlat(:ny-1)) - minval(hlat(2:)-hlat(:ny-1)) < 1e-4*maxval(hlat(2:)-hlat(:ny-1)) ) then
-               dy = hlat(2) - hlat(1)
-               lat_bnds(1,:) = hlat - 0.5*dy
-               lat_bnds(2,:) = hlat + 0.5*dy
-               where ( lat_bnds < -90. ) 
-                  lat_bnds = -90.
-               end where
-               where ( lat_bnds > 90. ) 
-                  lat_bnds = 90.
-               end where
-               ierr = nf90_put_var ( ncid, dimvars%y_b, lat_bnds )
-               call check_ncerr(ierr,"Error writing latitude bounds")
-            end if
-         end if
-         if ( multilev ) then
-            ierr = nf90_put_var ( ncid, dimvars%z, sig )
-            call check_ncerr(ierr,"Error writing levels")
-            if ( use_hyblevs ) then
-               if ( .not. present(anf) ) then
-                  print*, "Error, missing anf argument"
-                  stop
-               end if
-               ierr = nf90_inq_varid(ncid, "anf", vid)
-               call check_ncerr(ierr,"Error getting vid for anf")
-               ierr = nf90_put_var(ncid, vid, anf)
-               call check_ncerr(ierr,"Error writing anf")
-               if ( .not. present(bnf) ) then
-                  print*, "Error, missing bnf argument"
-                  stop
-               end if
-               ierr = nf90_inq_varid(ncid, "bnf", vid)
-               call check_ncerr(ierr,"Error getting vid for bnf")
-               ierr = nf90_put_var(ncid, vid, bnf)
-               call check_ncerr(ierr,"Error writing bnf")
-               if ( .not. present(p0) ) then
-                  print*, "Error, missing p0 argument"
-                  stop
-               end if
-               ierr = nf90_inq_varid(ncid, "P0", vid)
-               call check_ncerr(ierr,"Error getting vid for p0")
-               ierr = nf90_put_var(ncid, vid, p0)
-               call check_ncerr(ierr,"Error writing p0")
-            end if
-         end if
-         if ( soil_used .and. present(zsoil) ) then
-            ierr = nf90_put_var ( ncid, dimvars%zsoil, zsoil )
-            call check_ncerr(ierr,"Error writing depths")
-            ! Soil bounds
-            allocate(zsoil_bnds(2, nsoil))
-            zsoil_bnds(1,1) = 0.
-            zsoil_bnds(2,1) = 2.*zsoil(1)
-            do k=1,nsoil
-               ! Levels are middle of layers
-               zsoil_bnds(2,k) = zsoil_bnds(2,k-1) + 2*(zsoil(k)-zsoil_bnds(2,k-1))
-               zsoil_bnds(1,k) = zsoil_bnds(2,k-1)
+               ierr = nf90_inq_varid(ncid, vname, vid)
+               call check_ncerr(ierr,"Error getting vid for height coord")
+               ierr = nf90_put_var ( ncid, vid, real(coord_heights(kc)))
+               call check_ncerr(ierr,"Error writing coordinate height")
             end do
-            ierr = nf90_put_var ( ncid, dimvars%zsoil_b, zsoil_bnds )
-            call check_ncerr(ierr,"Error writing depths")
-         end if
 
-         do kc=1,ncoords
-            if ( coord_heights(kc) < 10 ) then
-               write(vname, "(a,i1.1)") "height", coord_heights(kc)
-            else
-               write(vname, "(a,i2.2)") "height", coord_heights(kc)
-            end if
-            ierr = nf90_inq_varid(ncid, vname, vid)
-            call check_ncerr(ierr,"Error getting vid for height coord")
-            ierr = nf90_put_var ( ncid, vid, real(coord_heights(kc)))
-            call check_ncerr(ierr,"Error writing coordinate height")
-         end do
-
-!        Sync the file so that if the program crashes for some reason 
-!        there will still be useful output.
+!           Sync the file so that if the program crashes for some reason 
+!           there will still be useful output.
 #ifdef outsync
-         ierr = nf90_sync ( ncid )
-         call check_ncerr(ierr, "Error syncing history file")
+            ierr = nf90_sync ( ncid )
+            call check_ncerr(ierr, "Error syncing history file")
 #endif
 
-      end do  ! Loop over files
+         end do  ! Loop over files
       
-      end if
+      end if ! myid==0
 
 !     Allocate the array to hold all the history data
 !     Calculate the size by summing the number of fields of each variable
 
       hsize = 0
-      do ifile=1,nhfiles
+      do ifile = 1,nhfiles
          do ifld = 1, totflds
             if ( histinfo(ifld)%used(ifile) ) then
                histinfo(ifld)%ptr(ifile) = hsize + 1
@@ -1216,17 +1213,18 @@ contains
             stop
          end if
          if ( myid == 0 ) then
-            allocate( hist_a(pil,pjl*pnpan,pnproc) )
-            allocate( hist_g(nx,ny) )
+            pkl = size(sig)
+            allocate( hist_a(pil,pjl*pnpan,pkl,pnproc) )
+            allocate( hist_g(nx,ny,pkl) )
          else
-            allocate( hist_a(0,0,0) )
-            allocate( hist_g(0,0) )
+            allocate( hist_a(0,0,0,0) )
+            allocate( hist_g(0,0,0) )
          end if
       end if
 
 !     Initialise the history appropriately
       histset = 0
-      do ifile=1,nhfiles
+      do ifile = 1,nhfiles
          avetime(ifile) = 0.0
          ! Initialisation so min/max work
          avetime_bnds(:,ifile) = (/huge(1.), -huge(1.)/)
@@ -1865,7 +1863,7 @@ contains
       
       integer :: ierr, ifile
      
-      do ifile=1,nhfiles
+      do ifile = 1,nhfiles
 !        The hist_oave files are closed individually in writehist.
          if ( ihtype(ifile) /= hist_oave ) then
             ierr = nf90_close ( histid(ifile) )
@@ -2090,7 +2088,7 @@ contains
    subroutine writehist ( istep, endofrun, year, month, interp, time, time_bnds )
 
       use mpidata_m
-      include 'mpif.h'
+
       integer, intent(in) :: istep
       logical, intent(in), optional :: endofrun
       integer, intent(in), optional :: year, month !  For old format files
@@ -2121,8 +2119,8 @@ contains
          print*, " Error, interp argument required for writehist "
          stop
       end if
-         
-      do ifile=1,nhfiles
+
+      do ifile = 1,nhfiles
 
 !        Check whether this file should be written on this step.
          if ( hist_debug > 1 ) then
@@ -2182,48 +2180,48 @@ contains
 
          if ( myid == 0 ) then
 
-         if ( ifile == 1 .and. ihtype(ifile) == hist_oave ) then
-            if ( .not. ( present(year) .and. present(month) ) ) then
-               print*, "Error year and month arguments to writehist are "
-               print*, "required for old format files"
-               stop
+            if ( ifile == 1 .and. ihtype(ifile) == hist_oave ) then
+               if ( .not. ( present(year) .and. present(month) ) ) then
+                  print*, "Error year and month arguments to writehist are "
+                  print*, "required for old format files"
+                  stop
+               end if
+!              Add a check. Interpolation not supported with old format.
+               call oldwrite(nxhis,nyhis,year,month)
+               cycle
             end if
-!           Add a check. Interpolation not supported with old format.
-            call oldwrite(nxhis,nyhis,year,month)
-            cycle
-         end if
 
-         ncid = histid(ifile)
+            ncid = histid(ifile)
 
-         ierr = nf90_inq_varid (ncid, "time", vid )
-         call check_ncerr(ierr, "Error getting time id")
-         if ( present(time) ) then
-            if ( ihtype(ifile) == hist_ave) then
-               ierr = nf90_put_var ( ncid, vid,   &
-                    avetime(ifile)/timecount(ifile), start=(/histset(ifile)/) )
+            ierr = nf90_inq_varid (ncid, "time", vid )
+            call check_ncerr(ierr, "Error getting time id")
+            if ( present(time) ) then
+               if ( ihtype(ifile) == hist_ave) then
+                  ierr = nf90_put_var ( ncid, vid,   &
+                       avetime(ifile)/timecount(ifile), start=(/histset(ifile)/) )
+               else
+                  ierr = nf90_put_var ( ncid, vid, time, start=(/histset(ifile)/))
+               end if
             else
-               ierr = nf90_put_var ( ncid, vid, time, start=(/histset(ifile)/))
+               ierr = nf90_put_var ( ncid, vid, &
+                                     real(histset(ifile)*hfreq(ifile)), &
+                                     start=(/histset(ifile)/) )
             end if
-         else
-            ierr = nf90_put_var ( ncid, vid, &
-                                  real(histset(ifile)*hfreq(ifile)), &
-                                  start=(/histset(ifile)/) )
-         end if
-         call check_ncerr(ierr, "Error writing time")
-         if ( cf_compliant .and. present(time_bnds) ) then
-            ierr = nf90_inq_varid (ncid, "time_bnds", vid )
-            call check_ncerr(ierr, "Error getting time_bnds id")
-            if ( ihtype(ifile) == hist_ave) then
-               ierr = nf90_put_var ( ncid, vid, avetime_bnds(:,ifile), start=(/1,histset(ifile)/))
-            else
-               ierr = nf90_put_var ( ncid, vid, time_bnds, start=(/1,histset(ifile)/))
+            call check_ncerr(ierr, "Error writing time")
+            if ( cf_compliant .and. present(time_bnds) ) then
+               ierr = nf90_inq_varid (ncid, "time_bnds", vid )
+               call check_ncerr(ierr, "Error getting time_bnds id")
+               if ( ihtype(ifile) == hist_ave) then
+                  ierr = nf90_put_var ( ncid, vid, avetime_bnds(:,ifile), start=(/1,histset(ifile)/))
+               else
+                  ierr = nf90_put_var ( ncid, vid, time_bnds, start=(/1,histset(ifile)/))
+               end if
+               call check_ncerr(ierr, "Error writing time_bnds")
             end if
-            call check_ncerr(ierr, "Error writing time_bnds")
-         end if
 
-         start2D = (/ 1, 1, histset(ifile) /)
-         count2D = (/ nxhis, nyhis, 1 /)
-         count3D = (/ nxhis, nyhis, 1, 1 /)
+            start2D = (/ 1, 1, histset(ifile) /)
+            count2D = (/ nxhis, nyhis, 1 /)
+            count3D = (/ nxhis, nyhis, 1, 1 /)
          
          end if
 
@@ -2260,34 +2258,32 @@ contains
                     histarray(ihdb,jhdb,istart+khdb-1)
             end if
 
-!           Even multilevel variables are written one level at a time
-            do k=istart, iend
+            call gatherwrap(histarray(:,:,istart:iend),hist_a)
+            
+            if ( myid == 0 ) then
 
-               if ( count == 0 ) then
-                  if ( hbytes(ifile) == 2 ) then
-                     htemp = NF90_FILL_SHORT
+               do ip = 0,pnproc-1   
+                  do n = 0,pnpan-1
+                     hist_g(1+ioff(ip,n):pil+ioff(ip,n),1+joff(ip,n)+n*pil_g:pjl+joff(ip,n)+n*pil_g,1:iend-istart+1) = &
+                        hist_a(1:pil,1+n*pjl:(n+1)*pjl,1:iend-istart+1,ip+1)
+                  end do
+               end do
+                
+!              Even multilevel variables are written one level at a time
+               do k=istart, iend
+
+                  if ( count == 0 ) then
+                     if ( hbytes(ifile) == 2 ) then
+                        htemp = NF90_FILL_SHORT
+                     else
+                        htemp = NF90_FILL_FLOAT
+                     end if
                   else
-                     htemp = NF90_FILL_FLOAT
-                  end if
-               else
-
-                  call MPI_Gather(histarray(:,:,k),pil*pjl*pnpan*lproc,MPI_REAL,hist_a,pil*pjl*pnpan*lproc,MPI_REAL,0, &
-                                  MPI_COMM_WORLD,ierr)
-               
-                  if ( myid == 0 ) then
-                  
-                     do ip = 0,pnproc-1   
-                        do n = 0,pnpan-1
-                           hist_g(1+ioff(ip,n):pil+ioff(ip,n),1+joff(ip,n)+n*pil_g:pjl+joff(ip,n)+n*pil_g) = &
-                              hist_a(1:pil,1+n*pjl:(n+1)*pjl,ip+1)
-                        end do
-                     end do
 
                      if ( present(interp) ) then
-                        call interp ( hist_g, htemp,          &
-                                      histinfo(ifld)%int_type )
+                        call interp ( hist_g(:,:,k+1-istart), htemp, histinfo(ifld)%int_type )
                      else
-                        htemp = hist_g(:,:)
+                        htemp = hist_g(:,:,k+1-istart)
                      end if
 
                      if ( hbytes(ifile) == 2 ) then
@@ -2305,25 +2301,18 @@ contains
                      end if
                   
                   end if
-                  
-               end if
-
-               if ( myid == 0 ) then
 
                   if ( nlev > 1 .or. histinfo(ifld)%multilev ) then
                      start3D = (/ 1, 1, k+1-istart, histset(ifile) /)
-                     ierr = nf90_put_var ( ncid, vid, htemp, start=start3D, &
-                                           count=count3D )
+                     ierr = nf90_put_var ( ncid, vid, htemp, start=start3D, count=count3D )
                   else
-                     ierr = nf90_put_var ( ncid, vid, htemp, start=start2D, &
-                                           count=count2D )
+                     ierr = nf90_put_var ( ncid, vid, htemp, start=start2D, count=count2D )
                   end if
-                  call check_ncerr(ierr, &
-                    "Error writing history variable "//histinfo(ifld)%name )
+                  call check_ncerr( ierr, "Error writing history variable "//histinfo(ifld)%name )
                  
-               end if
-
-            end do   ! k loop
+               end do   ! k loop
+               
+            end if ! myid == 0
 
 !           Zero ready for next set
             histarray(:,:,istart:iend) = initval(ave_type)
@@ -2485,27 +2474,6 @@ contains
    end function initval
 
 !-------------------------------------------------------------------
-   function needfld ( name ) result (needed)
-      character(len=*), intent(in) :: name
-      logical :: needed
-      integer :: ifld, ifile
-
-!     Check if name is in the list for any of the history files
-      needed = .false.
-      do ifile=1,nhfiles
-         ifld = qindex_hname ( name, inames(1:totflds), totflds, ifile)
-         if ( ifld == 0 ) then
-            ! Name not known at all in this case
-            needed = .false.
-            exit
-         else if ( histinfo(ifld)%used(ifile) ) then
-            needed = .true.
-            exit   ! No need to check any further.
-         end if
-      end do
-   end function needfld
-
-!-------------------------------------------------------------------
 
    subroutine clearhist ()
 
@@ -2540,6 +2508,44 @@ contains
 
    end subroutine clearhist
 
+   subroutine gatherwrap(array_in,array_out)
+#ifndef usenc3
+      use mpi
+#else
+      include 'mpif.h'   
+#endif
+      real, dimension(:,:,:), intent(in) :: array_in
+      real, dimension(:,:,:,:), intent(out) :: array_out
+      real, dimension(size(array_out,1),size(array_out,2),size(array_in,3),size(array_out,4)) :: array_temp
+      integer :: lsize, ierr
+      
+      lsize = size(array_in,1)*size(array_in,2)*size(array_in,3)
+      call MPI_Gather(array_in,lsize,MPI_REAL,array_temp,lsize,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+      array_out(:,:,1:size(array_in,3),:) = array_temp(:,:,:,:)
+      
+   end subroutine gatherwrap
+
+!-------------------------------------------------------------------
+   function needfld ( name ) result (needed)
+      character(len=*), intent(in) :: name
+      logical :: needed
+      integer :: ifld, ifile
+
+!     Check if name is in the list for any of the history files
+      needed = .false.
+      do ifile=1,nhfiles
+         ifld = qindex_hname ( name, inames(1:totflds), totflds, ifile)
+         if ( ifld == 0 ) then
+            ! Name not known at all in this case
+            needed = .false.
+            exit
+         else if ( histinfo(ifld)%used(ifile) ) then
+            needed = .true.
+            exit   ! No need to check any further.
+         end if
+      end do
+   end function needfld
+   
 !-------------------------------------------------------------------
    function bindex_hname(name, table,nflds) result(ifld)
       character(len=*), intent(in)    :: name
