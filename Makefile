@@ -3,16 +3,6 @@ FFLAGS = -O -xHost -fpp -ftz
 INC = -I $(NETCDF_ROOT)/include
 LIBS = -L $(NETCDF_ROOT)/lib -lnetcdf -lnetcdff
 
-
-SRC = pcc2hist.f90 cc2hist_work.f90 gldata_m.f90 height_m.f90 indices_m.f90 \
-ind_m.f90 interp_m.f90 jimcc_m.f90 jimco_m.f90 jim_utils.f90 latltoij_m.f90 \
-newmpar_m.f90 nfft_m.f90 parm_m.f90 precis_m.f90 s2p_m.f90 setxyz_m.f90 \
-sitop_m.f90 staguv_m.f90 usage_m.f90 xyzinfo_m.f90 utilities.f90 \
-mpidata_m.f90
-
-SRCLIB = history.f90 getopt_m.f90 utils_m.f90 ncutils_m.f90 kinds_m.f90 \
-physparams.f90 vertutils_m.f90 moistfuncs.f90 hyblevs_m.f90 checkver_m.f90
-
 OBJ = pcc2hist.o cc2hist_work.o gldata_m.o height_m.o indices_m.o ind_m.o \
 interp_m.o jimcc_m.o jimco_m.o jim_utils.o latltoij_m.o newmpar_m.o nfft_m.o \
 parm_m.o precis_m.o s2p_m.o setxyz_m.o sitop_m.o staguv_m.o usage_m.o \

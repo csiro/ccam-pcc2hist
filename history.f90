@@ -1487,8 +1487,8 @@ contains
          print*, "Creating file ", filename
       end if
 #ifdef usenc3
-      !ierr = nf90_create(filename, NF90_CLOBBER, ncid)
-      ierr = nf90_create(filename, NF90_64BIT_OFFSET, ncid)
+      ierr = nf90_create(filename, NF90_CLOBBER, ncid)
+      !ierr = nf90_create(filename, NF90_64BIT_OFFSET, ncid)
 #else
       ierr = nf90_create(filename, nf90_netcdf4, ncid)
 #endif
