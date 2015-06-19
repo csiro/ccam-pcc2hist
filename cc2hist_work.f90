@@ -362,6 +362,13 @@ contains
                         call savehist ( name, dtmp )
                      end if
                   endif
+               else if ( varlist(ivar)%vname(1:3)=='tgg' ) then
+                  ! Fix soil and ocean temperature offset
+                  call vread(varlist(ivar)%vname,dtmp)
+                  where ( dtmp<100. )
+                    dtmp = dtmp + 290. ! reference temperature
+                  end where
+                  call savehist(varlist(ivar)%vname,dtmp)
                else
                   call readsave2 (varlist(ivar)%vname)
                end if
@@ -1997,7 +2004,7 @@ contains
       character(len=266) :: pfile
       character(len=8) :: sdecomp
 
-      if (myid==0) then      
+      if ( myid == 0 ) then      
   
          ! parallel file input
          ip = 0
