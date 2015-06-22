@@ -2509,6 +2509,7 @@ contains
    end subroutine clearhist
 
    subroutine gatherwrap(array_in,array_out)
+      use mpidata_m, only : nproc, lproc
 #ifndef usenc3
       use mpi
 #else
@@ -2516,12 +2517,18 @@ contains
 #endif
       real, dimension(:,:,:), intent(in) :: array_in
       real, dimension(:,:,:,:), intent(out) :: array_out
-      real, dimension(size(array_out,1),size(array_out,2),size(array_in,3),size(array_out,4)) :: array_temp
-      integer :: lsize, ierr
+      real, dimension(size(array_out,1),size(array_out,2),lproc,size(array_in,3),nproc) :: array_temp
+      integer :: lsize, ierr, np, lp, k
       
-      lsize = size(array_in,1)*size(array_in,2)*size(array_in,3)
+      lsize = size(array_in)
       call MPI_Gather(array_in,lsize,MPI_REAL,array_temp,lsize,MPI_REAL,0,MPI_COMM_WORLD,ierr)
-      array_out(:,:,1:size(array_in,3),:) = array_temp(:,:,:,:)
+      do np = 0,nproc-1
+         do k = 1,size(array_in,3)
+	    do lp = 0,lproc-1
+               array_out(:,:,k,lp+np*lproc+1) = array_temp(:,:,lp+1,k,np+1)
+	    end do
+	 end do
+      end do
       
    end subroutine gatherwrap
 
