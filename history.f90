@@ -147,7 +147,7 @@ module history
 !  The actual data arrays are allocatable, so it doesn't use much space.
 !  It can't be made truly dynamic. The best that could be done is to 
 !  re-allocate a larger array if required.
-   integer, parameter :: nfmax = 500
+   integer, parameter :: nfmax = 1000
 
 !  Initialise hnames so that set_hnames can find the end of the list to append.
    character(len=MAX_NAMELEN), dimension(nfmax,MAX_HFILES), save ::  &
