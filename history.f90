@@ -1,3 +1,24 @@
+! Conformal Cubic Atmospheric Model
+    
+! Copyright 2015 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+    
+! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
+!
+! CCAM is free software: you can redistribute it and/or modify
+! it under the terms of the GNU General Public License as published by
+! the Free Software Foundation, either version 3 of the License, or
+! (at your option) any later version.
+!
+! CCAM is distributed in the hope that it will be useful,
+! but WITHOUT ANY WARRANTY; without even the implied warranty of
+! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+! GNU General Public License for more details.
+!
+! You should have received a copy of the GNU General Public License
+! along with CCAM.  If not, see <http://www.gnu.org/licenses/>.
+
+!------------------------------------------------------------------------------
+    
 ! This module provides a new scheme for saving model history data.
 ! The idea is to hide the arrays used for the accumulation. All 
 ! manipulation can be done giving just the name of the variable.
@@ -2524,10 +2545,10 @@ contains
       call MPI_Gather(array_in,lsize,MPI_REAL,array_temp,lsize,MPI_REAL,0,MPI_COMM_WORLD,ierr)
       do np = 0,nproc-1
          do k = 1,size(array_in,3)
-	    do lp = 0,lproc-1
+            do lp = 0,lproc-1
                array_out(:,:,k,lp+np*lproc+1) = array_temp(:,:,lp+1,k,np+1)
-	    end do
-	 end do
+            end do
+         end do
       end do
       
    end subroutine gatherwrap

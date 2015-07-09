@@ -1,5 +1,27 @@
+! Conformal Cubic Atmospheric Model
+    
+! Copyright 2015 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+    
+! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
+!
+! CCAM is free software: you can redistribute it and/or modify
+! it under the terms of the GNU General Public License as published by
+! the Free Software Foundation, either version 3 of the License, or
+! (at your option) any later version.
+!
+! CCAM is distributed in the hope that it will be useful,
+! but WITHOUT ANY WARRANTY; without even the implied warranty of
+! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+! GNU General Public License for more details.
+!
+! You should have received a copy of the GNU General Public License
+! along with CCAM.  If not, see <http://www.gnu.org/licenses/>.
+
+!------------------------------------------------------------------------------
+    
 module getopt_m
 
+   use ifport
    implicit none
    private
 
@@ -495,7 +517,7 @@ contains
          print_errors = .false.
       end if
 
-      if (command_argument_count() == 0) then
+      if (iargc() < 1) then
          opt = -1
          optind = 1
          return
@@ -506,7 +528,7 @@ contains
       if ( .not. getopt_initialized ) then
          optind = 1
          !!! Need to use iargc()+1 to get the same result as with C
-         argc = command_argument_count()+1
+         argc = iargc()+1
          if ( present(mpi) ) then
             if ( mpi ) then
                argc = argc - 4 ! Offset for mpirun -np X
@@ -514,7 +536,7 @@ contains
          end if
          allocate ( argv(0:argc-1) )
          do i=0,argc-1
-            call get_command_argument(i,argv(i))
+            call getarg(i,argv(i))
          end do
          getopt_initialized = .true.
       end if
@@ -969,11 +991,25 @@ contains
    end subroutine getopt
 
    subroutine getcline ( cline )
-!     Get the complete program command line. Just kept for compatibility
-!     Should now use get_command directly
-      character(len=*), intent(out) :: cline
 
-      call get_command(cline)
+!     Get the complete program command line
+      character(len=*), intent(out) :: cline
+      integer :: iarg
+      character(len=MAX_ARGLEN) :: arg
+
+      cline = ''
+      do iarg=0,iargc()
+         call getarg(iarg,arg)
+!        Use >= here to allow for the extra space
+         if ( len_trim(cline) + len_trim(arg) >= len(cline) ) then
+            print*, "Error, increase length of command line variable"
+            stop
+         end if
+         cline = cline(1:len_trim(cline)) // " " // trim(arg)
+      end do
+
+      !  The loop above adds a leading blank so adjustl
+      cline = adjustl(cline)
 
    end subroutine getcline
 
