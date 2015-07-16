@@ -198,7 +198,7 @@ contains
 
     end function ncf90_enddef
 
-    function ncf90_get_att(ncid, varid, name, values)
+    function ncf90_get_att_character(ncid, varid, name, values)
 
         ! Gets the value(s) of a netCDF attribute, given
         ! its variable ID and name.
@@ -207,13 +207,14 @@ contains
         character(len = *), intent( in) :: name
         ! any valid type, scalar or array of rank 1, &
         character(len = *), intent(out) :: values
-        integer                         :: ncf90_get_att
+        integer                         :: ncf90_get_att_character
 
-        ncf90_get_att = nf90_get_att(ncid, varid, name, values)
+        ncf90_get_att_character = &
+            nf90_get_att(ncid, varid, name, values)
 
-    end function ncf90_get_att
+    end function ncf90_get_att_character
 
-    function ncf90_get_att(ncid, varid, name, values)
+    function ncf90_get_att_integer(ncid, varid, name, values)
 
         ! Gets the value(s) of a netCDF attribute, given
         ! its variable ID and name.
@@ -222,13 +223,14 @@ contains
         character(len = *), intent( in) :: name
         ! any valid type, scalar or array of rank 1, &
         integer,            intent(out) :: values
-        integer                         :: ncf90_get_att
+        integer                         :: ncf90_get_att_integer
 
-        ncf90_get_att = nf90_get_att(ncid, varid, name, values)
+        ncf90_get_att_integer = &
+            nf90_get_att(ncid, varid, name, values)
 
-    end function ncf90_get_att
+    end function ncf90_get_att_integer
 
-    function ncf90_get_att(ncid, varid, name, values)
+    function ncf90_get_att_real(ncid, varid, name, values)
 
         ! Gets the value(s) of a netCDF attribute, given
         ! its variable ID and name.
@@ -237,11 +239,12 @@ contains
         character(len = *), intent( in) :: name
         ! any valid type, scalar or array of rank 1, &
         real,               intent(out) :: values
-        integer                         :: ncf90_get_att
+        integer                         :: ncf90_get_att_real
 
-        ncf90_get_att = nf90_get_att(ncid, varid, name, values)
+        ncf90_get_att_real = &
+            nf90_get_att(ncid, varid, name, values)
 
-    end function ncf90_get_att
+    end function ncf90_get_att_real
 
     function ncf90_get_var_integer(ncid, varid, values, start, count)
 
@@ -249,7 +252,8 @@ contains
         ! open netCDF dataset that is in data mode.
 
         integer,                         intent( in) :: ncid, varid
-        integer                          intent(out) :: values
+        ! any valid type, scalar or array of any rank, &
+        integer,                         intent(out) :: values
 !        integer, dimension(:), optional, intent( in) :: start, count, stride, map
         integer, dimension(:), optional, intent( in) :: start, count
         integer                                      :: ncf90_get_var_integer
@@ -266,7 +270,8 @@ contains
         ! open netCDF dataset that is in data mode.
 
         integer,                         intent( in) :: ncid, varid
-        real                             intent(out) :: values
+        ! any valid type, scalar or array of any rank, &
+        real,                            intent(out) :: values
 !        integer, dimension(:), optional, intent( in) :: start, count, stride, map
         integer, dimension(:), optional, intent( in) :: start, count
         integer                                      :: ncf90_get_var_real
