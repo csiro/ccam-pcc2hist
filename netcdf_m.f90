@@ -45,7 +45,7 @@ module netcdf_m
     integer NCF90_CLOBBER
     integer NCF90_DOUBLE
     integer NCF90_ENOTATT
-    integer NCF90_FILL_FLOAT
+    real    NCF90_FILL_FLOAT
     integer NCF90_FILL_SHORT
     integer NCF90_GLOBAL
     integer NCF90_INT
@@ -187,7 +187,37 @@ contains
         integer,            intent( in) :: ncid, varid
         character(len = *), intent( in) :: name
         ! any valid type, scalar or array of rank 1, &
-                            intent(out) :: values
+        character(len = *), intent(out) :: values
+        integer                         :: ncf90_get_att
+
+        ncf90_get_att = nf90_get_att(ncid, varid, name, values)
+
+    end function ncf90_get_att
+
+    function ncf90_get_att(ncid, varid, name, values)
+
+        ! Gets the value(s) of a netCDF attribute, given
+        ! its variable ID and name.
+
+        integer,            intent( in) :: ncid, varid
+        character(len = *), intent( in) :: name
+        ! any valid type, scalar or array of rank 1, &
+        integer,            intent(out) :: values
+        integer                         :: ncf90_get_att
+
+        ncf90_get_att = nf90_get_att(ncid, varid, name, values)
+
+    end function ncf90_get_att
+
+    function ncf90_get_att(ncid, varid, name, values)
+
+        ! Gets the value(s) of a netCDF attribute, given
+        ! its variable ID and name.
+
+        integer,            intent( in) :: ncid, varid
+        character(len = *), intent( in) :: name
+        ! any valid type, scalar or array of rank 1, &
+        real,               intent(out) :: values
         integer                         :: ncf90_get_att
 
         ncf90_get_att = nf90_get_att(ncid, varid, name, values)
@@ -232,7 +262,7 @@ contains
         integer,             intent( in)           :: ncid, varid
         character (len = *), intent( in)           :: name
 !        integer,             intent(out), optional :: xtype, len, attnum
-        integer,             intent(out), optional :: xtype, len, attnum
+        integer,             intent(out), optional :: xtype, len
         integer                                    :: ncf90_inquire_attribute
 
         ncf90_inquire_attribute = &
@@ -296,7 +326,7 @@ contains
         integer                                    :: ncf90_inquire_dimension
 
         ncf90_inquire_dimension = nf90_inquire_dimension(ncid, dimid, &
-                                                         len)
+                                                         len=len)
 
     end function ncf90_inquire_dimension
 
