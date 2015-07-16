@@ -1,6 +1,10 @@
 module ncutils_m
    ! Generally useful netcdf stuff
-   use netcdf
+#ifndef parnetcdf
+   use netcdf_m
+#else
+   use pnetcdf_m
+#endif
    implicit none
    private
    public ::  check_ncerr, copy_atts, history_append, fix_ncatt
@@ -10,11 +14,11 @@ contains
    subroutine check_ncerr(status,mesg)
       integer, intent(in) :: status
       character(len=*), intent(in), optional :: mesg
-      if ( status /= nf90_noerr ) then
+      if ( status /= ncf90_noerr ) then
          if ( present(mesg) ) then
             print*, mesg
          end if
-         print*, trim(nf90_strerror(status))
+         print*, trim(ncf90_strerror(status))
          stop
       end if
    end subroutine check_ncerr
@@ -22,22 +26,22 @@ contains
    subroutine copy_atts(ncid_in, ncid_out, vid_in, vid_out)
       ! Copy attributes from variable with vid_in in file ncid_in to
       ! variable vid_out in file ncid_out. 
-      ! Note that vid may be NF90_GLOBAL
+      ! Note that vid may be NCF90_GLOBAL
       integer, intent(in) :: ncid_in, ncid_out, vid_in, vid_out
       integer :: iatt
-      character(len=nf90_max_name) :: attname
+      character(len=ncf90_max_name) :: attname
       integer :: ierr, natts
 
-      if ( vid_in == NF90_GLOBAL ) then
-         ierr = nf90_inquire ( ncid_in, nattributes=natts )
+      if ( vid_in == NCF90_GLOBAL ) then
+         ierr = ncf90_inquire ( ncid_in, nattributes=natts )
       else
-         ierr = nf90_inquire_variable ( ncid_in, vid_in, natts=natts )
+         ierr = ncf90_inquire_variable ( ncid_in, vid_in, natts=natts )
       end if
       call check_ncerr ( ierr, "copy_atts: Error getting natts")
       do iatt=1,natts
-         ierr = nf90_inq_attname(ncid_in, vid_in, iatt, attname)
+         ierr = ncf90_inq_attname(ncid_in, vid_in, iatt, attname)
          call check_ncerr(ierr, "Error getting attribute name in copy_atts")
-         ierr = nf90_copy_att(ncid_in, vid_in, attname, ncid_out, vid_out)
+         ierr = ncf90_copy_att(ncid_in, vid_in, attname, ncid_out, vid_out)
          call check_ncerr(ierr, "Error copying attribute")
       end do
    end subroutine copy_atts
@@ -49,10 +53,10 @@ contains
       character(maxlen) :: history
       integer :: attlen, ierr, ierr2, atttype
 
-      ierr = nf90_inquire_attribute(ncid, NF90_GLOBAL, "history", xtype=atttype, len=attlen )
-      if ( ierr == NF90_NOERR ) then
+      ierr = ncf90_inquire_attribute(ncid, NCF90_GLOBAL, "history", xtype=atttype, len=attlen )
+      if ( ierr == NCF90_NOERR ) then
          history = ""
-         if ( atttype /= NF90_CHAR ) then
+         if ( atttype /= NCF90_CHAR ) then
             print*, "Error from history_append, history attribute not of type character"
             stop
          end if
@@ -60,9 +64,9 @@ contains
             print*, "Error, increase maxlen in history_append"
             stop
          end if
-         ierr2 = nf90_get_att ( ncid, NF90_GLOBAL, "history", history )
+         ierr2 = ncf90_get_att ( ncid, NCF90_GLOBAL, "history", history )
          call check_ncerr ( ierr2, "Error reading history attribute ")  
-      else if ( ierr == NF90_ENOTATT ) then
+      else if ( ierr == NCF90_ENOTATT ) then
          ! Not a fatal error for the attribute to be missing
          history = ""
       else
@@ -71,7 +75,7 @@ contains
 
       ! Add a newline before the new string
       history = history(1:len_trim(history)) // char(10) // trim(string)
-      ierr = nf90_put_att ( ncid, NF90_GLOBAL, "history", trim(history))
+      ierr = ncf90_put_att ( ncid, NCF90_GLOBAL, "history", NCF90_CHAR, trim(history))
       call check_ncerr(ierr,"Error defining character attribute")
 
    end subroutine history_append

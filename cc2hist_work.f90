@@ -1,7 +1,11 @@
 module work
 
    use mpidata_m
-   use netcdf
+#ifndef parnetcdf
+   use netcdf_m
+#else
+   use pnetcdf_m
+#endif
    use ncutils_m, only : check_ncerr
    use gldata
    use precis_m, only : rx
@@ -108,18 +112,18 @@ contains
          return
       end if
       ! Get vid and then values for kdate, ktime, ktau
-      ierr = nf90_inq_varid (ncid, "kdate", vid )
+      ierr = ncf90_inq_varid (ncid, "kdate", vid )
       call check_ncerr(ierr, "Error getting kdate id")
-      ierr = nf90_get_var ( ncid, vid, kdate, start=(/ nrec /) )
+      ierr = ncf90_get_var ( ncid, vid, NCF90_INT, kdate, start=(/ nrec /) )
       call check_ncerr(ierr, "Error getting kdate")
-      ierr = nf90_inq_varid (ncid, "ktime", vid )
+      ierr = ncf90_inq_varid (ncid, "ktime", vid )
       call check_ncerr(ierr, "Error getting ktime id")
-      ierr = nf90_get_var ( ncid, vid, ktime, start=(/ nrec /) )
+      ierr = ncf90_get_var ( ncid, vid, NCF90_INT, ktime, start=(/ nrec /) )
       call check_ncerr(ierr, "Error getting ktime")
       ! Get ktau from time. Really should be renamed
-      ierr = nf90_inq_varid (ncid, "time", vid )
+      ierr = ncf90_inq_varid (ncid, "time", vid )
       call check_ncerr(ierr, "Error getting time id")
-      ierr = nf90_get_var ( ncid, vid, ktau, start=(/ nrec /) )
+      ierr = ncf90_get_var ( ncid, vid, NCF90_INT, ktau, start=(/ nrec /) )
       call check_ncerr(ierr, "Error getting time")
       ieof = 0
             
@@ -763,20 +767,20 @@ contains
 
       nrec = 1
       ! Get the total number of timesteps
-      ierr = nf90_inq_dimid ( ncid, "time", dimid )
+      ierr = ncf90_inq_dimid ( ncid, "time", dimid )
       call check_ncerr(ierr, "Error getting time dimension")
-      ierr = nf90_inquire_dimension ( ncid, dimid, len=maxrec )
+      ierr = ncf90_inquire_dimension ( ncid, dimid, len=maxrec )
       call check_ncerr(ierr,"Error getting number of sets")
       ! Get integer and real headers from attibutes. First check the 
       ! lengths of these.
-      ierr = nf90_inquire_attribute(ncid, nf90_global, "int_header", len=hlen)
+      ierr = ncf90_inquire_attribute(ncid, ncf90_global, "int_header", len=hlen)
       call check_ncerr(ierr, "Error getting int_header length")
       if ( hlen < 43 ) then
          print*, "Error - insufficient header information: int_header too short"
          stop
       end if
       allocate (int_header(hlen))
-      ierr = nf90_get_att(ncid, nf90_global, "int_header", int_header)
+      ierr = ncf90_get_att(ncid, ncf90_global, "int_header", int_header)
       call check_ncerr(ierr, "Error getting int_header")
       ! Only a few values are used
       il = int_header(1)
@@ -793,14 +797,14 @@ contains
       ilt = int_header(42)
       ntrac = int_header(43)
 
-      ierr = nf90_inquire_attribute(ncid, nf90_global, "real_header", len=hlen)
+      ierr = ncf90_inquire_attribute(ncid, ncf90_global, "real_header", len=hlen)
       call check_ncerr(ierr, "Error getting real_header length")
       if ( hlen < 8 ) then
          print*, "Error - insufficient header information: real_header too short"
          stop
       end if
       allocate (real_header(hlen))
-      ierr = nf90_get_att(ncid, nf90_global, "real_header", real_header)
+      ierr = ncf90_get_att(ncid, ncf90_global, "real_header", real_header)
       call check_ncerr(ierr, "Error getting real_header")
       ! Only a few values are used
       rlong0 = real_header(5)
@@ -857,9 +861,9 @@ contains
 
       if ( kl > 1 ) then
             ! Get sigma levels from level variable
-            ierr = nf90_inq_varid (ncid, "lev", vid )
+            ierr = ncf90_inq_varid (ncid, "lev", vid )
             call check_ncerr(ierr, "Error getting vid for lev")
-            ierr = nf90_get_var ( ncid, vid, sig)
+            ierr = ncf90_get_var ( ncid, vid, NCF90_REAL, sig)
             call check_ncerr(ierr, "Error getting levels")
       else
          sig = 1.0
@@ -867,9 +871,9 @@ contains
       call sig2ds(sig, dsig)
       ! Note that some initial condition files don't have zsoil
       if ( cf_compliant ) then
-         ierr = nf90_inq_varid (ncid, "zsoil", vid )
+         ierr = ncf90_inq_varid (ncid, "zsoil", vid )
          call check_ncerr(ierr, "Error getting vid for zsoil")
-         ierr = nf90_get_var ( ncid, vid, zsoil)
+         ierr = ncf90_get_var ( ncid, vid, NCF90_REAL, zsoil)
          call check_ncerr(ierr, "Error getting zsoil")
       end if
 
@@ -1138,7 +1142,7 @@ contains
       integer, intent(out) :: nvars
       integer :: ierr, ndimensions, nvariables, ndims, ivar, int_type, xtype
       integer :: londim, latdim, levdim, timedim, vid, ihr, ind
-      integer, dimension(nf90_max_var_dims) :: dimids
+      integer, dimension(ncf90_max_var_dims) :: dimids
       character(len=10) :: vname, substr
       character(len=100) :: long_name, tmpname, valid_att, std_name, cell_methods
       ! Perhaps should read these from the input?
@@ -1147,20 +1151,20 @@ contains
       real :: coord_height
       integer :: ivar_start
 
-      ierr = nf90_inquire(ncid, ndimensions=ndimensions, nvariables=nvariables)
-      call check_ncerr(ierr, "nf90_inquire error")
+      ierr = ncf90_inquire(ncid, ndimensions=ndimensions, nvariables=nvariables)
+      call check_ncerr(ierr, "ncf90_inquire error")
       ! This is slightly bigger than required because not all the variables
       ! in the netcdf file are processed.
       allocate ( varlist(nvariables) )
 
       ! Get the values of the dimension IDs
-      ierr = nf90_inq_dimid(ncid, "longitude", londim)
+      ierr = ncf90_inq_dimid(ncid, "longitude", londim)
       call check_ncerr(ierr,"Error getting lonid")
-      ierr = nf90_inq_dimid(ncid, "latitude", latdim)
+      ierr = ncf90_inq_dimid(ncid, "latitude", latdim)
       call check_ncerr(ierr,"Error getting latid")
-      ierr = nf90_inq_dimid(ncid, "lev", levdim)
+      ierr = ncf90_inq_dimid(ncid, "lev", levdim)
       call check_ncerr(ierr,"Error getting levid")
-      ierr = nf90_inq_dimid(ncid, "time", timedim)
+      ierr = ncf90_inq_dimid(ncid, "time", timedim)
       call check_ncerr(ierr,"Error getting timeid")
 
       nvars = 0
@@ -1176,13 +1180,13 @@ contains
       !end if
       do ivar=ivar_start,nvariables
          !if ( ivar == 0 ) then
-         !   ierr = nf90_inq_varid ( ncid, "psf", vid )
+         !   ierr = ncf90_inq_varid ( ncid, "psf", vid )
          !   call check_ncerr(ierr, "Error getting vid for psf")
-         !   ierr = nf90_inquire_variable (ncid, vid, name=vname, ndims=ndims, dimids=dimids, xtype=xtype)
-         !   call check_ncerr(ierr, "nf90_inquire_variable error")
+         !   ierr = ncf90_inquire_variable (ncid, vid, name=vname, ndims=ndims, dimids=dimids, xtype=xtype)
+         !   call check_ncerr(ierr, "ncf90_inquire_variable error")
          !else
-            ierr = nf90_inquire_variable (ncid, ivar, name=vname, ndims=ndims, dimids=dimids, xtype=xtype)
-            call check_ncerr(ierr, "nf90_inquire_variable error")
+            ierr = ncf90_inquire_variable (ncid, ivar, name=vname, ndims=ndims, dimids=dimids, xtype=xtype)
+            call check_ncerr(ierr, "ncf90_inquire_variable error")
             !if ( use_plevs .and. vname == "psf" ) then
             !   ! This has already been handled above
             !   cycle
@@ -1230,14 +1234,14 @@ contains
          end if
 
          varlist(nvars)%vname = vname
-         ierr = nf90_inq_varid(ncid, vname, varlist(nvars)%vid)
+         ierr = ncf90_inq_varid(ncid, vname, varlist(nvars)%vid)
          call check_ncerr(ierr, "Error getting vid for "//trim(vname))
 
-         ierr = nf90_get_att(ncid, varlist(nvars)%vid, 'long_name', &
+         ierr = ncf90_get_att(ncid, varlist(nvars)%vid, 'long_name', &
                              varlist(nvars)%long_name)
          call check_ncerr(ierr, "Error getting long_name for "//trim(vname))
 
-         ierr = nf90_get_att(ncid, varlist(nvars)%vid, 'units',     &
+         ierr = ncf90_get_att(ncid, varlist(nvars)%vid, 'units',     &
                              varlist(nvars)%units)
          ! In initial condition files, some fields do not have units
          if ( vname /= "psf" .and. vname /= "wfg" .and. vname /= "wfb" .and. &
@@ -1245,12 +1249,12 @@ contains
             call check_ncerr(ierr, "Error getting units for "//trim(vname))
          end if
 
-         if ( xtype == nf90_short ) then
-            ierr = nf90_get_att(ncid, varlist(nvars)%vid, 'add_offset',   &
+         if ( xtype == ncf90_short ) then
+            ierr = ncf90_get_att(ncid, varlist(nvars)%vid, 'add_offset',   &
                  varlist(nvars)%add_offset)
             call check_ncerr(ierr, "Error getting add_offset for "//trim(vname))
 
-            ierr = nf90_get_att(ncid, varlist(nvars)%vid, 'scale_factor',     &
+            ierr = ncf90_get_att(ncid, varlist(nvars)%vid, 'scale_factor',     &
                  varlist(nvars)%scale_factor)
             call check_ncerr(ierr, "Error getting scale_factor for "//trim(vname))
          else
@@ -1366,7 +1370,7 @@ contains
          ! Also set daily if variable has a 'valid_time' attribute with the 
          ! value daily.
          valid_att = ""
-         ierr = nf90_get_att(ncid, varlist(ivar)%vid, 'valid_time',valid_att)
+         ierr = ncf90_get_att(ncid, varlist(ivar)%vid, 'valid_time',valid_att)
          if ( ierr == 0 ) then
             varlist(ivar)%daily = valid_att == "daily"
          end if
@@ -1691,11 +1695,11 @@ contains
 
       ! Look for the source attribute
       source = ""
-      ierr = nf90_inquire_attribute ( ncid, nf90_global, "source", len=attlen)
-      if ( ierr == nf90_noerr ) then
+      ierr = ncf90_inquire_attribute ( ncid, ncf90_global, "source", len=attlen)
+      if ( ierr == ncf90_noerr ) then
          if ( attlen < len(source) ) then
             ! This will be true if it came from cc2hist
-            ierr = nf90_get_att ( ncid, nf90_global, "source", source )
+            ierr = ncf90_get_att ( ncid, ncf90_global, "source", source )
             call check_ncerr(ierr, "Error getting source attribute")
             if ( index(source, "Processed by cc2hist") > 0 ) then
                print*, "Error - the input file is already processed by cc2hist"
@@ -2009,17 +2013,17 @@ contains
          ! parallel file input
          ip = 0
          write(pfile,"(a,'.',i6.6)") trim(ifile), ip
-         ierr = nf90_open(pfile, nmode, ncid)
-         !if ( ierr /= nf90_noerr ) then
+         ierr = ncf90_open(pfile, nmode, ncid)
+         !if ( ierr /= ncf90_noerr ) then
          !   write(pfile,"(a,'.',i4.4)") trim(ifile), ip
-         !   ierr = nf90_open(pfile, nmode, ncid)
+         !   ierr = ncf90_open(pfile, nmode, ncid)
          !end if
          call check_ncerr(ierr, "Error opening file")
       
          write(6,*) "Using parallel input files"
       
          ! parallel metadata
-         ier = nf90_get_att(ncid, nf90_global, "nproc", pnproc)
+         ier = ncf90_get_att(ncid, ncf90_global, "nproc", pnproc)
          call check_ncerr(ier, "nproc")
 
          if ( mod(pnproc,nproc)/=0 ) then
@@ -2041,12 +2045,12 @@ contains
          do ip = 0,lproc-1
             rip = myid*lproc + ip
             write(pfile,"(a,'.',i6.6)") trim(ifile), rip
-            ier = nf90_open ( pfile, nmode, ncid_in(ip) )
-            !if (ier /= nf90_noerr ) then
+            ier = ncf90_open ( pfile, nmode, ncid_in(ip) )
+            !if (ier /= ncf90_noerr ) then
             !   write(pfile,"(a,'.',i4.4)") trim(ifile), rip
-            !   ier = nf90_open ( pfile, nmode, ncid_in(ip) )
+            !   ier = ncf90_open ( pfile, nmode, ncid_in(ip) )
             !end if
-            if (ier /= nf90_noerr ) then
+            if (ier /= ncf90_noerr ) then
                write(6,*) "ERROR: Cannot open ",trim(pfile)
                call check_ncerr(ier, "open")
             end if
@@ -2059,19 +2063,19 @@ contains
          do ip = 1,lproc-1
             rip = ip
             write(pfile,"(a,'.',i6.6)") trim(ifile), rip
-            ier = nf90_open ( pfile, nmode, ncid_in(ip) )
-            !if ( ier /= nf90_noerr ) then
+            ier = ncf90_open ( pfile, nmode, ncid_in(ip) )
+            !if ( ier /= ncf90_noerr ) then
             !   write(pfile,"(a,'.',i4.4)") trim(ifile), rip
-            !   ier = nf90_open ( pfile, nmode, ncid_in(ip) )
+            !   ier = ncf90_open ( pfile, nmode, ncid_in(ip) )
             !end if
-            if ( ier /= nf90_noerr ) then
+            if ( ier /= ncf90_noerr ) then
                write(6,*) "ERROR: Cannot open ",trim(pfile)
                call check_ncerr(ier, "open")
             end if
          end do
       
          !  Get dimensions from int_header
-         ier = nf90_get_att(ncid_in(0), nf90_global, "int_header", int_header)
+         ier = ncf90_get_att(ncid_in(0), ncf90_global, "int_header", int_header)
          call check_ncerr(ier, "int_header")
          ! Only a few values are used
          pil_g = int_header(1)
@@ -2079,7 +2083,7 @@ contains
 
          !  Calculate il, jl from these
          sdecomp = ''
-         ier = nf90_get_att(ncid_in(0), nf90_global, "decomp", sdecomp)
+         ier = ncf90_get_att(ncid_in(0), ncf90_global, "decomp", sdecomp)
          call check_ncerr(ier, "decomp")
          select case(sdecomp)
             case ("uniform")
@@ -2124,7 +2128,7 @@ contains
       integer ip, ierr
       
       do ip = 0,lproc-1
-         ierr = nf90_close(ncid_in(ip))
+         ierr = ncf90_close(ncid_in(ip))
       end do
       deallocate(ncid_in)
    
@@ -2144,27 +2148,27 @@ contains
       ! vread_err argument is present, then return an error flag rather
       ! then abort if the variable isn't found.
       if ( .not. required ) then
-         vread_err = NF90_NOERR
+         vread_err = NCF90_NOERR
          return
       end if
       
       do ip = 0,lproc-1
          
-         ierr = nf90_inq_varid (ncid_in(ip), name, vid ) 
+         ierr = ncf90_inq_varid (ncid_in(ip), name, vid )
          call check_ncerr(ierr, "Error getting vid for "//name)
           
-         ierr = nf90_get_var ( ncid_in(ip), vid, inarray2(:,:), start=(/ 1, 1, nrec /), count=(/ pil, pjl*pnpan, 1 /) )
+         ierr = ncf90_get_var ( ncid_in(ip), vid, NCF90_REAL, inarray2(:,:), start=(/ 1, 1, nrec /), count=(/ pil, pjl*pnpan, 1 /) )
          call check_ncerr(ierr, "Error getting var "//name)
 
 !        Check the type of the variable
-         ierr = nf90_inquire_variable ( ncid_in(ip), vid, xtype=vartyp)
-         if ( vartyp == NF90_SHORT ) then
+         ierr = ncf90_inquire_variable ( ncid_in(ip), vid, xtype=vartyp)
+         if ( vartyp == NCF90_SHORT ) then
             if ( all( inarray2 == -32501. ) ) then
-               inarray2 = NF90_FILL_FLOAT
+               inarray2 = NCF90_FILL_FLOAT
             else
-               ierr = nf90_get_att ( ncid_in(ip), vid, "add_offset", addoff )
+               ierr = ncf90_get_att ( ncid_in(ip), vid, "add_offset", addoff )
                call check_ncerr(ierr, "Error getting add_offset attribute")
-               ierr = nf90_get_att ( ncid_in(ip), vid, "scale_factor", sf )
+               ierr = ncf90_get_att ( ncid_in(ip), vid, "scale_factor", sf )
                call check_ncerr (ierr,"Error getting scale_factor attribute")
                inarray2 = addoff + inarray2*sf
             end if
@@ -2187,21 +2191,21 @@ contains
 
       do ip = 0,lproc-1
 
-         ierr = nf90_inq_varid ( ncid_in(ip), name, vid )
+         ierr = ncf90_inq_varid ( ncid_in(ip), name, vid )
          call check_ncerr(ierr, "Error getting vid for "//name)
           
-         ierr = nf90_get_var ( ncid_in(ip), vid, inarray3(:,:,minlev:maxlev), start=(/ 1, 1, minlev, nrec /), &
-                               count=(/ pil, pjl*pnpan, maxlev-minlev+1, 1 /) )
+         ierr = ncf90_get_var ( ncid_in(ip), vid, NCF90_REAL, inarray3(:,:,minlev:maxlev), start=(/ 1, 1, minlev, nrec /), &
+                                count=(/ pil, pjl*pnpan, maxlev-minlev+1, 1 /) )
          call check_ncerr(ierr, "Error getting var "//name)
       
-         ierr = nf90_inquire_variable ( ncid_in(ip), vid, xtype=vartyp )
-         if ( vartyp == NF90_SHORT ) then
+         ierr = ncf90_inquire_variable ( ncid_in(ip), vid, xtype=vartyp )
+         if ( vartyp == NCF90_SHORT ) then
             if ( all( inarray3 == -32501. ) ) then
-               inarray3 = NF90_FILL_FLOAT
+               inarray3 = NCF90_FILL_FLOAT
             else
-               ierr = nf90_get_att ( ncid_in(ip), vid, "add_offset", addoff )
+               ierr = ncf90_get_att ( ncid_in(ip), vid, "add_offset", addoff )
                call check_ncerr(ierr, "Error getting add_offset attribute")
-               ierr = nf90_get_att ( ncid_in(ip), vid, "scale_factor", sf )
+               ierr = ncf90_get_att ( ncid_in(ip), vid, "scale_factor", sf )
                call check_ncerr (ierr,"Error getting scale_factor attribute")                
                inarray3 = addoff + inarray3*sf
             end if

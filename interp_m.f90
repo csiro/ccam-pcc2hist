@@ -1,5 +1,9 @@
 module interp_m
-
+#ifndef parnetcdf
+   use netcdf_m
+#else
+   use pnetcdf_m
+#endif
    implicit none
 
    real, allocatable, dimension(:,:), public :: xg, yg
@@ -23,7 +27,7 @@ subroutine ints ( s_in, array, int_type )  ! input array (twice), output array
    use newmpar_m
    use indices_m
    use ind_m
-   use netcdf, only : NF90_FILL_FLOAT
+   use netcdf, only : NCF90_FILL_FLOAT
 
    implicit none
    real, intent(in), dimension(:,:)  ::  s_in    ! (il,jl)
@@ -156,11 +160,11 @@ subroutine ints ( s_in, array, int_type )  ! input array (twice), output array
            idel = floor(xg(i,j))
            jdel = floor(yg(i,j))
            ! Set missing if any are missing
-           if ( sx(idel,jdel,n) == NF90_FILL_FLOAT .or.  &
-                sx(idel+1,jdel,n) == NF90_FILL_FLOAT .or. &
-                sx(idel+1,jdel+1,n) == NF90_FILL_FLOAT .or. &
-                sx(idel,jdel+1,n) == NF90_FILL_FLOAT ) then
-              array(i,j) = NF90_FILL_FLOAT
+           if ( sx(idel,jdel,n) == NCF90_FILL_FLOAT .or.  &
+                sx(idel+1,jdel,n) == NCF90_FILL_FLOAT .or. &
+                sx(idel+1,jdel+1,n) == NCF90_FILL_FLOAT .or. &
+                sx(idel,jdel+1,n) == NCF90_FILL_FLOAT ) then
+              array(i,j) = NCF90_FILL_FLOAT
            else
               xxg = xg(i,j)-idel
               yyg = yg(i,j)-jdel

@@ -18,11 +18,13 @@
 /moistfuncs.f90 -text
 /mpidata_m.f90 -text
 /ncutils_m.f90 -text
+/netcdf_m.f90 -text
 /newmpar_m.f90 -text
 /nfft_m.f90 -text
 /parm_m.f90 -text
 /pcc2hist.f90 -text
 /physparams.f90 -text
+/pnetcdf_m.f90 -text
 /precis_m.f90 -text
 /revision.h -text
 /s2p_m.f90 -text

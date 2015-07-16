@@ -1,4 +1,9 @@
 module sitop_m
+#ifndef parnetcdf
+   use netcdf_m
+#else
+   use pnetcdf_m
+#endif
    implicit none
    ! Controls whether vertical extrapolation below surface is done
    integer, parameter :: vextrap_default=0, vextrap_lin=1, vextrap_none=2, &
@@ -183,7 +188,7 @@ contains
 !     imposed separately. This means that the derivatives are not continuous
 !     across the boundary between interpolation and extrapolation.
 
-      use netcdf, only : NF90_FILL_FLOAT
+      use netcdf, only : NCF90_FILL_FLOAT
       use utils_m, only : assert, search_fgt
       use physparams
       ! Lapse rate used in temperature extrapolation
@@ -312,11 +317,11 @@ contains
          case ( vextrap_missing )
             do i = 1,ix
                do ii = 1,mexup2(i,j)
-                  gp(i,ii) = NF90_FILL_FLOAT 
+                  gp(i,ii) = NCF90_FILL_FLOAT
                end do
                if ( mexdn1(i,j)/=0 ) then
                   do ii = mexdn1(i,j),nprlvs
-                     gp(i,ii) = NF90_FILL_FLOAT
+                     gp(i,ii) = NCF90_FILL_FLOAT
                   end do
                end if
             end do
@@ -530,7 +535,7 @@ contains
 !     imposed separately. This means that the derivatives are not continuous
 !     across the boundary between interpolation and extrapolation.
 
-      use netcdf, only : NF90_FILL_FLOAT
+      use netcdf, only : NCF90_FILL_FLOAT
       use utils_m, only : assert, search_fgt
       use physparams
       ! Lapse rate used in temperature extrapolation
@@ -651,11 +656,11 @@ contains
          case ( vextrap_missing )
             do i = 1,ix
                do ii = 1,mexup2(i,j)
-                  gp(i,ii) = NF90_FILL_FLOAT 
+                  gp(i,ii) = NCF90_FILL_FLOAT
                end do
                if ( mexdn1(i,j)/=0 ) then
                   do ii = mexdn1(i,j),nprlvs
-                     gp(i,ii) = NF90_FILL_FLOAT
+                     gp(i,ii) = NCF90_FILL_FLOAT
                   end do
                end if
             end do

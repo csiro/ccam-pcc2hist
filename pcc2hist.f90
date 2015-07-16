@@ -12,6 +12,11 @@ program cc2hist
    use mpi
 #endif
     
+#ifndef parnetcdf
+   use netcdf_m
+#else
+   use pnetcdf_m
+#endif
    use history
    use getopt_m
    use mpidata_m
@@ -217,7 +222,7 @@ program cc2hist
    call check_meters
    
    ! Open parallel input files  
-   call paraopen(ifile, NF90_NOWRITE, ncid)
+   call paraopen(ifile, NCF90_NOWRITE, ncid)
    ! Check that this file wasn't produced by cc2hist itself
    call check_cc2histfile()
 
@@ -274,13 +279,13 @@ program cc2hist
    end if
 
 !     If the input is a netcdf file with a time:units attribute then copy that.
-   ierr = nf90_inq_varid (ncid, "time", vid )
+   ierr = ncf90_inq_varid (ncid, "time", vid )
    call check_ncerr(ierr, "Error getting time id")
    basetime = ""
-   ierr = nf90_get_att(ncid, vid, "units", basetime)
+   ierr = ncf90_get_att(ncid, vid, "units", basetime)
    call check_ncerr(ierr, "Error getting time:units attribute")
    calendar = ""
-   ierr = nf90_get_att(ncid, vid, "calendar", calendar)
+   ierr = ncf90_get_att(ncid, vid, "calendar", calendar)
 
    if ( cf_compliant .and. basetime(1:13) == "minutes since" ) then
       basetime = "days" // basetime(8:len_trim(basetime))
@@ -288,11 +293,11 @@ program cc2hist
 
    allocate ( extra_atts(5) )
 
-   extra_atts(1:5) = (/ hist_att("il", NF90_INT, 0., il, ""),             &
-                        hist_att("kl", NF90_INT, 0., kl, ""),             &
-                        hist_att("rlong0", NF90_REAL, rlong0, 0, ""),     &
-                        hist_att("rlat0", NF90_REAL, rlat0, 0, ""),       &
-                        hist_att("schmidt", NF90_REAL, schmidt, 0, "") /)
+   extra_atts(1:5) = (/ hist_att("il", NCF90_INT, 0., il, ""),             &
+                        hist_att("kl", NCF90_INT, 0., kl, ""),             &
+                        hist_att("rlong0", NCF90_REAL, rlong0, 0, ""),     &
+                        hist_att("rlat0", NCF90_REAL, rlat0, 0, ""),       &
+                        hist_att("schmidt", NCF90_REAL, schmidt, 0, "") /)
 
    if ( calendar /= "" ) then
       if ( cf_compliant ) then

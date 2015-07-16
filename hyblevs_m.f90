@@ -1,4 +1,9 @@
 module hyblevs_m
+#ifndef parnetcdf
+   use netcdf_m
+#else
+   use pnetcdf_m
+#endif
    implicit none
    public :: hyblevs, hybtop
    private :: gaussj
@@ -400,7 +405,7 @@ end subroutine hyblevs
 !     imposed separately. This means that the derivatives are not continuous
 !     across the boundary between interpolation and extrapolation.
 
-      use netcdf, only : NF90_FILL_FLOAT
+      use netcdf, only : NCF90_FILL_FLOAT
       use utils_m, only : assert, search_fgt
       use physparams
       ! Lapse rate used in temperature extrapolation
@@ -622,11 +627,11 @@ end subroutine hyblevs
          case ( vextrap_missing )
             do i=1,ix
                do ii=1,mexup2(i)
-                  gp(i,ii) = NF90_FILL_FLOAT 
+                  gp(i,ii) = NCF90_FILL_FLOAT
                end do
                if(mexdn1(i).ne.0) then
                   do ii=mexdn1(i),nprlvs
-                     gp(i,ii) = NF90_FILL_FLOAT
+                     gp(i,ii) = NCF90_FILL_FLOAT
                   end do
                end if
             end do
