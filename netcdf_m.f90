@@ -1,9 +1,13 @@
 module netcdf_m
 
-!   This module implements standard serial netcdf functions, exposing
-!   an interface that allows replacement with a different implementation.
+!   This module implements standard serial netcdf functions,
+!   exposing an interface that allows replacement with a different
+!   implementation.
 !
 !   Notes:
+!   - The prefix NCF90_ has deliberately been used for all functions
+!     and parameters to distinguish between the standard netCDF
+!     library and this implementation.
 !   - Each function returns a status value.
 !   - We can either have one module with N different compile-time
 !     conditional blocks and less variation in Makefile (libs, incs)
@@ -12,6 +16,8 @@ module netcdf_m
 !     the other hand, the second allows us to vary the module
 !     implementation wildly if necessary. There is a fair amount of
 !     minor (e.g. naming) variation, so the second option seems best.
+!   - Only those functions (including overloadings) used in the code
+!     are supported.
 !
 !   References:
 !   - http://www.unidata.ucar.edu/software/netcdf/docs/netcdf-f90.html
@@ -22,7 +28,20 @@ module netcdf_m
 
     private
 
-!   NetCDF functions
+!   Overloaded functions
+
+    interface ncf90_get_att
+        module procedure ncf90_get_att_character
+        module procedure ncf90_get_att_integer
+        module procedure ncf90_get_att_real
+    end interface ncf90_get_att
+
+    interface ncf90_get_var
+        module procedure ncf90_get_var_integer
+        module procedure ncf90_get_var_real
+    end interface ncf90_get_var
+
+!   NetCDF function visbility
     public :: ncf90_close, ncf90_copy_att, ncf90_create, &
               ncf90_def_dim, ncf90_def_var, ncf90_enddef, &
               ncf90_get_att, ncf90_inq_attname, ncf90_inq_dimid, &
@@ -224,23 +243,39 @@ contains
 
     end function ncf90_get_att
 
-    function ncf90_get_var(ncid, varid, nc_type, values, start, count)
+    function ncf90_get_var_integer(ncid, varid, values, start, count)
 
         ! Gets one or more data values from a netCDF variable of an
         ! open netCDF dataset that is in data mode.
 
         integer,                         intent( in) :: ncid, varid
-        integer,                         intent( in) :: nc_type
-        ! any valid type, scalar or array of any rank, &
-                                         intent(out) :: values
+        integer                          intent(out) :: values
 !        integer, dimension(:), optional, intent( in) :: start, count, stride, map
         integer, dimension(:), optional, intent( in) :: start, count
-        integer                                      :: ncf90_get_var
+        integer                                      :: ncf90_get_var_integer
 
         ! Note: this implementation ignores nc_type
-        ncf90_get_var = nf90_get_var(ncid, varid, values, start, count)
+        ncf90_get_var_integer = &
+            nf90_get_var(ncid, varid, values, start, count)
 
-    end function ncf90_get_var
+    end function ncf90_get_var_integer
+
+    function ncf90_get_var_real(ncid, varid, values, start, count)
+
+        ! Gets one or more data values from a netCDF variable of an
+        ! open netCDF dataset that is in data mode.
+
+        integer,                         intent( in) :: ncid, varid
+        real                             intent(out) :: values
+!        integer, dimension(:), optional, intent( in) :: start, count, stride, map
+        integer, dimension(:), optional, intent( in) :: start, count
+        integer                                      :: ncf90_get_var_real
+
+        ! Note: this implementation ignores nc_type
+        ncf90_get_var_real = &
+            nf90_get_var(ncid, varid, values, start, count)
+
+    end function ncf90_get_var_real
 
     function ncf90_inq_attname(ncid, varid, attnum, name)
 

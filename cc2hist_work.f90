@@ -114,16 +114,16 @@ contains
       ! Get vid and then values for kdate, ktime, ktau
       ierr = ncf90_inq_varid (ncid, "kdate", vid )
       call check_ncerr(ierr, "Error getting kdate id")
-      ierr = ncf90_get_var ( ncid, vid, NCF90_INT, kdate, start=(/ nrec /) )
+      ierr = ncf90_get_var ( ncid, vid, kdate, start=(/ nrec /) )
       call check_ncerr(ierr, "Error getting kdate")
       ierr = ncf90_inq_varid (ncid, "ktime", vid )
       call check_ncerr(ierr, "Error getting ktime id")
-      ierr = ncf90_get_var ( ncid, vid, NCF90_INT, ktime, start=(/ nrec /) )
+      ierr = ncf90_get_var ( ncid, vid, ktime, start=(/ nrec /) )
       call check_ncerr(ierr, "Error getting ktime")
       ! Get ktau from time. Really should be renamed
       ierr = ncf90_inq_varid (ncid, "time", vid )
       call check_ncerr(ierr, "Error getting time id")
-      ierr = ncf90_get_var ( ncid, vid, NCF90_INT, ktau, start=(/ nrec /) )
+      ierr = ncf90_get_var ( ncid, vid, ktau, start=(/ nrec /) )
       call check_ncerr(ierr, "Error getting time")
       ieof = 0
             
@@ -863,7 +863,7 @@ contains
             ! Get sigma levels from level variable
             ierr = ncf90_inq_varid (ncid, "lev", vid )
             call check_ncerr(ierr, "Error getting vid for lev")
-            ierr = ncf90_get_var ( ncid, vid, NCF90_REAL, sig)
+            ierr = ncf90_get_var ( ncid, vid, sig)
             call check_ncerr(ierr, "Error getting levels")
       else
          sig = 1.0
@@ -873,7 +873,7 @@ contains
       if ( cf_compliant ) then
          ierr = ncf90_inq_varid (ncid, "zsoil", vid )
          call check_ncerr(ierr, "Error getting vid for zsoil")
-         ierr = ncf90_get_var ( ncid, vid, NCF90_REAL, zsoil)
+         ierr = ncf90_get_var ( ncid, vid, zsoil)
          call check_ncerr(ierr, "Error getting zsoil")
       end if
 
@@ -2157,7 +2157,7 @@ contains
          ierr = ncf90_inq_varid (ncid_in(ip), name, vid )
          call check_ncerr(ierr, "Error getting vid for "//name)
           
-         ierr = ncf90_get_var ( ncid_in(ip), vid, NCF90_REAL, inarray2(:,:), start=(/ 1, 1, nrec /), count=(/ pil, pjl*pnpan, 1 /) )
+         ierr = ncf90_get_var ( ncid_in(ip), vid, inarray2(:,:), start=(/ 1, 1, nrec /), count=(/ pil, pjl*pnpan, 1 /) )
          call check_ncerr(ierr, "Error getting var "//name)
 
 !        Check the type of the variable
@@ -2194,7 +2194,7 @@ contains
          ierr = ncf90_inq_varid ( ncid_in(ip), name, vid )
          call check_ncerr(ierr, "Error getting vid for "//name)
           
-         ierr = ncf90_get_var ( ncid_in(ip), vid, NCF90_REAL, inarray3(:,:,minlev:maxlev), start=(/ 1, 1, minlev, nrec /), &
+         ierr = ncf90_get_var ( ncid_in(ip), vid, inarray3(:,:,minlev:maxlev), start=(/ 1, 1, minlev, nrec /), &
                                 count=(/ pil, pjl*pnpan, maxlev-minlev+1, 1 /) )
          call check_ncerr(ierr, "Error getting var "//name)
       
