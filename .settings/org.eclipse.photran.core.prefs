@@ -1,0 +1,7 @@
+EnableContentAssist=true
+EnableDeclView=true
+EnableHoverTip=true
+EnableVPG=true
+FortranIncludePaths=\\pcc2hist-ASCTM-247-pnetcdf\n
+FortranModulePaths=\\pcc2hist-ASCTM-247-pnetcdf\n
+eclipse.preferences.version=1

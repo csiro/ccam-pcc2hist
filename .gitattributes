@@ -1,4 +1,7 @@
 * text=auto !eol
+/.cproject -text
+/.project -text
+.settings/org.eclipse.photran.core.prefs -text
 /Makefile -text
 /cc2hist_work.f90 -text
 /checkver_m.f90 -text
