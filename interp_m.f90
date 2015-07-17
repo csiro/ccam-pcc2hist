@@ -1,9 +1,5 @@
 module interp_m
-#ifndef parnetcdf
-   use netcdf_m
-#else
-   use pnetcdf_m
-#endif
+
    implicit none
 
    real, allocatable, dimension(:,:), public :: xg, yg
@@ -27,7 +23,11 @@ subroutine ints ( s_in, array, int_type )  ! input array (twice), output array
    use newmpar_m
    use indices_m
    use ind_m
-   use netcdf, only : NCF90_FILL_FLOAT
+#ifndef parnetcdf
+   use netcdf_m, only : NCF90_FILL_FLOAT
+#else
+   use pnetcdf_m, only : NCF90_FILL_FLOAT
+#endif
 
    implicit none
    real, intent(in), dimension(:,:)  ::  s_in    ! (il,jl)

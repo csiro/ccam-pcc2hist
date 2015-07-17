@@ -727,7 +727,6 @@ contains
                            kdate, ktime, ntracers, ksoil, kice, debug,        &
                            nqg )
 
-      use netcdf
       use newmpar_m
       use history
       use xyzinfo_m
