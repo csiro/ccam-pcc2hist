@@ -1791,7 +1791,7 @@ contains
       call check_ncerr(ierr)
       ierr = ncf90_put_att (ncid, yrid, "units", "years" )
       call check_ncerr(ierr)
-      ierr = ncf90_put_int ( ncid, yrid, "valid_min", year )
+      ierr = ncf90_put_att ( ncid, yrid, "valid_min", year )
       call check_ncerr(ierr,"Error setting valid min for year")
 
       if ( hbytes == 2 ) then
