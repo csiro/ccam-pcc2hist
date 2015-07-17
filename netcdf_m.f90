@@ -54,6 +54,7 @@ module netcdf_m
     end interface ncf90_get_var
 
     interface ncf90_put_var
+        module procedure ncf90_put_var_integer
         module procedure ncf90_put_var_integer_array1D
         module procedure ncf90_put_var_integer_array2D
         module procedure ncf90_put_var_real
@@ -522,6 +523,22 @@ contains
 
     end function ncf90_put_att_real
 
+    function ncf90_put_var_integer(ncid, varid, value, start)
+
+        ! Puts one data value into the variable of an open netCDF
+        ! dataset that is in data mode.
+
+        integer,                         intent( in) :: ncid, varid
+        ! any valid type, scalar or array of any rank, &
+        integer,                         intent( in) :: value
+        integer, dimension(:), optional, intent( in) :: start
+        integer                                      :: ncf90_put_var_integer
+
+        ncf90_put_var_integer = &
+            nf90_put_var(ncid, varid, value, start)
+
+    end function ncf90_put_var_integer
+
     function ncf90_put_var_integer_array1D(ncid, varid, values, start, count)
 
         ! Puts one or more data values into the variable of an open netCDF
@@ -556,20 +573,19 @@ contains
 
     end function ncf90_put_var_integer_array2D
 
-    function ncf90_put_var_real(ncid, varid, value, start, count)
+    function ncf90_put_var_real(ncid, varid, value, start)
 
-        ! Puts one or more data values into the variable of an open netCDF
+        ! Puts one data value into the variable of an open netCDF
         ! dataset that is in data mode.
 
         integer,                         intent( in) :: ncid, varid
         ! any valid type, scalar or array of any rank, &
         real,                            intent( in) :: value
-!        integer, dimension(:), optional, intent( in) :: start, count, stride, map
-        integer, dimension(:), optional, intent( in) :: start, count
+        integer, dimension(:), optional, intent( in) :: start
         integer                                      :: ncf90_put_var_real
 
         ncf90_put_var_real = &
-            nf90_put_var(ncid, varid, value, start=start, count=count)
+            nf90_put_var(ncid, varid, value, start)
 
     end function ncf90_put_var_real
 
