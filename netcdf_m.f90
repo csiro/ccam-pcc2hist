@@ -32,6 +32,7 @@ module netcdf_m
 
     interface ncf90_def_var
         module procedure ncf90_def_var_with_dimids
+        module procedure ncf90_def_var_one_dimid
         module procedure ncf90_def_var_no_dimids
     end interface ncf90_def_var
 
@@ -204,6 +205,29 @@ contains
             nf90_def_var(ncid, name, xtype, dimids, varid)
 
     end function ncf90_def_var_with_dimids
+
+    function ncf90_def_var_one_dimid(ncid, name, xtype, dimid, varid)
+
+        ! Adds a new variable to an open netCDF dataset in define mode
+        ! and returns a variable ID.
+
+        integer, intent(in) :: ncid
+        character (len = *), intent(in) :: name
+        integer, intent( in) :: xtype
+        integer,  intent(in) :: dimids
+        integer, intent(out) :: varid
+!        logical, optional, intent(in) :: contiguous
+!        integer, optional, dimension(:), intent(in) :: chunksizes
+!        integer, optional, intent(in) :: deflate_level
+!        logical, optional, intent(in) :: shuffle, fletcher32
+!        integer, optional, intent(in) :: endianness
+!         integer, optional, intent(in) :: cache_size, cache_nelems, cache_preemption
+        integer :: ncf90_def_var_one_dimid
+
+        ncf90_def_var_one_dimid = &
+            nf90_def_var(ncid, name, xtype, dimid, varid)
+
+    end function ncf90_def_var_one_dimid
 
     function ncf90_def_var_no_dimids(ncid, name, xtype, varid)
 
