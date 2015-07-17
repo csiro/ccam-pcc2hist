@@ -198,11 +198,12 @@ contains
 !        logical, optional, intent(in) :: shuffle, fletcher32
 !        integer, optional, intent(in) :: endianness
 !         integer, optional, intent(in) :: cache_size, cache_nelems, cache_preemption
-        integer :: ncf90_def_var
+        integer :: ncf90_def_var_with_dimids
 
-        ncf90_def_var = nf90_def_var(ncid, name, xtype, dimids, varid)
+        ncf90_def_var_with_dimids = &
+            nf90_def_var(ncid, name, xtype, dimids, varid)
 
-    end function ncf90_def_var
+    end function ncf90_def_var_with_dimids
 
     function ncf90_def_var_no_dimids(ncid, name, xtype, varid)
 
@@ -220,11 +221,12 @@ contains
 !        logical, optional, intent(in) :: shuffle, fletcher32
 !        integer, optional, intent(in) :: endianness
 !         integer, optional, intent(in) :: cache_size, cache_nelems, cache_preemption
-        integer :: ncf90_def_var
+        integer :: ncf90_def_var_no_dimids
 
-        ncf90_def_var = nf90_def_var(ncid, name, xtype, varid)
+        ncf90_def_var_no_dimids = &
+            nf90_def_var(ncid, name, xtype, varid)
 
-    end function ncf90_def_var
+    end function ncf90_def_var_no_dimids
 
     function ncf90_enddef(ncid)
 
