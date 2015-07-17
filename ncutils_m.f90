@@ -75,7 +75,7 @@ contains
 
       ! Add a newline before the new string
       history = history(1:len_trim(history)) // char(10) // trim(string)
-      ierr = ncf90_put_att ( ncid, NCF90_GLOBAL, "history", NCF90_CHAR, trim(history))
+      ierr = ncf90_put_att ( ncid, NCF90_GLOBAL, "history", trim(history))
       call check_ncerr(ierr,"Error defining character attribute")
 
    end subroutine history_append

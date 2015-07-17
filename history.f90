@@ -1079,9 +1079,9 @@ contains
             ierr = ncf90_set_fill ( ncid, NCF90_NOFILL, old_mode)
             call check_ncerr(ierr, "Error from set_fill")
 
-            ierr = ncf90_put_var ( ncid, dimvars%y, NCF90_REAL, hlat )
+            ierr = ncf90_put_var ( ncid, dimvars%y, hlat )
             call check_ncerr(ierr,"Error writing latitudes")
-            ierr = ncf90_put_var ( ncid, dimvars%x, NCF90_REAL, hlon )
+            ierr = ncf90_put_var ( ncid, dimvars%x, hlon )
             call check_ncerr(ierr,"Error writing longitudes")
             if ( cf_compliant ) then
                ! Calculate bounds assuming a regular lat-lon grid
@@ -1092,7 +1092,7 @@ contains
                   dx = hlon(2) - hlon(1)
                   lon_bnds(1,:) = hlon - 0.5*dx
                   lon_bnds(2,:) = hlon + 0.5*dx
-                  ierr = ncf90_put_var ( ncid, dimvars%x_b, NCF90_REAL, lon_bnds )
+                  ierr = ncf90_put_var ( ncid, dimvars%x_b, lon_bnds )
                   call check_ncerr(ierr,"Error writing longitude bounds")
                end if
                if ( maxval(hlat(2:)-hlat(:ny-1)) - minval(hlat(2:)-hlat(:ny-1)) < 1e-4*maxval(hlat(2:)-hlat(:ny-1)) ) then
@@ -1105,12 +1105,12 @@ contains
                   where ( lat_bnds > 90. ) 
                      lat_bnds = 90.
                   end where
-                  ierr = ncf90_put_var ( ncid, dimvars%y_b, NCF90_REAL, lat_bnds )
+                  ierr = ncf90_put_var ( ncid, dimvars%y_b, lat_bnds )
                   call check_ncerr(ierr,"Error writing latitude bounds")
                end if
             end if
             if ( multilev ) then
-               ierr = ncf90_put_var ( ncid, dimvars%z, NCF90_REAL, sig )
+               ierr = ncf90_put_var ( ncid, dimvars%z, sig )
                call check_ncerr(ierr,"Error writing levels")
                if ( use_hyblevs ) then
                   if ( .not. present(anf) ) then
@@ -1119,7 +1119,7 @@ contains
                   end if
                   ierr = ncf90_inq_varid(ncid, "anf", vid)
                   call check_ncerr(ierr,"Error getting vid for anf")
-                  ierr = ncf90_put_var(ncid, vid, NCF90_REAL, anf)
+                  ierr = ncf90_put_var(ncid, vid, anf)
                   call check_ncerr(ierr,"Error writing anf")
                   if ( .not. present(bnf) ) then
                      print*, "Error, missing bnf argument"
@@ -1127,7 +1127,7 @@ contains
                   end if
                   ierr = ncf90_inq_varid(ncid, "bnf", vid)
                   call check_ncerr(ierr,"Error getting vid for bnf")
-                  ierr = ncf90_put_var(ncid, vid, NCF90_REAL, bnf)
+                  ierr = ncf90_put_var(ncid, vid, bnf)
                   call check_ncerr(ierr,"Error writing bnf")
                   if ( .not. present(p0) ) then
                      print*, "Error, missing p0 argument"
@@ -1135,12 +1135,12 @@ contains
                   end if
                   ierr = ncf90_inq_varid(ncid, "P0", vid)
                   call check_ncerr(ierr,"Error getting vid for p0")
-                  ierr = ncf90_put_var(ncid, vid, NCF90_REAL, p0)
+                  ierr = ncf90_put_var(ncid, vid, p0)
                   call check_ncerr(ierr,"Error writing p0")
                end if
             end if
             if ( soil_used .and. present(zsoil) ) then
-               ierr = ncf90_put_var ( ncid, dimvars%zsoil, NCF90_REAL, zsoil )
+               ierr = ncf90_put_var ( ncid, dimvars%zsoil, zsoil )
                call check_ncerr(ierr,"Error writing depths")
                ! Soil bounds
                allocate(zsoil_bnds(2, nsoil))
@@ -1151,7 +1151,7 @@ contains
                   zsoil_bnds(2,k) = zsoil_bnds(2,k-1) + 2*(zsoil(k)-zsoil_bnds(2,k-1))
                   zsoil_bnds(1,k) = zsoil_bnds(2,k-1)
                end do
-               ierr = ncf90_put_var ( ncid, dimvars%zsoil_b, NCF90_REAL, zsoil_bnds )
+               ierr = ncf90_put_var ( ncid, dimvars%zsoil_b, zsoil_bnds )
                call check_ncerr(ierr,"Error writing depths")
             end if
 
@@ -1163,7 +1163,7 @@ contains
                end if
                ierr = ncf90_inq_varid(ncid, vname, vid)
                call check_ncerr(ierr,"Error getting vid for height coord")
-               ierr = ncf90_put_var ( ncid, vid, NCF90_REAL, real(coord_heights(kc)))
+               ierr = ncf90_put_var ( ncid, vid, real(coord_heights(kc)))
                call check_ncerr(ierr,"Error writing coordinate height")
             end do
 
@@ -1370,15 +1370,15 @@ contains
       vinfo%vid(ifile) = vid
 
       if ( len_trim(vinfo%long_name) /= 0 ) then
-         ierr = ncf90_put_att (ncid, vid, "long_name", NCF90_CHAR, vinfo%long_name )
+         ierr = ncf90_put_att (ncid, vid, "long_name", vinfo%long_name )
          call check_ncerr(ierr)
       end if
       if ( len_trim(vinfo%std_name) /= 0 ) then
-         ierr = ncf90_put_att (ncid, vid, "standard_name", NCF90_CHAR, vinfo%std_name )
+         ierr = ncf90_put_att (ncid, vid, "standard_name", vinfo%std_name )
          call check_ncerr(ierr)
       end if
       if ( len_trim(vinfo%units) /= 0 ) then
-         ierr = ncf90_put_att (ncid, vid, "units", NCF90_CHAR, vinfo%units )
+         ierr = ncf90_put_att (ncid, vid, "units", vinfo%units )
          call check_ncerr(ierr)
       end if
 
@@ -1387,13 +1387,13 @@ contains
          ! be exactly representable.
          vinfo%scalef(ifile) = 1.015625 * (vinfo%valid_max - vinfo%valid_min) / float(vmax - vmin)
          vinfo%addoff(ifile) = 0.5*(vinfo%valid_min+vinfo%valid_max)
-         ierr  = ncf90_put_att (ncid, vid, "add_offset", NCF90_REAL, vinfo%addoff(ifile) )
+         ierr  = ncf90_put_att (ncid, vid, "add_offset", vinfo%addoff(ifile) )
          call check_ncerr(ierr)
-         ierr  = ncf90_put_att (ncid, vid, "scale_factor", NCF90_REAL, vinfo%scalef(ifile))
+         ierr  = ncf90_put_att (ncid, vid, "scale_factor", vinfo%scalef(ifile))
          call check_ncerr(ierr)
-         ierr = ncf90_put_att (ncid, vid, "valid_min", NCF90_INT, vmin )
+         ierr = ncf90_put_att (ncid, vid, "valid_min", vmin )
          call check_ncerr(ierr,"Error setting valid min attribute")
-         ierr = ncf90_put_att (ncid, vid, "valid_max", NCF90_INT, vmax )
+         ierr = ncf90_put_att (ncid, vid, "valid_max", vmax )
          call check_ncerr(ierr,"Error setting valid max attribute")
       end if
 
@@ -1434,15 +1434,15 @@ contains
       if ( vtype == NCF90_INT2 ) then
          ! Ugly work around to ensure attributes have the correct type on SX6
 !         ierr = nf_put_att ( ncid, vid, NCF90_INT, "_FillValue", NF_INT2, 1, int(NCF90_FILL_SHORT) )
-         ierr = ncf90_put_att (ncid, vid, "_FillValue", NCF90_INT, NCF90_FILL_SHORT )
+         ierr = ncf90_put_att (ncid, vid, "_FillValue", NCF90_FILL_SHORT )
          call check_ncerr(ierr,"Error with fill value attribute")
 !         ierr = nf_put_att ( ncid, vid, NCF90_INT, "missing_value", NF_INT2, 1, int(NCF90_FILL_SHORT) )
-         ierr = ncf90_put_att (ncid, vid, "missing_value", NCF90_INT, NCF90_FILL_SHORT )
+         ierr = ncf90_put_att (ncid, vid, "missing_value", NCF90_FILL_SHORT )
          call check_ncerr(ierr,"Error with missing value attribute")
       else
-         ierr = ncf90_put_att (ncid, vid, "_FillValue", NCF90_REAL, missing_value )
+         ierr = ncf90_put_att (ncid, vid, "_FillValue", missing_value )
          call check_ncerr(ierr,"Error with fill value attribute")
-         ierr = ncf90_put_att (ncid, vid, "missing_value", NCF90_REAL, missing_value )
+         ierr = ncf90_put_att (ncid, vid, "missing_value", missing_value )
          call check_ncerr(ierr,"Error with missing value attribute")
       end if
 
@@ -1453,7 +1453,7 @@ contains
          else
             write(coord_name, "(a,i2.2)") "height", nint(vinfo%coord_height)
          end if
-         ierr = ncf90_put_att (ncid, vid, "coordinates", NCF90_CHAR, coord_name )
+         ierr = ncf90_put_att (ncid, vid, "coordinates", coord_name )
          call check_ncerr(ierr,"Error with fill value attribute")
       end if
 
@@ -1534,27 +1534,27 @@ contains
       if ( hist_debug > 5 ) print*, "Created time dimension, id",  dims%t
       
       if ( present(source) ) then
-         ierr = ncf90_put_att (ncid, NCF90_GLOBAL, "source", NCF90_CHAR, source )
+         ierr = ncf90_put_att (ncid, NCF90_GLOBAL, "source", source )
          call check_ncerr(ierr)
       end if
       if ( cf_compliant ) then
-         ierr = ncf90_put_att (ncid, NCF90_GLOBAL, "Conventions", NCF90_CHAR, "CF-1.0" )
+         ierr = ncf90_put_att (ncid, NCF90_GLOBAL, "Conventions", "CF-1.0" )
          call check_ncerr(ierr)
       end if
 !     Make sure it's a null string, otherwise len_trim won't find the end 
 !     properly.
       histstr = "" 
       !call hstring(histstr)
-      ierr = ncf90_put_att (ncid, NCF90_GLOBAL, "history", NCF90_CHAR, histstr )
+      ierr = ncf90_put_att (ncid, NCF90_GLOBAL, "history", histstr )
       if ( present(extra_atts)) then
          do i=1,size(extra_atts)
             select case(extra_atts(i)%type)
             case ( NCF90_FLOAT )
-               ierr = ncf90_put_att ( ncid, NCF90_GLOBAL, NCF90_FLOAT, extra_atts(i)%name, extra_atts(i)%rval )
+               ierr = ncf90_put_att ( ncid, NCF90_GLOBAL, extra_atts(i)%name, extra_atts(i)%rval )
             case ( NCF90_INT )
-               ierr = ncf90_put_att ( ncid, NCF90_GLOBAL, NCF90_INT, extra_atts(i)%name, extra_atts(i)%ival )
+               ierr = ncf90_put_att ( ncid, NCF90_GLOBAL, extra_atts(i)%name, extra_atts(i)%ival )
             case ( NCF90_CHAR )
-               ierr = ncf90_put_att ( ncid, NCF90_GLOBAL, NCF90_CHAR, extra_atts(i)%name, trim(extra_atts(i)%cval) )
+               ierr = ncf90_put_att ( ncid, NCF90_GLOBAL, extra_atts(i)%name, trim(extra_atts(i)%cval) )
             case default
                print*, "Error, unexpected type in extra_atts", extra_atts(i)%type
                stop
@@ -1568,16 +1568,16 @@ contains
 !     Possibly add bounds here??
       ierr = ncf90_def_var ( ncid, "lon", NCF90_FLOAT, dims%x, dimvars%x)
       call check_ncerr(ierr)
-      ierr = ncf90_put_att ( ncid, dimvars%x, NCF90_CHAR, "long_name", "longitude" )
+      ierr = ncf90_put_att ( ncid, dimvars%x, "long_name", "longitude" )
       call check_ncerr(ierr)
-      ierr = ncf90_put_att ( ncid, dimvars%x, NCF90_CHAR, "standard_name", "longitude" )
+      ierr = ncf90_put_att ( ncid, dimvars%x, "standard_name", "longitude" )
       call check_ncerr(ierr)
-      ierr = ncf90_put_att ( ncid, dimvars%x, NCF90_CHAR, "axis", "X" )
+      ierr = ncf90_put_att ( ncid, dimvars%x, "axis", "X" )
       call check_ncerr(ierr)
-      ierr = ncf90_put_att ( ncid, dimvars%x, NCF90_CHAR, "units", "degrees_east" )
+      ierr = ncf90_put_att ( ncid, dimvars%x, "units", "degrees_east" )
       call check_ncerr(ierr)
       if ( cf_compliant ) then
-         ierr = ncf90_put_att ( ncid, dimvars%x, NCF90_CHAR, "bounds", "lon_bnds" )
+         ierr = ncf90_put_att ( ncid, dimvars%x, "bounds", "lon_bnds" )
          call check_ncerr(ierr)
          ierr = ncf90_def_var ( ncid, "lon_bnds", NCF90_FLOAT, (/dims%b, dims%x/), dimvars%x_b)
          call check_ncerr(ierr)
@@ -1585,16 +1585,16 @@ contains
 
       ierr = ncf90_def_var ( ncid, "lat", NCF90_FLOAT, dims%y, dimvars%y )
       call check_ncerr(ierr)
-      ierr = ncf90_put_att ( ncid, dimvars%y, NCF90_CHAR, "long_name", "latitude" )
+      ierr = ncf90_put_att ( ncid, dimvars%y, "long_name", "latitude" )
       call check_ncerr(ierr)
-      ierr = ncf90_put_att ( ncid, dimvars%y, NCF90_CHAR, "standard_name", "latitude" )
+      ierr = ncf90_put_att ( ncid, dimvars%y, "standard_name", "latitude" )
       call check_ncerr(ierr)
-      ierr = ncf90_put_att ( ncid, dimvars%y, NCF90_CHAR, "axis", "Y" )
+      ierr = ncf90_put_att ( ncid, dimvars%y, "axis", "Y" )
       call check_ncerr(ierr)
-      ierr = ncf90_put_att ( ncid, dimvars%y,NCF90_CHAR, "units", "degrees_north" )
+      ierr = ncf90_put_att ( ncid, dimvars%y, "units", "degrees_north" )
       call check_ncerr(ierr)
       if ( cf_compliant ) then
-         ierr = ncf90_put_att ( ncid, dimvars%y, NCF90_CHAR, "bounds", "lat_bnds" )
+         ierr = ncf90_put_att ( ncid, dimvars%y, "bounds", "lat_bnds" )
          call check_ncerr(ierr)
          ierr = ncf90_def_var ( ncid, "lat_bnds", NCF90_FLOAT, (/dims%b, dims%y/), dimvars%y_b)
          call check_ncerr(ierr)
@@ -1604,49 +1604,49 @@ contains
          if ( use_plevs ) then
             ierr = ncf90_def_var ( ncid, "lev", NCF90_FLOAT, dims%z, dimvars%z )
             call check_ncerr(ierr)
-            ierr = ncf90_put_att ( ncid, dimvars%z, NCF90_CHAR, "long_name", "pressure_level" )
+            ierr = ncf90_put_att ( ncid, dimvars%z, "long_name", "pressure_level" )
             call check_ncerr(ierr)
-            ierr = ncf90_put_att ( ncid, dimvars%z, NCF90_CHAR, "units", "hPa" )
+            ierr = ncf90_put_att ( ncid, dimvars%z, "units", "hPa" )
             call check_ncerr(ierr)
-            ierr = ncf90_put_att ( ncid, dimvars%z, NCF90_CHAR, "positive", "down" )
+            ierr = ncf90_put_att ( ncid, dimvars%z, "positive", "down" )
             call check_ncerr(ierr)
          else if ( use_meters ) then
             ierr = ncf90_def_var ( ncid, "alt", NCF90_FLOAT, dims%z, dimvars%z )
             call check_ncerr(ierr)
-            ierr = ncf90_put_att ( ncid, dimvars%z, NCF90_CHAR, "standard_name", "height" )
+            ierr = ncf90_put_att ( ncid, dimvars%z, "standard_name", "height" )
             call check_ncerr(ierr)
-            ierr = ncf90_put_att ( ncid, dimvars%z, NCF90_CHAR, "long_name", "vertical distance above the surface" )
+            ierr = ncf90_put_att ( ncid, dimvars%z, "long_name", "vertical distance above the surface" )
             call check_ncerr(ierr)
-            ierr = ncf90_put_att ( ncid, dimvars%z, NCF90_CHAR, "units", "m" )
+            ierr = ncf90_put_att ( ncid, dimvars%z, "units", "m" )
             call check_ncerr(ierr)
-            ierr = ncf90_put_att ( ncid, dimvars%z, NCF90_CHAR, "positive", "up" )
+            ierr = ncf90_put_att ( ncid, dimvars%z, "positive", "up" )
             call check_ncerr(ierr)
          else if ( use_hyblevs ) then
             ! This is required for grads to recognise it's a vertical dimension
             ! Allowed by CF convention
             ierr = ncf90_def_var ( ncid, "lev", NCF90_FLOAT, dims%z, dimvars%z )
             call check_ncerr(ierr)
-            ierr = ncf90_put_att ( ncid, dimvars%z, NCF90_CHAR, "units", "level" )
+            ierr = ncf90_put_att ( ncid, dimvars%z, "units", "level" )
             call check_ncerr(ierr)
-            ierr = ncf90_put_att ( ncid, dimvars%z, NCF90_CHAR, "standard_name", "atmosphere_hybrid_sigma_pressure_coordinate" )
+            ierr = ncf90_put_att ( ncid, dimvars%z, "standard_name", "atmosphere_hybrid_sigma_pressure_coordinate" )
             call check_ncerr(ierr)
-            ierr = ncf90_put_att ( ncid, dimvars%z, NCF90_CHAR, "formula_terms", "a: anf b: bnf ps: psf p0: P0" )
+            ierr = ncf90_put_att ( ncid, dimvars%z, "formula_terms", "a: anf b: bnf ps: psf p0: P0" )
             call check_ncerr(ierr)
-            ierr = ncf90_put_att ( ncid, dimvars%z, NCF90_CHAR, "comment",  "p(k) = anf(k)*P0 + bnf(k)*ps, Coordinate value is anf(k)+ bnf(k)")
+            ierr = ncf90_put_att ( ncid, dimvars%z, "comment",  "p(k) = anf(k)*P0 + bnf(k)*ps, Coordinate value is anf(k)+ bnf(k)")
             call check_ncerr(ierr)
-            ierr = ncf90_put_att ( ncid, dimvars%z, NCF90_CHAR, "positive", "down" )
+            ierr = ncf90_put_att ( ncid, dimvars%z, "positive", "down" )
             call check_ncerr(ierr)
          else
             ierr = ncf90_def_var ( ncid, "lev", NCF90_FLOAT, dims%z, dimvars%z )
             call check_ncerr(ierr)
-            ierr = ncf90_put_att ( ncid, dimvars%z, NCF90_CHAR, "long_name", "sigma_level" )
+            ierr = ncf90_put_att ( ncid, dimvars%z, "long_name", "sigma_level" )
             call check_ncerr(ierr)
-            ierr = ncf90_put_att ( ncid, dimvars%z, NCF90_CHAR, "units", "sigma_level" )
+            ierr = ncf90_put_att ( ncid, dimvars%z, "units", "sigma_level" )
             call check_ncerr(ierr)
-            ierr = ncf90_put_att ( ncid, dimvars%z, NCF90_CHAR, "positive", "down" )
+            ierr = ncf90_put_att ( ncid, dimvars%z, "positive", "down" )
             call check_ncerr(ierr)
          end if
-         ierr = ncf90_put_att ( ncid, dimvars%z, NCF90_CHAR, "axis", "Z" )
+         ierr = ncf90_put_att ( ncid, dimvars%z, "axis", "Z" )
          call check_ncerr(ierr)
       end if
 
@@ -1657,13 +1657,13 @@ contains
          end if
          ierr = ncf90_def_var ( ncid, "depth", NCF90_FLOAT, dims%zsoil, dimvars%zsoil)
          call check_ncerr(ierr)
-         ierr = ncf90_put_att ( ncid, dimvars%zsoil, NCF90_CHAR, "long_name", "depth of soil layers" )
-         ierr = ncf90_put_att ( ncid, dimvars%zsoil, NCF90_CHAR, "standard_name", "depth" )
+         ierr = ncf90_put_att ( ncid, dimvars%zsoil, "long_name", "depth of soil layers" )
+         ierr = ncf90_put_att ( ncid, dimvars%zsoil, "standard_name", "depth" )
          call check_ncerr(ierr)
-         ierr = ncf90_put_att ( ncid, dimvars%zsoil, NCF90_CHAR, "units", "m" )
+         ierr = ncf90_put_att ( ncid, dimvars%zsoil, "units", "m" )
          call check_ncerr(ierr)
          if ( cf_compliant ) then
-            ierr = ncf90_put_att ( ncid, dimvars%zsoil, NCF90_CHAR, "bounds", "depth_bnds" )
+            ierr = ncf90_put_att ( ncid, dimvars%zsoil, "bounds", "depth_bnds" )
             call check_ncerr(ierr)
             ierr = ncf90_def_var ( ncid, "depth_bnds", NCF90_FLOAT, (/dims%b, dims%zsoil/), dimvars%zsoil_b)
             call check_ncerr(ierr)
@@ -1672,18 +1672,18 @@ contains
 
       ierr = ncf90_def_var ( ncid, "time", NCF90_FLOAT, dims%t, dimvars%t )
       call check_ncerr(ierr)
-      ierr = ncf90_put_att ( ncid, dimvars%t, NCF90_CHAR, "units", basetime )
+      ierr = ncf90_put_att ( ncid, dimvars%t, "units", basetime )
       call check_ncerr(ierr)
       if ( present(calendar) ) then
-         ierr = ncf90_put_att ( ncid, dimvars%t, NCF90_CHAR, "calendar", calendar )
+         ierr = ncf90_put_att ( ncid, dimvars%t, "calendar", calendar )
          call check_ncerr(ierr)
       end if
-      ierr = ncf90_put_att ( ncid, dimvars%t, NCF90_CHAR, "standard_name", "time" )
+      ierr = ncf90_put_att ( ncid, dimvars%t, "standard_name", "time" )
       call check_ncerr(ierr)
-      ierr = ncf90_put_att ( ncid, dimvars%t, NCF90_CHAR, "axis", "T" )
+      ierr = ncf90_put_att ( ncid, dimvars%t, "axis", "T" )
       call check_ncerr(ierr)
       if ( cf_compliant ) then
-         ierr = ncf90_put_att ( ncid, dimvars%t, NCF90_CHAR, "bounds", "time_bnds" )
+         ierr = ncf90_put_att ( ncid, dimvars%t, "bounds", "time_bnds" )
          call check_ncerr(ierr)
          ierr = ncf90_def_var ( ncid, "time_bnds", NCF90_FLOAT, (/dims%b, dims%t/), dimvars%t_b)
          call check_ncerr(ierr)
@@ -1693,17 +1693,17 @@ contains
       if ( multilev .and. use_hyblevs ) then
          ierr = ncf90_def_var ( ncid, "anf", NCF90_FLOAT, dims%z, vid )
          call check_ncerr(ierr)
-         ierr = ncf90_put_att (ncid, vid, "long_name", NCF90_CHAR, "A coefficient for hybrid level calculation")
+         ierr = ncf90_put_att (ncid, vid, "long_name", "A coefficient for hybrid level calculation")
          call check_ncerr(ierr)
          ierr = ncf90_def_var ( ncid, "bnf", NCF90_FLOAT, dims%z, vid )
          call check_ncerr(ierr)
-         ierr = ncf90_put_att (ncid, vid, "long_name", NCF90_CHAR,  "B coefficient for hybrid level calculation")
+         ierr = ncf90_put_att (ncid, vid, "long_name",  "B coefficient for hybrid level calculation")
          call check_ncerr(ierr)
          ierr = ncf90_def_var ( ncid, "P0", NCF90_FLOAT, vid )
          call check_ncerr(ierr)
-         ierr = ncf90_put_att (ncid, vid, "long_name", NCF90_CHAR,  "Reference pressure for hybrid level calculation")
+         ierr = ncf90_put_att (ncid, vid, "long_name",  "Reference pressure for hybrid level calculation")
          call check_ncerr(ierr)
-         ierr = ncf90_put_att (ncid, vid, "units", NCF90_CHAR,  "hPa")
+         ierr = ncf90_put_att (ncid, vid, "units",  "hPa")
          call check_ncerr(ierr)
       end if
 
@@ -1717,13 +1717,13 @@ contains
          end if
          ierr = ncf90_def_var ( ncid, tmpname, NCF90_FLOAT, vid )
          call check_ncerr(ierr)
-         ierr = ncf90_put_att (ncid, vid, "standard_name", NCF90_CHAR,  "height")
-         ierr = ncf90_put_att (ncid, vid, "units", NCF90_CHAR,  "m")
+         ierr = ncf90_put_att (ncid, vid, "standard_name",  "height")
+         ierr = ncf90_put_att (ncid, vid, "units",  "m")
          call check_ncerr(ierr)
          call check_ncerr(ierr)
-         ierr = ncf90_put_att (ncid, vid, "axis", NCF90_CHAR,  "Z")
+         ierr = ncf90_put_att (ncid, vid, "axis",  "Z")
          call check_ncerr(ierr)
-         ierr = ncf90_put_att (ncid, vid, "positive", NCF90_CHAR,  "up")
+         ierr = ncf90_put_att (ncid, vid, "positive",  "up")
          call check_ncerr(ierr)
       end do
 
@@ -1774,22 +1774,22 @@ contains
 !     Define attributes for the dimensions
       ierr = ncf90_def_var ( ncid, "longitude", NCF90_FLOAT, londim, lonid)
       call check_ncerr(ierr)
-      ierr = ncf90_put_att (ncid, lonid, "units", NCF90_CHAR, "degrees_east" )
+      ierr = ncf90_put_att (ncid, lonid, "units", "degrees_east" )
       call check_ncerr(ierr)
 
       ierr = ncf90_def_var ( ncid, "latitude", NCF90_FLOAT, latdim, latid )
       call check_ncerr(ierr)
-      ierr = ncf90_put_att (ncid, latid, "units", NCF90_CHAR, "degrees_north" )
+      ierr = ncf90_put_att (ncid, latid, "units", "degrees_north" )
       call check_ncerr(ierr)
 
       ierr = ncf90_def_var ( ncid, "month", NCF90_INT, mondim, monid )
       call check_ncerr(ierr)
-      ierr = ncf90_put_att (ncid, monid, "units", NCF90_CHAR, "months" )
+      ierr = ncf90_put_att (ncid, monid, "units", "months" )
       call check_ncerr(ierr)
 
       ierr = ncf90_def_var ( ncid, "year", NCF90_INT, yrdim, yrid )
       call check_ncerr(ierr)
-      ierr = ncf90_put_att (ncid, yrid, "units", NCF90_CHAR, "years" )
+      ierr = ncf90_put_att (ncid, yrid, "units", "years" )
       call check_ncerr(ierr)
       ierr = ncf90_put_int ( ncid, yrid, "valid_min", year )
       call check_ncerr(ierr,"Error setting valid min for year")
@@ -1802,9 +1802,9 @@ contains
 !     vertically varying scale factor.
 !            qmax = 0.05 * sig(k)**2
 
-         ierr = ncf90_put_att (ncid, vid, "valid_min", NCF90_INT,  vmin )
+         ierr = ncf90_put_att (ncid, vid, "valid_min",  vmin )
          call check_ncerr(ierr,"Error setting valid min attribute")
-         ierr = ncf90_put_att (ncid, vid, "valid_max", NCF90_INT, vmax )
+         ierr = ncf90_put_att (ncid, vid, "valid_max", vmax )
          call check_ncerr(ierr,"Error setting valid max attribute")
 
 !        Use 1.01 factor to ensure that xmax and xmin fit within range despite
@@ -1812,9 +1812,9 @@ contains
 
          scalef = 1.01 * (xmax - xmin) / float(vmax - vmin)
          addoff = 0.5*(xmin+xmax)
-         ierr  = ncf90_put_att (ncid, vid, "add_offset", NCF90_REAL, addoff )
+         ierr  = ncf90_put_att (ncid, vid, "add_offset", addoff )
          call check_ncerr(ierr)
-         ierr  = ncf90_put_att (ncid, vid, "scale_factor", NCF90_REAL, scalef)
+         ierr  = ncf90_put_att (ncid, vid, "scale_factor", scalef)
          call check_ncerr(ierr)
 
       else if ( hbytes == 4 ) then
@@ -1826,18 +1826,18 @@ contains
          stop
       end if
 
-      ierr = ncf90_put_att (ncid, vid, "long_name", NCF90_CHAR, longname )
+      ierr = ncf90_put_att (ncid, vid, "long_name", longname )
       call check_ncerr(ierr)
       if ( len_trim(units) /= 0 ) then
-         ierr = ncf90_put_att (ncid, vid, "units", NCF90_CHAR, units )
+         ierr = ncf90_put_att (ncid, vid, "units", units )
          call check_ncerr(ierr)
       end if
 
       if ( hbytes == 2 ) then
-         ierr = ncf90_put_att (ncid, vid, "missing_value", NCF90_INT, NCF90_FILL_SHORT )
+         ierr = ncf90_put_att (ncid, vid, "missing_value", NCF90_FILL_SHORT )
          call check_ncerr(ierr,"Error with missing value attribute")
       else
-         ierr = ncf90_put_att (ncid, vid, "missing_value", NCF90_REAL, missing_value )
+         ierr = ncf90_put_att (ncid, vid, "missing_value", missing_value )
          call check_ncerr(ierr,"Error with missing value attribute")
       end if
 
@@ -1850,11 +1850,11 @@ contains
       call check_ncerr(ierr)
 
 !     Write the months
-      ierr = ncf90_put_var ( ncid, monid, NCF90_INT, (/ (m,m=1,12) /) )
+      ierr = ncf90_put_var ( ncid, monid, (/ (m,m=1,12) /) )
       call check_ncerr(ierr,"Error writing months")
-      ierr = ncf90_put_var ( ncid, latid, NCF90_REAL, ylat )
+      ierr = ncf90_put_var ( ncid, latid, ylat )
       call check_ncerr(ierr,"Error writing latitudes")
-      ierr = ncf90_put_var ( ncid, lonid, NCF90_REAL, xlon )
+      ierr = ncf90_put_var ( ncid, lonid, xlon )
       call check_ncerr(ierr,"Error writing longitudes")
 
       ierr = ncf90_close ( ncid )
@@ -2201,13 +2201,13 @@ contains
             call check_ncerr(ierr, "Error getting time id")
             if ( present(time) ) then
                if ( ihtype(ifile) == hist_ave) then
-                  ierr = ncf90_put_var ( ncid, vid, NCF90_REAL, &
+                  ierr = ncf90_put_var ( ncid, vid, &
                        avetime(ifile)/timecount(ifile), start=(/histset(ifile)/) )
                else
-                  ierr = ncf90_put_var ( ncid, vid, NCF90_REAL, time, start=(/histset(ifile)/))
+                  ierr = ncf90_put_var ( ncid, vid, time, start=(/histset(ifile)/))
                end if
             else
-               ierr = ncf90_put_var ( ncid, vid, NCF90_REAL, &
+               ierr = ncf90_put_var ( ncid, vid, &
                                      real(histset(ifile)*hfreq(ifile)), &
                                      start=(/histset(ifile)/) )
             end if
@@ -2216,9 +2216,9 @@ contains
                ierr = ncf90_inq_varid (ncid, "time_bnds", vid )
                call check_ncerr(ierr, "Error getting time_bnds id")
                if ( ihtype(ifile) == hist_ave) then
-                  ierr = ncf90_put_var ( ncid, vid, NCF90_REAL, avetime_bnds(:,ifile), start=(/1,histset(ifile)/))
+                  ierr = ncf90_put_var ( ncid, vid, avetime_bnds(:,ifile), start=(/1,histset(ifile)/))
                else
-                  ierr = ncf90_put_var ( ncid, vid, NCF90_REAL, time_bnds, start=(/1,histset(ifile)/))
+                  ierr = ncf90_put_var ( ncid, vid, time_bnds, start=(/1,histset(ifile)/))
                end if
                call check_ncerr(ierr, "Error writing time_bnds")
             end if
@@ -2308,9 +2308,9 @@ contains
 
                   if ( nlev > 1 .or. histinfo(ifld)%multilev ) then
                      start3D = (/ 1, 1, k+1-istart, histset(ifile) /)
-                     ierr = ncf90_put_var ( ncid, vid, NCF90_REAL, htemp, start=start3D, count=count3D )
+                     ierr = ncf90_put_var ( ncid, vid, htemp, start=start3D, count=count3D )
                   else
-                     ierr = ncf90_put_var ( ncid, vid, NCF90_REAL, htemp, start=start2D, count=count2D )
+                     ierr = ncf90_put_var ( ncid, vid, htemp, start=start2D, count=count2D )
                   end if
                   call check_ncerr( ierr, "Error writing history variable "//histinfo(ifld)%name )
                  
@@ -2431,10 +2431,10 @@ contains
                endwhere
 !              Use nf_put_vara_int and let netcdf itself convert to int2.
 !              This should be more portable than using integer*2 in f90.
-               ierr = ncf90_put_var ( ncid, vid, NCF90_INT, imat, start=astart, &
+               ierr = ncf90_put_var ( ncid, vid, imat, start=astart, &
                                      count=acount )
             else
-               ierr = ncf90_put_var ( ncid, vid, NCF90_REAL, histarray(:,:,istart), &
+               ierr = ncf90_put_var ( ncid, vid, histarray(:,:,istart), &
                                      start=astart, count=acount )
             end if
             call check_ncerr(ierr, &
@@ -2446,7 +2446,7 @@ contains
             histinfo(ifld)%count(ifile) = 0
 
 !           Write the year 
-            ierr = ncf90_put_var ( ncid, yrid, NCF90_REAL, year, start=(/year+1-year1/) )
+            ierr = ncf90_put_var ( ncid, yrid, year, start=(/year+1-year1/) )
             call check_ncerr(ierr, "Error writing year")
 
             ierr = ncf90_close(ncid)

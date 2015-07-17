@@ -28,7 +28,7 @@ module netcdf_m
 
     private
 
-!   Overloaded functions
+!   Generic function interfaces
 
     interface ncf90_get_att
         module procedure ncf90_get_att_character
@@ -36,10 +36,21 @@ module netcdf_m
         module procedure ncf90_get_att_real
     end interface ncf90_get_att
 
+    interface ncf90_put_att
+        module procedure ncf90_put_att_character
+        module procedure ncf90_put_att_integer
+        module procedure ncf90_put_att_real
+    end interface ncf90_put_att
+
     interface ncf90_get_var
         module procedure ncf90_get_var_integer
         module procedure ncf90_get_var_real
     end interface ncf90_get_var
+
+    interface ncf90_put_var
+        module procedure ncf90_put_var_integer
+        module procedure ncf90_put_var_real
+    end interface ncf90_put_var
 
 !   NetCDF function visbility
     public :: ncf90_close, ncf90_copy_att, ncf90_create, &
@@ -260,7 +271,7 @@ contains
 
         ! Note: this implementation ignores nc_type
         ncf90_get_var_integer = &
-            nf90_get_var(ncid, varid, values, start, count)
+            nf90_get_var(ncid, varid, values, start=start, count=count)
 
     end function ncf90_get_var_integer
 
@@ -278,7 +289,7 @@ contains
 
         ! Note: this implementation ignores nc_type
         ncf90_get_var_real = &
-            nf90_get_var(ncid, varid, values, start, count)
+            nf90_get_var(ncid, varid, values, start=start, count=count)
 
     end function ncf90_get_var_real
 
@@ -411,40 +422,81 @@ contains
 
     end function ncf90_open
 
-    function ncf90_put_att(ncid, varid, name, nc_type, value)
+    function ncf90_put_att_character(ncid, varid, name, value)
 
         ! Adds or changes a variable attribute or global
         ! attribute of an open netCDF dataset.
 
-        ! TODO: move nc_type after name to be consistent with def_var
-        !       and also rename as xtype for consistency
+        integer,            intent( in) :: ncid, varid
+        character(len = *), intent( in) :: name
+        character(len = *), intent( in) :: value
+        integer                         :: ncf90_put_att_character
+
+        ncf90_put_att_character = nf90_put_att(ncid, varid, name, value)
+
+    end function ncf90_put_att_character
+
+    function ncf90_put_att_integer(ncid, varid, name, value)
+
+        ! Adds or changes a variable attribute or global
+        ! attribute of an open netCDF dataset.
 
         integer,            intent( in) :: ncid, varid
         character(len = *), intent( in) :: name
-        integer,            intent( in) :: nc_type
-        character(len = *), intent( in) :: value
-        integer                         :: ncf90_put_att
+        integer,            intent( in) :: value
+        integer                         :: ncf90_put_att_integer
 
-        ! Note: nc_type is unused in this implementation
-        ncf90_put_att = nf90_put_att(ncid, varid, name, value)
+        ncf90_put_att_integer = nf90_put_att(ncid, varid, name, value)
 
-    end function ncf90_put_att
+    end function ncf90_put_att_integer
 
-    function ncf90_put_var(ncid, varid, values, start, count)
+    function ncf90_put_att_real(ncid, varid, name, value)
 
-        ! Puts one or more data values into the variable of an open netCDF dataset that is in data mode.
+        ! Adds or changes a variable attribute or global
+        ! attribute of an open netCDF dataset.
+
+        integer,            intent( in) :: ncid, varid
+        character(len = *), intent( in) :: name
+        real,               intent( in) :: value
+        integer                         :: ncf90_put_att_real
+
+        ncf90_put_att_real = nf90_put_att(ncid, varid, name, value)
+
+    end function ncf90_put_att_real
+
+    function ncf90_put_var_integer(ncid, varid, values, start, count)
+
+        ! Puts one or more data values into the variable of an open netCDF
+        ! dataset that is in data mode.
 
         integer,                         intent( in) :: ncid, varid
         ! any valid type, scalar or array of any rank, &
-                                         intent( in) :: values
+        integer,                         intent( in) :: values
 !        integer, dimension(:), optional, intent( in) :: start, count, stride, map
         integer, dimension(:), optional, intent( in) :: start, count
-        integer                                      :: ncf90_put_var
+        integer                                      :: ncf90_put_var_integer
 
-        ncf90_put_var = &
-            nf90_put_var(ncid, varid, values, start, count)
+        ncf90_put_var_integer = &
+            nf90_put_var(ncid, varid, values, start=start, count=count)
 
-    end function ncf90_put_var
+    end function ncf90_put_var_integer
+
+    function ncf90_put_var_real(ncid, varid, values, start, count)
+
+        ! Puts one or more data values into the variable of an open netCDF
+        ! dataset that is in data mode.
+
+        integer,                         intent( in) :: ncid, varid
+        ! any valid type, scalar or array of any rank, &
+        real,                           intent( in) :: values
+!        integer, dimension(:), optional, intent( in) :: start, count, stride, map
+        integer, dimension(:), optional, intent( in) :: start, count
+        integer                                      :: ncf90_put_var_real
+
+        ncf90_put_var_real = &
+            nf90_put_var(ncid, varid, values, start=start, count=count)
+
+    end function ncf90_put_var_real
 
     function ncf90_set_fill(ncid, fillmode, old_mode)
 
