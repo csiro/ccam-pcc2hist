@@ -55,7 +55,9 @@ module netcdf_m
 
     interface ncf90_put_var
         module procedure ncf90_put_var_integer
+        module procedure ncf90_put_var_integer_array1D
         module procedure ncf90_put_var_real
+        module procedure ncf90_put_var_real_array1D
     end interface ncf90_put_var
 
 !   NetCDF function visbility
@@ -214,7 +216,7 @@ contains
         integer, intent(in) :: ncid
         character (len = *), intent(in) :: name
         integer, intent( in) :: xtype
-        integer,  intent(in) :: dimids
+        integer,  intent(in) :: dimid
         integer, intent(out) :: varid
 !        logical, optional, intent(in) :: contiguous
 !        integer, optional, dimension(:), intent(in) :: chunksizes
@@ -526,7 +528,7 @@ contains
 
         integer,                         intent( in) :: ncid, varid
         ! any valid type, scalar or array of any rank, &
-        integer, dimension(:),           intent( in) :: values
+        integer,                         intent( in) :: values
 !        integer, dimension(:), optional, intent( in) :: start, count, stride, map
         integer, dimension(:), optional, intent( in) :: start, count
         integer                                      :: ncf90_put_var_integer
@@ -536,7 +538,41 @@ contains
 
     end function ncf90_put_var_integer
 
+    function ncf90_put_var_integer_array1D(ncid, varid, values, start, count)
+
+        ! Puts one or more data values into the variable of an open netCDF
+        ! dataset that is in data mode.
+
+        integer,                         intent( in) :: ncid, varid
+        ! any valid type, scalar or array of any rank, &
+        integer, dimension(:),           intent( in) :: values
+!        integer, dimension(:), optional, intent( in) :: start, count, stride, map
+        integer, dimension(:), optional, intent( in) :: start, count
+        integer                                      :: ncf90_put_var_integer_array1D
+
+        ncf90_put_var_integer_array1D = &
+            nf90_put_var(ncid, varid, values, start=start, count=count)
+
+    end function ncf90_put_var_integer_array1D
+
     function ncf90_put_var_real(ncid, varid, values, start, count)
+
+        ! Puts one or more data values into the variable of an open netCDF
+        ! dataset that is in data mode.
+
+        integer,                         intent( in) :: ncid, varid
+        ! any valid type, scalar or array of any rank, &
+        real,                            intent( in) :: values
+!        integer, dimension(:), optional, intent( in) :: start, count, stride, map
+        integer, dimension(:), optional, intent( in) :: start, count
+        integer                                      :: ncf90_put_var_real
+
+        ncf90_put_var_real = &
+            nf90_put_var(ncid, varid, values, start=start, count=count)
+
+    end function ncf90_put_var_real
+
+    function ncf90_put_var_real_array1D(ncid, varid, values, start, count)
 
         ! Puts one or more data values into the variable of an open netCDF
         ! dataset that is in data mode.
@@ -546,12 +582,12 @@ contains
         real, dimension(:),              intent( in) :: values
 !        integer, dimension(:), optional, intent( in) :: start, count, stride, map
         integer, dimension(:), optional, intent( in) :: start, count
-        integer                                      :: ncf90_put_var_real
+        integer                                      :: ncf90_put_var_real_array1D
 
-        ncf90_put_var_real = &
+        ncf90_put_var_real_array1D = &
             nf90_put_var(ncid, varid, values, start=start, count=count)
 
-    end function ncf90_put_var_real
+    end function ncf90_put_var_real_array1D
 
     function ncf90_set_fill(ncid, fillmode, old_mode)
 
