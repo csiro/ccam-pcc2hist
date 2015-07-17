@@ -184,11 +184,6 @@ contains
 !     imposed separately. This means that the derivatives are not continuous
 !     across the boundary between interpolation and extrapolation.
 
-#ifndef parnetcdf
-   use netcdf_m, only : NCF90_FILL_FLOAT
-#else
-   use pnetcdf_m, only : NCF90_FILL_FLOAT
-#endif
       use utils_m, only : assert, search_fgt
       use physparams
       ! Lapse rate used in temperature extrapolation
@@ -535,7 +530,11 @@ contains
 !     imposed separately. This means that the derivatives are not continuous
 !     across the boundary between interpolation and extrapolation.
 
-      use netcdf, only : NCF90_FILL_FLOAT
+#ifndef parnetcdf
+   use netcdf_m, only : NCF90_FILL_FLOAT
+#else
+   use pnetcdf_m, only : NCF90_FILL_FLOAT
+#endif
       use utils_m, only : assert, search_fgt
       use physparams
       ! Lapse rate used in temperature extrapolation
