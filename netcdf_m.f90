@@ -30,6 +30,11 @@ module netcdf_m
 
 !   Generic function interfaces
 
+    interface ncf90_def_var
+        module procedure ncf90_def_var_with_dimids
+        module procedure ncf90_def_var_no_dimids
+    end interface ncf90_def_var
+
     interface ncf90_get_att
         module procedure ncf90_get_att_character
         module procedure ncf90_get_att_integer
@@ -69,7 +74,7 @@ module netcdf_m
               NCF90_INT, NCF90_INT2, &
               NCF90_MAX_NAME, NCF90_MAX_VAR_DIMS, &
               NCF90_NOERR, NCF90_NOFILL, &
-              NCF90_NOWRITE, NCF90_WRITE, &
+              NCF90_NOWRITE, NCF90_WRITE, NCF90_NETCDF4, &
               NCF90_REAL, NCF90_SHORT, NCF90_UNLIMITED
 
     integer NCF90_64BIT_OFFSET
@@ -177,7 +182,7 @@ contains
 
     end function ncf90_def_dim
 
-    function ncf90_def_var(ncid, name, xtype, dimids, varid)
+    function ncf90_def_var_with_dimids(ncid, name, xtype, dimids, varid)
 
         ! Adds a new variable to an open netCDF dataset in define mode
         ! and returns a variable ID.
@@ -196,6 +201,28 @@ contains
         integer :: ncf90_def_var
 
         ncf90_def_var = nf90_def_var(ncid, name, xtype, dimids, varid)
+
+    end function ncf90_def_var
+
+    function ncf90_def_var_no_dimids(ncid, name, xtype, varid)
+
+        ! Adds a new variable, with no dimension IDs specified,
+        ! to an open netCDF dataset in define mode and returns
+        ! a variable ID.
+
+        integer, intent(in) :: ncid
+        character (len = *), intent(in) :: name
+        integer, intent( in) :: xtype
+        integer, intent(out) :: varid
+!        logical, optional, intent(in) :: contiguous
+!        integer, optional, dimension(:), intent(in) :: chunksizes
+!        integer, optional, intent(in) :: deflate_level
+!        logical, optional, intent(in) :: shuffle, fletcher32
+!        integer, optional, intent(in) :: endianness
+!         integer, optional, intent(in) :: cache_size, cache_nelems, cache_preemption
+        integer :: ncf90_def_var
+
+        ncf90_def_var = nf90_def_var(ncid, name, xtype, varid)
 
     end function ncf90_def_var
 

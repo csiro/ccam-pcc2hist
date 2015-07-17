@@ -1427,7 +1427,7 @@ contains
       end if
 
       if ( len_trim(cell_methods) > 0 ) then
-         ierr = ncf90_put_att_char ( ncid, vid, "cell_methods", cell_methods )
+         ierr = ncf90_put_att ( ncid, vid, "cell_methods", cell_methods )
          call check_ncerr(ierr,"Error with cell_methods attribute")
       end if
          
