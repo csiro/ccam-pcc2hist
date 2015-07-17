@@ -264,7 +264,7 @@ contains
 
         integer,                         intent( in) :: ncid, varid
         ! any valid type, scalar or array of any rank, &
-        integer,                         intent(out) :: values
+        integer, dimension(:),           intent(out) :: values
 !        integer, dimension(:), optional, intent( in) :: start, count, stride, map
         integer, dimension(:), optional, intent( in) :: start, count
         integer                                      :: ncf90_get_var_integer
@@ -282,7 +282,7 @@ contains
 
         integer,                         intent( in) :: ncid, varid
         ! any valid type, scalar or array of any rank, &
-        real,                            intent(out) :: values
+        real, dimension(:),              intent(out) :: values
 !        integer, dimension(:), optional, intent( in) :: start, count, stride, map
         integer, dimension(:), optional, intent( in) :: start, count
         integer                                      :: ncf90_get_var_real
@@ -471,7 +471,7 @@ contains
 
         integer,                         intent( in) :: ncid, varid
         ! any valid type, scalar or array of any rank, &
-        integer,                         intent( in) :: values
+        integer, dimension(:),           intent( in) :: values
 !        integer, dimension(:), optional, intent( in) :: start, count, stride, map
         integer, dimension(:), optional, intent( in) :: start, count
         integer                                      :: ncf90_put_var_integer
@@ -488,7 +488,7 @@ contains
 
         integer,                         intent( in) :: ncid, varid
         ! any valid type, scalar or array of any rank, &
-        real,                           intent( in) :: values
+        real, dimension(:),              intent( in) :: values
 !        integer, dimension(:), optional, intent( in) :: start, count, stride, map
         integer, dimension(:), optional, intent( in) :: start, count
         integer                                      :: ncf90_put_var_real
