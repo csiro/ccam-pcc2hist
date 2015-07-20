@@ -15,12 +15,18 @@
 
 ! $Id: sfc_pres_temp_wr.f90,v 1.9 2007/01/24 19:32:10 russ Exp $
 
+! Trivially modified by David.Benn@csiro.au to run code under
+! MPI for test purposes, July 2015
+
 program sfc_pres_temp_wr
 #ifndef parnetcdf
    use netcdf_m
 #else
    use pnetcdf_m
 #endif
+
+  use mpi
+
   implicit none
 
   ! This is the name of the data file we will create.
@@ -64,6 +70,18 @@ program sfc_pres_temp_wr
 
   ! Loop indices
   integer :: lat, lon
+
+  ! MPI variables
+  integer :: ierror, my_rank, num_procs
+
+  ! start up MPI
+  call MPI_Init(ierror)
+
+  ! find out process rank
+  call MPI_Comm_rank(MPI_COMM_WORLD, my_rank, ierror)
+
+  ! find out number of processes
+  call MPI_Comm_size(MPI_COMM_WORLD, num_procs, ierror)
 
   ! Create pretend data. If this wasn't an example program, we would
   ! have some real data to write, for example, model output.
@@ -130,6 +148,9 @@ program sfc_pres_temp_wr
   ! If we got this far, everything worked as expected. Yipee!
   print *,"*** SUCCESS writing example file sfc_pres_temp.nc!"
 
+  ! shut down MPI
+  call MPI_Finalize(ierror)
+
 contains
   subroutine check(status)
     integer, intent ( in) :: status
@@ -139,4 +160,5 @@ contains
       stop "Stopped"
     end if
   end subroutine check
+
 end program sfc_pres_temp_wr
