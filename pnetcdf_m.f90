@@ -4,6 +4,9 @@ module pnetcdf_m
 !   an interface that allows replacement with a different implementation.
 !
 !   Notes:
+!   - The prefix NCF90_ has deliberately been used for all functions
+!     and parameters to distinguish between the standard netCDF
+!     library and this implementation.
 !   - Each function returns a status value.
 !   - We can either have one module with N different compile-time
 !     conditional blocks and less variation in Makefile (libs, incs)
@@ -12,6 +15,10 @@ module pnetcdf_m
 !     the other hand, the second allows us to vary the module
 !     implementation wildly if necessary. There is a fair amount of
 !     minor (e.g. naming) variation, so the second option seems best.
+!   - Only those functions (including overloadings) used in the code
+!     are supported.
+!   - Only those functions (including overloadings) used in the code
+!     are supported.
 !
 !   References:
 !   - http://trac.mcs.anl.gov/projects/parallel-netcdf
@@ -24,7 +31,7 @@ module pnetcdf_m
 
     private
 
-!   NetCDF functions
+!   NetCDF function visbility
     public :: ncf90_close, ncf90_copy_att, ncf90_create, &
               ncf90_def_dim, ncf90_def_var, ncf90_enddef, &
               ncf90_get_att, ncf90_inq_attname, ncf90_inq_dimid, &
@@ -39,16 +46,19 @@ module pnetcdf_m
     public :: NCF90_64BIT_OFFSET, NCF90_CHAR, NCF90_CLOBBER, &
               NCF90_DOUBLE, NCF90_ENOTATT, NCF90_FILL_FLOAT, &
               NCF90_FILL_SHORT, NCF90_FLOAT, NCF90_GLOBAL, &
-              NCF90_INT, NCF90_INT2, NCF90_NOERR, NCF90_NOFILL, &
-              NCF90_NOWRITE, NCF90_REAL, NCF90_SHORT, NCF90_UNLIMITED, &
-              NCF90_WRITE
+              NCF90_INT, NCF90_INT2, &
+              NCF90_MAX_NAME, NCF90_MAX_VAR_DIMS, &
+              NCF90_NOERR, NCF90_NOFILL, &
+              NCF90_NOWRITE, NCF90_WRITE, NCF90_NETCDF4, &
+              NCF90_REAL, NCF90_SHORT, NCF90_UNLIMITED
+
 
     integer NCF90_64BIT_OFFSET
     integer NCF90_CHAR
     integer NCF90_CLOBBER
     integer NCF90_DOUBLE
     integer NCF90_ENOTATT
-    integer NCF90_FILL_FLOAT
+    read    NCF90_FILL_FLOAT
     integer NCF90_FILL_SHORT
     integer NCF90_GLOBAL
     integer NCF90_INT
