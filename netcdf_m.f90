@@ -41,6 +41,7 @@ module netcdf_m
         module procedure ncf90_get_att_integer
         module procedure ncf90_get_att_integer_array1D
         module procedure ncf90_get_att_real
+        module procedure ncf90_get_att_real_array1D
     end interface ncf90_get_att
 
     interface ncf90_put_att
@@ -338,6 +339,22 @@ contains
             nf90_get_att(ncid, varid, name, values)
 
     end function ncf90_get_att_real
+
+    function ncf90_get_att_real_array1D(ncid, varid, name, values)
+
+        ! Gets the values of a netCDF attribute, given
+        ! its variable ID and name.
+
+        integer,               intent( in) :: ncid, varid
+        character(len = *),    intent( in) :: name
+        ! any valid type, scalar or array of rank 1, &
+        real, dimension(:),    intent(out) :: values
+        integer                            :: ncf90_get_att_real_array1D
+
+        ncf90_get_att_real_array1D = &
+            nf90_get_att(ncid, varid, name, values)
+
+    end function ncf90_get_att_real_array1D
 
     function ncf90_get_var_integer(ncid, varid, value, start)
 
