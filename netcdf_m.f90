@@ -553,7 +553,8 @@ contains
 
     end function ncf90_inq_varid
 
-    function ncf90_inquire(ncid, nDimensions, nVariables, nAttributes)
+    function ncf90_inquire(ncid, nDimensions, nVariables, nAttributes, &
+                           unlimitedDimId)
 
         ! Returns information about an open netCDF dataset, given its
         ! netCDF ID.
@@ -563,11 +564,11 @@ contains
 !                                          nAttributes, unlimitedDimId, &
 !                                          formatNum
         integer, optional, intent(out) :: nDimensions, nVariables, &
-                                          nAttributes
+                                          nAttributes, unlimitedDimIds
         integer                        :: ncf90_inquire
 
         ncf90_inquire = nf90_inquire(ncid, nDimensions, nVariables, &
-                                     nAttributes)
+                                     nAttributes, unlimitedDimIds)
 
     end function ncf90_inquire
 
