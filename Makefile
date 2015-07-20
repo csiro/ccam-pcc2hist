@@ -18,7 +18,8 @@ mpidata_m.o stacklimit.o netcdf_m.o
 pcc2hist: $(OBJ)
 	$(FC) -o $@ $(FFLAGS) $(LDFLAGS) $(OBJ) $(LIBS)
 
-test: $(OBJS)
+.PHONY: test
+test:
 	make -C test
 	
 .SUFFIXES:.f90

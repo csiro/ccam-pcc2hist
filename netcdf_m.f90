@@ -563,7 +563,7 @@ contains
 !                                          nAttributes, unlimitedDimId, &
 !                                          formatNum
         integer, optional, intent(out) :: nDimensions, nVariables, &
-                                          nAttributes, unlimitedDimIds
+                                          nAttributes, unlimitedDimId
         integer                        :: ncf90_inquire
 
         ncf90_inquire = nf90_inquire(ncid, nDimensions, nVariables, &
