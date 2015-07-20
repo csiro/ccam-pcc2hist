@@ -35,6 +35,7 @@ stacklimit.o: stacklimit.c
 
 clean:
 	rm *.o *.mod pcc2hist tmpver
+	make -C test clean
 
 # Version string. Dummy dependency to force this to be checked every time
 revision.h: FORCE
