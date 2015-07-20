@@ -33,5 +33,6 @@ sfc_pres_temp_rd: $(OBJ) $(TESTOBJ)
 
 .PHONY: clean
 clean:
-	rm -r $(TESTOBJ)
+	rm -f $(TESTPRG)
+	rm -f $(TESTOBJ)
 	rm -f *.nc
