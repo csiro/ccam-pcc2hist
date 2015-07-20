@@ -19,7 +19,14 @@
 ! with conditional netcdf module to suit test purposes, July 2015
 
 program sfc_pres_temp_rd
-  use netcdf
+#ifndef parnetcdf
+  use netcdf_m
+#else
+  use pnetcdf_m
+#endif
+
+  use mpi
+
   implicit none
 
   ! This is the name of the data file we will read.
