@@ -51,8 +51,12 @@ module netcdf_m
     interface ncf90_get_var
         module procedure ncf90_get_var_integer
         module procedure ncf90_get_var_integer_array1D
+        module procedure ncf90_get_var_integer_array2D
+        module procedure ncf90_get_var_integer_array3D
         module procedure ncf90_get_var_real
         module procedure ncf90_get_var_real_array1D
+        module procedure ncf90_get_var_real_array2D
+        module procedure ncf90_get_var_real_array3D
     end interface ncf90_get_var
 
     interface ncf90_put_var
@@ -331,11 +335,11 @@ contains
 
         ! Note: this implementation ignores nc_type
         ncf90_get_var_integer = &
-            nf90_get_var(ncid, varid, valus, start)
+            nf90_get_var(ncid, varid, value, start)
 
     end function ncf90_get_var_integer
 
-    function ncf90_get_var_integer_array1D(ncid, varid, values, start)
+    function ncf90_get_var_integer_array1D(ncid, varid, values, start, count)
 
         ! Gets one or more data values from a netCDF variable of an
         ! open netCDF dataset that is in data mode.
@@ -353,6 +357,42 @@ contains
 
     end function ncf90_get_var_integer_array1D
 
+    function ncf90_get_var_integer_array2D(ncid, varid, values, start, count)
+
+        ! Gets one or more data values from a netCDF variable of an
+        ! open netCDF dataset that is in data mode.
+
+        integer,                         intent( in) :: ncid, varid
+        ! any valid type, scalar or array of any rank, &
+        integer, dimension(:,:),         intent(out) :: values
+!        integer, dimension(:), optional, intent( in) :: start, count, stride, map
+        integer, dimension(:), optional, intent( in) :: start, count
+        integer                                      :: ncf90_get_var_integer_array2D
+
+        ! Note: this implementation ignores nc_type
+        ncf90_get_var_integer_array2D = &
+            nf90_get_var(ncid, varid, values, start=start, count=count)
+
+    end function ncf90_get_var_integer_array2D
+
+    function ncf90_get_var_integer_array3D(ncid, varid, values, start, count)
+
+        ! Gets one or more data values from a netCDF variable of an
+        ! open netCDF dataset that is in data mode.
+
+        integer,                         intent( in) :: ncid, varid
+        ! any valid type, scalar or array of any rank, &
+        integer, dimension(:,:,:),       intent(out) :: values
+!        integer, dimension(:), optional, intent( in) :: start, count, stride, map
+        integer, dimension(:), optional, intent( in) :: start, count
+        integer                                      :: ncf90_get_var_integer_array3D
+
+        ! Note: this implementation ignores nc_type
+        ncf90_get_var_integer_array3D = &
+            nf90_get_var(ncid, varid, values, start=start, count=count)
+
+    end function ncf90_get_var_integer_array3D
+
     function ncf90_get_var_real(ncid, varid, value, start)
 
         ! Gets a single data value from a netCDF variable of an
@@ -366,7 +406,7 @@ contains
 
         ! Note: this implementation ignores nc_type
         ncf90_get_var_real = &
-            nf90_get_var(ncid, varid, valus, start)
+            nf90_get_var(ncid, varid, value, start)
 
     end function ncf90_get_var_real
 
@@ -387,6 +427,42 @@ contains
             nf90_get_var(ncid, varid, values, start=start, count=count)
 
     end function ncf90_get_var_real_array1D
+
+    function ncf90_get_var_real_array2D(ncid, varid, values, start, count)
+
+        ! Gets one or more data values from a netCDF variable of an
+        ! open netCDF dataset that is in data mode.
+
+        integer,                         intent( in) :: ncid, varid
+        ! any valid type, scalar or array of any rank, &
+        real, dimension(:,:),            intent(out) :: values
+!        integer, dimension(:), optional, intent( in) :: start, count, stride, map
+        integer, dimension(:), optional, intent( in) :: start, count
+        integer                                      :: ncf90_get_var_real_array2D
+
+        ! Note: this implementation ignores nc_type
+        ncf90_get_var_real_array2D = &
+            nf90_get_var(ncid, varid, values, start=start, count=count)
+
+    end function ncf90_get_var_real_array2D
+
+    function ncf90_get_var_real_array3D(ncid, varid, values, start, count)
+
+        ! Gets one or more data values from a netCDF variable of an
+        ! open netCDF dataset that is in data mode.
+
+        integer,                         intent( in) :: ncid, varid
+        ! any valid type, scalar or array of any rank, &
+        real, dimension(:,:,:),          intent(out) :: values
+!        integer, dimension(:), optional, intent( in) :: start, count, stride, map
+        integer, dimension(:), optional, intent( in) :: start, count
+        integer                                      :: ncf90_get_var_real_array3D
+
+        ! Note: this implementation ignores nc_type
+        ncf90_get_var_real_array3D = &
+            nf90_get_var(ncid, varid, values, start=start, count=count)
+
+    end function ncf90_get_var_real_array3D
 
     function ncf90_inq_attname(ncid, varid, attnum, name)
 
