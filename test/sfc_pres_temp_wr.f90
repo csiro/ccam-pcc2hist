@@ -83,70 +83,74 @@ program sfc_pres_temp_wr
   ! find out number of processes
   call MPI_Comm_size(MPI_COMM_WORLD, num_procs, ierror)
 
-  ! Create pretend data. If this wasn't an example program, we would
-  ! have some real data to write, for example, model output.
-  do lat = 1, NLATS
-     lats(lat) = START_LAT + (lat - 1) * 5.0
-  end do
-  do lon = 1, NLONS
-     lons(lon) = START_LON + (lon - 1) * 5.0
-  end do
-  do lon = 1, NLONS
-     do lat = 1, NLATS
-        pres_out(lon, lat) = SAMPLE_PRESSURE + (lon - 1) * NLATS + (lat - 1)
-        temp_out(lon, lat) = SAMPLE_TEMP + .25 * ((lon - 1) * NLATS + (lat - 1))
-     end do
-  end do
+  if (my_rank .eq. 0) then
 
-  ! Create the file.
-  call check( ncf90_create(FILE_NAME, ncf90_clobber, ncid) )
+      ! Create pretend data. If this wasn't an example program, we would
+      ! have some real data to write, for example, model output.
+      do lat = 1, NLATS
+         lats(lat) = START_LAT + (lat - 1) * 5.0
+      end do
+      do lon = 1, NLONS
+         lons(lon) = START_LON + (lon - 1) * 5.0
+      end do
+      do lon = 1, NLONS
+         do lat = 1, NLATS
+            pres_out(lon, lat) = SAMPLE_PRESSURE + (lon - 1) * NLATS + (lat - 1)
+            temp_out(lon, lat) = SAMPLE_TEMP + .25 * ((lon - 1) * NLATS + (lat - 1))
+         end do
+      end do
 
-  ! Define the dimensions.
-  call check( ncf90_def_dim(ncid, LAT_NAME, NLATS, lat_dimid) )
-  call check( ncf90_def_dim(ncid, LON_NAME, NLONS, lon_dimid) )
+      ! Create the file.
+      call check( ncf90_create(FILE_NAME, ncf90_clobber, ncid) )
 
-  ! Define the coordinate variables. They will hold the coordinate
-  ! information, that is, the latitudes and longitudes. A varid is
-  ! returned for each.
-  call check( ncf90_def_var(ncid, LAT_NAME, NCF90_REAL, lat_dimid, lat_varid) )
-  call check( ncf90_def_var(ncid, LON_NAME, NCF90_REAL, lon_dimid, lon_varid) )
+      ! Define the dimensions.
+      call check( ncf90_def_dim(ncid, LAT_NAME, NLATS, lat_dimid) )
+      call check( ncf90_def_dim(ncid, LON_NAME, NLONS, lon_dimid) )
 
-  ! Assign units attributes to coordinate var data. This attaches a
-  ! text attribute to each of the coordinate variables, containing the
-  ! units.
-  call check( ncf90_put_att(ncid, lat_varid, UNITS, LAT_UNITS) )
-  call check( ncf90_put_att(ncid, lon_varid, UNITS, LON_UNITS) )
+      ! Define the coordinate variables. They will hold the coordinate
+      ! information, that is, the latitudes and longitudes. A varid is
+      ! returned for each.
+      call check( ncf90_def_var(ncid, LAT_NAME, NCF90_REAL, lat_dimid, lat_varid) )
+      call check( ncf90_def_var(ncid, LON_NAME, NCF90_REAL, lon_dimid, lon_varid) )
 
-  ! Define the netCDF variables. The dimids array is used to pass the
-  ! dimids of the dimensions of the netCDF variables.
-  dimids = (/ lon_dimid, lat_dimid /)
-  call check( ncf90_def_var(ncid, PRES_NAME, NCF90_REAL, dimids, pres_varid) )
-  call check( ncf90_def_var(ncid, TEMP_NAME, NCF90_REAL, dimids, temp_varid) )
+      ! Assign units attributes to coordinate var data. This attaches a
+      ! text attribute to each of the coordinate variables, containing the
+      ! units.
+      call check( ncf90_put_att(ncid, lat_varid, UNITS, LAT_UNITS) )
+      call check( ncf90_put_att(ncid, lon_varid, UNITS, LON_UNITS) )
 
-  ! Assign units attributes to the pressure and temperature netCDF
-  ! variables.
-  call check( ncf90_put_att(ncid, pres_varid, UNITS, PRES_UNITS) )
-  call check( ncf90_put_att(ncid, temp_varid, UNITS, TEMP_UNITS) )
+      ! Define the netCDF variables. The dimids array is used to pass the
+      ! dimids of the dimensions of the netCDF variables.
+      dimids = (/ lon_dimid, lat_dimid /)
+      call check( ncf90_def_var(ncid, PRES_NAME, NCF90_REAL, dimids, pres_varid) )
+      call check( ncf90_def_var(ncid, TEMP_NAME, NCF90_REAL, dimids, temp_varid) )
 
-  ! End define mode.
-  call check( ncf90_enddef(ncid) )
+      ! Assign units attributes to the pressure and temperature netCDF
+      ! variables.
+      call check( ncf90_put_att(ncid, pres_varid, UNITS, PRES_UNITS) )
+      call check( ncf90_put_att(ncid, temp_varid, UNITS, TEMP_UNITS) )
 
-  ! Write the coordinate variable data. This will put the latitudes
-  ! and longitudes of our data grid into the netCDF file.
-  call check( ncf90_put_var(ncid, lat_varid, lats) )
-  call check( ncf90_put_var(ncid, lon_varid, lons) )
+      ! End define mode.
+      call check( ncf90_enddef(ncid) )
 
-  ! Write the pretend data. This will write our surface pressure and
-  ! surface temperature data. The arrays of data are the same size as
-  ! the netCDF variables we have defined.
-  call check( ncf90_put_var(ncid, pres_varid, pres_out) )
-  call check( ncf90_put_var(ncid, temp_varid, temp_out) )
+      ! Write the coordinate variable data. This will put the latitudes
+      ! and longitudes of our data grid into the netCDF file.
+      call check( ncf90_put_var(ncid, lat_varid, lats) )
+      call check( ncf90_put_var(ncid, lon_varid, lons) )
 
-  ! Close the file.
-  call check( ncf90_close(ncid) )
+      ! Write the pretend data. This will write our surface pressure and
+      ! surface temperature data. The arrays of data are the same size as
+      ! the netCDF variables we have defined.
+      call check( ncf90_put_var(ncid, pres_varid, pres_out) )
+      call check( ncf90_put_var(ncid, temp_varid, temp_out) )
 
-  ! If we got this far, everything worked as expected. Yipee!
-  print *,"*** SUCCESS writing example file sfc_pres_temp.nc!"
+      ! Close the file.
+      call check( ncf90_close(ncid) )
+
+      ! If we got this far, everything worked as expected. Yipee!
+      print *,"*** SUCCESS writing example file sfc_pres_temp.nc!"
+
+  end if
 
   ! shut down MPI
   call MPI_Finalize(ierror)
