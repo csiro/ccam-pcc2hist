@@ -10,19 +10,22 @@ LIBS = -L $(NETCDF_ROOT)/lib -lnetcdf -lnetcdff
 
 OBJ = $(shell find .. -name "*.o" | grep -v pcc2hist | grep -v "test/")
 
-TESTOBJ = sfc_pres_temp_wr.o
+TESTOBJ = sfc_pres_temp_wr.o sfc_pres_temp_rd.o
 
-TESTPRG = sfc_pres_temp_wr
+TESTPRG = ./sfc_pres_temp_wr ./sfc_pres_temp_rd
 
 all:
 	run
 
-run: $(TESTPRG)
-	mpirun -np 1 ./sfc_pres_temp_wr
+run: $(TESTPRG) $(TESTOBJ)
+	$(foreach PRG, $(TESTPRGS), mpirun -np 1 $PRG)
 
 sfc_pres_temp_wr: $(OBJ) $(TESTOBJ)
 	$(FC) -o $@ $(FFLAGS) $(LDFLAGS) $(OBJ) $(TESTOBJ) $(LIBS)
-	
+
+sfc_pres_temp_rd: $(OBJ) $(TESTOBJ)
+	$(FC) -o $@ $(FFLAGS) $(LDFLAGS) $(OBJ) $(TESTOBJ) $(LIBS)
+		
 .SUFFIXES:.f90
 
 .f90.o:
