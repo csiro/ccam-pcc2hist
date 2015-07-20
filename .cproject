@@ -37,6 +37,10 @@
 							</tool>
 						</toolChain>
 					</folderInfo>
+					<sourceEntries>
+						<entry excluding="test" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="test"/>
+					</sourceEntries>
 				</configuration>
 			</storageModule>
 			<storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
@@ -59,7 +63,7 @@
 					<folderInfo id="photran.managedbuild.config.gnu.fortran.win32.exe.release.958859264." name="/" resourcePath="">
 						<toolChain id="photran.managedbuild.toolchain.gnu.fortran.win32.exe.release.592470388" name="GCC Fortran" superClass="photran.managedbuild.toolchain.gnu.fortran.win32.exe.release">
 							<targetPlatform archList="all" binaryParser="org.eclipse.cdt.core.PE" id="photran.managedbuild.target.gnu.platform.fortran.win32.exe.release.1566462603" name="Release Platform" osList="win32" superClass="photran.managedbuild.target.gnu.platform.fortran.win32.exe.release"/>
-							<builder buildPath="${workspace_loc:/pcc2hist-ASCTM-247-pnetcdf}/Release" id="photran.managedbuild.target.gnu.builder.win32.exe.release.2022621047" managedBuildOn="true" name="Gnu Make Builder.Release" superClass="photran.managedbuild.target.gnu.builder.win32.exe.release"/>
+							<builder buildPath="${workspace_loc:/pcc2hist-ASCTM-247-pnetcdf}/Release" id="photran.managedbuild.target.gnu.builder.win32.exe.release.2022621047" keepEnvironmentInBuildfile="false" managedBuildOn="true" name="Gnu Make Builder" superClass="photran.managedbuild.target.gnu.builder.win32.exe.release"/>
 							<tool id="photran.managedbuild.tool.gnu.c.compiler.win32.exe.release.1195429394" name="GCC C Compiler" superClass="photran.managedbuild.tool.gnu.c.compiler.win32.exe.release">
 								<inputType id="cdt.managedbuild.tool.gnu.c.compiler.input.2075961575" superClass="cdt.managedbuild.tool.gnu.c.compiler.input"/>
 							</tool>
@@ -77,6 +81,10 @@
 							</tool>
 						</toolChain>
 					</folderInfo>
+					<sourceEntries>
+						<entry excluding="test" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="test"/>
+					</sourceEntries>
 				</configuration>
 			</storageModule>
 			<storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>

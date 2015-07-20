@@ -35,6 +35,8 @@
 /sitop_m.f90 -text
 /stacklimit.c -text
 /staguv_m.f90 -text
+test/Makefile -text
+test/sfc_pres_temp_wr.f90 -text
 /usage_m.f90 -text
 /utilities.f90 -text
 /utils_m.f90 -text

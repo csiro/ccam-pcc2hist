@@ -6,7 +6,7 @@ LIBS = -L $(NETCDF_ROOT)/lib -lnetcdf -lnetcdff
 # TODO: conditionally determine whether to:
 # - use netcdf_m.o vs pnetcdf_m.o below (e.g. $(NETCDF_MOD))
 # - define parnetcdf macro
-# - -lnetcdf[f] vs -lpnetcdf (e.g. conditional LIBS line above)
+# - -lnetcdf[f] vs -lpnetcdf (e.g. LIBS line above +/- INC)
 
 OBJ = pcc2hist.o cc2hist_work.o gldata_m.o height_m.o indices_m.o ind_m.o \
 interp_m.o jimcc_m.o jimco_m.o jim_utils.o latltoij_m.o newmpar_m.o nfft_m.o \
@@ -18,7 +18,10 @@ mpidata_m.o stacklimit.o netcdf_m.o
 pcc2hist: $(OBJ)
 	$(FC) -o $@ $(FFLAGS) $(LDFLAGS) $(OBJ) $(LIBS)
 
-
+.PHONY: test
+test:
+	make -C test
+	
 .SUFFIXES:.f90
 
 stacklimit.o: stacklimit.c
