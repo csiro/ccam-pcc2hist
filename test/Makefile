@@ -14,11 +14,9 @@ TESTOBJ = sfc_pres_temp_wr.o sfc_pres_temp_rd.o
 
 TESTPRG = ./sfc_pres_temp_wr ./sfc_pres_temp_rd
 
-all:
-	run
-
 run: $(TESTPRG) $(TESTOBJ)
-	$(foreach PRG, $(TESTPRGS), mpirun -np 1 $PRG)
+	mpirun -np 1 ./sfc_pres_temp_wr
+	mpirun -np 1 ./sfc_pres_temp_rd
 
 sfc_pres_temp_wr: $(OBJ) $(TESTOBJ)
 	$(FC) -o $@ $(FFLAGS) $(LDFLAGS) $(OBJ) $@.o $(LIBS)
@@ -34,5 +32,7 @@ sfc_pres_temp_rd: $(OBJ) $(TESTOBJ)
 .PHONY: clean
 clean:
 	rm -f $(TESTPRG)
+	rm -f $(TESTOBJ)
+	rm -f *.nc
 	rm -f $(TESTOBJ)
 	rm -f *.nc
