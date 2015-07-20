@@ -1,6 +1,6 @@
 FC = mpif90
 FFLAGS = -O -xHost -fpp -ftz
-INC = -I $(NETCDF_ROOT)/include
+INC = -I $(NETCDF_ROOT)/include -I ..
 LIBS = -L $(NETCDF_ROOT)/lib -lnetcdf -lnetcdff
 
 # TODO: conditionally determine whether to:
@@ -8,9 +8,17 @@ LIBS = -L $(NETCDF_ROOT)/lib -lnetcdf -lnetcdff
 # - define parnetcdf macro
 # - -lnetcdf[f] vs -lpnetcdf (e.g. LIBS line above +/- INC)
 
-OBJ = ../*.o
+OBJ = $(shell find .. -name "*.o" | grep -v pcc2hist | grep -v "test/")
 
 TESTOBJ = sfc_pres_temp_wr.o
+
+TESTPRG = sfc_pres_temp_wr
+
+all:
+	run
+
+run: $(TESTPRG)
+	mpirun -np 1 ./sfc_pres_temp_wr
 
 sfc_pres_temp_wr: $(OBJ) $(TESTOBJ)
 	$(FC) -o $@ $(FFLAGS) $(LDFLAGS) $(OBJ) $(TESTOBJ) $(LIBS)
@@ -22,4 +30,5 @@ sfc_pres_temp_wr: $(OBJ) $(TESTOBJ)
 
 .PHONY: clean
 clean:
-	rm $(TESTOBJ)
+	rm -r $(TESTOBJ)
+	rm -f *.nc
