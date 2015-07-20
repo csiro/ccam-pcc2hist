@@ -567,7 +567,7 @@ contains
         integer                        :: ncf90_inquire
 
         ncf90_inquire = nf90_inquire(ncid, nDimensions, nVariables, &
-                                     nAttributes, unlimitedDimIds)
+                                     nAttributes, unlimitedDimId)
 
     end function ncf90_inquire
 
