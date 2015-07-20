@@ -36,6 +36,8 @@
 /stacklimit.c -text
 /staguv_m.f90 -text
 test/Makefile -text
+test/ReadMe.txt -text
+test/sfc_pres_temp_rd.f90 -text
 test/sfc_pres_temp_wr.f90 -text
 /usage_m.f90 -text
 /utilities.f90 -text

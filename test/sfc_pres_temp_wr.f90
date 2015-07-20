@@ -15,14 +15,14 @@
 
 ! $Id: sfc_pres_temp_wr.f90,v 1.9 2007/01/24 19:32:10 russ Exp $
 
-! Trivially modified by David.Benn@csiro.au to run code under
-! MPI for test purposes, July 2015
+! Trivially modified by David.Benn@csiro.au to run under MPI and
+! with conditional netcdf module to suit test purposes, July 2015
 
 program sfc_pres_temp_wr
 #ifndef parnetcdf
-   use netcdf_m
+  use netcdf_m
 #else
-   use pnetcdf_m
+  use pnetcdf_m
 #endif
 
   use mpi
