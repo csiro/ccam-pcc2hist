@@ -21,10 +21,10 @@ run: $(TESTPRG) $(TESTOBJ)
 	$(foreach PRG, $(TESTPRGS), mpirun -np 1 $PRG)
 
 sfc_pres_temp_wr: $(OBJ) $(TESTOBJ)
-	$(FC) -o $@ $(FFLAGS) $(LDFLAGS) $(OBJ) $(TESTOBJ) $(LIBS)
+	$(FC) -o $@ $(FFLAGS) $(LDFLAGS) $(OBJ) $@.o $(LIBS)
 
 sfc_pres_temp_rd: $(OBJ) $(TESTOBJ)
-	$(FC) -o $@ $(FFLAGS) $(LDFLAGS) $(OBJ) $(TESTOBJ) $(LIBS)
+	$(FC) -o $@ $(FFLAGS) $(LDFLAGS) $(OBJ) $@.o $(LIBS)
 		
 .SUFFIXES:.f90
 
