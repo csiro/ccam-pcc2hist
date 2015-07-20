@@ -8,7 +8,7 @@ LIBS = -L $(NETCDF_ROOT)/lib -lnetcdf -lnetcdff
 # - define parnetcdf macro
 # - -lnetcdf[f] vs -lpnetcdf (e.g. LIBS line above +/- INC)
 
-OBJ = $(shell find .. -name "*.o" | grep -v pcc2hist | grep -v "test/")
+OBJ = ../netcdf_m.o
 
 TESTOBJ = sfc_pres_temp_wr.o sfc_pres_temp_rd.o
 
@@ -23,7 +23,7 @@ sfc_pres_temp_wr: $(OBJ) $(TESTOBJ)
 
 sfc_pres_temp_rd: $(OBJ) $(TESTOBJ)
 	$(FC) -o $@ $(FFLAGS) $(LDFLAGS) $(OBJ) $@.o $(LIBS)
-		
+
 .SUFFIXES:.f90
 
 .f90.o:
