@@ -193,7 +193,7 @@ contains
 
         integer,             intent( in) :: ncid
         character (len = *), intent( in) :: name
-        integer,             intent( in) :: len
+        MPI_Offset,          intent( in) :: len
         integer,             intent(out) :: dimid
         integer                          :: ncf90_def_dim
 
@@ -243,7 +243,7 @@ contains
 !         integer, optional, intent(in) :: cache_size, cache_nelems, cache_preemption
         integer :: ncf90_def_var_one_dimid
 
-        integer, dimension(:), intent(in) :: dimids
+        integer, dimension(:) :: dimids
 
         dimids(1) = dimid
 
@@ -270,7 +270,8 @@ contains
 !         integer, optional, intent(in) :: cache_size, cache_nelems, cache_preemption
         integer :: ncf90_def_var_no_dimids
 
-        integer, dimension(:), intent(in) :: dimids
+        ! Unused but defined (length 0 passed)
+        integer, dimension(:) :: dimids
 
         ncf90_def_var_no_dimids = &
             nfmpi_def_var(ncid, name, xtype, 0, dimids, varid)
@@ -823,4 +824,4 @@ contains
 
     end function ncf90_sync
 
-end module netcdf_m
+end module pnetcdf_m
