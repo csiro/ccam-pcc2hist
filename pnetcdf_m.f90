@@ -113,27 +113,27 @@ module pnetcdf_m
     integer NCF90_WRITE
     integer NCF90_NETCDF4
 
-    parameter (NCF90_64BIT_OFFSET = NC_64BIT_OFFSET)
-    parameter (NCF90_CHAR = NC_CHAR)
-    parameter (NCF90_CLOBBER = NC_CLOBBER)
-    parameter (NCF90_DOUBLE = NC_DOUBLE)
-    parameter (NCF90_ENOTATT = NC_ENOTATT)
-    parameter (NCF90_FILL_FLOAT = NC_FILL_FLOAT)
-    parameter (NCF90_FILL_SHORT = NC_FILL_SHORT)
-    parameter (NCF90_GLOBAL = NC_GLOBAL)
-    parameter (NCF90_INT = NC_INT)
-    parameter (NCF90_INT2 = NC_INT2)
-    parameter (NCF90_MAX_NAME = NC_MAX_NAME)
-    parameter (NCF90_MAX_VAR_DIMS = NC_MAX_VAR_DIMS)
-    parameter (NCF90_NOERR = NC_NOERR)
-    parameter (NCF90_NOFILL = NC_NOFILL)
-    parameter (NCF90_NOWRITE = NC_NOWRITE)
-    parameter (NCF90_REAL = NC_REAL)
-    parameter (NCF90_FLOAT = NC_FLOAT)
-    parameter (NCF90_SHORT = NC_SHORT)
-    parameter (NCF90_UNLIMITED = NC_UNLIMITED)
-    parameter (NCF90_WRITE = NC_WRITE)
-    parameter (NCF90_NETCDF4 = NC_NETCDF4)
+    parameter (NCF90_64BIT_OFFSET = NF_64BIT_OFFSET)
+    parameter (NCF90_CHAR = NF_CHAR)
+    parameter (NCF90_CLOBBER = NF_CLOBBER)
+    parameter (NCF90_DOUBLE = NF_DOUBLE)
+    parameter (NCF90_ENOTATT = NF_ENOTATT)
+    parameter (NCF90_FILL_FLOAT = NF_FILL_FLOAT)
+    parameter (NCF90_FILL_SHORT = NF_FILL_SHORT)
+    parameter (NCF90_GLOBAL = NF_GLOBAL)
+    parameter (NCF90_INT = NF_INT)
+    parameter (NCF90_INT2 = NF_INT2)
+    parameter (NCF90_MAX_NAME = NF_MAX_NAME)
+    parameter (NCF90_MAX_VAR_DIMS = NF_MAX_VAR_DIMS)
+    parameter (NCF90_NOERR = NF_NOERR)
+    parameter (NCF90_NOFILL = NF_NOFILL)
+    parameter (NCF90_NOWRITE = NF_NOWRITE)
+    parameter (NCF90_REAL = NF_REAL)
+    parameter (NCF90_FLOAT = NF_FLOAT)
+    parameter (NCF90_SHORT = NF_SHORT)
+    parameter (NCF90_UNLIMITED = NF_UNLIMITED)
+    parameter (NCF90_WRITE = NF_WRITE)
+    parameter (NCF90_NETCDF4 = NF_NETCDF4)
 
 contains
 
@@ -145,7 +145,7 @@ contains
         integer, intent( in) :: ncid
         integer              :: ncf90_close
 
-        ncf90_close = ncmpi_close(ncid)
+        ncf90_close = nfmpi_close(ncid)
 
     end function ncf90_close
 
@@ -157,7 +157,7 @@ contains
 
         ! Copies an attribute from one open netCDF dataset to another.
 
-        ncf90_copy_att = ncmpi_copy_att(ncid_in, varid_in, name, &
+        ncf90_copy_att = nfmpi_copy_att(ncid_in, varid_in, name, &
                                         ncid_out, varid_out)
     end function ncf90_copy_att
 
@@ -178,7 +178,7 @@ contains
 !         integer, optional, intent(in) :: comm, info
          integer :: ncf90_create
 
-         ncf90_create = ncmpi_create(MPI_COMM_WORLD, path, cmode, &
+         ncf90_create = nfmpi_create(MPI_COMM_WORLD, path, cmode, &
                                      MPI_INFO_NULL , ncid)
 
     end function ncf90_create
@@ -194,7 +194,7 @@ contains
         integer,             intent(out) :: dimid
         integer                          :: ncf90_def_dim
 
-        ncf90_def_dim = ncmpi_def_dim(ncid, name, len, dimid)
+        ncf90_def_dim = nfmpi_def_dim(ncid, name, len, dimid)
 
     end function ncf90_def_dim
 
@@ -217,7 +217,7 @@ contains
         integer :: ncf90_def_var_with_dimids
 
         ncf90_def_var_with_dimids = &
-            ncmpi_def_var(ncid, name, xtype, &
+            nfmpi_def_var(ncid, name, xtype, &
             size(dimids), dimids, varid)
 
     end function ncf90_def_var_with_dimids
@@ -245,7 +245,7 @@ contains
         dimids(1) = dimid
 
         ncf90_def_var_one_dimid = &
-            ncmpi_def_var(ncid, name, xtype, 1, dimids, varid)
+            nfmpi_def_var(ncid, name, xtype, 1, dimids, varid)
 
     end function ncf90_def_var_one_dimid
 
@@ -270,7 +270,7 @@ contains
         integer, dimension(:), intent(in) :: dimids
 
         ncf90_def_var_no_dimids = &
-            ncmpi_def_var(ncid, name, xtype, 0, dimids, varid)
+            nfmpi_def_var(ncid, name, xtype, 0, dimids, varid)
 
     end function ncf90_def_var_no_dimids
 
@@ -282,7 +282,7 @@ contains
 !        integer, optional, intent( in) :: h_minfree, v_align, v_minfree, r_align
         integer                        :: ncf90_enddef
 
-        ncf90_enddef = ncmpi_enddef(ncid)
+        ncf90_enddef = nfmpi_enddef(ncid)
 
     end function ncf90_enddef
 
@@ -298,7 +298,7 @@ contains
         integer                         :: ncf90_get_att_character
 
         ncf90_get_att_character = &
-            ncmpi_get_att(ncid, varid, name, value)
+            nfmpi_get_att(ncid, varid, name, value)
 
     end function ncf90_get_att_character
 
@@ -314,7 +314,7 @@ contains
         integer                         :: ncf90_get_att_integer
 
         ncf90_get_att_integer = &
-            ncmpi_get_att(ncid, varid, name, value)
+            nfmpi_get_att(ncid, varid, name, value)
 
     end function ncf90_get_att_integer
 
@@ -330,7 +330,7 @@ contains
         integer                            :: ncf90_get_att_integer_array1D
 
         ncf90_get_att_integer_array1D = &
-            ncmpi_get_att(ncid, varid, name, values)
+            nfmpi_get_att(ncid, varid, name, values)
 
     end function ncf90_get_att_integer_array1D
 
@@ -346,7 +346,7 @@ contains
         integer                         :: ncf90_get_att_real
 
         ncf90_get_att_real = &
-            ncmpi_get_att(ncid, varid, name, values)
+            nfmpi_get_att(ncid, varid, name, values)
 
     end function ncf90_get_att_real
 
@@ -362,7 +362,7 @@ contains
         integer                            :: ncf90_get_att_real_array1D
 
         ncf90_get_att_real_array1D = &
-            ncmpi_get_att(ncid, varid, name, values)
+            nfmpi_get_att(ncid, varid, name, values)
 
     end function ncf90_get_att_real_array1D
 
@@ -379,7 +379,7 @@ contains
 
         ! Note: this implementation ignores nc_type
         ncf90_get_var_integer = &
-            ncmpi_get_var1_int(ncid, varid, start, values)
+            nfmpi_get_var1_int(ncid, varid, start, values)
 
     end function ncf90_get_var_integer
 
@@ -397,7 +397,7 @@ contains
 
         ! Note: this implementation ignores nc_type
         ncf90_get_var_integer_array1D = &
-            ncmpi_get_vara_int(ncid, varid, start, count, values)
+            nfmpi_get_vara_int(ncid, varid, start, count, values)
 
     end function ncf90_get_var_integer_array1D
 
@@ -415,7 +415,7 @@ contains
 
         ! Note: this implementation ignores nc_type
         ncf90_get_var_integer_array2D = &
-            ncmpi_get_vara_int(ncid, varid, start, count, values)
+            nfmpi_get_vara_int(ncid, varid, start, count, values)
 
     end function ncf90_get_var_integer_array2D
 
@@ -433,7 +433,7 @@ contains
 
         ! Note: this implementation ignores nc_type
         ncf90_get_var_integer_array3D = &
-            ncmpi_get_vara_int(ncid, varid, start, count, values)
+            nfmpi_get_vara_int(ncid, varid, start, count, values)
 
     end function ncf90_get_var_integer_array3D
 
@@ -450,7 +450,7 @@ contains
 
         ! Note: this implementation ignores nc_type
         ncf90_get_var_real = &
-            ncmpi_get_var1_real(ncid, varid, start, values)
+            nfmpi_get_var1_real(ncid, varid, start, values)
 
     end function ncf90_get_var_real
 
@@ -468,7 +468,7 @@ contains
 
         ! Note: this implementation ignores nc_type
         ncf90_get_var_real_array1D = &
-            ncmpi_get_vara_real(ncid, varid, start, count, values)
+            nfmpi_get_vara_real(ncid, varid, start, count, values)
 
     end function ncf90_get_var_real_array1D
 
@@ -486,7 +486,7 @@ contains
 
         ! Note: this implementation ignores nc_type
         ncf90_get_var_real_array2D = &
-            ncmpi_get_vara_real(ncid, varid, start, count, values)
+            nfmpi_get_vara_real(ncid, varid, start, count, values)
 
     end function ncf90_get_var_real_array2D
 
@@ -504,7 +504,7 @@ contains
 
         ! Note: this implementation ignores nc_type
         ncf90_get_var_real_array3D = &
-            ncmpi_get_vara_real(ncid, varid, start, count, values)
+            nfmpi_get_vara_real(ncid, varid, start, count, values)
 
     end function ncf90_get_var_real_array3D
 
@@ -517,7 +517,7 @@ contains
         character (len = *), intent(out) :: name
         integer                          :: ncf90_inq_attname
 
-        ncf90_inq_attname = ncmpi_inq_attname(ncid, varid, attnum, name)
+        ncf90_inq_attname = nfmpi_inq_attname(ncid, varid, attnum, name)
 
     end function ncf90_inq_attname
 
@@ -532,7 +532,7 @@ contains
         integer                                    :: ncf90_inquire_attribute
 
         ncf90_inquire_attribute = &
-            ncmpi_inq_att(ncid, varid, name, xtype, len)
+            nfmpi_inq_att(ncid, varid, name, xtype, len)
 
     end function ncf90_inquire_attribute
 
@@ -546,7 +546,7 @@ contains
         integer,             intent(out) :: dimid
         integer                          :: ncf90_inq_dimid
 
-        ncf90_inq_dimid = ncmpi_inq_dimid(ncid, name, dimid)
+        ncf90_inq_dimid = nfmpi_inq_dimid(ncid, name, dimid)
 
     end function ncf90_inq_dimid
 
@@ -559,7 +559,7 @@ contains
         integer, intent(out) :: varid
         integer :: ncf90_inq_varid
 
-        ncf90_inq_varid = ncmpi_inq_varid(ncid, name, varid)
+        ncf90_inq_varid = nfmpi_inq_varid(ncid, name, varid)
 
     end function ncf90_inq_varid
 
@@ -576,7 +576,7 @@ contains
                                           nAttributes, unlimitedDimId
         integer                        :: ncf90_inquire
 
-        ncf90_inquire = ncmpi_inq(ncid, nDimensions, nVariables, &
+        ncf90_inquire = nfmpi_inq(ncid, nDimensions, nVariables, &
                                   nAttributes, unlimitedDimId)
 
     end function ncf90_inquire
@@ -591,7 +591,7 @@ contains
         integer,             optional, intent(out) :: len
         integer                                    :: ncf90_inquire_dimension
 
-        ncf90_inquire_dimension = ncmpi_inq_dim(ncid, dimid, len)
+        ncf90_inquire_dimension = nfmpi_inq_dim(ncid, dimid, len)
 
     end function ncf90_inquire_dimension
 
@@ -613,7 +613,7 @@ contains
         integer :: ncf90_inquire_variable
 
         ncf90_inquire_variable = &
-            ncmpi_inq_var(ncid, varid, name, xtype, ndims, &
+            nfmpi_inq_var(ncid, varid, name, xtype, ndims, &
                           dimids, nAtts)
 
     end function ncf90_inquire_variable
@@ -632,7 +632,7 @@ contains
 !        integer, optional, intent(in) :: comm, info
         integer :: ncf90_open
 
-        ncf90_open = ncmpi_open(MPI_COMM_WORLD, path, mode, &
+        ncf90_open = nfmpi_open(MPI_COMM_WORLD, path, mode, &
                                 MPI_INFO_NULL, ncid)
 
     end function ncf90_open
@@ -648,7 +648,7 @@ contains
         integer                         :: ncf90_put_att_character
 
         ncf90_put_att_character = &
-            ncmpi_put_att(ncid, varid, name, NC_CHAR, 1, value)
+            nfmpi_put_att(ncid, varid, name, NC_CHAR, 1, value)
 
     end function ncf90_put_att_character
 
@@ -663,7 +663,7 @@ contains
         integer                         :: ncf90_put_att_integer
 
         ncf90_put_att_integer = &
-            ncmpi_put_att(ncid, varid, name, NC_INT, 1, value)
+            nfmpi_put_att(ncid, varid, name, NC_INT, 1, value)
 
     end function ncf90_put_att_integer
 
@@ -678,7 +678,7 @@ contains
         integer                         :: ncf90_put_att_real
 
         ncf90_put_att_real = &
-            ncmpi_put_att(ncid, varid, name, NC_REAL, 1, value)
+            nfmpi_put_att(ncid, varid, name, NC_REAL, 1, value)
 
     end function ncf90_put_att_real
 
@@ -694,7 +694,7 @@ contains
         integer                                      :: ncf90_put_var_integer
 
         ncf90_put_var_integer = &
-            ncmpi_put_var1_int(ncid, varid, start, value)
+            nfmpi_put_var1_int(ncid, varid, start, value)
 
     end function ncf90_put_var_integer
 
@@ -711,7 +711,7 @@ contains
         integer                                      :: ncf90_put_var_integer_array1D
 
         ncf90_put_var_integer_array1D = &
-            ncmpi_put_vara_int(ncid, varid, start, count, values)
+            nfmpi_put_vara_int(ncid, varid, start, count, values)
 
     end function ncf90_put_var_integer_array1D
 
@@ -728,7 +728,7 @@ contains
         integer                                      :: ncf90_put_var_integer_array2D
 
         ncf90_put_var_integer_array2D = &
-            ncmpi_put_vara_int(ncid, varid, start, count, values)
+            nfmpi_put_vara_int(ncid, varid, start, count, values)
 
     end function ncf90_put_var_integer_array2D
 
@@ -744,7 +744,7 @@ contains
         integer                                      :: ncf90_put_var_real
 
         ncf90_put_var_real = &
-            ncmpi_put_var1_real(ncid, varid, start, value)
+            nfmpi_put_var1_real(ncid, varid, start, value)
 
     end function ncf90_put_var_real
 
@@ -761,7 +761,7 @@ contains
         integer                                      :: ncf90_put_var_real_array1D
 
         ncf90_put_var_real_array1D = &
-            ncmpi_put_vara_real(ncid, varid, start, count, values)
+            nfmpi_put_vara_real(ncid, varid, start, count, values)
 
     end function ncf90_put_var_real_array1D
 
@@ -778,7 +778,7 @@ contains
         integer                                      :: ncf90_put_var_real_array2D
 
         ncf90_put_var_real_array2D = &
-            ncmpi_put_vara_real(ncid, varid, start, count, values)
+            nfmpi_put_vara_real(ncid, varid, start, count, values)
 
     end function ncf90_put_var_real_array2D
 
@@ -792,7 +792,7 @@ contains
         integer, intent(out) :: old_mode
         integer              :: ncf90_set_fill
 
-        ncf90_set_fill = ncmpi_set_fill(ncid, fillmode, old_mode)
+        ncf90_set_fill = nfmpi_set_fill(ncid, fillmode, old_mode)
 
     end function ncf90_set_fill
 
@@ -804,7 +804,7 @@ contains
         integer, intent( in) :: ncerr
         character(len = 80)  :: ncf90_strerror
 
-        ncf90_strerror = ncmpi_strerror(ncerr)
+        ncf90_strerror = nfmpi_strerror(ncerr)
 
     end function ncf90_strerror
 
@@ -816,7 +816,7 @@ contains
         integer, intent( in) :: ncid
         integer              :: ncf90_sync
 
-        ncf90_sync = ncmpi_sync(ncid)
+        ncf90_sync = nfmpi_sync(ncid)
 
     end function ncf90_sync
 
