@@ -28,6 +28,7 @@ program cc2hist
 !  It uses the f90 shallow water model versions of routines setxyz and staguv.
     
 !  Modified by MJT to use MPI when reading parallel input files (pcc2hist).
+!  Further optimised by Paul Ryan.
 
 #ifndef usenc3
    use mpi
