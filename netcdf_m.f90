@@ -276,19 +276,19 @@ contains
 
     end function ncf90_enddef
 
-    function ncf90_get_att_character(ncid, varid, name, values)
+    function ncf90_get_att_character(ncid, varid, name, value)
 
-        ! Gets the value(s) of a netCDF attribute, given
+        ! Gets the value of a netCDF attribute, given
         ! its variable ID and name.
 
         integer,            intent( in) :: ncid, varid
         character(len = *), intent( in) :: name
         ! any valid type, scalar or array of rank 1, &
-        character(len = *), intent(out) :: values
+        character(len = *), intent(out) :: value
         integer                         :: ncf90_get_att_character
 
         ncf90_get_att_character = &
-            nf90_get_att(ncid, varid, name, values)
+            nf90_get_att(ncid, varid, name, value)
 
     end function ncf90_get_att_character
 

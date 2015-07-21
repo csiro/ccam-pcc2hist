@@ -80,7 +80,7 @@
 
 module history
 
-#ifndef parnetcdf
+#ifndef PARNETCDF
    use netcdf_m
 #else
    use pnetcdf_m

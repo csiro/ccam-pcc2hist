@@ -17,8 +17,6 @@ module pnetcdf_m
 !     minor (e.g. naming) variation, so the second option seems best.
 !   - Only those functions (including overloadings) used in the code
 !     are supported.
-!   - Only those functions (including overloadings) used in the code
-!     are supported.
 !
 !   References:
 !   - http://trac.mcs.anl.gov/projects/parallel-netcdf
@@ -31,6 +29,48 @@ module pnetcdf_m
 
     private
 
+!   Generic function interfaces
+
+    interface ncf90_def_var
+        module procedure ncf90_def_var_with_dimids
+        module procedure ncf90_def_var_one_dimid
+        module procedure ncf90_def_var_no_dimids
+    end interface ncf90_def_var
+
+    interface ncf90_get_att
+        module procedure ncf90_get_att_character
+        module procedure ncf90_get_att_integer
+        module procedure ncf90_get_att_integer_array1D
+        module procedure ncf90_get_att_real
+        module procedure ncf90_get_att_real_array1D
+    end interface ncf90_get_att
+
+    interface ncf90_put_att
+        module procedure ncf90_put_att_character
+        module procedure ncf90_put_att_integer
+        module procedure ncf90_put_att_real
+    end interface ncf90_put_att
+
+    interface ncf90_get_var
+        module procedure ncf90_get_var_integer
+        module procedure ncf90_get_var_integer_array1D
+        module procedure ncf90_get_var_integer_array2D
+        module procedure ncf90_get_var_integer_array3D
+        module procedure ncf90_get_var_real
+        module procedure ncf90_get_var_real_array1D
+        module procedure ncf90_get_var_real_array2D
+        module procedure ncf90_get_var_real_array3D
+    end interface ncf90_get_var
+
+    interface ncf90_put_var
+        module procedure ncf90_put_var_integer
+        module procedure ncf90_put_var_integer_array1D
+        module procedure ncf90_put_var_integer_array2D
+        module procedure ncf90_put_var_real
+        module procedure ncf90_put_var_real_array1D
+        module procedure ncf90_put_var_real_array2D
+    end interface ncf90_put_var
+
 !   NetCDF function visbility
     public :: ncf90_close, ncf90_copy_att, ncf90_create, &
               ncf90_def_dim, ncf90_def_var, ncf90_enddef, &
@@ -38,7 +78,6 @@ module pnetcdf_m
               ncf90_inq_varid, ncf90_get_var, &
               ncf90_inquire, ncf90_inquire_attribute, &
               ncf90_inquire_dimension, ncf90_inquire_variable, &
-              ncf90_open, &
               ncf90_open, ncf90_put_att, ncf90_put_var, &
               ncf90_set_fill, ncf90_strerror, ncf90_sync
 
@@ -52,13 +91,12 @@ module pnetcdf_m
               NCF90_NOWRITE, NCF90_WRITE, NCF90_NETCDF4, &
               NCF90_REAL, NCF90_SHORT, NCF90_UNLIMITED
 
-
     integer NCF90_64BIT_OFFSET
     integer NCF90_CHAR
     integer NCF90_CLOBBER
     integer NCF90_DOUBLE
     integer NCF90_ENOTATT
-    read    NCF90_FILL_FLOAT
+    real    NCF90_FILL_FLOAT
     integer NCF90_FILL_SHORT
     integer NCF90_GLOBAL
     integer NCF90_INT
@@ -84,9 +122,9 @@ module pnetcdf_m
     parameter (NCF90_FILL_SHORT = NC_FILL_SHORT)
     parameter (NCF90_GLOBAL = NC_GLOBAL)
     parameter (NCF90_INT = NC_INT)
+    parameter (NCF90_INT2 = NC_INT2)
     parameter (NCF90_MAX_NAME = NC_MAX_NAME)
     parameter (NCF90_MAX_VAR_DIMS = NC_MAX_VAR_DIMS)
-    parameter (NCF90_INT2 = NC_INT2)
     parameter (NCF90_NOERR = NC_NOERR)
     parameter (NCF90_NOFILL = NC_NOFILL)
     parameter (NCF90_NOWRITE = NC_NOWRITE)
@@ -102,7 +140,7 @@ contains
     function ncf90_close(ncid)
 
         ! Closes an open netCDF dataset. If the dataset is in define
-        ! mode, NCMPI_ENDDEF will be called before closing.
+        ! mode, NF90_ENDDEF will be called before closing.
 
         integer, intent( in) :: ncid
         integer              :: ncf90_close
@@ -123,9 +161,7 @@ contains
                                         ncid_out, varid_out)
     end function ncf90_copy_att
 
-    function ncf90_create(path, cmode, ncid, initialsize, bufrsize, &
-                          cache_size, cache_nelems, cache_preemption, &
-                          comm, info)
+    function ncf90_create(path, cmode, ncid)
 
          ! Creates a new netCDF dataset, returning a netCDF ID that can
          ! subsequently be used to refer to the netCDF dataset in other
@@ -135,10 +171,16 @@ contains
          character (len = *), intent(in) :: path
          integer, intent(in) :: cmode
          integer, intent(out) :: ncid
+!         integer, optional, intent(in) :: initialsize
+!         integer, optional, intent(inout) :: bufrsize
+!         integer, optional, intent(in) :: cache_size, cache_nelems
+!         real, optional, intent(in) :: cache_preemption
+!         integer, optional, intent(in) :: comm, info
          integer :: ncf90_create
 
          ncf90_create = ncmpi_create(MPI_COMM_WORLD, path, cmode, &
                                      MPI_INFO_NULL , ncid)
+
     end function ncf90_create
 
     function ncf90_def_dim(ncid, name, len, dimid)
@@ -148,8 +190,7 @@ contains
 
         integer,             intent( in) :: ncid
         character (len = *), intent( in) :: name
-!        integer,             intent( in) :: len
-        MPI_Offset,             intent( in) :: len
+        integer,             intent( in) :: len
         integer,             intent(out) :: dimid
         integer                          :: ncf90_def_dim
 
@@ -157,7 +198,7 @@ contains
 
     end function ncf90_def_dim
 
-    function ncf90_def_var(ncid, name, xtype, dimids, varid)
+    function ncf90_def_var_with_dimids(ncid, name, xtype, dimids, varid)
 
         ! Adds a new variable to an open netCDF dataset in define mode
         ! and returns a variable ID.
@@ -167,24 +208,133 @@ contains
         integer, intent( in) :: xtype
         integer, dimension(:), intent(in) :: dimids
         integer, intent(out) :: varid
-        integer :: ncf90_def_var
+!        logical, optional, intent(in) :: contiguous
+!        integer, optional, dimension(:), intent(in) :: chunksizes
+!        integer, optional, intent(in) :: deflate_level
+!        logical, optional, intent(in) :: shuffle, fletcher32
+!        integer, optional, intent(in) :: endianness
+!         integer, optional, intent(in) :: cache_size, cache_nelems, cache_preemption
+        integer :: ncf90_def_var_with_dimids
 
-        ncf90_def_var = ncmpi_def_var(ncid, name, xtype, dimids, varid)
+        ncf90_def_var_with_dimids = &
+            ncmpi_def_var(ncid, name, xtype, &
+            size(dimids), dimids, varid)
 
-    end function ncf90_def_var
+    end function ncf90_def_var_with_dimids
+
+    function ncf90_def_var_one_dimid(ncid, name, xtype, dimid, varid)
+
+        ! Adds a new variable to an open netCDF dataset in define mode
+        ! and returns a variable ID.
+
+        integer, intent(in) :: ncid
+        character (len = *), intent(in) :: name
+        integer, intent( in) :: xtype
+        integer,  intent(in) :: dimid
+        integer, intent(out) :: varid
+!        logical, optional, intent(in) :: contiguous
+!        integer, optional, dimension(:), intent(in) :: chunksizes
+!        integer, optional, intent(in) :: deflate_level
+!        logical, optional, intent(in) :: shuffle, fletcher32
+!        integer, optional, intent(in) :: endianness
+!         integer, optional, intent(in) :: cache_size, cache_nelems, cache_preemption
+        integer :: ncf90_def_var_one_dimid
+
+        integer, dimension(:), intent(in) :: dimids
+
+        dimids(1) = dimid
+
+        ncf90_def_var_one_dimid = &
+            ncmpi_def_var(ncid, name, xtype, 1, dimids, varid)
+
+    end function ncf90_def_var_one_dimid
+
+    function ncf90_def_var_no_dimids(ncid, name, xtype, varid)
+
+        ! Adds a new variable, with no dimension IDs specified,
+        ! to an open netCDF dataset in define mode and returns
+        ! a variable ID.
+
+        integer, intent(in) :: ncid
+        character (len = *), intent(in) :: name
+        integer, intent( in) :: xtype
+        integer, intent(out) :: varid
+!        logical, optional, intent(in) :: contiguous
+!        integer, optional, dimension(:), intent(in) :: chunksizes
+!        integer, optional, intent(in) :: deflate_level
+!        logical, optional, intent(in) :: shuffle, fletcher32
+!        integer, optional, intent(in) :: endianness
+!         integer, optional, intent(in) :: cache_size, cache_nelems, cache_preemption
+        integer :: ncf90_def_var_no_dimids
+
+        integer, dimension(:), intent(in) :: dimids
+
+        ncf90_def_var_no_dimids = &
+            ncmpi_def_var(ncid, name, xtype, 0, dimids, varid)
+
+    end function ncf90_def_var_no_dimids
 
     function ncf90_enddef(ncid)
 
         ! Takes an open netCDF dataset out of define mode.
 
         integer,           intent( in) :: ncid
+!        integer, optional, intent( in) :: h_minfree, v_align, v_minfree, r_align
         integer                        :: ncf90_enddef
 
         ncf90_enddef = ncmpi_enddef(ncid)
 
     end function ncf90_enddef
 
-    function ncf90_get_att(ncid, varid, name, values)
+    function ncf90_get_att_character(ncid, varid, name, value)
+
+        ! Gets the value of a netCDF attribute, given
+        ! its variable ID and name.
+
+        integer,            intent( in) :: ncid, varid
+        character(len = *), intent( in) :: name
+        ! any valid type, scalar or array of rank 1, &
+        character(len = *), intent(out) :: value
+        integer                         :: ncf90_get_att_character
+
+        ncf90_get_att_character = &
+            ncmpi_get_att(ncid, varid, name, value)
+
+    end function ncf90_get_att_character
+
+    function ncf90_get_att_integer(ncid, varid, name, value)
+
+        ! Gets the value of a netCDF attribute, given
+        ! its variable ID and name.
+
+        integer,            intent( in) :: ncid, varid
+        character(len = *), intent( in) :: name
+        ! any valid type, scalar or array of rank 1, &
+        integer,            intent(out) :: value
+        integer                         :: ncf90_get_att_integer
+
+        ncf90_get_att_integer = &
+            ncmpi_get_att(ncid, varid, name, value)
+
+    end function ncf90_get_att_integer
+
+    function ncf90_get_att_integer_array1D(ncid, varid, name, values)
+
+        ! Gets the values of a netCDF attribute, given
+        ! its variable ID and name.
+
+        integer,               intent( in) :: ncid, varid
+        character(len = *),    intent( in) :: name
+        ! any valid type, scalar or array of rank 1, &
+        integer, dimension(:), intent(out) :: values
+        integer                            :: ncf90_get_att_integer_array1D
+
+        ncf90_get_att_integer_array1D = &
+            ncmpi_get_att(ncid, varid, name, values)
+
+    end function ncf90_get_att_integer_array1D
+
+    function ncf90_get_att_real(ncid, varid, name, values)
 
         ! Gets the value(s) of a netCDF attribute, given
         ! its variable ID and name.
@@ -192,63 +342,173 @@ contains
         integer,            intent( in) :: ncid, varid
         character(len = *), intent( in) :: name
         ! any valid type, scalar or array of rank 1, &
-                            intent(out) :: values
-        integer                         :: ncf90_get_att
+        real,               intent(out) :: values
+        integer                         :: ncf90_get_att_real
 
-        ncf90_get_att = ncmpi_get_att(ncid, varid, name, values)
+        ncf90_get_att_real = &
+            ncmpi_get_att(ncid, varid, name, values)
 
-    end function ncf90_get_att
+    end function ncf90_get_att_real
 
-    function ncf90_get_var(ncid, varid, nc_type, values, start, count)
+    function ncf90_get_att_real_array1D(ncid, varid, name, values)
+
+        ! Gets the values of a netCDF attribute, given
+        ! its variable ID and name.
+
+        integer,               intent( in) :: ncid, varid
+        character(len = *),    intent( in) :: name
+        ! any valid type, scalar or array of rank 1, &
+        real, dimension(:),    intent(out) :: values
+        integer                            :: ncf90_get_att_real_array1D
+
+        ncf90_get_att_real_array1D = &
+            ncmpi_get_att(ncid, varid, name, values)
+
+    end function ncf90_get_att_real_array1D
+
+    function ncf90_get_var_integer(ncid, varid, value, start)
+
+        ! Gets a single data value from a netCDF variable of an
+        ! open netCDF dataset that is in data mode.
+
+        integer,                         intent( in) :: ncid, varid
+        ! any valid type, scalar or array of any rank, &
+        integer,                         intent(out) :: value
+        integer, dimension(:), optional, intent( in) :: start
+        integer                                      :: ncf90_get_var_integer
+
+        ! Note: this implementation ignores nc_type
+        ncf90_get_var_integer = &
+            ncmpi_get_var1_int(ncid, varid, start, values)
+
+    end function ncf90_get_var_integer
+
+    function ncf90_get_var_integer_array1D(ncid, varid, values, start, count)
 
         ! Gets one or more data values from a netCDF variable of an
         ! open netCDF dataset that is in data mode.
-        !
-        ! Note: this implementation currently only caters for
-        !       integer and real scalars and arrays.
 
-        integer,                         intent( in)    :: ncid, varid
-        integer,                         intent( in)    :: nc_type
+        integer,                         intent( in) :: ncid, varid
         ! any valid type, scalar or array of any rank, &
-                                         intent(out)    :: values
-!        integer, dimension(:), optional, intent( in) :: start, count
-        MPI_Offset, dimension(:), optional, intent( in) :: start, count
-        integer                                         :: ncf90_get_var
+        integer, dimension(:),           intent(out) :: values
+!        integer, dimension(:), optional, intent( in) :: start, count, stride, map
+        integer, dimension(:), optional, intent( in) :: start, count
+        integer                                      :: ncf90_get_var_integer_array1D
 
-        ! TODO:
-        ! - index is zero based according to pnetcdf library
-        !   documentation; assume 1-based for Fortran?
-        ! - check NCF90_FLOAT vs NCF90_REAL; same?
+        ! Note: this implementation ignores nc_type
+        ncf90_get_var_integer_array1D = &
+            ncmpi_get_vara_int(ncid, varid, start, count, values)
 
-        if (present(count)) then
-            ! Arrays
-            select case (nc_type)
-                case (NCF90_INT)
-                    ncf90_get_var = &
-                        ncmpi_get_vara_int(ncid, varid, &
-                                           start, count, values)
-                case (NCF90_REAL)
-                    ncf90_get_var = &
-                        ncmpi_get_vara_real(ncid, varid, &
-                                            start, count, values)
-            end select
-        else
-            ! Scalars
-            select case (nc_type)
-                case (NCF90_INT)
-                    ncf90_get_var = &
-                        ncmpi_get_var1_int(ncid, varid, &
-                                           start, values)
-                case (NCF90_REAL)
-                    ncf90_get_var = &
-                        ncmpi_get_var1_real(ncid, varid, &
-                                            start,values)
-            end select
-        end if
+    end function ncf90_get_var_integer_array1D
 
-    end function ncf90_get_var
+    function ncf90_get_var_integer_array2D(ncid, varid, values, start, count)
 
-     function ncf90_inq_attname(ncid, varid, attnum, name)
+        ! Gets one or more data values from a netCDF variable of an
+        ! open netCDF dataset that is in data mode.
+
+        integer,                         intent( in) :: ncid, varid
+        ! any valid type, scalar or array of any rank, &
+        integer, dimension(:,:),         intent(out) :: values
+!        integer, dimension(:), optional, intent( in) :: start, count, stride, map
+        integer, dimension(:), optional, intent( in) :: start, count
+        integer                                      :: ncf90_get_var_integer_array2D
+
+        ! Note: this implementation ignores nc_type
+        ncf90_get_var_integer_array2D = &
+            ncmpi_get_vara_int(ncid, varid, start, count, values)
+
+    end function ncf90_get_var_integer_array2D
+
+    function ncf90_get_var_integer_array3D(ncid, varid, values, start, count)
+
+        ! Gets one or more data values from a netCDF variable of an
+        ! open netCDF dataset that is in data mode.
+
+        integer,                         intent( in) :: ncid, varid
+        ! any valid type, scalar or array of any rank, &
+        integer, dimension(:,:,:),       intent(out) :: values
+!        integer, dimension(:), optional, intent( in) :: start, count, stride, map
+        integer, dimension(:), optional, intent( in) :: start, count
+        integer                                      :: ncf90_get_var_integer_array3D
+
+        ! Note: this implementation ignores nc_type
+        ncf90_get_var_integer_array3D = &
+            ncmpi_get_vara_int(ncid, varid, start, count, values)
+
+    end function ncf90_get_var_integer_array3D
+
+    function ncf90_get_var_real(ncid, varid, value, start)
+
+        ! Gets a single data value from a netCDF variable of an
+        ! open netCDF dataset that is in data mode.
+
+        integer,                         intent( in) :: ncid, varid
+        ! any valid type, scalar or array of any rank, &
+        real,                            intent(out) :: value
+        integer, dimension(:), optional, intent( in) :: start
+        integer                                      :: ncf90_get_var_real
+
+        ! Note: this implementation ignores nc_type
+        ncf90_get_var_real = &
+            ncmpi_get_var1_real(ncid, varid, start, values)
+
+    end function ncf90_get_var_real
+
+    function ncf90_get_var_real_array1D(ncid, varid, values, start, count)
+
+        ! Gets one or more data values from a netCDF variable of an
+        ! open netCDF dataset that is in data mode.
+
+        integer,                         intent( in) :: ncid, varid
+        ! any valid type, scalar or array of any rank, &
+        real, dimension(:),              intent(out) :: values
+!        integer, dimension(:), optional, intent( in) :: start, count, stride, map
+        integer, dimension(:), optional, intent( in) :: start, count
+        integer                                      :: ncf90_get_var_real_array1D
+
+        ! Note: this implementation ignores nc_type
+        ncf90_get_var_real_array1D = &
+            ncmpi_get_vara_real(ncid, varid, start, count, values)
+
+    end function ncf90_get_var_real_array1D
+
+    function ncf90_get_var_real_array2D(ncid, varid, values, start, count)
+
+        ! Gets one or more data values from a netCDF variable of an
+        ! open netCDF dataset that is in data mode.
+
+        integer,                         intent( in) :: ncid, varid
+        ! any valid type, scalar or array of any rank, &
+        real, dimension(:,:),            intent(out) :: values
+!        integer, dimension(:), optional, intent( in) :: start, count, stride, map
+        integer, dimension(:), optional, intent( in) :: start, count
+        integer                                      :: ncf90_get_var_real_array2D
+
+        ! Note: this implementation ignores nc_type
+        ncf90_get_var_real_array2D = &
+            ncmpi_get_vara_real(ncid, varid, start, count, values)
+
+    end function ncf90_get_var_real_array2D
+
+    function ncf90_get_var_real_array3D(ncid, varid, values, start, count)
+
+        ! Gets one or more data values from a netCDF variable of an
+        ! open netCDF dataset that is in data mode.
+
+        integer,                         intent( in) :: ncid, varid
+        ! any valid type, scalar or array of any rank, &
+        real, dimension(:,:,:),          intent(out) :: values
+!        integer, dimension(:), optional, intent( in) :: start, count, stride, map
+        integer, dimension(:), optional, intent( in) :: start, count
+        integer                                      :: ncf90_get_var_real_array3D
+
+        ! Note: this implementation ignores nc_type
+        ncf90_get_var_real_array3D = &
+            ncmpi_get_vara_real(ncid, varid, start, count, values)
+
+    end function ncf90_get_var_real_array3D
+
+    function ncf90_inq_attname(ncid, varid, attnum, name)
 
         ! Gets the name of an attribute, given its variable ID and
         ! number.
@@ -265,11 +525,10 @@ contains
 
         ! Returns information about a netCDF attribute given the
         ! variable ID and attribute name.
-
         integer,             intent( in)           :: ncid, varid
         character (len = *), intent( in)           :: name
-        integer,             intent(out), optional :: xtype
-        MPI_Offset,          intent(out), optional :: len
+!        integer,             intent(out), optional :: xtype, len, attnum
+        integer,             intent(out), optional :: xtype, len
         integer                                    :: ncf90_inquire_attribute
 
         ncf90_inquire_attribute = &
@@ -304,18 +563,21 @@ contains
 
     end function ncf90_inq_varid
 
-    function ncf90_inquire(ncid, nDimensions, nVariables, nAttributes)
+    function ncf90_inquire(ncid, nDimensions, nVariables, nAttributes, unlimitedDimId)
 
         ! Returns information about an open netCDF dataset, given its
         ! netCDF ID.
 
         integer,           intent( in) :: ncid
+!        integer, optional, intent(out) :: nDimensions, nVariables, &
+!                                          nAttributes, unlimitedDimId, &
+!                                          formatNum
         integer, optional, intent(out) :: nDimensions, nVariables, &
-                                          nAttributes
+                                          nAttributes, unlimitedDimId
         integer                        :: ncf90_inquire
 
         ncf90_inquire = ncmpi_inq(ncid, nDimensions, nVariables, &
-                                  nAttributes)
+                                  nAttributes, unlimitedDimId)
 
     end function ncf90_inquire
 
@@ -325,7 +587,8 @@ contains
         ! dimension ID and attribute name.
 
         integer,                       intent( in) :: ncid, dimid
-        MPI_Offset,          optional, intent(out) :: len
+!        character (len = *), optional, intent(out) :: name
+        integer,             optional, intent(out) :: len
         integer                                    :: ncf90_inquire_dimension
 
         ncf90_inquire_dimension = ncmpi_inq_dim(ncid, dimid, len)
@@ -342,6 +605,11 @@ contains
         integer, optional, intent(out) :: xtype, ndims
         integer, dimension(:), optional, intent(out) :: dimids
         integer, optional, intent(out) :: nAtts
+!        logical, optional, intent(out) :: contiguous
+!        integer, optional, dimension(:), intent(out) :: chunksizes
+!        integer, optional, intent(out) :: deflate_level
+!        logical, optional, intent(out) :: shuffle, fletcher32
+!        integer, optional, intent(out) :: endianness
         integer :: ncf90_inquire_variable
 
         ncf90_inquire_variable = &
@@ -369,69 +637,150 @@ contains
 
     end function ncf90_open
 
-    function ncf90_put_att(ncid, varid, name, nc_type value)
+    function ncf90_put_att_character(ncid, varid, name, value)
 
         ! Adds or changes a variable attribute or global
         ! attribute of an open netCDF dataset.
 
         integer,            intent( in) :: ncid, varid
         character(len = *), intent( in) :: name
-        integer,            intent( in) :: nc_type
         character(len = *), intent( in) :: value
-        integer                         :: ncf90_put_att
+        integer                         :: ncf90_put_att_character
 
-        ncf90_put_att = ncmpi_put_att(ncid, varid, name, &
-                                      nc_type, 1, value)
+        ncf90_put_att_character = &
+            ncmpi_put_att(ncid, varid, name, NC_CHAR, 1, value)
 
-    end function ncf90_put_att
+    end function ncf90_put_att_character
 
-    function ncf90_put_var(ncid, varid, nc_type, values, start, count)
+    function ncf90_put_att_integer(ncid, varid, name, value)
 
-        ! Puts one or more data values into the variable of an open
-        ! netCDF dataset that is in data mode.
+        ! Adds or changes a variable attribute or global
+        ! attribute of an open netCDF dataset.
 
-        ! Note: this implementation currently only caters for
-        !       integer and real scalars and arrays.
+        integer,            intent( in) :: ncid, varid
+        character(len = *), intent( in) :: name
+        integer,            intent( in) :: value
+        integer                         :: ncf90_put_att_integer
+
+        ncf90_put_att_integer = &
+            ncmpi_put_att(ncid, varid, name, NC_INT, 1, value)
+
+    end function ncf90_put_att_integer
+
+    function ncf90_put_att_real(ncid, varid, name, value)
+
+        ! Adds or changes a variable attribute or global
+        ! attribute of an open netCDF dataset.
+
+        integer,            intent( in) :: ncid, varid
+        character(len = *), intent( in) :: name
+        real,               intent( in) :: value
+        integer                         :: ncf90_put_att_real
+
+        ncf90_put_att_real = &
+            ncmpi_put_att(ncid, varid, name, NC_REAL, 1, value)
+
+    end function ncf90_put_att_real
+
+    function ncf90_put_var_integer(ncid, varid, value, start)
+
+        ! Puts one data value into the variable of an open netCDF
+        ! dataset that is in data mode.
 
         integer,                         intent( in) :: ncid, varid
-        integer,                         intent( in) :: nc_type
         ! any valid type, scalar or array of any rank, &
-                                         intent( in) :: values
+        integer,                         intent( in) :: value
+        integer, dimension(:), optional, intent( in) :: start
+        integer                                      :: ncf90_put_var_integer
+
+        ncf90_put_var_integer = &
+            ncmpi_put_var1_int(ncid, varid, start, value)
+
+    end function ncf90_put_var_integer
+
+    function ncf90_put_var_integer_array1D(ncid, varid, values, start, count)
+
+        ! Puts one or more data values into the variable of an open netCDF
+        ! dataset that is in data mode.
+
+        integer,                         intent( in) :: ncid, varid
+        ! any valid type, scalar or array of any rank, &
+        integer, dimension(:),           intent( in) :: values
+!        integer, dimension(:), optional, intent( in) :: start, count, stride, map
         integer, dimension(:), optional, intent( in) :: start, count
-        integer                                      :: ncf90_put_var
+        integer                                      :: ncf90_put_var_integer_array1D
 
-        ! TODO:
-        ! - index is zero based according to pnetcdf library
-        !   documentation; assume 1-based for Fortran?
-        ! - check NCF90_FLOAT vs NCF90_REAL; same?
+        ncf90_put_var_integer_array1D = &
+            ncmpi_put_vara_int(ncid, varid, start, count, values)
 
-        if (present(count)) then
-            ! Arrays
-            select case (nc_type)
-                case (NCF90_INT)
-                    ncf90_put_var = &
-                        ncmpi_put_vara_int(ncid, varid, &
-                                           start, count, values)
-                case (NCF90_REAL)
-                    ncf90_put_var = &
-                        ncmpi_put_vara_real(ncid, varid, &
-                                            start, count, values)
-            end select
-        else
-            ! Scalars
-            select case (nc_type)
-                case (NCF90_INT)
-                    ncf90_put_var = &
-                        ncmpi_put_var1_int(ncid, varid, &
-                                           start, values)
-                case (NCF90_REAL)
-                    ncf90_put_var = &
-                        ncmpi_put_var1_real(ncid, varid, &
-                                            start,values)
-            end select
-        end if
+    end function ncf90_put_var_integer_array1D
 
-    end function ncf90_put_var
+    function ncf90_put_var_integer_array2D(ncid, varid, values, start, count)
+
+        ! Puts one or more data values into the variable of an open netCDF
+        ! dataset that is in data mode.
+
+        integer,                         intent( in) :: ncid, varid
+        ! any valid type, scalar or array of any rank, &
+        integer, dimension(:,:),           intent( in) :: values
+!        integer, dimension(:), optional, intent( in) :: start, count, stride, map
+        integer, dimension(:), optional, intent( in) :: start, count
+        integer                                      :: ncf90_put_var_integer_array2D
+
+        ncf90_put_var_integer_array2D = &
+            ncmpi_put_vara_int(ncid, varid, start, count, values)
+
+    end function ncf90_put_var_integer_array2D
+
+    function ncf90_put_var_real(ncid, varid, value, start)
+
+        ! Puts one data value into the variable of an open netCDF
+        ! dataset that is in data mode.
+
+        integer,                         intent( in) :: ncid, varid
+        ! any valid type, scalar or array of any rank, &
+        real,                            intent( in) :: value
+        integer, dimension(:), optional, intent( in) :: start
+        integer                                      :: ncf90_put_var_real
+
+        ncf90_put_var_real = &
+            ncmpi_put_var1_real(ncid, varid, start, value)
+
+    end function ncf90_put_var_real
+
+    function ncf90_put_var_real_array1D(ncid, varid, values, start, count)
+
+        ! Puts one or more data values into the variable of an open netCDF
+        ! dataset that is in data mode.
+
+        integer,                         intent( in) :: ncid, varid
+        ! any valid type, scalar or array of any rank, &
+        real, dimension(:),              intent( in) :: values
+!        integer, dimension(:), optional, intent( in) :: start, count, stride, map
+        integer, dimension(:), optional, intent( in) :: start, count
+        integer                                      :: ncf90_put_var_real_array1D
+
+        ncf90_put_var_real_array1D = &
+            ncmpi_put_vara_real(ncid, varid, start, count, values)
+
+    end function ncf90_put_var_real_array1D
+
+    function ncf90_put_var_real_array2D(ncid, varid, values, start, count)
+
+        ! Puts one or more data values into the variable of an open netCDF
+        ! dataset that is in data mode.
+
+        integer,                         intent( in) :: ncid, varid
+        ! any valid type, scalar or array of any rank, &
+        real, dimension(:,:),              intent( in) :: values
+!        integer, dimension(:), optional, intent( in) :: start, count, stride, map
+        integer, dimension(:), optional, intent( in) :: start, count
+        integer                                      :: ncf90_put_var_real_array2D
+
+        ncf90_put_var_real_array2D = &
+            ncmpi_put_vara_real(ncid, varid, start, count, values)
+
+    end function ncf90_put_var_real_array2D
 
     function ncf90_set_fill(ncid, fillmode, old_mode)
 

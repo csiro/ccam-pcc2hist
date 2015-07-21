@@ -19,7 +19,7 @@
 ! with conditional netcdf module to suit test purposes, July 2015
 
 program sfc_pres_temp_wr
-#ifndef parnetcdf
+#ifndef PARNETCDF
   use netcdf_m
 #else
   use pnetcdf_m

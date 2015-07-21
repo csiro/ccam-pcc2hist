@@ -1,14 +1,17 @@
 FC = mpif90
 FFLAGS = -O -xHost -fpp -ftz
+
+ifndef PARNETCDF
 INC = -I $(NETCDF_ROOT)/include -I ..
 LIBS = -L $(NETCDF_ROOT)/lib -lnetcdf -lnetcdff
+NETCDF_MOD = netcdf_m.o
+else
+INC = -I $(HOME)/pnetcdf/include -I ..
+LIBS = -L $(HOME)/pnetcdf/lib -lpnetcdf
+NETCDF_MOD = pnetcdf_m.o
+endif
 
-# TODO: conditionally determine whether to:
-# - use netcdf_m.o vs pnetcdf_m.o below (e.g. $(NETCDF_MOD))
-# - define parnetcdf macro
-# - -lnetcdf[f] vs -lpnetcdf (e.g. LIBS line above +/- INC)
-
-OBJ = ../netcdf_m.o
+OBJ = ../$(NETCDF_MOD)
 
 TESTOBJ = sfc_pres_temp_wr.o sfc_pres_temp_rd.o
 

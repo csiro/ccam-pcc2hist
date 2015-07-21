@@ -1,6 +1,6 @@
 module ncutils_m
    ! Generally useful netcdf stuff
-#ifndef parnetcdf
+#ifndef PARNETCDF
    use netcdf_m
 #else
    use pnetcdf_m

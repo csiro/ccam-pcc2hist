@@ -12,7 +12,7 @@ program cc2hist
    use mpi
 #endif
     
-#ifndef parnetcdf
+#ifndef PARNETCDF
    use netcdf_m
 #else
    use pnetcdf_m
