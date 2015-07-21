@@ -648,7 +648,7 @@ contains
         integer                         :: ncf90_put_att_character
 
         ncf90_put_att_character = &
-            nfmpi_put_att(ncid, varid, name, NC_CHAR, 1, value)
+            nfmpi_put_att(ncid, varid, name, NF_CHAR, 1, value)
 
     end function ncf90_put_att_character
 
@@ -663,7 +663,7 @@ contains
         integer                         :: ncf90_put_att_integer
 
         ncf90_put_att_integer = &
-            nfmpi_put_att(ncid, varid, name, NC_INT, 1, value)
+            nfmpi_put_att(ncid, varid, name, NF_INT, 1, value)
 
     end function ncf90_put_att_integer
 
@@ -678,7 +678,7 @@ contains
         integer                         :: ncf90_put_att_real
 
         ncf90_put_att_real = &
-            nfmpi_put_att(ncid, varid, name, NC_REAL, 1, value)
+            nfmpi_put_att(ncid, varid, name, NF_REAL, 1, value)
 
     end function ncf90_put_att_real
 
