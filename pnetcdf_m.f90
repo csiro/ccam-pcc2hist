@@ -133,7 +133,10 @@ module pnetcdf_m
     parameter (NCF90_SHORT = NF_SHORT)
     parameter (NCF90_UNLIMITED = NF_UNLIMITED)
     parameter (NCF90_WRITE = NF_WRITE)
-    parameter (NCF90_NETCDF4 = NF_NETCDF4)
+!   parameter (NCF90_NETCDF4 = NF_NETCDF4)
+    ! Note: NetCDF4 flag is  not available in pnetcdf.inc; using
+    ! clobber for now
+    parameter (NCF90_NETCDF4 = NF_CLOBBER)
 
 contains
 
