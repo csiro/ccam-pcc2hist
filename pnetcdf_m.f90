@@ -550,6 +550,8 @@ contains
         ncf90_inquire_attribute = &
             nfmpi_inq_att(ncid, varid, name, xtype, len_local)
 
+        len = len_local
+
     end function ncf90_inquire_attribute
 
     function ncf90_inq_dimid(ncid, name, dimid)
