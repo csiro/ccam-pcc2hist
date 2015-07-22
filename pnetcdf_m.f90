@@ -201,11 +201,15 @@ contains
 
         integer,             intent( in) :: ncid
         character (len = *), intent( in) :: name
-        integer(kind=MPI_OFFSET_KIND), intent( in) :: len
+        integer, intent( in)             :: len
         integer,             intent(out) :: dimid
         integer                          :: ncf90_def_dim
 
-        ncf90_def_dim = nfmpi_def_dim(ncid, name, len, dimid)
+        integer(kind=MPI_OFFSET_KIND) :: len_local
+
+        len_local = len
+
+        ncf90_def_dim = nfmpi_def_dim(ncid, name, len_local, dimid)
 
     end function ncf90_def_dim
 
@@ -386,12 +390,15 @@ contains
         integer,                         intent( in) :: ncid, varid
         ! any valid type, scalar or array of any rank, &
         integer, intent(out)                         :: value
-        integer(kind=MPI_OFFSET_KIND), dimension(:), optional, intent( in) :: start
+        integer, dimension(:), optional, intent( in) :: start
         integer                                      :: ncf90_get_var_integer
 
-        ! Note: this implementation ignores nc_type
+        integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: start_local
+
+        start_local = start
+
         ncf90_get_var_integer = &
-            nfmpi_get_var1_int(ncid, varid, start, value)
+            nfmpi_get_var1_int(ncid, varid, start_local, value)
 
     end function ncf90_get_var_integer
 
@@ -404,12 +411,17 @@ contains
         ! any valid type, scalar or array of any rank, &
         integer, dimension(:),           intent(out) :: values
 !        integer, dimension(:), optional, intent( in) :: start, count, stride, map
-        integer(kind=MPI_OFFSET_KIND), dimension(:), optional, intent( in) :: start, count
+        integer, dimension(:), optional, intent( in) :: start, count
         integer                                      :: ncf90_get_var_integer_array1D
 
-        ! Note: this implementation ignores nc_type
+        integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: start_local
+        integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: count_local
+
+        start_local = start
+        count_local = count
+
         ncf90_get_var_integer_array1D = &
-            nfmpi_get_vara_int(ncid, varid, start, count, values)
+            nfmpi_get_vara_int(ncid, varid, start_local, count_local, values)
 
     end function ncf90_get_var_integer_array1D
 
@@ -422,12 +434,17 @@ contains
         ! any valid type, scalar or array of any rank, &
         integer, dimension(:,:),         intent(out) :: values
 !        integer, dimension(:), optional, intent( in) :: start, count, stride, map
-        integer(kind=MPI_OFFSET_KIND), dimension(:), optional, intent( in) :: start, count
+        integer, dimension(:), optional, intent( in) :: start, count
         integer                                      :: ncf90_get_var_integer_array2D
 
-        ! Note: this implementation ignores nc_type
+        integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: start_local
+        integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: count_local
+
+        start_local = start
+        count_local = count
+
         ncf90_get_var_integer_array2D = &
-            nfmpi_get_vara_int(ncid, varid, start, count, values)
+            nfmpi_get_vara_int(ncid, varid, start_local, count_local, values)
 
     end function ncf90_get_var_integer_array2D
 
@@ -440,12 +457,17 @@ contains
         ! any valid type, scalar or array of any rank, &
         integer, dimension(:,:,:),       intent(out) :: values
 !        integer, dimension(:), optional, intent( in) :: start, count, stride, map
-        integer(kind=MPI_OFFSET_KIND), dimension(:), optional, intent( in) :: start, count
+        integer, dimension(:), optional, intent( in) :: start, count
         integer                                      :: ncf90_get_var_integer_array3D
 
-        ! Note: this implementation ignores nc_type
+        integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: start_local
+        integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: count_local
+
+        start_local = start
+        count_local = count
+
         ncf90_get_var_integer_array3D = &
-            nfmpi_get_vara_int(ncid, varid, start, count, values)
+            nfmpi_get_vara_int(ncid, varid, start_local, count_local, values)
 
     end function ncf90_get_var_integer_array3D
 
@@ -457,12 +479,15 @@ contains
         integer,                         intent( in) :: ncid, varid
         ! any valid type, scalar or array of any rank, &
         real,                            intent(out) :: value
-        integer(kind=MPI_OFFSET_KIND), dimension(:), optional, intent( in) :: start
+        integer, dimension(:), optional, intent( in) :: start
         integer                                      :: ncf90_get_var_real
 
-        ! Note: this implementation ignores nc_type
+        integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: start_local
+
+        start_local = start
+
         ncf90_get_var_real = &
-            nfmpi_get_var1_real(ncid, varid, start, value)
+            nfmpi_get_var1_real(ncid, varid, start_local, value)
 
     end function ncf90_get_var_real
 
@@ -475,12 +500,17 @@ contains
         ! any valid type, scalar or array of any rank, &
         real, dimension(:),              intent(out) :: values
 !        integer, dimension(:), optional, intent( in) :: start, count, stride, map
-        integer(kind=MPI_OFFSET_KIND), dimension(:), optional, intent( in) :: start, count
+        integer, dimension(:), optional, intent( in) :: start, count
         integer                                      :: ncf90_get_var_real_array1D
 
-        ! Note: this implementation ignores nc_type
+        integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: start_local
+        integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: count_local
+
+        start_local = start
+        count_local = count
+
         ncf90_get_var_real_array1D = &
-            nfmpi_get_vara_real(ncid, varid, start, count, values)
+            nfmpi_get_vara_real(ncid, varid, start_local, count_local, values)
 
     end function ncf90_get_var_real_array1D
 
@@ -493,12 +523,17 @@ contains
         ! any valid type, scalar or array of any rank, &
         real, dimension(:,:),            intent(out) :: values
 !        integer, dimension(:), optional, intent( in) :: start, count, stride, map
-        integer(kind=MPI_OFFSET_KIND), dimension(:), optional, intent( in) :: start, count
+        integer, dimension(:), optional, intent( in) :: start, count
         integer                                      :: ncf90_get_var_real_array2D
 
-        ! Note: this implementation ignores nc_type
+        integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: start_local
+        integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: count_local
+
+        start_local = start
+        count_local = count
+
         ncf90_get_var_real_array2D = &
-            nfmpi_get_vara_real(ncid, varid, start, count, values)
+            nfmpi_get_vara_real(ncid, varid, start_local, count_local, values)
 
     end function ncf90_get_var_real_array2D
 
@@ -511,12 +546,17 @@ contains
         ! any valid type, scalar or array of any rank, &
         real, dimension(:,:,:),          intent(out) :: values
 !        integer, dimension(:), optional, intent( in) :: start, count, stride, map
-        integer(kind=MPI_OFFSET_KIND), dimension(:), optional, intent( in) :: start, count
+        integer, dimension(:), optional, intent( in) :: start, count
         integer                                      :: ncf90_get_var_real_array3D
 
-        ! Note: this implementation ignores nc_type
+        integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: start_local
+        integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: count_local
+
+        start_local = start
+        count_local = count
+
         ncf90_get_var_real_array3D = &
-            nfmpi_get_vara_real(ncid, varid, start, count, values)
+            nfmpi_get_vara_real(ncid, varid, start_local, count_local, values)
 
     end function ncf90_get_var_real_array3D
 
@@ -606,10 +646,16 @@ contains
 
         integer,                       intent( in) :: ncid, dimid
 !        character (len = *), optional, intent(out) :: name
-        integer(kind=MPI_OFFSET_KIND), optional, intent(out) :: len
+        integer, optional, intent(out) :: len
         integer                                    :: ncf90_inquire_dimension
 
-        ncf90_inquire_dimension = nfmpi_inq_dimlen(ncid, dimid, len)
+        integer(kind=MPI_OFFSET_KIND), optional, intent(out) :: len_local
+
+        len_local = len
+
+        ncf90_inquire_dimension = nfmpi_inq_dimlen(ncid, dimid, len_local)
+
+        len = len_local
 
     end function ncf90_inquire_dimension
 
