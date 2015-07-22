@@ -12,10 +12,10 @@ program cc2hist
    use mpi
 #endif
     
-#ifndef PARNETCDF
-   use netcdf_m
-#else
+#ifdef PARNETCDF
    use pnetcdf_m
+#else
+   use netcdf_m
 #endif
    use history
    use getopt_m

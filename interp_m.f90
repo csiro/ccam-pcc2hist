@@ -23,10 +23,10 @@ subroutine ints ( s_in, array, int_type )  ! input array (twice), output array
    use newmpar_m
    use indices_m
    use ind_m
-#ifndef PARNETCDF
-   use netcdf_m, only : NCF90_FILL_FLOAT
-#else
+#ifdef PARNETCDF
    use pnetcdf_m, only : NCF90_FILL_FLOAT
+#else
+   use netcdf_m, only : NCF90_FILL_FLOAT
 #endif
 
    implicit none

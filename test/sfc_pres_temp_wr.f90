@@ -19,10 +19,10 @@
 ! with conditional netcdf module to suit test purposes, July 2015
 
 program sfc_pres_temp_wr
-#ifndef PARNETCDF
-  use netcdf_m
-#else
+#ifdef PARNETCDF
   use pnetcdf_m
+#else
+  use netcdf_m
 #endif
 
   use mpi

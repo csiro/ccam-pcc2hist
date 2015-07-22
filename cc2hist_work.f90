@@ -1,10 +1,10 @@
 module work
 
    use mpidata_m
-#ifndef PARNETCDF
-   use netcdf_m
-#else
+#ifdef PARNETCDF
    use pnetcdf_m
+#else
+   use netcdf_m
 #endif
    use ncutils_m, only : check_ncerr
    use gldata

@@ -184,10 +184,10 @@ contains
 !     imposed separately. This means that the derivatives are not continuous
 !     across the boundary between interpolation and extrapolation.
 
-#ifndef PARNETCDF
-   use netcdf_m, only : NCF90_FILL_FLOAT
-#else
+#ifdef PARNETCDF
    use pnetcdf_m, only : NCF90_FILL_FLOAT
+#else
+   use netcdf_m, only : NCF90_FILL_FLOAT
 #endif
       use utils_m, only : assert, search_fgt
       use physparams
@@ -535,10 +535,10 @@ contains
 !     imposed separately. This means that the derivatives are not continuous
 !     across the boundary between interpolation and extrapolation.
 
-#ifndef PARNETCDF
-   use netcdf_m, only : NCF90_FILL_FLOAT
-#else
+#ifdef PARNETCDF
    use pnetcdf_m, only : NCF90_FILL_FLOAT
+#else
+   use netcdf_m, only : NCF90_FILL_FLOAT
 #endif
       use utils_m, only : assert, search_fgt
       use physparams
