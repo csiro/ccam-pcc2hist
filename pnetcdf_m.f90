@@ -15,14 +15,12 @@ module pnetcdf_m
 !     the other hand, the second allows us to vary the module
 !     implementation wildly if necessary. There is a fair amount of
 !     minor (e.g. naming) variation, so the second option seems best.
-!     Also, some function parameter type declarations (e.g. 
-!     integer(kind=MPI_OFFSET_KIND) differ between modules, so either we
-!     needed a separate module as we've done or additional local variables. 
 !   - Only those functions (including overloadings) used in the code
 !     are supported.
 !   - Due to an apparent compiler bug, the value/values put_var function
 !     parameters required INTENT(inout) instead of INTENT(in). Or is this
-!     related to the underlying code using a C pointer? See also
+!     related to the underlying code using a C pointer? Addressed problem
+!     by use of local variables in function body. See also
 !     http://exciting-code.org/forum/t-923995/compile-problem
 !   - The so-called flexible API (nf90mpi vs nfmpi) was used for get_att
 !     and put_att functions to avoid compilation errors. Should this be
@@ -543,11 +541,14 @@ contains
         character (len = *), intent( in)           :: name
 !        integer,             intent(out), optional :: xtype, len, attnum
         integer,             intent(out), optional :: xtype
-        integer(kind=MPI_OFFSET_KIND), intent(out), optional :: len
+        integer, intent(out), optional             :: len
         integer                                    :: ncf90_inquire_attribute
 
+        integer(kind=MPI_OFFSET_KIND) :: len_local
+        len_local = len
+
         ncf90_inquire_attribute = &
-            nfmpi_inq_att(ncid, varid, name, xtype, len)
+            nfmpi_inq_att(ncid, varid, name, xtype, len_local)
 
     end function ncf90_inquire_attribute
 
