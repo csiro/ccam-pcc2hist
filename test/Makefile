@@ -1,16 +1,19 @@
+# Use "make PARNETCDF=1" for pnetcdf build
+
 FC = mpif90
 FFLAGS = -O -xHost -fpp -ftz
+ifdef PARNETCDF
+FFLAGS += -DPARNETCDF=$(PARNETCDF)
+endif
 
-# Use make PARNETCDF=1 for pnetcdf
-
-ifndef PARNETCDF
-INC = -I $(NETCDF_ROOT)/include -I ..
-LIBS = -L $(NETCDF_ROOT)/lib -lnetcdf -lnetcdff
-NETCDF_MOD = netcdf_m.o
-else
-INC = -I $(HOME)/pnetcdf/include -I ..
+ifdef PARNETCDF
+INC = -I $(HOME)/pnetcdf/include
 LIBS = -L $(HOME)/pnetcdf/lib -lpnetcdf
 NETCDF_MOD = pnetcdf_m.o
+else
+INC = -I $(NETCDF_ROOT)/include
+LIBS = -L $(NETCDF_ROOT)/lib -lnetcdf -lnetcdff
+NETCDF_MOD = netcdf_m.o
 endif
 
 OBJ = ../$(NETCDF_MOD)
