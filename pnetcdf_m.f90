@@ -735,7 +735,7 @@ contains
         integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: start_local
         integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: count_local
 
-        value_local = value
+        values_local = values
         start_local = start
         count_local = count
 
@@ -761,11 +761,11 @@ contains
         integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: start_local
         integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: count_local
 
-        value_local = value
+        values_local = values
         start_local = start
         count_local = count
 
-        ncf90_put_var_integer_array1D = &
+        ncf90_put_var_integer_array2D = &
             nfmpi_put_vara_int(ncid, varid, &
                                start_local, count_local, values_local)
 
@@ -809,7 +809,7 @@ contains
         integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: start_local
         integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: count_local
 
-        value_local = value
+        values_local = values
         start_local = start
         count_local = count
 
@@ -835,11 +835,11 @@ contains
         integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: start_local
         integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: count_local
 
-        value_local = value
+        values_local = values
         start_local = start
         count_local = count
 
-        ncf90_put_var_real_array1D = &
+        ncf90_put_var_real_array2D = &
             nfmpi_put_vara_real(ncid, varid, &
                                 start_local, count_local, values_local)
 
