@@ -811,6 +811,10 @@ contains
       character(len=MAX_NAMELEN) :: vname
       logical :: used, multilev, use_plevs, use_hyblevs, use_meters
       integer, dimension(totflds) :: coord_heights
+#ifdef PARNETCDF
+      ! See note in pnetcdf_m re: put_var and INOUT intent
+      real :: coord_heights_local
+#endif
       integer :: kc, ncoords, k, pkl
       logical :: soil_used
       real :: dx, dy
@@ -1187,8 +1191,8 @@ contains
                call check_ncerr(ierr,"Error getting vid for height coord")
 #ifdef PARNETCDF
                ! See note in pnetcdf_m re: put_var and INOUT intent
-               real :: coordht = real(coord_heights(kc))
-               ierr = ncf90_put_var ( ncid, vid, coordht)
+               coord_heights_local = real(coord_heights(kc))
+               ierr = ncf90_put_var ( ncid, vid, coord_heights_local)
 #else
                ierr = ncf90_put_var ( ncid, vid, real(coord_heights(kc)))
 #endif
