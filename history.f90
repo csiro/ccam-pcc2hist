@@ -1187,7 +1187,7 @@ contains
                call check_ncerr(ierr,"Error getting vid for height coord")
 #ifdef PARNETCDF
                ! See note in pnetcdf_m re: put_var and INOUT intent
-               real :: coordht = real(coord_heights(kc)
+               real :: coordht = real(coord_heights(kc))
                ierr = ncf90_put_var ( ncid, vid, coordht)
 #else
                ierr = ncf90_put_var ( ncid, vid, real(coord_heights(kc)))
