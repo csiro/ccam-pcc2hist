@@ -649,7 +649,7 @@ contains
         integer, optional, intent(out) :: len
         integer                                    :: ncf90_inquire_dimension
 
-        integer(kind=MPI_OFFSET_KIND), optional, intent(out) :: len_local
+        integer(kind=MPI_OFFSET_KIND) :: len_local
 
         len_local = len
 
