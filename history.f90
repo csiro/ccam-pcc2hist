@@ -1185,7 +1185,13 @@ contains
                end if
                ierr = ncf90_inq_varid(ncid, vname, vid)
                call check_ncerr(ierr,"Error getting vid for height coord")
+#ifdef PARNETCDF
+               ! See note in pnetcdf_m re: put_var and INOUT intent
+               real :: coordht = real(coord_heights(kc)
+               ierr = ncf90_put_var ( ncid, vid, coordht))
+#else
                ierr = ncf90_put_var ( ncid, vid, real(coord_heights(kc)))
+#endif
                call check_ncerr(ierr,"Error writing coordinate height")
             end do
 
@@ -1764,8 +1770,14 @@ contains
       character(len=*), intent(in) :: longname
       character(len=*), intent(in) :: units
       real, intent(in) :: xmin, xmax
+#ifdef PARNETCDF
+      ! See note in pnetcdf_m re: put_var and INOUT intent
+      real, dimension(:), intent(inout) :: ylat
+      real, dimension(:), intent(inout) :: xlon
+#else
       real, dimension(:), intent(in) :: ylat
       real, dimension(:), intent(in) :: xlon
+#endif
       integer, intent(in) :: year
 
       integer  ncid, lonid, latid, monid, yrid, vid, old_mode
