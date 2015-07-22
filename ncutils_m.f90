@@ -47,19 +47,12 @@ contains
    end subroutine copy_atts
 
    subroutine history_append(ncid, string)
-#ifdef PARNETCDF
-      use mpi, only : MPI_OFFSET_KIND
-#endif
       integer, intent(in) :: ncid
       character(len=*), intent(in) :: string
       integer, parameter :: maxlen=1000
       character(maxlen) :: history
-#ifdef PARNETCDF
-      integer(kind=MPI_OFFSET_KIND) :: attlen
-      integer ierr, ierr2, atttype
-#else
       integer :: attlen, ierr, ierr2, atttype
-#endif
+
       ierr =  ncf90_inquire_attribute(ncid, NCF90_GLOBAL, "history", xtype=atttype, len=attlen )
 
       if ( ierr == NCF90_NOERR ) then

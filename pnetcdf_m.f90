@@ -704,12 +704,18 @@ contains
 
         integer,                         intent( in) :: ncid, varid
         ! any valid type, scalar or array of any rank, &
-        integer,                         intent( inout) :: value
-        integer(kind=MPI_OFFSET_KIND), dimension(:), optional, intent( in) :: start
+        integer,                         intent( in) :: value
+        integer, dimension(:), optional, intent( in) :: start
         integer                                      :: ncf90_put_var_integer
 
+        integer :: value_local
+        integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: start_local
+
+        value_local = value
+        start_local = start
+
         ncf90_put_var_integer = &
-            nfmpi_put_var1_int(ncid, varid, start, value)
+            nfmpi_put_var1_int(ncid, varid, start_local, value_local)
 
     end function ncf90_put_var_integer
 
@@ -720,13 +726,22 @@ contains
 
         integer,                         intent( in) :: ncid, varid
         ! any valid type, scalar or array of any rank, &
-        integer, dimension(:),           intent( inout) :: values
+        integer, dimension(:),           intent( in) :: values
 !        integer, dimension(:), optional, intent( in) :: start, count, stride, map
-        integer(kind=MPI_OFFSET_KIND), dimension(:), optional, intent( in) :: start, count
+        integer, dimension(:), optional, intent( in) :: start, count
         integer                                      :: ncf90_put_var_integer_array1D
 
+        integer, dimension(:), pointer :: value_local
+        integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: start_local
+        integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: count_local
+
+        value_local = value
+        start_local = start
+        count_local = count
+
         ncf90_put_var_integer_array1D = &
-            nfmpi_put_vara_int(ncid, varid, start, count, values)
+            nfmpi_put_vara_int(ncid, varid, &
+                               start_local, count_local, values_local)
 
     end function ncf90_put_var_integer_array1D
 
@@ -737,13 +752,22 @@ contains
 
         integer,                         intent( in) :: ncid, varid
         ! any valid type, scalar or array of any rank, &
-        integer, dimension(:,:),           intent( inout) :: values
+        integer, dimension(:,:),         intent( in) :: values
 !        integer, dimension(:), optional, intent( in) :: start, count, stride, map
-        integer(kind=MPI_OFFSET_KIND), dimension(:), optional, intent( in) :: start, count
+        integer, dimension(:), optional, intent( in) :: start, count
         integer                                      :: ncf90_put_var_integer_array2D
 
-        ncf90_put_var_integer_array2D = &
-            nfmpi_put_vara_int(ncid, varid, start, count, values)
+        integer, dimension(:,:), pointer :: value_local
+        integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: start_local
+        integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: count_local
+
+        value_local = value
+        start_local = start
+        count_local = count
+
+        ncf90_put_var_integer_array1D = &
+            nfmpi_put_vara_int(ncid, varid, &
+                               start_local, count_local, values_local)
 
     end function ncf90_put_var_integer_array2D
 
@@ -754,12 +778,18 @@ contains
 
         integer,                         intent( in) :: ncid, varid
         ! any valid type, scalar or array of any rank, &
-        real,                            intent( inout) :: value
-        integer(kind=MPI_OFFSET_KIND), dimension(:), optional, intent( in) :: start
+        real,                            intent( in) :: value
+        integer, dimension(:), optional, intent( in) :: start
         integer                                      :: ncf90_put_var_real
 
+        real :: value_local
+        integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: start_local
+
+        value_local = value
+        start_local = start
+
         ncf90_put_var_real = &
-            nfmpi_put_var1_real(ncid, varid, start, value)
+            nfmpi_put_var1_real(ncid, varid, start_local, value_local)
 
     end function ncf90_put_var_real
 
@@ -770,14 +800,22 @@ contains
 
         integer,                         intent( in) :: ncid, varid
         ! any valid type, scalar or array of any rank, &
-        real, dimension(:),              intent( inout) :: values
+        real, dimension(:),              intent( in) :: values
 !        integer, dimension(:), optional, intent( in) :: start, count, stride, map
-        integer(kind=MPI_OFFSET_KIND), dimension(:), optional, intent( in) :: start, count
+        integer, dimension(:), optional, intent( in) :: start, count
         integer                                      :: ncf90_put_var_real_array1D
 
+        real, dimension(:), pointer :: value_local
+        integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: start_local
+        integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: count_local
+
+        value_local = value
+        start_local = start
+        count_local = count
+
         ncf90_put_var_real_array1D = &
-            nfmpi_put_vara_real(ncid, varid, start, count, values)
-!            nf90mpi_put_var_all(ncid, varid, values, start, count)
+            nfmpi_put_vara_real(ncid, varid, &
+                                start_local, count_local, values_local)
 
     end function ncf90_put_var_real_array1D
 
@@ -788,13 +826,22 @@ contains
 
         integer,                         intent( in) :: ncid, varid
         ! any valid type, scalar or array of any rank, &
-        real, dimension(:,:),              intent( inout) :: values
+        real, dimension(:,:),              intent( in) :: values
 !        integer, dimension(:), optional, intent( in) :: start, count, stride, map
-        integer(kind=MPI_OFFSET_KIND), dimension(:), optional, intent( in) :: start, count
+        integer, dimension(:), optional, intent( in) :: start, count
         integer                                      :: ncf90_put_var_real_array2D
 
-        ncf90_put_var_real_array2D = &
-            nfmpi_put_vara_real(ncid, varid, start, count, values)
+        real, dimension(:,:), pointer :: value_local
+        integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: start_local
+        integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: count_local
+
+        value_local = value
+        start_local = start
+        count_local = count
+
+        ncf90_put_var_real_array1D = &
+            nfmpi_put_vara_real(ncid, varid, &
+                                start_local, count_local, values_local)
 
     end function ncf90_put_var_real_array2D
 

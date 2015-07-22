@@ -755,22 +755,11 @@ contains
       use mpidata_m
 
       integer, intent(in) :: nx, ny, nl
-#ifdef PARNETCDF
-    ! See note in pnetcdf_m re: put_var and INOUT intent
-      real, intent(inout), dimension(:) :: sig
-#else
       real, intent(in), dimension(:) :: sig
-#endif
       character(len=*), intent(in)   :: suffix  ! Filename suffix
 !     Longitudes and latitudes of the output history
-#ifdef PARNETCDF
-      ! See note in pnetcdf_m re: put_var and INOUT intent
       real, intent(inout), dimension(:) :: hlon
       real, intent(inout), dimension(:) :: hlat
-#else
-      real, intent(inout), dimension(:) :: hlon
-      real, intent(inout), dimension(:) :: hlat
-#endif
       character(len=*), intent(in) :: basetime
       logical, intent(in), optional  :: doublerow 
       integer, intent(in), optional  :: year
@@ -783,23 +772,12 @@ contains
       logical, intent(in), optional :: height
       type(hist_att), dimension(:), optional :: extra_atts
       logical, intent(in), optional :: hybrid_levels
-#ifdef PARNETCDF
-      ! See note in pnetcdf_m re: put_var and INOUT intent
-      real, dimension(:), intent(inout), optional :: anf, bnf
-      real, intent(inout), optional :: p0
-#else
       real, dimension(:), intent(in), optional :: anf, bnf
       real, intent(in), optional :: p0
-#endif
       character(len=*), intent(in), optional :: calendar
       integer, intent(in), optional :: nsoil ! Number of soil levels
       ! Soil depths
-#ifdef PARNETCDF
-      ! See note in pnetcdf_m re: put_var and INOUT intent
-      real, dimension(:), intent(inout), optional :: zsoil
-#else
       real, dimension(:), intent(in), optional :: zsoil
-#endif
       real, parameter :: radtodeg=57.29577951 
       real, dimension(:,:), allocatable :: lon_bnds, lat_bnds, zsoil_bnds
 
@@ -811,10 +789,6 @@ contains
       character(len=MAX_NAMELEN) :: vname
       logical :: used, multilev, use_plevs, use_hyblevs, use_meters
       integer, dimension(totflds) :: coord_heights
-#ifdef PARNETCDF
-      ! See note in pnetcdf_m re: put_var and INOUT intent
-      real :: coord_heights_local
-#endif
       integer :: kc, ncoords, k, pkl
       logical :: soil_used
       real :: dx, dy
@@ -1189,13 +1163,7 @@ contains
                end if
                ierr = ncf90_inq_varid(ncid, vname, vid)
                call check_ncerr(ierr,"Error getting vid for height coord")
-#ifdef PARNETCDF
-               ! See note in pnetcdf_m re: put_var and INOUT intent
-               coord_heights_local = real(coord_heights(kc))
-               ierr = ncf90_put_var ( ncid, vid, coord_heights_local)
-#else
                ierr = ncf90_put_var ( ncid, vid, real(coord_heights(kc)))
-#endif
                call check_ncerr(ierr,"Error writing coordinate height")
             end do
 
@@ -1774,14 +1742,8 @@ contains
       character(len=*), intent(in) :: longname
       character(len=*), intent(in) :: units
       real, intent(in) :: xmin, xmax
-#ifdef PARNETCDF
-      ! See note in pnetcdf_m re: put_var and INOUT intent
-      real, dimension(:), intent(inout) :: ylat
-      real, dimension(:), intent(inout) :: xlon
-#else
       real, dimension(:), intent(in) :: ylat
       real, dimension(:), intent(in) :: xlon
-#endif
       integer, intent(in) :: year
 
       integer  ncid, lonid, latid, monid, yrid, vid, old_mode
