@@ -731,7 +731,7 @@ contains
         integer, dimension(:), optional, intent( in) :: start, count
         integer                                      :: ncf90_put_var_integer_array1D
 
-        integer, dimension(:), pointer :: value_local
+        integer, dimension(:), pointer :: values_local
         integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: start_local
         integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: count_local
 
@@ -757,7 +757,7 @@ contains
         integer, dimension(:), optional, intent( in) :: start, count
         integer                                      :: ncf90_put_var_integer_array2D
 
-        integer, dimension(:,:), pointer :: value_local
+        integer, dimension(:,:), pointer :: values_local
         integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: start_local
         integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: count_local
 
@@ -805,7 +805,7 @@ contains
         integer, dimension(:), optional, intent( in) :: start, count
         integer                                      :: ncf90_put_var_real_array1D
 
-        real, dimension(:), pointer :: value_local
+        real, dimension(:), pointer :: values_local
         integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: start_local
         integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: count_local
 
@@ -831,7 +831,7 @@ contains
         integer, dimension(:), optional, intent( in) :: start, count
         integer                                      :: ncf90_put_var_real_array2D
 
-        real, dimension(:,:), pointer :: value_local
+        real, dimension(:,:), pointer :: values_local
         integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: start_local
         integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: count_local
 
