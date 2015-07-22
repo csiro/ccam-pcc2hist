@@ -1,6 +1,8 @@
 FC = mpif90
 FFLAGS = -O -xHost -fpp -ftz
 
+# Use make PARNETCDF=1 for pnetcdf
+
 ifndef PARNETCDF
 INC = -I $(NETCDF_ROOT)/include -I ..
 LIBS = -L $(NETCDF_ROOT)/lib -lnetcdf -lnetcdff
