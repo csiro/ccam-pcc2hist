@@ -888,7 +888,7 @@ contains
             nf90mpi_put_var_all(ncid, varid, values_local)
 !start_local, count_local)
 
-    end function ncf90_put_var_real_array1D
+    end function ncf90_put_var_real_array1D
 
     function ncf90_put_var_real_array2D(ncid, varid, values, start, count)
 
