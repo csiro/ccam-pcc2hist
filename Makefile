@@ -1,7 +1,13 @@
 # Use "make PARNETCDF=1" for pnetcdf build
 
 FC = mpif90
+
+ifdef DEBUG
+FFLAGS = -g -xHost -fpp -ftz
+else
 FFLAGS = -O -xHost -fpp -ftz
+endif
+
 ifdef PARNETCDF
 FFLAGS += -DPARNETCDF=$(PARNETCDF)
 endif
@@ -26,9 +32,12 @@ mpidata_m.o stacklimit.o $(NETCDF_MOD)
 pcc2hist: $(OBJ)
 	$(FC) -o $@ $(FFLAGS) $(LDFLAGS) $(OBJ) $(LIBS)
 
-.PHONY: test
-test:
-	make -C test
+test: $(OBJ)
+	make -C test test
+
+.PHONY: testrun
+testrun:
+	make -C test run
 
 .SUFFIXES:.f90
 

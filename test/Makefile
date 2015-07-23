@@ -1,17 +1,23 @@
 # Use "make PARNETCDF=1" for pnetcdf build
 
 FC = mpif90
+
+ifdef DEBUG 
+FFLAGS = -g -xHost -fpp -ftz
+else
 FFLAGS = -O -xHost -fpp -ftz
-ifdef PARNETCDF
-FFLAGS += -DPARNETCDF=$(PARNETCDF)
 endif
 
 ifdef PARNETCDF
-INC = -I $(HOME)/pnetcdf/include
+FFLAGS += -DPARNETCDF=1
+endif
+
+ifdef PARNETCDF
+INC = -I $(HOME)/pnetcdf/include -I ..
 LIBS = -L $(HOME)/pnetcdf/lib -lpnetcdf
 NETCDF_MOD = pnetcdf_m.o
 else
-INC = -I $(NETCDF_ROOT)/include
+INC = -I $(NETCDF_ROOT)/include -I ..
 LIBS = -L $(NETCDF_ROOT)/lib -lnetcdf -lnetcdff
 NETCDF_MOD = netcdf_m.o
 endif
@@ -22,9 +28,11 @@ TESTOBJ = sfc_pres_temp_wr.o sfc_pres_temp_rd.o
 
 TESTPRG = ./sfc_pres_temp_wr ./sfc_pres_temp_rd
 
-run: $(TESTPRG) $(TESTOBJ)
+run: $(TESTPRG) $(TESTOBJ) # test
 	mpirun -np 1 ./sfc_pres_temp_wr
 	mpirun -np 1 ./sfc_pres_temp_rd
+
+test: sfc_pres_temp_wr sfc_pres_temp_rd # $(OBJ)
 
 sfc_pres_temp_wr: $(OBJ) $(TESTOBJ)
 	$(FC) -o $@ $(FFLAGS) $(LDFLAGS) $(OBJ) $@.o $(LIBS)
@@ -41,6 +49,6 @@ sfc_pres_temp_rd: $(OBJ) $(TESTOBJ)
 clean:
 	rm -f $(TESTPRG)
 	rm -f $(TESTOBJ)
-	rm -f *.nc
-	rm -f $(TESTOBJ)
+	rm -f *.o
+	rm -f *.mod
 	rm -f *.nc
