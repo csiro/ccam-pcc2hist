@@ -1,4 +1,6 @@
-# Use "make PARNETCDF=1" for pnetcdf build
+# For pnetcdf build:
+# - module load pnetcdf
+# - make PARNETCDF=1
 
 FC = mpif90
 
@@ -13,8 +15,8 @@ FFLAGS += -DPARNETCDF=1
 endif
 
 ifdef PARNETCDF
-INC = -I $(HOME)/pnetcdf/include -I ..
-LIBS = -L $(HOME)/pnetcdf/lib -lpnetcdf
+INC = -I $(PNETCDF_HOME)/include -I ..
+LIBS = -L $(PNETCDF_HOME)/lib -lpnetcdf
 NETCDF_MOD = pnetcdf_m.o
 else
 INC = -I $(NETCDF_ROOT)/include -I ..
