@@ -35,6 +35,7 @@
 /sitop_m.f90 -text
 /stacklimit.c -text
 /staguv_m.f90 -text
+test/COPYRIGHT -text
 test/Makefile -text
 test/ReadMe.txt -text
 test/sfc_pres_temp_rd.f90 -text
