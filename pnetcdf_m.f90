@@ -401,16 +401,23 @@ contains
         integer, dimension(:), optional, intent( in) :: start
         integer                                      :: ncf90_get_var_integer
 
-        integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: start_local
+        integer(kind=MPI_OFFSET_KIND), allocatable :: start_local(:)
+
+        if (.not. allocated(start_local)) then
+           allocate(start_local(size(start)))
+        end if
 
         if (present(start)) then
-            start_local = start
-
-            ncf90_get_var_integer = &
-                nfmpi_get_var1_int(ncid, varid, start_local, value)
+           start_local = start
         else
-            ncf90_get_var_integer = &
-                nfmpi_get_var1_int(ncid, varid, value)
+           start_local = (/ 1 /)   
+        end if
+
+        ncf90_get_var_integer = &
+             nfmpi_get_var1_int(ncid, varid, start_local, value)
+
+        if (allocated(start_local)) then
+           deallocate(start_local)
         end if
 
     end function ncf90_get_var_integer
@@ -582,16 +589,23 @@ contains
         integer, dimension(:), optional, intent( in) :: start
         integer                                      :: ncf90_get_var_real
 
-        integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: start_local
+        integer(kind=MPI_OFFSET_KIND), allocatable :: start_local(:)
+
+        if (.not. allocated(start_local)) then
+           allocate(start_local(size(start)))
+        end if
 
         if (present(start)) then
-            start_local = start
-
-            ncf90_get_var_real = &
-                nfmpi_get_var1_real(ncid, varid, start_local, value)
+           start_local = start
         else
-            ncf90_get_var_real = &
-                nfmpi_get_var1_real(ncid, varid, value)
+           start_local = (/ 1 /)   
+        end if
+
+        ncf90_get_var_real = &
+             nfmpi_get_var1_real(ncid, varid, start_local, value)
+
+        if (allocated(start_local)) then
+           deallocate(start_local)
         end if
 
     end function ncf90_get_var_real
