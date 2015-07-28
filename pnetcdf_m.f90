@@ -403,10 +403,15 @@ contains
 
         integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: start_local
 
-        start_local = start
+        if (present(start)) then
+            start_local = start
 
-        ncf90_get_var_integer = &
-            nfmpi_get_var1_int(ncid, varid, start_local, value)
+            ncf90_get_var_integer = &
+                nfmpi_get_var1_int(ncid, varid, start_local, value)
+        else
+            ncf90_get_var_integer = &
+                nfmpi_get_var1_int(ncid, varid, value)
+        end if
 
     end function ncf90_get_var_integer
 
@@ -422,14 +427,43 @@ contains
         integer, dimension(:), optional, intent( in) :: start, count
         integer                                      :: ncf90_get_var_integer_array1D
 
-        integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: start_local
-        integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: count_local
+        integer(kind=MPI_OFFSET_KIND), allocatable :: start_local(:)
+        integer(kind=MPI_OFFSET_KIND), allocatable :: count_local(:)
 
-        start_local = start
-        count_local = count
+        if (present(start)) then
+           if (.not. allocated(start_local)) then
+              allocate(start_local(size(start)))
+           end if
+           start_local = start
+        end if
 
-        ncf90_get_var_integer_array1D = &
-            nfmpi_get_vara_int(ncid, varid, start_local, count_local, values)
+        if (present(count)) then
+           if (.not. allocated(count_local)) then
+              allocate(count_local(size(count)))
+           end if
+           count_local = count
+        end if
+
+        if (present(start) .and. present(count)) then
+           ncf90_get_var_integer_array1D = &
+                nf90mpi_get_var_all(ncid, varid, values, &
+                start_local, count_local)
+        else if (present(start)) then
+           ncf90_get_var_integer_array1D = &
+                nf90mpi_get_var_all(ncid, varid, values, &
+                start_local)
+        else
+           ncf90_get_var_integer_array1D = &
+                nf90mpi_get_var_all(ncid, varid, values)
+        end if
+
+        if (allocated(start_local)) then
+           deallocate(start_local)
+        end if
+
+        if (allocated(count_local)) then
+           deallocate(count_local)
+        end if
 
     end function ncf90_get_var_integer_array1D
 
@@ -445,14 +479,43 @@ contains
         integer, dimension(:), optional, intent( in) :: start, count
         integer                                      :: ncf90_get_var_integer_array2D
 
-        integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: start_local
-        integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: count_local
+        integer(kind=MPI_OFFSET_KIND), allocatable :: start_local(:)
+        integer(kind=MPI_OFFSET_KIND), allocatable :: count_local(:)
 
-        start_local = start
-        count_local = count
+        if (present(start)) then
+           if (.not. allocated(start_local)) then
+              allocate(start_local(size(start)))
+           end if
+           start_local = start
+        end if
 
-        ncf90_get_var_integer_array2D = &
-            nfmpi_get_vara_int(ncid, varid, start_local, count_local, values)
+        if (present(count)) then
+           if (.not. allocated(count_local)) then
+              allocate(count_local(size(count)))
+           end if
+           count_local = count
+        end if
+
+        if (present(start) .and. present(count)) then
+           ncf90_get_var_integer_array2D = &
+                nf90mpi_get_var_all(ncid, varid, values, &
+                start_local, count_local)
+        else if (present(start)) then
+           ncf90_get_var_integer_array2D = &
+                nf90mpi_get_var_all(ncid, varid, values, &
+                start_local)
+        else
+           ncf90_get_var_integer_array2D = &
+                nf90mpi_get_var_all(ncid, varid, values)
+        end if
+
+        if (allocated(start_local)) then
+           deallocate(start_local)
+        end if
+
+        if (allocated(count_local)) then
+           deallocate(count_local)
+        end if
 
     end function ncf90_get_var_integer_array2D
 
@@ -468,14 +531,43 @@ contains
         integer, dimension(:), optional, intent( in) :: start, count
         integer                                      :: ncf90_get_var_integer_array3D
 
-        integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: start_local
-        integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: count_local
+        integer(kind=MPI_OFFSET_KIND), allocatable :: start_local(:)
+        integer(kind=MPI_OFFSET_KIND), allocatable :: count_local(:)
 
-        start_local = start
-        count_local = count
+        if (present(start)) then
+           if (.not. allocated(start_local)) then
+              allocate(start_local(size(start)))
+           end if
+           start_local = start
+        end if
 
-        ncf90_get_var_integer_array3D = &
-            nfmpi_get_vara_int(ncid, varid, start_local, count_local, values)
+        if (present(count)) then
+           if (.not. allocated(count_local)) then
+              allocate(count_local(size(count)))
+           end if
+           count_local = count
+        end if
+
+        if (present(start) .and. present(count)) then
+           ncf90_get_var_integer_array3D = &
+                nf90mpi_get_var_all(ncid, varid, values, &
+                start_local, count_local)
+        else if (present(start)) then
+           ncf90_get_var_integer_array3D = &
+                nf90mpi_get_var_all(ncid, varid, values, &
+                start_local)
+        else
+           ncf90_get_var_integer_array3D = &
+                nf90mpi_get_var_all(ncid, varid, values)
+        end if
+
+        if (allocated(start_local)) then
+           deallocate(start_local)
+        end if
+
+        if (allocated(count_local)) then
+           deallocate(count_local)
+        end if
 
     end function ncf90_get_var_integer_array3D
 
@@ -492,10 +584,15 @@ contains
 
         integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: start_local
 
-        start_local = start
+        if (present(start)) then
+            start_local = start
 
-        ncf90_get_var_real = &
-            nfmpi_get_var1_real(ncid, varid, start_local, value)
+            ncf90_get_var_real = &
+                nfmpi_get_var1_real(ncid, varid, start_local, value)
+        else
+            ncf90_get_var_real = &
+                nfmpi_get_var1_real(ncid, varid, value)
+        end if
 
     end function ncf90_get_var_real
 
@@ -563,15 +660,43 @@ contains
         integer, dimension(:), optional, intent( in) :: start, count
         integer                                      :: ncf90_get_var_real_array2D
 
- !       integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: start_local
- !       integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: count_local
+        integer(kind=MPI_OFFSET_KIND), allocatable :: start_local(:)
+        integer(kind=MPI_OFFSET_KIND), allocatable :: count_local(:)
 
- !       start_local = start
- !       count_local = count
+        if (present(start)) then
+           if (.not. allocated(start_local)) then
+              allocate(start_local(size(start)))
+           end if
+           start_local = start
+        end if
 
-        ncf90_get_var_real_array2D = &
-             nf90mpi_get_var_all(ncid, varid, values)
-!start_local, count_local)
+        if (present(count)) then
+           if (.not. allocated(count_local)) then
+              allocate(count_local(size(count)))
+           end if
+           count_local = count
+        end if
+
+        if (present(start) .and. present(count)) then
+           ncf90_get_var_real_array2D = &
+                nf90mpi_get_var_all(ncid, varid, values, &
+                start_local, count_local)
+        else if (present(start)) then
+           ncf90_get_var_real_array2D = &
+                nf90mpi_get_var_all(ncid, varid, values, &
+                start_local)
+        else
+           ncf90_get_var_real_array2D = &
+                nf90mpi_get_var_all(ncid, varid, values)
+        end if
+
+        if (allocated(start_local)) then
+           deallocate(start_local)
+        end if
+
+        if (allocated(count_local)) then
+           deallocate(count_local)
+        end if
 
     end function ncf90_get_var_real_array2D
 
@@ -587,15 +712,43 @@ contains
         integer, dimension(:), optional, intent( in) :: start, count
         integer                                      :: ncf90_get_var_real_array3D
 
- !       integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: start_local
- !       integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: count_local
+        integer(kind=MPI_OFFSET_KIND), allocatable :: start_local(:)
+        integer(kind=MPI_OFFSET_KIND), allocatable :: count_local(:)
 
- !       start_local = start
- !       count_local = count
+        if (present(start)) then
+           if (.not. allocated(start_local)) then
+              allocate(start_local(size(start)))
+           end if
+           start_local = start
+        end if
 
-        ncf90_get_var_real_array3D = &
-             nf90mpi_get_var_all(ncid, varid, values)
-!start_local, count_local)
+        if (present(count)) then
+           if (.not. allocated(count_local)) then
+              allocate(count_local(size(count)))
+           end if
+           count_local = count
+        end if
+
+        if (present(start) .and. present(count)) then
+           ncf90_get_var_real_array3D = &
+                nf90mpi_get_var_all(ncid, varid, values, &
+                start_local, count_local)
+        else if (present(start)) then
+           ncf90_get_var_real_array3D = &
+                nf90mpi_get_var_all(ncid, varid, values, &
+                start_local)
+        else
+           ncf90_get_var_real_array3D = &
+                nf90mpi_get_var_all(ncid, varid, values)
+        end if
+
+        if (allocated(start_local)) then
+           deallocate(start_local)
+        end if
+
+        if (allocated(count_local)) then
+           deallocate(count_local)
+        end if
 
     end function ncf90_get_var_real_array3D
 
