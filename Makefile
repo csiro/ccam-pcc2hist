@@ -53,7 +53,7 @@ stacklimit.o: stacklimit.c
 %.o : %.mod
 
 clean:
-	rm -f *.o *.mod pcc2hist tmpver
+	rm -f *.o *.mod pcc2hist tmpver *~
 
 # Version string. Dummy dependency to force this to be checked every time
 revision.h: FORCE

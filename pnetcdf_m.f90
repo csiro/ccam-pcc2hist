@@ -509,8 +509,77 @@ contains
 !        start_local = start
 !        count_local = count
 
-        ncf90_get_var_real_array1D = &
-            nf90mpi_get_var_all(ncid, varid, values)
+!        real, pointer :: values_local(:)
+!        real, dimension(size(values)) :: values_local
+        integer(kind=MPI_OFFSET_KIND), allocatable :: start_local(:)
+        integer(kind=MPI_OFFSET_KIND), allocatable :: count_local(:)
+
+!        values_local => values
+
+        if (present(start)) then
+           print *, ">> START present"
+           if (.not. allocated(start_local)) then
+              print *, ">> START not allocated"
+              allocate(start_local(size(start)))
+           end if
+           start_local = start
+        end if
+
+        if (present(count)) then
+           print *, ">> COUNT present"
+           if (.not. allocated(count_local)) then
+              print *, ">> COUNT not allocated"
+              allocate(count_local(size(count)))
+           end if
+           count_local = count
+        end if
+
+!!$        if (present(start)) then
+!!$           print *,">> start 1"
+!!$           start_local = start
+!!$        else
+!!$           print *,">> start 2"
+!!$           start_local(1) = 1
+!!$        end if
+!!$
+!!$        if (present(count)) then
+!!$           print *,">> count 1"
+!!$           count_local = count
+!!$        else
+!!$           print *,">> count 2"
+!!$           count_local(1) = size(count)
+!!$        end if
+
+!        ncf90_put_var_real_array1D = &
+!            nfmpi_put_vara_real(ncid, varid, &
+!                                start_local, count_local, values_local)
+
+        if (present(start) .and. present(count)) then
+           print *, ">> BOTH"
+           ncf90_get_var_real_array1D = &
+                nf90mpi_get_var_all(ncid, varid, values, &
+                start_local, count_local)
+        else if (present(start)) then
+           print *, ">> START"           
+           ncf90_get_var_real_array1D = &
+                nf90mpi_get_var_all(ncid, varid, values, &
+                start_local)
+        else
+           print *, ">> NEITHER"
+           ncf90_get_var_real_array1D = &
+                nf90mpi_get_var_all(ncid, varid, values)
+        end if
+
+        if (allocated(start_local)) then
+           deallocate(start_local)
+        end if
+
+        if (allocated(count_local)) then
+           deallocate(count_local)
+        end if
+
+!        ncf90_get_var_real_array1D = &
+!            nf90mpi_get_var_all(ncid, varid, values)
 !start_local, count_local)
 
     end function ncf90_get_var_real_array1D
@@ -852,17 +921,36 @@ contains
 
         integer,                         intent( in) :: ncid, varid
         ! any valid type, scalar or array of any rank, &
-        real, dimension(:),              intent( in) :: values
+!        real, dimension(:),              intent( in) :: values
+        real, target,                     intent( in) :: values(:)
 !        integer, dimension(:), optional, intent( in) :: start, count, stride, map
         integer, dimension(:), optional, intent( in) :: start, count
         integer                                      :: ncf90_put_var_real_array1D
 
-!        real, dimension(:), pointer :: values_local
-        real, dimension(size(values)) :: values_local
-!        integer(kind=MPI_OFFSET_KIND), dimension(size(start)) :: start_local
-!        integer(kind=MPI_OFFSET_KIND), dimension(size(count)) :: count_local
+        real, pointer :: values_local(:)
+!        real, dimension(size(values)) :: values_local
+        integer(kind=MPI_OFFSET_KIND), allocatable :: start_local(:)
+        integer(kind=MPI_OFFSET_KIND), allocatable :: count_local(:)
 
-        values_local = values
+        values_local => values
+
+        if (present(start)) then
+           print *, ">> START present"
+           if (.not. allocated(start_local)) then
+              print *, ">> START not allocated"
+              allocate(start_local(size(start)))
+           end if
+           start_local = start
+        end if
+
+        if (present(count)) then
+           print *, ">> COUNT present"
+           if (.not. allocated(count_local)) then
+              print *, ">> COUNT not allocated"
+              allocate(count_local(size(count)))
+           end if
+           count_local = count
+        end if
 
 !!$        if (present(start)) then
 !!$           print *,">> start 1"
@@ -884,9 +972,29 @@ contains
 !            nfmpi_put_vara_real(ncid, varid, &
 !                                start_local, count_local, values_local)
 
-        ncf90_put_var_real_array1D = &
-            nf90mpi_put_var_all(ncid, varid, values_local)
-!start_local, count_local)
+        if (present(start) .and. present(count)) then
+           print *, ">> BOTH"
+           ncf90_put_var_real_array1D = &
+                nf90mpi_put_var_all(ncid, varid, values_local, &
+                start_local, count_local)
+        else if (present(start)) then
+           print *, ">> START"           
+           ncf90_put_var_real_array1D = &
+                nf90mpi_put_var_all(ncid, varid, values_local, &
+                start_local)
+        else
+           print *, ">> NEITHER"
+           ncf90_put_var_real_array1D = &
+                nf90mpi_put_var_all(ncid, varid, values_local)
+        end if
+
+        if (allocated(start_local)) then
+           deallocate(start_local)
+        end if
+
+        if (allocated(count_local)) then
+           deallocate(count_local)
+        end if
 
     end function ncf90_put_var_real_array1D
 

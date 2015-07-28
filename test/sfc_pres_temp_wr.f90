@@ -16,7 +16,9 @@
 ! $Id: sfc_pres_temp_wr.f90,v 1.9 2007/01/24 19:32:10 russ Exp $
 
 ! Trivially modified by David.Benn@csiro.au to run under MPI and
-! with conditional netcdf module to suit test purposes, July 2015
+! with conditional netcdf module to suit test purposes, July 2015.
+! COPYRIGHT file taken from:
+!  http://www.unidata.ucar.edu/software/netcdf/docs/copyright.html
 
 program sfc_pres_temp_wr
 #ifdef PARNETCDF
@@ -36,7 +38,7 @@ program sfc_pres_temp_wr
   ! We are writing 2D data, a 6 x 12 lat-lon grid. We will need two
   ! netCDF dimensions.
   integer, parameter :: NDIMS = 2
-  integer, parameter :: NLATS = 6, NLONS = 12
+  integer, parameter :: NLATS = 6, NLONS = 12, SUBSET_NLONS = 3
   character (len = *), parameter :: LAT_NAME = "latitude"
   character (len = *), parameter :: LON_NAME = "longitude"
   integer :: lat_dimid, lon_dimid
@@ -55,6 +57,8 @@ program sfc_pres_temp_wr
   character (len = *), parameter :: TEMP_NAME="temperature"
   integer :: pres_varid, temp_varid
   integer :: dimids(NDIMS)
+  integer :: start(1)
+  integer :: count(1)
 
   ! It's good practice for each variable to carry a "units" attribute.
   character (len = *), parameter :: UNITS = "units"
@@ -142,8 +146,10 @@ program sfc_pres_temp_wr
 
       ! Write the coordinate variable data. This will put the latitudes
       ! and longitudes of our data grid into the netCDF file.
-      call check( ncf90_put_var(ncid, lat_varid, lats) )
-      call check( ncf90_put_var(ncid, lon_varid, lons) )
+      start = (/ 1 /)
+      count = (/ SUBSET_NLONS /)
+      call check( ncf90_put_var(ncid, lat_varid, lats, start) )
+      call check( ncf90_put_var(ncid, lon_varid, lons, start, count) )
       print *,">> added vars 1"
 
       ! Write the pretend data. This will write our surface pressure and
