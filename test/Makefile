@@ -1,6 +1,6 @@
 # For pnetcdf build:
 # - module load pnetcdf
-# - make PARNETCDF=1
+# - make PARNETCDF=1 clean run
 
 FC = mpif90
 
@@ -30,7 +30,7 @@ TESTOBJ = sfc_pres_temp_wr.o sfc_pres_temp_rd.o
 
 TESTPRG = ./sfc_pres_temp_wr ./sfc_pres_temp_rd
 
-run: $(TESTPRG) $(TESTOBJ) # test
+run: $(TESTPRG) $(TESTOBJ)
 	mpirun -np 1 ./sfc_pres_temp_wr
 	mpirun -np 1 ./sfc_pres_temp_rd
 

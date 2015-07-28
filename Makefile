@@ -1,6 +1,8 @@
 # For pnetcdf build:
 # - module load pnetcdf
-# - make PARNETCDF=1
+# - make PARNETCDF=1 clean pcc2hist
+# or
+# - make PARNETCDF=1 clean test testrun
 
 FC = mpif90
 
