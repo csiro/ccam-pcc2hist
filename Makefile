@@ -2,10 +2,11 @@
 #
 # - module load pnetcdf
 # - make PARNETCDF=1 clean pcc2hist
-# or
-# - make PARNETCDF=1 clean test testrun
-
-# To build for a VampirTrace run, add VAMPIR=1 to make command
+#
+# For normal (serial) netcdf module build, omit PARNETCDF=1
+# and module load.
+#
+# To build for a VampirTrace run, add VAMPIR=1 to make command.
 
 ifdef VAMPIR
 FC = vtfort -vt:fc mpif90
@@ -42,13 +43,6 @@ mpidata_m.o stacklimit.o $(NETCDF_MOD)
 
 pcc2hist: $(OBJ)
 	$(FC) -o $@ $(FFLAGS) $(LDFLAGS) $(OBJ) $(LIBS)
-
-test: $(OBJ)
-	make -C test test
-
-.PHONY: testrun
-testrun:
-	make -C test run
 
 .SUFFIXES:.f90
 

@@ -3,10 +3,10 @@
 # - Build next level up first; see ../Makefile
 # - module load pnetcdf
 # - make PARNETCDF=1 clean run
-
-# TODO:
-# - Modify so only dependency is netcdf module or rm ../Makefile test targets 
-
+#
+# For normal (serial) netcdf module build, omit PARNETCDF=1
+# and module load.
+#
 # To build for a VampirTrace run, add VAMPIR=1 to make command
 
 ifdef VAMPIR
