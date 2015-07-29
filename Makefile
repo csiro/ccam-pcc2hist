@@ -1,10 +1,17 @@
 # For pnetcdf build:
+#
 # - module load pnetcdf
 # - make PARNETCDF=1 clean pcc2hist
 # or
 # - make PARNETCDF=1 clean test testrun
 
+# To build for a VampirTrace run, add VAMPIR=1 to make command
+
+ifdef VAMPIR
+FC = vtfort -vt:fc mpif90
+else
 FC = mpif90
+endif
 
 ifdef DEBUG
 FFLAGS = -g -xHost -fpp -ftz
