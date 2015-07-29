@@ -151,8 +151,8 @@ module pnetcdf_m
     parameter (NCF90_WRITE = NF_WRITE)
 !   parameter (NCF90_NETCDF4 = NF_NETCDF4)
     ! Note: NetCDF4 flag is  not available in pnetcdf.inc; using
-    ! clobber for now
-    parameter (NCF90_NETCDF4 = NF_CLOBBER)
+    ! clobber+64 bit offset for now
+    parameter (NCF90_NETCDF4 = OR(NF_CLOBBER, NCF90_64BIT_OFFSET))
 
 contains
 
