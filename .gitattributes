@@ -31,6 +31,7 @@
 /precis_m.f90 -text
 /revision.h -text
 /s2p_m.f90 -text
+script/aof_logging.py -text
 /setxyz_m.f90 -text
 /sitop_m.f90 -text
 /stacklimit.c -text
