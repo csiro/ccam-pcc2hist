@@ -2118,6 +2118,7 @@ contains
    subroutine writehist ( istep, endofrun, year, month, interp, time, time_bnds )
 
       use mpidata_m
+      use logging_m
 
       integer, intent(in) :: istep
       logical, intent(in), optional :: endofrun
@@ -2149,6 +2150,8 @@ contains
          print*, " Error, interp argument required for writehist "
          stop
       end if
+
+      call START_LOG(writehist_begin)
 
       do ifile = 1,nhfiles
 
@@ -2366,6 +2369,8 @@ contains
 #endif
 
       end do ! Loop over files
+
+      call END_LOG(writehist_end)
 
    end subroutine writehist
 !-------------------------------------------------------------------
