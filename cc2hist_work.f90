@@ -2015,6 +2015,7 @@ contains
 #else
       use mpi
 #endif
+      use logging_m
   
       integer, intent(in) :: nmode
       integer, intent(out) :: ncid
@@ -2024,6 +2025,8 @@ contains
       character(len=*), intent(in) :: ifile
       character(len=266) :: pfile
       character(len=8) :: sdecomp
+
+      call START_LOG(paraopen_begin)
 
       if ( myid == 0 ) then      
   
@@ -2138,16 +2141,21 @@ contains
       pnpan = jdum(3)
       pil_g = jdum(4)
       pjl_g = jdum(5)
+
+      call END_LOG(paraopen_end)
       
    end subroutine paraopen
    
    subroutine paraclose
+      use logging_m
       integer ip, ierr
       
+      call START_LOG(paraclose_end)
       do ip = 0,lproc-1
          ierr = nf90_close(ncid_in(ip))
       end do
       deallocate(ncid_in)
+      call END_LOG(paraclose_end)
    
    end subroutine paraclose
    

@@ -45,6 +45,7 @@ program cc2hist
    use interp_m
    use checkver_m
    use parm_m, only : rlong0, rlat0, schmidt
+   use logging_m
 
    implicit none
 
@@ -100,6 +101,10 @@ program cc2hist
    call MPI_Init(ierr)
    call MPI_Comm_size(MPI_COMM_WORLD, nproc, ierr) ! Find number of processes
    call MPI_Comm_rank(MPI_COMM_WORLD, myid, ierr)  ! Find local processor id
+
+! Initalise timing logs
+   call log_setup()
+   call START_LOG(model_begin)
 
 !  Check versions of library modules.
    call checkver ( "history", history_revision, 7, 4 )
@@ -514,6 +519,11 @@ program cc2hist
    call writehist(ktau, interp=ints, time=time, endofrun=.true. )
    if ( myid == 0 ) call closehist
    call paraclose
+
+   call END_LOG(model_end)
+#ifdef simple_timer
+      call simple_timer_finalize
+#endif
 
    call MPI_Finalize(ierr)
 
