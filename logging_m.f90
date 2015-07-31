@@ -46,10 +46,12 @@ private
    integer, public, save :: savehist_begin, savehist_end
    integer, public, save :: vsavehist_begin, vsavehist_end
    integer, public, save :: vread_begin, vread_end
+   integer, public, save :: paravar2a_begin, paravar2a_end
+   integer, public, save :: paravar3a_begin, paravar3a_end
 #ifdef simple_timer
    public :: simple_timer_finalize
 #endif
-   integer, parameter :: nevents = 12
+   integer, parameter :: nevents = 14
    real(kind=8), dimension(nevents), save :: tot_time = 0., start_time
    character(len=15), dimension(nevents), save :: event_name
 
@@ -135,6 +137,14 @@ contains
       vread_begin = 12
       vread_end =  vread_begin
       event_name(vread_begin) = "Vread"
+
+      paravar2a_begin = 13
+      paravar2a_end =  paravar2a_begin
+      event_name(paravar2a_begin) = "Paravar2a"
+
+      paravar3a_begin = 14
+      paravar3a_end =  paravar3a_begin
+      event_name(paravar3a_begin) = "Paravar3a"
 
    end subroutine log_setup
 

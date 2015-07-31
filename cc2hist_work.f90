@@ -2171,6 +2171,7 @@ contains
    end subroutine paraclose
    
    subroutine paravar2a(name,var,nrec,required,vread_err)
+      use logging_m
       integer, intent(in) :: nrec
       integer, intent(out) :: vread_err
       integer ip, n, vid, ierr, vartyp
@@ -2180,11 +2181,13 @@ contains
       logical, intent(in) :: required
       character(len=*), intent(in) :: name
    
+      call START_LOG(paravar2a_begin)
       ! If the variable has the required flag set to false, and the 
       ! vread_err argument is present, then return an error flag rather
       ! then abort if the variable isn't found.
       if ( .not. required ) then
          vread_err = NF90_NOERR
+         call END_LOG(paravar2a_end)
          return
       end if
       
@@ -2213,11 +2216,13 @@ contains
          var(:,1+ip*pjl*pnpan:(ip+1)*pjl*pnpan) = inarray2(:,:)
          
       end do
+      call END_LOG(paravar2a_end)
    
    end subroutine paravar2a
 
    subroutine paravar3a(name,var,nrec,pkl)
       use s2p_m, only : minlev, maxlev
+      use logging_m
       integer, intent(in) :: nrec, pkl
       integer ip, n, vid, ierr, vartyp, k
       real, dimension(:,:,:), intent(out) :: var
@@ -2225,6 +2230,7 @@ contains
       real addoff, sf
       character(len=*), intent(in) :: name
 
+      call START_LOG(paravar3a_begin)
       do ip = 0,lproc-1
 
          ierr = nf90_inq_varid ( ncid_in(ip), name, vid )
@@ -2250,6 +2256,7 @@ contains
          var(:,1+ip*pjl*pnpan:(ip+1)*pjl*pnpan,minlev:maxlev) = inarray3(:,:,minlev:maxlev)
          
       end do
+      call END_LOG(paravar3a_end)
    
    end subroutine paravar3a
 
