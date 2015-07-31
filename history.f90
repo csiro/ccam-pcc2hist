@@ -2562,13 +2562,16 @@ contains
 #else
       include 'mpif.h'   
 #endif
+      use logging_m
       real, dimension(:,:,:), intent(in) :: array_in
       real, dimension(:,:,:,:), intent(out) :: array_out
       real, dimension(size(array_out,1),size(array_out,2),lproc,size(array_in,3),nproc) :: array_temp
       integer :: lsize, ierr, np, lp, k
       
       lsize = size(array_in)
+      call START_LOG(mpigather_begin)
       call MPI_Gather(array_in,lsize,MPI_REAL,array_temp,lsize,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+      call END_LOG(mpigather_begin)
       do np = 0,nproc-1
          do k = 1,size(array_in,3)
             do lp = 0,lproc-1

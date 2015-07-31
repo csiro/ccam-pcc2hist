@@ -1912,7 +1912,9 @@ contains
          call fill_cc0(b_io,value)
       else
          lsize = pil*pjl*pnpan*lproc
+         call START_LOG(mpigather_begin)
          call MPI_Gather(b_io,lsize,MPI_REAL,c_io,lsize,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+         call END_LOG(mpigather_end)
          call START_LOG(mpiscatter_begin)
          call MPI_Scatter(c_io,lsize,MPI_REAL,b_io,lsize,MPI_REAL,0,MPI_COMM_WORLD,ierr)
          call END_LOG(mpiscatter_end)
@@ -1943,7 +1945,9 @@ contains
       
       call START_LOG(fillcc0_begin)
       lsize = pil*pjl*pnpan*lproc
+      call START_LOG(mpigather_begin)
       call MPI_Gather(b_io,lsize,MPI_REAL,c_io,lsize,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+      call END_LOG(mpigather_end)
 
       do ip = 0,pnproc-1   
          do n = 0,pnpan-1
