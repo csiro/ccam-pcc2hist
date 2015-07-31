@@ -1904,46 +1904,58 @@ contains
 !-------------------------------------------------------------------
 
    subroutine savehist2D ( name, array, jlat )
+      use logging_m
       character(len=*), intent(in) :: name
       real, dimension(:) :: array
       integer, intent(in) :: jlat
       real, dimension(size(array),1,1) :: temp
 
+      call START_LOG(savehist_begin)
 !     Copy to the 3D array that savehist_work expects. The extra level of
 !     subroutines is necessary to avoid multiple versions.
 !     This copying is extra work if the variable isn't actually saved.
 !     Check name first?
       temp(:,1,1) = array
       call savehist_work  ( name, temp, jlat, jlat )
+      call END_LOG(savehist_end)
 
    end subroutine savehist2D
    
    subroutine gsavehist2D ( name, array )
+      use logging_m
       character(len=*), intent(in) :: name
       real, dimension(:,:) :: array
       real, dimension(size(array,1),size(array,2),1) :: temp
 
+      call START_LOG(savehist_begin)
 !     Copy to the 3D array that savehist_work expects. The extra level of
 !     subroutines is necessary to avoid multiple versions.
       temp(:,:,1) = array
       call savehist_work  ( name, temp, 1, size(array,2) )
+      call END_LOG(savehist_end)
 
    end subroutine gsavehist2D
    
    subroutine savehist3D( name, array, jlat )
+      use logging_m
       character(len=*), intent(in) :: name
       real, dimension(:,:) :: array
       integer, intent(in) :: jlat
       real, dimension(size(array,1),1,size(array,2)) :: temp
 
+      call START_LOG(savehist_begin)
       temp(:,1,:) = array
       call savehist_work  ( name, temp, jlat, jlat )
+      call END_LOG(savehist_end)
    end subroutine savehist3D
    
    subroutine gsavehist3D( name, array )
+      use logging_m
       character(len=*), intent(in) :: name
       real, dimension(:,:,:) :: array
+      call START_LOG(savehist_begin)
       call savehist_work  ( name, array, 1, size(array,2) )
+      call END_LOG(savehist_end)
    end subroutine gsavehist3D
    
    subroutine savehist_work ( name, array, jlat1, jlat2 )

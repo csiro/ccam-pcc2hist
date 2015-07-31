@@ -43,10 +43,11 @@ private
    integer, public, save :: ints_begin, ints_end
    integer, public, save :: timeloop_begin, timeloop_end
    integer, public, save :: infile_begin, infile_end
+   integer, public, save :: savehist_begin, savehist_end
 #ifdef simple_timer
    public :: simple_timer_finalize
 #endif
-   integer, parameter :: nevents = 9
+   integer, parameter :: nevents = 10
    real(kind=8), dimension(nevents), save :: tot_time = 0., start_time
    character(len=15), dimension(nevents), save :: event_name
 
@@ -120,6 +121,10 @@ contains
       infile_begin = 9
       infile_end =  infile_begin
       event_name(infile_begin) = "Infile"
+
+      savehist_begin = 10
+      savehist_end =  savehist_begin
+      event_name(savehist_begin) = "Savehist"
 
    end subroutine log_setup
 
