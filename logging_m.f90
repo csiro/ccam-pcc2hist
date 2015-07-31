@@ -41,10 +41,11 @@ private
    integer, public, save :: closehist_begin, closehist_end
    integer, public, save :: writehist_begin, writehist_end
    integer, public, save :: ints_begin, ints_end
+   integer, public, save :: timeloop_begin, timeloop_end
 #ifdef simple_timer
    public :: simple_timer_finalize
 #endif
-   integer, parameter :: nevents = 7
+   integer, parameter :: nevents = 8
    real(kind=8), dimension(nevents), save :: tot_time = 0., start_time
    character(len=15), dimension(nevents), save :: event_name
 
@@ -110,6 +111,10 @@ contains
       ints_begin = 7
       ints_end =  ints_begin
       event_name(ints_begin) = "Ints"
+
+      timeloop_begin = 8
+      timeloop_end =  timeloop_begin
+      event_name(timeloop_begin) = "Timeloop"
 
    end subroutine log_setup
 

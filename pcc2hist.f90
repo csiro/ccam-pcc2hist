@@ -409,6 +409,7 @@ program cc2hist
       ktc = 1
    end if
 
+   call START_LOG(timeloop_begin)
    timeloop: do kt=kta,ktb,ktc
       if ( debug ) then
          print*, "KT", kt
@@ -515,6 +516,7 @@ program cc2hist
       end if
 
    end do timeloop
+   call END_LOG(timeloop_end)
 
    call writehist(ktau, interp=ints, time=time, endofrun=.true. )
    if ( myid == 0 ) call closehist
