@@ -2084,7 +2084,9 @@ contains
       
       end if
       
+      call START_LOG(mpibcast_begin)
       call MPI_Bcast(pnproc,1,MPI_INTEGER,0,MPI_COMM_WORLD,ier)
+      call END_LOG(mpibcast_end)
       lproc = pnproc/nproc !number of files each mpi_proc will work on      
       allocate( ncid_in(0:lproc-1) )
       
@@ -2163,7 +2165,9 @@ contains
       
       end if
       
+      call START_LOG(mpibcast_begin)
       call MPI_Bcast(jdum(1:5),5,MPI_INTEGER,0,MPI_COMM_WORLD,ier)
+      call END_LOG(mpibcast_end)
       pil   = jdum(1)
       pjl   = jdum(2)
       pnpan = jdum(3)

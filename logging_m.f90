@@ -52,10 +52,11 @@ private
    integer, public, save :: fillcc_begin, fillcc_end
    integer, public, save :: fillcc0_begin, fillcc0_end
    integer, public, save :: finalinit_begin, finalinit_end
+   integer, public, save :: mpibcast_begin, mpibcast_end
 #ifdef simple_timer
    public :: simple_timer_finalize
 #endif
-   integer, parameter :: nevents = 18
+   integer, parameter :: nevents = 19
    real(kind=8), dimension(nevents), save :: tot_time = 0., start_time
    character(len=15), dimension(nevents), save :: event_name
 
@@ -165,6 +166,10 @@ contains
       finalinit_begin = 18
       finalinit_end =  finalinit_begin
       event_name(finalinit_begin) = "Finalinit"
+
+      mpibcast_begin = 19
+      mpibcast_end =  mpibcast_begin
+      event_name(mpibcast_begin) = "MPIBcast"
 
    end subroutine log_setup
 
