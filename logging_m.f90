@@ -49,10 +49,13 @@ private
    integer, public, save :: paravar2a_begin, paravar2a_end
    integer, public, save :: paravar3a_begin, paravar3a_end
    integer, public, save :: mpiscatter_begin, mpiscatter_end
+   integer, public, save :: fillcc_begin, fillcc_end
+   integer, public, save :: fillcc0_begin, fillcc0_end
+   integer, public, save :: finalinit_begin, finalinit_end
 #ifdef simple_timer
    public :: simple_timer_finalize
 #endif
-   integer, parameter :: nevents = 15
+   integer, parameter :: nevents = 18
    real(kind=8), dimension(nevents), save :: tot_time = 0., start_time
    character(len=15), dimension(nevents), save :: event_name
 
@@ -150,6 +153,18 @@ contains
       mpiscatter_begin = 15
       mpiscatter_end =  mpiscatter_begin
       event_name(mpiscatter_begin) = "MPIScatter"
+
+      fillcc_begin = 16
+      fillcc_end =  fillcc_begin
+      event_name(fillcc_begin) = "Fillcc"
+
+      fillcc0_begin = 17
+      fillcc0_end =  fillcc0_begin
+      event_name(fillcc0_begin) = "Fillcc0"
+
+      finalinit_begin = 18
+      finalinit_end =  finalinit_begin
+      event_name(finalinit_begin) = "Finalinit"
 
    end subroutine log_setup
 

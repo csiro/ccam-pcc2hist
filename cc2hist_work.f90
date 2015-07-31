@@ -1027,6 +1027,7 @@ contains
       integer :: ierr, ip, n
       logical :: need_rotate
       
+      call START_LOG(finalinit_begin)
       if ( myid == 0 ) then
          deallocate ( em )
          deallocate ( i_wu, i_sv, i_eu, i_nv )
@@ -1127,6 +1128,7 @@ contains
 !       ax etc are pointers to setxyz private arrays so the space can't be freed.
         deallocate ( x, y, z )
       end if
+      call END_LOG(finalinit_end)
       
 
 
@@ -1905,6 +1907,7 @@ contains
       real, dimension(0,0,0) :: c_io
       integer :: ierr, lsize
       
+      call START_LOG(fillcc_begin)
       if ( myid == 0 ) then
          call fill_cc0(b_io,value)
       else
@@ -1914,6 +1917,7 @@ contains
          call MPI_Scatter(c_io,lsize,MPI_REAL,b_io,lsize,MPI_REAL,0,MPI_COMM_WORLD,ierr)
          call END_LOG(mpiscatter_end)
       end if
+      call END_LOG(fillcc_end)
       
    end subroutine fill_cc
 
@@ -1937,6 +1941,7 @@ contains
       integer :: ip, n, lsize
       real :: av, avx
       
+      call START_LOG(fillcc0_begin)
       lsize = pil*pjl*pnpan*lproc
       call MPI_Gather(b_io,lsize,MPI_REAL,c_io,lsize,MPI_REAL,0,MPI_COMM_WORLD,ierr)
 
@@ -2027,6 +2032,7 @@ contains
       call START_LOG(mpiscatter_begin)
       call MPI_Scatter(c_io,lsize,MPI_REAL,b_io,lsize,MPI_REAL,0,MPI_COMM_WORLD,ierr)
       call END_LOG(mpiscatter_end)
+      call END_LOG(fillcc0_end)
       
    end subroutine fill_cc0
    
