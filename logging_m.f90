@@ -45,10 +45,11 @@ private
    integer, public, save :: infile_begin, infile_end
    integer, public, save :: savehist_begin, savehist_end
    integer, public, save :: vsavehist_begin, vsavehist_end
+   integer, public, save :: vread_begin, vread_end
 #ifdef simple_timer
    public :: simple_timer_finalize
 #endif
-   integer, parameter :: nevents = 11
+   integer, parameter :: nevents = 12
    real(kind=8), dimension(nevents), save :: tot_time = 0., start_time
    character(len=15), dimension(nevents), save :: event_name
 
@@ -130,6 +131,10 @@ contains
       vsavehist_begin = 11
       vsavehist_end =  vsavehist_begin
       event_name(vsavehist_begin) = "Vsavehist"
+
+      vread_begin = 12
+      vread_end =  vread_begin
+      event_name(vread_begin) = "Vread"
 
    end subroutine log_setup
 

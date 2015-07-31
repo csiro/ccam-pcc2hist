@@ -648,6 +648,7 @@ contains
 
    subroutine vread2(name, var, required, vread_err)
 
+      use logging_m
       ! Routine to read a variable from either a fortran binary or netcdf file.
       character(len=*), intent(in) :: name
       real, dimension(:,:), intent(out) :: var
@@ -656,6 +657,7 @@ contains
       integer, intent(out), optional :: vread_err
       integer v_err
 
+      call START_LOG(vread_begin)
       if ( present( required ) .and. present ( vread_err ) ) then
          req = required
       else
@@ -670,18 +672,22 @@ contains
          ! If we get to this point, everything is ok.
          vread_err = 0
       end if
+      call END_LOG(vread_end)
 
    end subroutine vread2
    
    subroutine vread3(name, var)
 
+      use logging_m
       ! Routine to read a variable from either a fortran binary or netcdf file. 
       character(len=*), intent(in) :: name
       real, dimension(:,:,:), intent(out) :: var
       integer :: pkl
 
+      call START_LOG(vread_begin)
       pkl = size(var,3)
       call paravar3a(name,var,nrec,pkl)
+      call END_LOG(vread_end)
 
    end subroutine vread3
    
