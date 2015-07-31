@@ -45,6 +45,7 @@ subroutine ints ( s_in, array, int_type )  ! input array (twice), output array
    use indices_m
    use ind_m
    use netcdf, only : NF90_FILL_FLOAT
+   use logging_m
 
    implicit none
    real, intent(in), dimension(:,:)  ::  s_in    ! (il,jl)
@@ -60,8 +61,10 @@ subroutine ints ( s_in, array, int_type )  ! input array (twice), output array
    real :: xxg, yyg, c1, c2, c3, c4, aaa
    integer :: nxhis, nyhis
 
+   call START_LOG(ints_begin)
    if ( int_type == int_none ) then
       array = s_in
+      call END_LOG(ints_end)
       return
    end if
    
@@ -194,6 +197,8 @@ subroutine ints ( s_in, array, int_type )  ! input array (twice), output array
   case default
      print*, "Error, unexpected interpolation option", int_type
   end select
+
+  call END_LOG(ints_end)
 
   !deallocate ( sx )
 end subroutine ints

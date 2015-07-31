@@ -40,10 +40,11 @@ private
    integer, public, save :: openhist_begin, openhist_end
    integer, public, save :: closehist_begin, closehist_end
    integer, public, save :: writehist_begin, writehist_end
+   integer, public, save :: ints_begin, ints_end
 #ifdef simple_timer
    public :: simple_timer_finalize
 #endif
-   integer, parameter :: nevents = 6
+   integer, parameter :: nevents = 7
    real(kind=8), dimension(nevents), save :: tot_time = 0., start_time
    character(len=15), dimension(nevents), save :: event_name
 
@@ -105,6 +106,10 @@ contains
       writehist_begin = 6
       writehist_end =  writehist_begin
       event_name(writehist_begin) = "Writehist"
+
+      ints_begin = 7
+      ints_end =  ints_begin
+      event_name(ints_begin) = "Ints"
 
    end subroutine log_setup
 
