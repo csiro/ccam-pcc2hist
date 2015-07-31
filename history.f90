@@ -1886,9 +1886,12 @@ contains
 
 !-----------------------------------------------------------------------------
    subroutine closehist
+
+      use logging_m
       
       integer :: ierr, ifile
      
+      call START_LOG(closehist_begin)
       do ifile = 1,nhfiles
 !        The hist_oave files are closed individually in writehist.
          if ( ihtype(ifile) /= hist_oave ) then
@@ -1896,6 +1899,7 @@ contains
             call check_ncerr(ierr,"Error closing history file")
          end if
       end do
+      call END_LOG(closehist_end)
    end subroutine closehist
 !-------------------------------------------------------------------
 
