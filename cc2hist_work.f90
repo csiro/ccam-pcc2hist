@@ -158,6 +158,7 @@ contains
       use s2p_m
       use height_m
       use sitop_m
+      use logging_m
       type(input_var), dimension(:) :: varlist
       integer, intent(in) :: nvars
       logical, intent(in)  :: skip
@@ -169,9 +170,11 @@ contains
       real, parameter :: spval   = 999.
       real, parameter :: tfreeze = 271.38
 
+      call START_LOG(infile_begin)
       ! With a netcdf file there's no need to read in order to skip.
       if ( skip ) then
          nrec = nrec + 1
+         call END_LOG(infile_end)
          return
       end if
 
@@ -609,6 +612,8 @@ contains
 
       first_in = .false.
       nrec = nrec + 1
+
+      call END_LOG(infile_end)
 
    end subroutine infile
 
