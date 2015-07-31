@@ -122,6 +122,7 @@ contains
 
       use history, only : savehist, needfld
       use gldata, only : sig, psl, hstd
+      use logging_m
       character(len=*), intent(in) :: name
       real, dimension(:,:,:), intent(in) :: array
 !     Make this allocatable rather than automatic because usually it won't be
@@ -129,7 +130,11 @@ contains
 !     sigma case then it would be zero sized anyway?).
       real, dimension(:,:,:), allocatable, save :: parray
 
-      if ( .not. needfld(name) ) return
+      call START_LOG(vsavehist_begin)
+      if ( .not. needfld(name) ) then
+         call END_LOG(vsavehist_end)
+         return
+      end if
       if ( use_plevs ) then
 !        sigma to pressure conversion.
          if ( .not. allocated(parray) ) then
@@ -170,6 +175,7 @@ contains
 !        Save the sigma level values directly.
          call savehist ( name, array(:,:,minlev:maxlev) )
       end if
+      call END_LOG(vsavehist_end)
    end subroutine vsavehist
    
 end module s2p_m

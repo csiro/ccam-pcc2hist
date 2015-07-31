@@ -51,7 +51,7 @@ latltoij_m.o: xyzinfo_m.o newmpar_m.o precis_m.o
 nfft_m.o: precis_m.o 
 parm_m.o: precis_m.o 
 physparams.o : precis_m.o
-s2p_m.o: gldata_m.o history.o usage_m.o sitop_m.o 
+s2p_m.o: gldata_m.o history.o usage_m.o sitop_m.o logging_m.o
 setxyz_m.o: newmpar_m.o indices_m.o parm_m.o precis_m.o ind_m.o xyzinfo_m.o jimco_m.o jimcc_m.o 
 sitop_m.o: physparams.o utils_m.o 
 staguv_m.o: indices_m.o newmpar_m.o 
