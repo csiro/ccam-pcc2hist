@@ -1015,6 +1015,7 @@ contains
 #else
       use mpi
 #endif
+      use logging_m
       type(input_var), dimension(:) :: varlist
       integer, intent(in) :: nvars
       real, dimension(:,:), allocatable :: costh_g, sinth_g
@@ -1097,7 +1098,9 @@ contains
             allocate( c_io(0,0,0) )
          end if 
 
+         call START_LOG(mpiscatter_begin)
          call MPI_Scatter(c_io,pil*pjl*pnpan*lproc,MPI_REAL,costh,pil*pjl*pnpan*lproc,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+         call END_LOG(mpiscatter_end)
 
          if ( myid == 0 ) then
             do ip = 0,pnproc-1   
@@ -1108,7 +1111,9 @@ contains
             end do
          end if
 
+         call START_LOG(mpiscatter_begin)
          call MPI_Scatter(c_io,pil*pjl*pnpan*lproc,MPI_REAL,sinth,pil*pjl*pnpan*lproc,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+         call END_LOG(mpiscatter_end)
 
          if ( myid == 0 ) then
             deallocate( costh_g, sinth_g )
@@ -1894,6 +1899,7 @@ contains
 #else
       use mpi
 #endif
+      use logging_m
       real, intent(inout) :: b_io(pil,pjl*pnpan*lproc)         ! input and output array
       real, intent(in)    :: value                             ! array value denoting undefined
       real, dimension(0,0,0) :: c_io
@@ -1904,7 +1910,9 @@ contains
       else
          lsize = pil*pjl*pnpan*lproc
          call MPI_Gather(b_io,lsize,MPI_REAL,c_io,lsize,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+         call START_LOG(mpiscatter_begin)
          call MPI_Scatter(c_io,lsize,MPI_REAL,b_io,lsize,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+         call END_LOG(mpiscatter_end)
       end if
       
    end subroutine fill_cc
@@ -1918,6 +1926,7 @@ contains
 #else
       use mpi
 #endif
+      use logging_m
       real, dimension(pil,pjl*pnpan*lproc), intent(inout) :: b_io ! input and output array
       real, intent(in)    :: value                                ! array value denoting undefined
       real, dimension(pil,pjl*pnpan,pnproc) :: c_io
@@ -2015,7 +2024,9 @@ contains
          end do
       end do
       
+      call START_LOG(mpiscatter_begin)
       call MPI_Scatter(c_io,lsize,MPI_REAL,b_io,lsize,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+      call END_LOG(mpiscatter_end)
       
    end subroutine fill_cc0
    
