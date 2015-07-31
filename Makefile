@@ -57,7 +57,7 @@ sitop_m.o: physparams.o utils_m.o
 staguv_m.o: indices_m.o newmpar_m.o 
 xyzinfo_m.o: precis_m.o 
 utilities.o: precis_m.o 
-history.o: utils_m.o ncutils_m.o mpidata_m.o
+history.o: utils_m.o ncutils_m.o mpidata_m.o logging_m.o
 utils_m.o: kinds_m.o 
 vertutils_m.o: hyblevs_m.o physparams.o 
 hyblevs_m.o: physparams.o utils_m.o 

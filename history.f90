@@ -770,6 +770,7 @@ contains
 !     Create netCDF history files using information in histinfo array.
 !
       use mpidata_m
+      use logging_m
 
       integer, intent(in) :: nx, ny, nl
       real, intent(in), dimension(:) :: sig
@@ -810,6 +811,8 @@ contains
       logical :: soil_used
       real :: dx, dy
       
+      call START_LOG(openhist_begin)
+
 !     Set the module variables
       if ( present (nxout) ) then
          nxhis = nxout
@@ -1259,6 +1262,8 @@ contains
             end if
          end do
       end do
+
+      call END_LOG(openhist_end)
 
    end subroutine openhist
 

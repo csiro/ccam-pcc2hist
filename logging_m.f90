@@ -37,10 +37,11 @@ private
    integer, public, save :: model_begin, model_end
    integer, public, save :: paraopen_begin, paraopen_end
    integer, public, save :: paraclose_begin, paraclose_end
+   integer, public, save :: openhist_begin, openhist_end
 #ifdef simple_timer
    public :: simple_timer_finalize
 #endif
-   integer, parameter :: nevents = 3
+   integer, parameter :: nevents = 4
    real(kind=8), dimension(nevents), save :: tot_time = 0., start_time
    character(len=15), dimension(nevents), save :: event_name
 
@@ -90,6 +91,10 @@ contains
       paraclose_begin = 3
       paraclose_end =  paraclose_begin
       event_name(paraclose_begin) = "Paraclose"
+
+      openhist_begin = 4
+      openhist_end =  openhist_begin
+      event_name(openhist_begin) = "Openhist"
 
    end subroutine log_setup
 
