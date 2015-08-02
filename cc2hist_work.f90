@@ -755,6 +755,14 @@ contains
       use parm_m, only : rlong0, rlat0, schmidt ! Share with final_init
       use physparams, only : erad
       use vertutils_m, only : sig2ds
+      use, intrinsic :: iso_c_binding, only : c_ptr, c_f_pointer
+#ifdef usenc3
+      include 'mpif.h'
+#else
+      use mpi
+#endif
+      use mpidata_m
+      use shdata_m
 
       real, intent(inout)  :: hres
       real, intent(inout)  :: minlon, maxlon, dlon, minlat, maxlat, dlat
@@ -778,6 +786,10 @@ contains
       real, dimension(:), allocatable :: real_header
       integer :: hlen, ierr, vid, dimid, ieof
       real :: grlong, grlat, grlongu, grlatu, grlongv, grlatv, tmp
+
+      integer(kind=MPI_ADDRESS_KIND) :: ssize, qsize, disp
+      integer :: disp_unit,win,tsize
+      type(c_ptr) :: baseptr
 
 !     Read the header here because doing the CC grid initialisation before
 !     alloc_indata minimises the total memory requirements
@@ -906,7 +918,57 @@ contains
           call setxyz ( il, jl, kl, npanels, ifull, iquad, idiag, id, jd,        &
                     rlong0, rlat0, schmidt, schm13, ntang, erad )
                     
+      else
+          if ( node_myid == 0 ) then
+              ssize=ifull*10
+          else
+              ssize=0
+          endif
+          call allocshdata(i_ewns,ssize,(/ ifull, 10 /),indices_win(1))
+          i_w => i_ewns(:,1)
+          i_ww => i_ewns(:,2)
+          i_e => i_ewns(:,3)
+          i_ee => i_ewns(:,4)
+          i_s => i_ewns(:,5)
+          i_ss => i_ewns(:,6)
+          i_n => i_ewns(:,7)
+          i_nn => i_ewns(:,8)
+          i_en => i_ewns(:,9)
+          i_wn => i_ewns(:,10)
+
+          if ( node_myid == 0 ) then
+              ssize=(npanels+1)*10
+          else
+              ssize=0
+          end if
+          call allocshdata(lewns,ssize,(/ npanels + 1, 10 /),indices_win(2))
+          lwws(0:npanels) => lewns(:,1)
+          lws(0:npanels) => lewns(:,2)
+          lwss(0:npanels) => lewns(:,3)
+          lees(0:npanels) => lewns(:,4)
+          les(0:npanels) => lewns(:,5)
+          less(0:npanels) => lewns(:,6)
+          lwwn(0:npanels) => lewns(:,7)
+          lwnn(0:npanels) => lewns(:,8)
+          leen(0:npanels) => lewns(:,9)
+          lenn(0:npanels) => lewns(:,10)
+
+          do i=1,2
+              call MPI_Win_fence(0,indices_win(i),ierr)
+          end do
+          do i=1,2
+              call MPI_Win_fence(0,indices_win(i),ierr)
+          end do
+
       end if
+
+      ssize=ifull*10
+      call cpshdata(i_ewns,ssize)
+      call MPI_Win_fence(0,indices_win(1),ierr)
+
+      ssize=(npanels+1)*10
+      call cpshdata(lewns,ssize)
+      call MPI_Win_fence(0,indices_win(2),ierr)
 
       if ( int_default == int_none ) then
          nxhis = il
@@ -954,8 +1016,23 @@ contains
 !        To save memory de-allocate a number of arrays defined by setxyz
 !        that aren't needed by cc2hist.
          deallocate ( f, fu, fv, dmdx, dmdy, dmdxv, dmdyu )
-         allocate ( nface(nxhis,nyhis) )
-         allocate ( xg(nxhis,nyhis), yg(nxhis,nyhis) )
+      end if
+
+      if ( node_myid.eq.0 ) then
+         ssize=nxhis*nyhis
+      else
+         ssize=0
+      end if
+      call allocshdata(xyg,ssize*2,(/ nxhis, nyhis, 2 /),interp_win(1))
+      xg => xyg(:,:,1)
+      yg => xyg(:,:,2)
+      call allocshdata(nface,ssize,(/ nxhis, nyhis /),interp_win(2))
+
+      do i=1, 2
+         call MPI_Win_fence(0,interp_win(i),ierr)
+      end do
+
+      if ( myid == 0 ) then
          allocate ( hlon(nxhis), hlat(nyhis) )
          if ( int_default == int_none ) then
             hlat = (/ ( real(j), j=1,nyhis ) /)
@@ -987,6 +1064,19 @@ contains
          deallocate ( xx4, yy4 )
 
       end if   
+
+      do i=1, 2
+         call MPI_Win_fence(0,interp_win(i),ierr)
+      end do
+
+      ssize=nxhis*nyhis*2
+      call cpshdata(xyg,ssize)
+      call MPI_Win_fence(0,interp_win(1),ierr)
+
+      ssize=nxhis*nyhis
+      call cpshdata(nface,ssize)
+      call MPI_Win_fence(0,interp_win(2),ierr)
+
 
    end subroutine initialise
 
@@ -2010,11 +2100,14 @@ contains
    
    subroutine paraopen(ifile,nmode,ncid)
   
+      use, intrinsic :: iso_c_binding, only : c_ptr, c_f_pointer
 #ifdef usenc3
       include 'mpif.h'
 #else
       use mpi
 #endif
+      use mpidata_m
+      use shdata_m
   
       integer, intent(in) :: nmode
       integer, intent(out) :: ncid
@@ -2024,6 +2117,10 @@ contains
       character(len=*), intent(in) :: ifile
       character(len=266) :: pfile
       character(len=8) :: sdecomp
+
+      integer(kind=MPI_ADDRESS_KIND) :: ssize, qsize, disp
+      integer :: disp_unit, i, win,tsize
+      type(c_ptr) :: baseptr
 
       if ( myid == 0 ) then      
   
@@ -2049,13 +2146,20 @@ contains
             call MPI_Abort(MPI_COMM_WORLD,-1,ierr)
          end if
       
-         allocate( ioff(0:pnproc-1,0:5), joff(0:pnproc-1,0:5) )
-      
       end if
       
       call MPI_Bcast(pnproc,1,MPI_INTEGER,0,MPI_COMM_WORLD,ier)
       lproc = pnproc/nproc !number of files each mpi_proc will work on      
       allocate( ncid_in(0:lproc-1) )
+
+      if ( node_myid == 0 ) then
+          ssize=pnproc*6*2
+      else
+          ssize=0
+      end if
+      call allocshdata(ijoff,ssize,(/ pnproc, 6, 2 /),ijoff_win)
+      ioff(0:pnproc-1,0:5) => ijoff(:,:,1)
+      joff(0:pnproc-1,0:5) => ijoff(:,:,2)
       
       if ( myid /= 0 ) then
       
@@ -2102,6 +2206,9 @@ contains
          sdecomp = ''
          ier = nf90_get_att(ncid_in(0), nf90_global, "decomp", sdecomp)
          call check_ncerr(ier, "decomp")
+      end if
+      call MPI_Win_fence(0,ijoff_win,ierr)
+      if ( myid == 0 ) then
          select case(sdecomp)
             case ("uniform")
                do n = 0,5
@@ -2131,7 +2238,12 @@ contains
          jdum(5) = pjl_g
       
       end if
+      call MPI_Win_fence(0,ijoff_win,ierr)
       
+      ssize=pnproc*6*2
+      call cpshdata(ijoff,ssize)
+      call MPI_Win_fence(0,ijoff_win,ierr)
+
       call MPI_Bcast(jdum(1:5),5,MPI_INTEGER,0,MPI_COMM_WORLD,ier)
       pil   = jdum(1)
       pjl   = jdum(2)

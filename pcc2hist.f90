@@ -101,6 +101,10 @@ program cc2hist
    call MPI_Comm_size(MPI_COMM_WORLD, nproc, ierr) ! Find number of processes
    call MPI_Comm_rank(MPI_COMM_WORLD, myid, ierr)  ! Find local processor id
 
+   call MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, node_comm, ierr) ! Per node communictor
+   call MPI_Comm_size(node_comm, node_nproc, ierr) ! Find number of processes on node
+   call MPI_Comm_rank(node_comm, node_myid, ierr)  ! Find local processor id on node
+
 !  Check versions of library modules.
    call checkver ( "history", history_revision, 7, 4 )
 

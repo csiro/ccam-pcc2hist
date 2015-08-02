@@ -299,8 +299,10 @@ module history
    logical, public :: cordex_compliant = .false.
 
 !  MPI working arrays
-   real, dimension(:,:,:), allocatable, save, private :: hist_a
+   real, dimension(:,:,:,:), allocatable, save, private :: hist_a
    real, dimension(:,:), allocatable, save, private :: hist_g
+
+   integer, private, save :: nx_g, ny_g
 
 contains
 
@@ -1233,13 +1235,8 @@ contains
                  pil*pjl*pnpan*lproc*hsize, "words"
             stop
          end if
-         if ( myid == 0 ) then
-            allocate( hist_a(pil,pjl*pnpan,pnproc) )
-            allocate( hist_g(nx,ny) )
-         else
-            allocate( hist_a(0,0,0) )
-            allocate( hist_g(0,0) )
-         end if
+         nx_g = nx
+         ny_g = ny
       end if
 
 !     Initialise the history appropriately
@@ -2134,6 +2131,8 @@ contains
 !     Temporary for interpolated output
       real, dimension ( nxhis, nyhis ) :: htemp
       logical :: doinc
+      integer :: pass,cnt,maxcnt,interp_nproc
+      integer :: stat(MPI_STATUS_SIZE),rrank,slab,offset
       
       if ( require_interp .and. .not. present(interp) ) then
          print*, " Error, interp argument required for writehist "
@@ -2245,6 +2244,11 @@ contains
          
          end if
 
+         cnt=0
+!        pass=1 : find total number of levels to store
+!        pass=2 : gather the data to each process
+!        pass=3 : perform the interpolation and write the data
+         do pass= 1, 3
          do ifld = 1,totflds
             if ( .not. histinfo(ifld)%used(ifile) ) then
                cycle
@@ -2261,6 +2265,7 @@ contains
 
             istart = histinfo(ifld)%ptr(ifile)
             iend = istart+nlev-1
+            if ( pass == 2 )  then
             if ( ave_type == hist_ave .or. ave_type == hist_oave ) then
                if ( hist_debug >= 4 ) then
                   print*, "Raw history at point ", histinfo(ifld)%name,&
@@ -2277,6 +2282,7 @@ contains
                print*, "History written at point ", histinfo(ifld)%name,&
                     histarray(ihdb,jhdb,istart+khdb-1)
             end if
+            end if
 
 !           Even multilevel variables are written one level at a time
             do k=istart, iend
@@ -2289,15 +2295,19 @@ contains
                   end if
                else
 
-                  call MPI_Gather(histarray(:,:,k),pil*pjl*pnpan*lproc,MPI_REAL,hist_a,pil*pjl*pnpan*lproc,MPI_REAL,0, &
+                  cnt=cnt+1
+                  if ( pass == 2 ) then
+                    rrank = ceiling(1.0d0*cnt/slab)-1+offset
+                    call MPI_Gather(histarray(:,:,k),pil*pjl*pnpan*lproc,MPI_REAL,hist_a(:,:,:,cnt),pil*pjl*pnpan*lproc,MPI_REAL, rrank, &
                                   MPI_COMM_WORLD,ierr)
+                  else if (pass == 3 ) then
             
-                  if ( myid == 0 ) then
+                  if ( (cnt.ge.(1+slab*(myid-offset))).and.(cnt.le.(slab*(myid-offset+1))) ) then
 
                      do ip = 0,pnproc-1
                         do n = 0,pnpan-1
                            hist_g(1+ioff(ip,n):pil+ioff(ip,n),1+joff(ip,n)+n*pil_g:pjl+joff(ip,n)+n*pil_g) = &
-                              hist_a(1:pil,1+n*pjl:(n+1)*pjl,ip+1)
+                              hist_a(1:pil,1+n*pjl:(n+1)*pjl,ip+1,cnt)
                         end do
                      end do
                 
@@ -2325,7 +2335,15 @@ contains
                   end if
 
                end if
+               end if
 
+               if ( pass == 3 ) then
+               rrank = ceiling(1.0d0*cnt/slab)-1+offset
+               if ( myid == 0 ) then
+                  call MPI_Recv(htemp,nxhis*nyhis,MPI_REAL,rrank,1,MPI_COMM_WORLD,stat,ierr)
+               else if ( myid == rrank ) then
+                  call MPI_Send(htemp,nxhis*nyhis,MPI_REAL,0,1,MPI_COMM_WORLD,stat,ierr)
+               end if
                if ( myid == 0 ) then
 
                   if ( nlev > 1 .or. histinfo(ifld)%multilev ) then
@@ -2340,15 +2358,33 @@ contains
                     "Error writing history variable "//histinfo(ifld)%name )
 
                end if
+               end if
                  
             end do   ! k loop
                
+            if ( pass == 3 ) then
 !           Zero ready for next set
             histarray(:,:,istart:iend) = initval(ave_type)
 !           Reset the count variable
             histinfo(ifld)%count(ifile) = 0
+            end if
 
          end do ! Loop over fields
+         if ( pass == 1 ) then
+            slab=ceiling(1.0d0*cnt/nproc)
+            maxcnt=cnt
+            interp_nproc=ceiling(1.0d0*maxcnt/slab)
+            offset=nproc-interp_nproc
+            if ( myid.ge.offset ) then
+              allocate( hist_a(pil,pjl*pnpan,pnproc,1+slab*(myid-offset):slab*(myid-offset+1)) )
+              allocate( hist_g(nx_g,ny_g) )
+            end if
+         end if
+         cnt=0
+         end do ! pass loop
+         if ( myid.ge.offset ) then
+            deallocate(hist_a, hist_g)
+         end if
 
          avetime(ifile) = 0.0
          ! Initialisation so min/max work
