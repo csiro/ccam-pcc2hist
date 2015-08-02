@@ -2568,6 +2568,7 @@ contains
       real, dimension(size(array_out,1),size(array_out,2),lproc,size(array_in,3),nproc) :: array_temp
       integer :: lsize, ierr, np, lp, k
       
+      call START_LOG(gatherwrap_begin)
       lsize = size(array_in)
       call START_LOG(mpigather_begin)
       call MPI_Gather(array_in,lsize,MPI_REAL,array_temp,lsize,MPI_REAL,0,MPI_COMM_WORLD,ierr)
@@ -2579,6 +2580,7 @@ contains
             end do
          end do
       end do
+      call END_LOG(gatherwrap_begin)
       
    end subroutine gatherwrap
 

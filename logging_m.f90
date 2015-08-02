@@ -54,10 +54,11 @@ private
    integer, public, save :: finalinit_begin, finalinit_end
    integer, public, save :: mpibcast_begin, mpibcast_end
    integer, public, save :: mpigather_begin, mpigather_end
+   integer, public, save :: gatherwrap_begin, gatherwrap_end
 #ifdef simple_timer
    public :: simple_timer_finalize
 #endif
-   integer, parameter :: nevents = 20
+   integer, parameter :: nevents = 21
    real(kind=8), dimension(nevents), save :: tot_time = 0., start_time
    character(len=15), dimension(nevents), save :: event_name
 
@@ -175,6 +176,10 @@ contains
       mpigather_begin = 20
       mpigather_end =  mpigather_begin
       event_name(mpigather_begin) = "MPIGather"
+
+      gatherwrap_begin = 21
+      gatherwrap_end =  gatherwrap_begin
+      event_name(gatherwrap_begin) = "Gatherwrap"
 
    end subroutine log_setup
 
