@@ -299,8 +299,8 @@ module history
    logical, public :: cordex_compliant = .false.
 
 !  MPI working arrays
-   real, dimension(:,:,:,:), allocatable, save, private :: hist_a
-   real, dimension(:,:,:), allocatable, save, private :: hist_g
+   real, dimension(:,:,:), allocatable, save, private :: hist_a
+   real, dimension(:,:), allocatable, save, private :: hist_g
 
 contains
 
@@ -1234,12 +1234,11 @@ contains
             stop
          end if
          if ( myid == 0 ) then
-            pkl = size(sig)
-            allocate( hist_a(pil,pjl*pnpan,pkl,pnproc) )
-            allocate( hist_g(nx,ny,pkl) )
+            allocate( hist_a(pil,pjl*pnpan,pnproc) )
+            allocate( hist_g(nx,ny) )
          else
-            allocate( hist_a(0,0,0,0) )
-            allocate( hist_g(0,0,0) )
+            allocate( hist_a(0,0,0) )
+            allocate( hist_g(0,0) )
          end if
       end if
 
@@ -2109,7 +2108,7 @@ contains
    subroutine writehist ( istep, endofrun, year, month, interp, time, time_bnds )
 
       use mpidata_m
-
+      include 'mpif.h'
       integer, intent(in) :: istep
       logical, intent(in), optional :: endofrun
       integer, intent(in), optional :: year, month !  For old format files
@@ -2279,32 +2278,34 @@ contains
                     histarray(ihdb,jhdb,istart+khdb-1)
             end if
 
-            call gatherwrap(histarray(:,:,istart:iend),hist_a)
-            
-            if ( myid == 0 ) then
+!           Even multilevel variables are written one level at a time
+            do k=istart, iend
 
-               do ip = 0,pnproc-1   
-                  do n = 0,pnpan-1
-                     hist_g(1+ioff(ip,n):pil+ioff(ip,n),1+joff(ip,n)+n*pil_g:pjl+joff(ip,n)+n*pil_g,1:iend-istart+1) = &
-                        hist_a(1:pil,1+n*pjl:(n+1)*pjl,1:iend-istart+1,ip+1)
-                  end do
-               end do
-                
-!              Even multilevel variables are written one level at a time
-               do k=istart, iend
-
-                  if ( count == 0 ) then
-                     if ( hbytes(ifile) == 2 ) then
-                        htemp = NF90_FILL_SHORT
-                     else
-                        htemp = NF90_FILL_FLOAT
-                     end if
+               if ( count == 0 ) then
+                  if ( hbytes(ifile) == 2 ) then
+                     htemp = NF90_FILL_SHORT
                   else
+                     htemp = NF90_FILL_FLOAT
+                  end if
+               else
 
+                  call MPI_Gather(histarray(:,:,k),pil*pjl*pnpan*lproc,MPI_REAL,hist_a,pil*pjl*pnpan*lproc,MPI_REAL,0, &
+                                  MPI_COMM_WORLD,ierr)
+            
+                  if ( myid == 0 ) then
+
+                     do ip = 0,pnproc-1
+                        do n = 0,pnpan-1
+                           hist_g(1+ioff(ip,n):pil+ioff(ip,n),1+joff(ip,n)+n*pil_g:pjl+joff(ip,n)+n*pil_g) = &
+                              hist_a(1:pil,1+n*pjl:(n+1)*pjl,ip+1)
+                        end do
+                     end do
+                
                      if ( present(interp) ) then
-                        call interp ( hist_g(:,:,k+1-istart), htemp, histinfo(ifld)%int_type )
+                        call interp ( hist_g, htemp,          &
+                                      histinfo(ifld)%int_type )
                      else
-                        htemp = hist_g(:,:,k+1-istart)
+                        htemp = hist_g(:,:)
                      end if
 
                      if ( hbytes(ifile) == 2 ) then
@@ -2323,18 +2324,25 @@ contains
                   
                   end if
 
+               end if
+
+               if ( myid == 0 ) then
+
                   if ( nlev > 1 .or. histinfo(ifld)%multilev ) then
                      start3D = (/ 1, 1, k+1-istart, histset(ifile) /)
-                     ierr = nf90_put_var ( ncid, vid, htemp, start=start3D, count=count3D )
+                     ierr = nf90_put_var ( ncid, vid, htemp, start=start3D, &
+                                           count=count3D )
                   else
-                     ierr = nf90_put_var ( ncid, vid, htemp, start=start2D, count=count2D )
+                     ierr = nf90_put_var ( ncid, vid, htemp, start=start2D, &
+                                           count=count2D )
                   end if
-                  call check_ncerr( ierr, "Error writing history variable "//histinfo(ifld)%name )
-                 
-               end do   ! k loop
-               
-            end if ! myid == 0
+                  call check_ncerr(ierr, &
+                    "Error writing history variable "//histinfo(ifld)%name )
 
+               end if
+                 
+            end do   ! k loop
+               
 !           Zero ready for next set
             histarray(:,:,istart:iend) = initval(ave_type)
 !           Reset the count variable
