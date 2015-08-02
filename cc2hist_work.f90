@@ -913,7 +913,7 @@ contains
       ijk=il*jl*kl
       iquad=1+il*((8*npanels)/(npanels+4))
 
-      if ( myid == 0 ) then
+      if ( node_myid == 0 ) then
 
           call setxyz ( il, jl, kl, npanels, ifull, iquad, idiag, id, jd,        &
                     rlong0, rlat0, schmidt, schm13, ntang, erad )
@@ -962,12 +962,12 @@ contains
 
       end if
 
-      ssize=ifull*10
-      call cpshdata(i_ewns,ssize)
+!      ssize=ifull*10
+!      call cpshdata(i_ewns,ssize)
       call MPI_Win_fence(0,indices_win(1),ierr)
 
-      ssize=(npanels+1)*10
-      call cpshdata(lewns,ssize)
+!      ssize=(npanels+1)*10
+!      call cpshdata(lewns,ssize)
       call MPI_Win_fence(0,indices_win(2),ierr)
 
       if ( int_default == int_none ) then
@@ -1011,7 +1011,7 @@ contains
       end if
 
 
-      if ( myid == 0 ) then
+      if ( node_myid == 0 ) then
 
 !        To save memory de-allocate a number of arrays defined by setxyz
 !        that aren't needed by cc2hist.
@@ -1032,7 +1032,7 @@ contains
          call MPI_Win_fence(0,interp_win(i),ierr)
       end do
 
-      if ( myid == 0 ) then
+      if ( node_myid == 0 ) then
          allocate ( hlon(nxhis), hlat(nyhis) )
          if ( int_default == int_none ) then
             hlat = (/ ( real(j), j=1,nyhis ) /)
@@ -1069,12 +1069,12 @@ contains
          call MPI_Win_fence(0,interp_win(i),ierr)
       end do
 
-      ssize=nxhis*nyhis*2
-      call cpshdata(xyg,ssize)
+!      ssize=nxhis*nyhis*2
+!      call cpshdata(xyg,ssize)
       call MPI_Win_fence(0,interp_win(1),ierr)
 
-      ssize=nxhis*nyhis
-      call cpshdata(nface,ssize)
+!      ssize=nxhis*nyhis
+!      call cpshdata(nface,ssize)
       call MPI_Win_fence(0,interp_win(2),ierr)
 
 
@@ -1105,7 +1105,7 @@ contains
       integer :: ierr, ip, n
       logical :: need_rotate
       
-      if ( myid == 0 ) then
+      if ( node_myid == 0 ) then
          deallocate ( em )
          deallocate ( i_wu, i_sv, i_eu, i_nv )
       end if
@@ -1129,7 +1129,7 @@ contains
 
          allocate ( costh(pil,pjl*pnpan*lproc), sinth(pil,pjl*pnpan*lproc) )
          
-         if ( myid == 0 ) then
+         if ( node_myid == 0 ) then
          
            allocate ( costh_g(il,jl), sinth_g(il,jl) )
            allocate ( c_io(pil,pjl*pnpan,pnproc) )
@@ -1178,7 +1178,7 @@ contains
 
          call MPI_Scatter(c_io,pil*pjl*pnpan*lproc,MPI_REAL,costh,pil*pjl*pnpan*lproc,MPI_REAL,0,MPI_COMM_WORLD,ierr)
 
-         if ( myid == 0 ) then
+         if ( node_myid == 0 ) then
             do ip = 0,pnproc-1   
                do n = 0,pnpan-1
                   c_io(1:pil,1+n*pjl:(n+1)*pjl,ip+1) = &
@@ -1189,14 +1189,14 @@ contains
 
          call MPI_Scatter(c_io,pil*pjl*pnpan*lproc,MPI_REAL,sinth,pil*pjl*pnpan*lproc,MPI_REAL,0,MPI_COMM_WORLD,ierr)
 
-         if ( myid == 0 ) then
+         if ( node_myid == 0 ) then
             deallocate( costh_g, sinth_g )
          end if
          deallocate( c_io )
 
       end if
       
-      if ( myid == 0 ) then
+      if ( node_myid == 0 ) then
 !       x, y, z, ax, ay, az, bx, by, bz no longer needed.
 !       ax etc are pointers to setxyz private arrays so the space can't be freed.
         deallocate ( x, y, z )
@@ -2207,8 +2207,11 @@ contains
          ier = nf90_get_att(ncid_in(0), nf90_global, "decomp", sdecomp)
          call check_ncerr(ier, "decomp")
       end if
+      call MPI_Bcast(pil_g,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(pjl_g,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(sdecomp,8,MPI_CHAR,0,MPI_COMM_WORLD,ierr)
       call MPI_Win_fence(0,ijoff_win,ierr)
-      if ( myid == 0 ) then
+      if ( node_myid == 0 ) then
          select case(sdecomp)
             case ("uniform")
                do n = 0,5
@@ -2240,9 +2243,9 @@ contains
       end if
       call MPI_Win_fence(0,ijoff_win,ierr)
       
-      ssize=pnproc*6*2
-      call cpshdata(ijoff,ssize)
-      call MPI_Win_fence(0,ijoff_win,ierr)
+!      ssize=pnproc*6*2
+!      call cpshdata(ijoff,ssize)
+!      call MPI_Win_fence(0,ijoff_win,ierr)
 
       call MPI_Bcast(jdum(1:5),5,MPI_INTEGER,0,MPI_COMM_WORLD,ier)
       pil   = jdum(1)
