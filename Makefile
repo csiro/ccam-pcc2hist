@@ -7,6 +7,7 @@
 # and module load.
 #
 # To build for a VampirTrace run, add VAMPIR=1 to make command.
+# See also https://wiki.csiro.au/display/ASC/Instrumentation
 
 ifdef VAMPIR
 FC = vtfort -vt:fc mpif90
@@ -21,7 +22,7 @@ FFLAGS = -O -xHost -fpp -ftz
 endif
 
 ifdef PARNETCDF
-FFLAGS += -DPARNETCDF=$(PARNETCDF)
+FFLAGS += -DPARNETCDF=1
 endif
 
 ifdef PARNETCDF

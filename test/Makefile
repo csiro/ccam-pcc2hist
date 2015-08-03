@@ -8,6 +8,7 @@
 # and module load.
 #
 # To build for a VampirTrace run, add VAMPIR=1 to make command
+# See also https://wiki.csiro.au/display/ASC/Instrumentation
 
 ifdef VAMPIR
 FC = vtfort -vt:fc mpif90
@@ -45,7 +46,7 @@ run: $(TESTPRG) $(TESTOBJ)
 	mpirun -np 1 ./sfc_pres_temp_wr
 	mpirun -np 1 ./sfc_pres_temp_rd
 
-test: sfc_pres_temp_wr sfc_pres_temp_rd # $(OBJ)
+test: sfc_pres_temp_wr sfc_pres_temp_rd
 
 sfc_pres_temp_wr: $(OBJ) $(TESTOBJ)
 	$(FC) -o $@ $(FFLAGS) $(LDFLAGS) $(OBJ) $@.o $(LIBS)
