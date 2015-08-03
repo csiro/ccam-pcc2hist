@@ -17,11 +17,12 @@ module pnetcdf_m
 !     minor (e.g. naming) variation, so the second option seems best.
 !   - Only those functions (including overloadings) used in the code
 !     are supported.
-!   - Due to an apparent compiler bug, the value/values put_var function
-!     parameters required INTENT(inout) instead of INTENT(in). Or is this
-!     related to the underlying code using a C pointer? Addressed problem
-!     by use of local variables in function body. See also
-!     http://exciting-code.org/forum/t-923995/compile-problem
+!   - Due to an apparent compiler/library bug, the value(s) put_var
+!     function parameters required INTENT(inout) instead of INTENT(in).
+!     This may be related to the underlying pointer-based C code.
+!     Addressed problem by use of local variables in function body.
+!     See also:
+!       http://exciting-code.org/forum/t-923995/compile-problem
 !   - The so-called flexible API (nf90mpi vs nfmpi) was used for get_att
 !     and put_att functions to avoid compilation errors. Should this be
 !     used elsewhere.
@@ -401,7 +402,7 @@ contains
         integer, dimension(:), optional, intent( in) :: start
         integer                                      :: ncf90_get_var_integer
 
-        integer(kind=MPI_OFFSET_KIND), allocatable :: start_local(:)
+        integer(kind=MPI_OFFSET_KIND), allocatable, save :: start_local(:)
 
         if (.not. allocated(start_local)) then
            allocate(start_local(size(start)))
@@ -416,9 +417,9 @@ contains
         ncf90_get_var_integer = &
              nfmpi_get_var1_int(ncid, varid, start_local, value)
 
-        if (allocated(start_local)) then
-           deallocate(start_local)
-        end if
+!        if (allocated(start_local)) then
+!           deallocate(start_local)
+!        end if
 
     end function ncf90_get_var_integer
 
