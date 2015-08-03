@@ -9,6 +9,8 @@ module netcdf_m
 !     and parameters to distinguish between the standard netCDF
 !     library and this implementation.
 !   - Each function returns a status value.
+!   - UniData function parameters are commented to show differences,
+!     specifically, additional parameters not used here.
 !   - We can either have one module with N different compile-time
 !     conditional blocks and less variation in Makefile (libs, incs)
 !     or we can have N modules with more variation in Makefile (libs,

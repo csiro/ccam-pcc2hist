@@ -8,6 +8,8 @@ module pnetcdf_m
 !     and parameters to distinguish between the standard netCDF
 !     library and this implementation.
 !   - Each function returns a status value.
+!   - UniData function parameters are commented to show differences,
+!     specifically, additional parameters not used here.
 !   - We can either have one module with N different compile-time
 !     conditional blocks and less variation in Makefile (libs, incs)
 !     or we can have N modules with more variation in Makefile (libs,
@@ -417,10 +419,6 @@ contains
         ncf90_get_var_integer = &
              nfmpi_get_var1_int(ncid, varid, start_local, value)
 
-!        if (allocated(start_local)) then
-!           deallocate(start_local)
-!        end if
-
     end function ncf90_get_var_integer
 
     function ncf90_get_var_integer_array1D(ncid, varid, values, start, count)
@@ -435,8 +433,8 @@ contains
         integer, dimension(:), optional, intent( in) :: start, count
         integer                                      :: ncf90_get_var_integer_array1D
 
-        integer(kind=MPI_OFFSET_KIND), allocatable :: start_local(:)
-        integer(kind=MPI_OFFSET_KIND), allocatable :: count_local(:)
+        integer(kind=MPI_OFFSET_KIND), allocatable, save :: start_local(:)
+        integer(kind=MPI_OFFSET_KIND), allocatable, save :: count_local(:)
 
         if (present(start)) then
            if (.not. allocated(start_local)) then
@@ -463,14 +461,6 @@ contains
         else
            ncf90_get_var_integer_array1D = &
                 nf90mpi_get_var_all(ncid, varid, values)
-        end if
-
-        if (allocated(start_local)) then
-           deallocate(start_local)
-        end if
-
-        if (allocated(count_local)) then
-           deallocate(count_local)
         end if
 
     end function ncf90_get_var_integer_array1D
@@ -988,8 +978,8 @@ contains
         integer                                      :: ncf90_put_var_integer_array1D
 
         integer, dimension(:), pointer :: values_local
-        integer(kind=MPI_OFFSET_KIND), allocatable :: start_local(:)
-        integer(kind=MPI_OFFSET_KIND), allocatable :: count_local(:)
+        integer(kind=MPI_OFFSET_KIND), allocatable, save :: start_local(:)
+        integer(kind=MPI_OFFSET_KIND), allocatable, save :: count_local(:)
 
         values_local => values
 
@@ -1018,14 +1008,6 @@ contains
         else
            ncf90_put_var_integer_array1D = &
                 nf90mpi_put_var_all(ncid, varid, values_local)
-        end if
-
-        if (allocated(start_local)) then
-           deallocate(start_local)
-        end if
-
-        if (allocated(count_local)) then
-           deallocate(count_local)
         end if
 
     end function ncf90_put_var_integer_array1D
