@@ -62,5 +62,6 @@ utils_m.o: kinds_m.o
 vertutils_m.o: hyblevs_m.o physparams.o 
 hyblevs_m.o: physparams.o utils_m.o 
 usage_m.o : mpidata_m.o
+logging_m.o: mpidata_m.o
 
 ccmerge.o: getopt_m.o ncutils_m.o
