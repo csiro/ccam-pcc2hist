@@ -33,8 +33,12 @@ for line in lines:
         if func_assign.search(line) is not None or \
                 line.find('present') != -1 or \
                 line.find('=>') != -1: 
-            print '        print *, ' \
-                '">> Entering {0}"\n'.format(start_match.group(1))
+            name = start_match.group(1)
+            print '        print *, ">> Entering {0}"\n'.format(name)
+            if name.find('create') != -1:
+                print '        print *, ">> create file:", path\n'.format(name)
+            if name.find('open') != -1:
+                print '        print *, ">> open file:", path\n'.format(name)
             state = "SEARCH_FUNC_END"
         print line
     elif state == "SEARCH_FUNC_END":
