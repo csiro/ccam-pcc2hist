@@ -404,20 +404,26 @@ contains
         integer, dimension(:), optional, intent( in) :: start
         integer                                      :: ncf90_get_var_integer
 
-        integer(kind=MPI_OFFSET_KIND), allocatable, save :: start_local(:)
-
-        if (.not. allocated(start_local)) then
-           allocate(start_local(size(start)))
-        end if
+        integer(kind=MPI_OFFSET_KIND), allocatable :: start_local(:)
 
         if (present(start)) then
+           if (.not. allocated(start_local)) then
+              allocate(start_local(size(start)))
+           end if
            start_local = start
         else
+           if (.not. allocated(start_local)) then
+              allocate(start_local(1))
+           end if
            start_local = (/ 1 /)   
         end if
 
         ncf90_get_var_integer = &
              nfmpi_get_var1_int(ncid, varid, start_local, value)
+
+        if (allocated(start_local)) then
+           deallocate(start_local)
+        end if
 
     end function ncf90_get_var_integer
 
@@ -433,8 +439,8 @@ contains
         integer, dimension(:), optional, intent( in) :: start, count
         integer                                      :: ncf90_get_var_integer_array1D
 
-        integer(kind=MPI_OFFSET_KIND), allocatable, save :: start_local(:)
-        integer(kind=MPI_OFFSET_KIND), allocatable, save :: count_local(:)
+        integer(kind=MPI_OFFSET_KIND), allocatable :: start_local(:)
+        integer(kind=MPI_OFFSET_KIND), allocatable :: count_local(:)
 
         if (present(start)) then
            if (.not. allocated(start_local)) then
@@ -461,6 +467,14 @@ contains
         else
            ncf90_get_var_integer_array1D = &
                 nf90mpi_get_var_all(ncid, varid, values)
+        end if
+
+        if (allocated(start_local)) then
+           deallocate(start_local)
+        end if
+
+        if (allocated(count_local)) then
+           deallocate(count_local)
         end if
 
     end function ncf90_get_var_integer_array1D
@@ -582,13 +596,15 @@ contains
 
         integer(kind=MPI_OFFSET_KIND), allocatable :: start_local(:)
 
-        if (.not. allocated(start_local)) then
-           allocate(start_local(size(start)))
-        end if
-
         if (present(start)) then
+           if (.not. allocated(start_local)) then
+              allocate(start_local(size(start)))
+           end if
            start_local = start
         else
+           if (.not. allocated(start_local)) then
+              allocate(start_local(1))
+           end if
            start_local = (/ 1 /)   
         end if
 
@@ -950,18 +966,33 @@ contains
 
         integer,                         intent( in) :: ncid, varid
         ! any valid type, scalar or array of any rank, &
-        integer,                         intent( in) :: value
+        integer, target,                 intent( in) :: value
         integer, dimension(:), optional, intent( in) :: start
         integer                                      :: ncf90_put_var_integer
 
-        integer :: value_local
-        integer(kind=MPI_OFFSET_KIND), dimension(:), pointer :: start_local
+        integer, pointer :: value_local
+        integer(kind=MPI_OFFSET_KIND), allocatable :: start_local(:)
 
-        value_local = value
-        start_local = start
+        value_local => value
+
+        if (present(start)) then
+           if (.not. allocated(start_local)) then
+              allocate(start_local(size(start)))
+           end if
+           start_local = start
+        else
+           if (.not. allocated(start_local)) then
+              allocate(start_local(1))
+           end if
+           start_local = (/ 1 /)
+        end if
 
         ncf90_put_var_integer = &
             nfmpi_put_var1_int(ncid, varid, start_local, value_local)
+
+        if (allocated(start_local)) then
+           deallocate(start_local)
+        end if
 
     end function ncf90_put_var_integer
 
@@ -978,8 +1009,8 @@ contains
         integer                                      :: ncf90_put_var_integer_array1D
 
         integer, dimension(:), pointer :: values_local
-        integer(kind=MPI_OFFSET_KIND), allocatable, save :: start_local(:)
-        integer(kind=MPI_OFFSET_KIND), allocatable, save :: count_local(:)
+        integer(kind=MPI_OFFSET_KIND), allocatable :: start_local(:)
+        integer(kind=MPI_OFFSET_KIND), allocatable :: count_local(:)
 
         values_local => values
 
@@ -1008,6 +1039,14 @@ contains
         else
            ncf90_put_var_integer_array1D = &
                 nf90mpi_put_var_all(ncid, varid, values_local)
+        end if
+
+        if (allocated(start_local)) then
+           deallocate(start_local)
+        end if
+
+        if (allocated(count_local)) then
+           deallocate(count_local)
         end if
 
     end function ncf90_put_var_integer_array1D
@@ -1074,18 +1113,33 @@ contains
 
         integer,                         intent( in) :: ncid, varid
         ! any valid type, scalar or array of any rank, &
-        real,                            intent( in) :: value
+        real, target,                    intent( in) :: value
         integer, dimension(:), optional, intent( in) :: start
         integer                                      :: ncf90_put_var_real
 
-        real :: value_local
-        integer(kind=MPI_OFFSET_KIND), dimension(size(start)) :: start_local
+        real, pointer :: value_local
+        integer(kind=MPI_OFFSET_KIND), allocatable :: start_local(:)
 
-        value_local = value
-        start_local = start
+        value_local => value
+
+        if (present(start)) then
+           if (.not. allocated(start_local)) then
+              allocate(start_local(size(start)))
+           end if
+           start_local = start
+        else
+           if (.not. allocated(start_local)) then
+              allocate(start_local(1))
+           end if
+           start_local = (/ 1 /)
+        end if
 
         ncf90_put_var_real = &
             nfmpi_put_var1_real(ncid, varid, start_local, value_local)
+
+        if (allocated(start_local)) then
+           deallocate(start_local)
+        end if
 
     end function ncf90_put_var_real
 
