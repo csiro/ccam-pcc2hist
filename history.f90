@@ -2426,7 +2426,7 @@ contains
                if ( myid == 0 ) then
                   call MPI_Recv(htemp,nxhis*nyhis,MPI_REAL,rrank,1,MPI_COMM_WORLD,stat,ierr)
                else if ( myid == rrank ) then
-                  call MPI_Send(htemp,nxhis*nyhis,MPI_REAL,0,1,MPI_COMM_WORLD,stat,ierr)
+                  call MPI_Send(htemp,nxhis*nyhis,MPI_REAL,0,1,MPI_COMM_WORLD,ierr)
                end if
                if ( myid == 0 ) then
 
