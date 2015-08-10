@@ -299,7 +299,8 @@ module history
    logical, public :: cordex_compliant = .false.
 
 !  MPI working arrays
-   real, dimension(:,:,:,:), allocatable, save, private :: hist_a
+   real, dimension(:,:,:,:), pointer, contiguous :: hist_a, hist_a_tmp, hist_a_remap
+   integer, dimension(:), allocatable, save, private :: k_indx
    real, dimension(:,:), allocatable, save, private :: hist_g
 
    integer, private, save :: nx_g, ny_g
@@ -2296,10 +2297,11 @@ contains
            allocate( hist_a(pil,pjl*pnpan,pnproc,1+slab*(myid-offset):slab*(myid-offset+1)) )
            allocate( hist_g(nx_g,ny_g) )
          end if
+         allocate( k_indx(maxcnt) )
 
          cnt=0
 !        second pass
-!        gather the data to each process
+!        create the array used to index histarray
          do ifld = 1,totflds
             if ( .not. histinfo(ifld)%used(ifile) ) then
                cycle
@@ -2321,14 +2323,38 @@ contains
 
                if ( count /= 0 ) then
                   cnt=cnt+1
-                  rrank = ceiling(1.0d0*cnt/slab)-1+offset
-                  call MPI_Gather(histarray(:,:,k),pil*pjl*pnpan*lproc,MPI_REAL,hist_a(:,:,:,cnt),pil*pjl*pnpan*lproc,MPI_REAL, rrank, &
-                                  MPI_COMM_WORLD,ierr)
+                  k_indx(cnt)=k
                end if
 
             end do   ! k loop
 
          end do ! Loop over fields
+
+!        now do the gather wrap
+         do ip = 0,nproc-1
+            if ( (1+slab*(ip-offset)).gt.0 ) then
+               istart=1+slab*(ip-offset)
+               iend=slab*(ip-offset+1)
+               if (iend.gt.maxcnt) iend=maxcnt
+               rrank=ip
+               allocate( hist_a_tmp(pil,pjl*pnpan*lproc,istart:iend,nproc) )
+
+               call MPI_Gather(histarray(:,:,(/k_indx(istart:iend)/)),pil*pjl*pnpan*lproc*(iend-istart+1),MPI_REAL,hist_a_tmp,pil*pjl*pnpan*lproc*(iend-istart+1),MPI_REAL, rrank, &
+                               MPI_COMM_WORLD,ierr)
+
+               hist_a_remap(1:pil,1:pjl*pnpan*lproc,1:nproc,istart:iend) => hist_a
+
+               if ( ip.eq.myid ) then
+                  do k = istart,iend
+                     do n = 1,nproc
+                        hist_a_remap(:,:,n,k)=hist_a_tmp(:,:,k,n)
+                     end do
+                  end do
+               end if
+
+               deallocate(hist_a_tmp)
+            end if
+         end do
 
          cnt=0
 !        third pass
@@ -2429,6 +2455,7 @@ contains
          if ( myid.ge.offset ) then
             deallocate(hist_a, hist_g)
          end if
+         deallocate(k_indx)
 
          avetime(ifile) = 0.0
          ! Initialisation so min/max work
