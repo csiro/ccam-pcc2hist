@@ -962,12 +962,8 @@ contains
 
       end if
 
-!      ssize=ifull*10
-!      call cpshdata(i_ewns,ssize)
       call MPI_Win_fence(0,indices_win(1),ierr)
 
-!      ssize=(npanels+1)*10
-!      call cpshdata(lewns,ssize)
       call MPI_Win_fence(0,indices_win(2),ierr)
 
       if ( int_default == int_none ) then
@@ -1069,12 +1065,8 @@ contains
          call MPI_Win_fence(0,interp_win(i),ierr)
       end do
 
-!      ssize=nxhis*nyhis*2
-!      call cpshdata(xyg,ssize)
       call MPI_Win_fence(0,interp_win(1),ierr)
 
-!      ssize=nxhis*nyhis
-!      call cpshdata(nface,ssize)
       call MPI_Win_fence(0,interp_win(2),ierr)
 
 
@@ -2243,10 +2235,6 @@ contains
       end if
       call MPI_Win_fence(0,ijoff_win,ierr)
       
-!      ssize=pnproc*6*2
-!      call cpshdata(ijoff,ssize)
-!      call MPI_Win_fence(0,ijoff_win,ierr)
-
       call MPI_Bcast(jdum(1:5),5,MPI_INTEGER,0,MPI_COMM_WORLD,ier)
       pil   = jdum(1)
       pjl   = jdum(2)
