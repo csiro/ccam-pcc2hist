@@ -2132,7 +2132,7 @@ contains
 !     Temporary for interpolated output
       real, dimension ( nxhis, nyhis ) :: htemp
       logical :: doinc
-      integer :: pass,cnt,maxcnt,interp_nproc
+      integer :: cnt,maxcnt,interp_nproc
       integer :: stat(MPI_STATUS_SIZE),rrank,slab,offset
       
       if ( require_interp .and. .not. present(interp) ) then
