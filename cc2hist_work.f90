@@ -2186,7 +2186,7 @@ contains
       use logging_m
       integer ip, ierr
       
-      call START_LOG(paraclose_end)
+      call START_LOG(paraclose_begin)
       do ip = 0,lproc-1
          ierr = nf90_close(ncid_in(ip))
       end do

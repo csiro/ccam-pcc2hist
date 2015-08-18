@@ -2572,7 +2572,7 @@ contains
       lsize = size(array_in)
       call START_LOG(mpigather_begin)
       call MPI_Gather(array_in,lsize,MPI_REAL,array_temp,lsize,MPI_REAL,0,MPI_COMM_WORLD,ierr)
-      call END_LOG(mpigather_begin)
+      call END_LOG(mpigather_end)
       do np = 0,nproc-1
          do k = 1,size(array_in,3)
             do lp = 0,lproc-1
@@ -2580,7 +2580,7 @@ contains
             end do
          end do
       end do
-      call END_LOG(gatherwrap_begin)
+      call END_LOG(gatherwrap_end)
       
    end subroutine gatherwrap
 
