@@ -38,6 +38,7 @@ module work
    integer :: ksoil, kice
    integer :: ntrac, ilt ! Extra flag controlling tracers in file. Still needed?
    real, private :: rlong0, rlat0, schmidt
+   integer, private, allocatable, dimension(:) :: kdate_a,ktime_a,ktau_a
 
 !  Flag for presence of extra surface flux fields (epot_ave etc).
    logical :: extra_surfflux
@@ -118,6 +119,41 @@ contains
 
    end subroutine alloc_indata
 
+   subroutine getdate_all()
+      integer ierr,vid,dimIDs(1),numrec
+
+      ierr = nf90_inq_varid (ncid, "kdate", vid )
+      call check_ncerr(ierr, "Error getting kdate id")
+      ierr = nf90_inquire_variable(ncid, vid, dimids = dimIDs)
+      call check_ncerr(ierr, "Error getting kdate dimids")
+      ierr = nf90_inquire_dimension(ncid, dimIDs(1), len = numrec )
+      call check_ncerr(ierr, "Error getting kdate len")
+      allocate( kdate_a(numrec) )
+      ierr = nf90_get_var ( ncid, vid, kdate_a )
+      call check_ncerr(ierr, "Error getting kdate")
+
+      ierr = nf90_inq_varid (ncid, "ktime", vid )
+      call check_ncerr(ierr, "Error getting ktime id")
+      ierr = nf90_inquire_variable(ncid, vid, dimids = dimIDs)
+      call check_ncerr(ierr, "Error getting ktime dimids")
+      ierr = nf90_inquire_dimension(ncid, dimIDs(1), len = numrec )
+      call check_ncerr(ierr, "Error getting ktime len")
+      allocate( ktime_a(numrec) )
+      ierr = nf90_get_var ( ncid, vid, ktime_a )
+      call check_ncerr(ierr, "Error getting ktime")
+
+      ierr = nf90_inq_varid (ncid, "time", vid )
+      call check_ncerr(ierr, "Error getting time id")
+      ierr = nf90_inquire_variable(ncid, vid, dimids = dimIDs)
+      call check_ncerr(ierr, "Error getting time dimids")
+      ierr = nf90_inquire_dimension(ncid, dimIDs(1), len = numrec )
+      call check_ncerr(ierr, "Error getting time len")
+      allocate( ktau_a(numrec) )
+      ierr = nf90_get_var ( ncid, vid, ktau_a )
+      call check_ncerr(ierr, "Error getting ktau")
+
+   end subroutine getdate_all
+
    subroutine getdate ( kdate, ktime, ieof) 
 
 !     Get record data from header
@@ -128,20 +164,26 @@ contains
          ieof = 1
          return
       end if
-      ! Get vid and then values for kdate, ktime, ktau
-      ierr = nf90_inq_varid (ncid, "kdate", vid )
-      call check_ncerr(ierr, "Error getting kdate id")
-      ierr = nf90_get_var ( ncid, vid, kdate, start=(/ nrec /) )
-      call check_ncerr(ierr, "Error getting kdate")
-      ierr = nf90_inq_varid (ncid, "ktime", vid )
-      call check_ncerr(ierr, "Error getting ktime id")
-      ierr = nf90_get_var ( ncid, vid, ktime, start=(/ nrec /) )
-      call check_ncerr(ierr, "Error getting ktime")
-      ! Get ktau from time. Really should be renamed
-      ierr = nf90_inq_varid (ncid, "time", vid )
-      call check_ncerr(ierr, "Error getting time id")
-      ierr = nf90_get_var ( ncid, vid, ktau, start=(/ nrec /) )
-      call check_ncerr(ierr, "Error getting time")
+      if ( allocated(kdate_a) ) then
+         kdate=kdate_a(nrec)
+         ktime=ktime_a(nrec)
+         ktau=ktau_a(nrec)
+      else
+         ! Get vid and then values for kdate, ktime, ktau
+         ierr = nf90_inq_varid (ncid, "kdate", vid )
+         call check_ncerr(ierr, "Error getting kdate id")
+         ierr = nf90_get_var ( ncid, vid, kdate, start=(/ nrec /) )
+         call check_ncerr(ierr, "Error getting kdate")
+         ierr = nf90_inq_varid (ncid, "ktime", vid )
+         call check_ncerr(ierr, "Error getting ktime id")
+         ierr = nf90_get_var ( ncid, vid, ktime, start=(/ nrec /) )
+         call check_ncerr(ierr, "Error getting ktime")
+         ! Get ktau from time. Really should be renamed
+         ierr = nf90_inq_varid (ncid, "time", vid )
+         call check_ncerr(ierr, "Error getting time id")
+         ierr = nf90_get_var ( ncid, vid, ktau, start=(/ nrec /) )
+         call check_ncerr(ierr, "Error getting time")
+      endif
       ieof = 0
             
       if ( myid == 0 ) then

@@ -404,6 +404,7 @@ program cc2hist
       ktc = 1
    end if
 
+   call getdate_all()
    timeloop: do kt=kta,ktb,ktc
       if ( debug ) then
          print*, "KT", kt
