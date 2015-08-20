@@ -44,6 +44,7 @@ subroutine setxyz ( il, jl, kl, npanels, ifull, iquad, diag, id, jd,        &
                     rlong0, rlat0, schmidt, schm13, ntang, rearth )
 
    use indices_m
+#ifdef parallel_int
    use, intrinsic :: iso_c_binding, only : c_ptr, c_f_pointer
 #ifdef usenc3
    include 'mpif.h'
@@ -52,6 +53,7 @@ subroutine setxyz ( il, jl, kl, npanels, ifull, iquad, diag, id, jd,        &
 #endif
    use mpidata_m
    use shdata_m
+#endif
    integer, intent(in) :: il, jl, kl, npanels, ifull, iquad
    integer, intent(in) :: diag, id, jd
    real(kind=rx), intent(in) :: rlong0, rlat0, schmidt, schm13
@@ -98,6 +100,7 @@ subroutine setxyz ( il, jl, kl, npanels, ifull, iquad, diag, id, jd,        &
 !  If abs(cos(lat)) < polelim than assume point is exactly at pole.
    real(kind=rx), parameter :: polelim = 10*epsilon(1.0)
 
+#ifdef parallel_int
    integer(kind=MPI_ADDRESS_KIND) :: ssize, qsize
    integer :: disp_unit, ierr
    type(c_ptr) :: baseptr
@@ -114,13 +117,21 @@ subroutine setxyz ( il, jl, kl, npanels, ifull, iquad, diag, id, jd,        &
    i_nn => i_ewns(:,8)
    i_en => i_ewns(:,9)
    i_wn => i_ewns(:,10)
+#endif
 
 !  Allocate all the public arrays
    allocate ( xx4(iquad,iquad), yy4(iquad,iquad) )
+#ifdef parallel_int
    allocate ( i_ne(ifull), i_se(ifull), i_wu(ifull),             &
+#else
+   allocate ( i_n(ifull),  i_s(ifull), i_w(ifull), i_e(ifull), i_nn(ifull),   &
+              i_ss(ifull), i_ww(ifull), i_ee(ifull), i_ne(ifull),             &
+              i_se(ifull), i_en(ifull), i_wn(ifull), i_wu(ifull),             &
+#endif
               i_sv(ifull), i_wu2(ifull), i_sv2(ifull), i_eu2(ifull),          &
               i_nv2(ifull), i_ev2(ifull), i_nu2(ifull), i_eu(ifull),          &
               i_nv(ifull) )
+#ifdef parallel_int
    ssize=(npanels+1)*10
    call allocshdata(lewns,ssize,(/ npanels + 1, 10 /),indices_win(2))
    lwws(0:npanels) => lewns(:,1)
@@ -135,6 +146,12 @@ subroutine setxyz ( il, jl, kl, npanels, ifull, iquad, diag, id, jd,        &
    lenn(0:npanels) => lewns(:,10)
 
    allocate ( lsww(0:npanels), lsw(0:npanels),            &
+#else
+   allocate ( lwws(0:npanels), lws(0:npanels), lwss(0:npanels),            &
+              les(0:npanels), lees(0:npanels), less(0:npanels),            &
+              lwwn(0:npanels), lwnn(0:npanels), leen(0:npanels),           &
+              lenn(0:npanels), lsww(0:npanels), lsw(0:npanels),            &
+#endif
               lssw(0:npanels), lsee(0:npanels), lsse(0:npanels),           &
               lnww(0:npanels), lnw(0:npanels), lnnw(0:npanels),            &
               lnee(0:npanels), lnne(0:npanels) )
@@ -160,10 +177,11 @@ subroutine setxyz ( il, jl, kl, npanels, ifull, iquad, diag, id, jd,        &
 
    ijk = il*jl*kl
 
+#ifdef parallel_int
    do i=1,2
       call MPI_Win_fence(0,indices_win(i),ierr)
    end do
-
+#endif
 !  When using the ifull notation: i_n, i_e, i_w and i_s give the
 !  indices for the n, e, w, s neighbours respectively
 !  a, b denote unit vectors in the direction of x, y (e & n) respectively
@@ -926,10 +944,11 @@ subroutine setxyz ( il, jl, kl, npanels, ifull, iquad, diag, id, jd,        &
       end do
    end if
 
+#ifdef parallel_int
    do i=1,2
       call MPI_Win_fence(0,indices_win(i),ierr)
    end do
-
+#endif
 !   For calculating zonal and meridional wind components, use the
 !   following information, where theta is the angle between the
 !   (ax,ay,az) vector [along the xg axis] and the zonal-component-vector:

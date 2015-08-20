@@ -1,3 +1,4 @@
+#ifdef parallel_int
 module shdata_m
    implicit none
 
@@ -84,3 +85,4 @@ contains
    end subroutine allocshdata_i3
 
 end module shdata_m
+#endif

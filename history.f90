@@ -299,11 +299,16 @@ module history
    logical, public :: cordex_compliant = .false.
 
 !  MPI working arrays
+#ifdef parallel_int
    real, dimension(:,:,:,:), pointer, contiguous :: hist_a, hist_a_tmp, hist_a_remap
    integer, dimension(:), allocatable, save, private :: k_indx
    real, dimension(:,:), allocatable, save, private :: hist_g
 
    integer, private, save :: nx_g, ny_g
+#else
+   real, dimension(:,:,:,:), allocatable, save, private :: hist_a
+   real, dimension(:,:,:), allocatable, save, private :: hist_g
+#endif
 
 contains
 
@@ -1236,8 +1241,19 @@ contains
                  pil*pjl*pnpan*lproc*hsize, "words"
             stop
          end if
+#ifdef parallel_int
          nx_g = nx
          ny_g = ny
+#else
+         if ( myid == 0 ) then
+            pkl = size(sig)
+            allocate( hist_a(pil,pjl*pnpan,pkl,pnproc) )
+            allocate( hist_g(nx,ny,pkl) )
+         else
+            allocate( hist_a(0,0,0,0) )
+            allocate( hist_g(0,0,0) )
+         end if
+#endif
       end if
 
 !     Initialise the history appropriately
@@ -2106,7 +2122,10 @@ contains
    subroutine writehist ( istep, endofrun, year, month, interp, time, time_bnds )
 
       use mpidata_m
+#ifdef parallel_int
       include 'mpif.h'
+#endif
+
       integer, intent(in) :: istep
       logical, intent(in), optional :: endofrun
       integer, intent(in), optional :: year, month !  For old format files
@@ -2132,8 +2151,10 @@ contains
 !     Temporary for interpolated output
       real, dimension ( nxhis, nyhis ) :: htemp
       logical :: doinc
+#ifdef parallel_int
       integer :: cnt,maxcnt,interp_nproc
       integer :: stat(MPI_STATUS_SIZE),rrank,slab,offset
+#endif
       
       if ( require_interp .and. .not. present(interp) ) then
          print*, " Error, interp argument required for writehist "
@@ -2245,6 +2266,7 @@ contains
          
          end if
 
+#ifdef parallel_int
          cnt=0
 !        first pass
 !        find total number of levels to store
@@ -2351,7 +2373,6 @@ contains
                      end do
                   end do
                end if
-
                deallocate(hist_a_tmp)
             end if
          end do
@@ -2456,6 +2477,103 @@ contains
             deallocate(hist_a, hist_g)
          end if
          deallocate(k_indx)
+#else
+         do ifld = 1,totflds
+            if ( .not. histinfo(ifld)%used(ifile) ) then
+               cycle
+            end if
+            ave_type = histinfo(ifld)%ave_type(ifile)
+            nlev = histinfo(ifld)%nlevels
+            count = histinfo(ifld)%count(ifile)
+            vid = histinfo(ifld)%vid(ifile)
+
+!           Only write fixed variables in the first history set
+            if ( histset(ifile) > 1 .and. ave_type == hist_fixed ) then
+               cycle
+            end if
+
+            istart = histinfo(ifld)%ptr(ifile)
+            iend = istart+nlev-1
+            if ( ave_type == hist_ave .or. ave_type == hist_oave ) then
+               if ( hist_debug >= 4 ) then
+                  print*, "Raw history at point ", histinfo(ifld)%name,&
+                    histarray(ihdb,jhdb,istart+khdb-1), count
+               end if
+               histarray(:,:,istart:iend) =   &
+                 histarray(:,:,istart:iend) / max( count, 1 )
+            end if
+            if ( histinfo(ifld)%output_scale /= 0 ) then
+               histarray(:,:,istart:iend) = histarray(:,:,istart:iend) * &
+                 histinfo(ifld)%output_scale
+            end if
+            if ( hist_debug >= 4 ) then
+               print*, "History written at point ", histinfo(ifld)%name,&
+                    histarray(ihdb,jhdb,istart+khdb-1)
+            end if
+
+            call gatherwrap(histarray(:,:,istart:iend),hist_a)
+            
+            if ( myid == 0 ) then
+
+               do ip = 0,pnproc-1   
+                  do n = 0,pnpan-1
+                     hist_g(1+ioff(ip,n):pil+ioff(ip,n),1+joff(ip,n)+n*pil_g:pjl+joff(ip,n)+n*pil_g,1:iend-istart+1) = &
+                        hist_a(1:pil,1+n*pjl:(n+1)*pjl,1:iend-istart+1,ip+1)
+                  end do
+               end do
+                
+!              Even multilevel variables are written one level at a time
+               do k=istart, iend
+
+                  if ( count == 0 ) then
+                     if ( hbytes(ifile) == 2 ) then
+                        htemp = NF90_FILL_SHORT
+                     else
+                        htemp = NF90_FILL_FLOAT
+                     end if
+                  else
+
+                     if ( present(interp) ) then
+                        call interp ( hist_g(:,:,k+1-istart), htemp, histinfo(ifld)%int_type )
+                     else
+                        htemp = hist_g(:,:,k+1-istart)
+                     end if
+
+                     if ( hbytes(ifile) == 2 ) then
+                        addoff = histinfo(ifld)%addoff(ifile)
+                        sf = histinfo(ifld)%scalef(ifile)
+                        umin = sf * vmin + addoff
+                        umax = sf * vmax + addoff
+                        where ( fpequal(htemp, missing_value) )
+                           htemp = NF90_FILL_SHORT
+                        elsewhere
+!                       Put the scaled array back in the original and let
+!                       netcdf take care of conversion to int2
+                           htemp = nint((max(umin,min(umax,htemp))-addoff)/sf)
+                        endwhere
+                     end if
+                  
+                  end if
+
+                  if ( nlev > 1 .or. histinfo(ifld)%multilev ) then
+                     start3D = (/ 1, 1, k+1-istart, histset(ifile) /)
+                     ierr = nf90_put_var ( ncid, vid, htemp, start=start3D, count=count3D )
+                  else
+                     ierr = nf90_put_var ( ncid, vid, htemp, start=start2D, count=count2D )
+                  end if
+                  call check_ncerr( ierr, "Error writing history variable "//histinfo(ifld)%name )
+                 
+               end do   ! k loop
+               
+            end if ! myid == 0
+
+!           Zero ready for next set
+            histarray(:,:,istart:iend) = initval(ave_type)
+!           Reset the count variable
+            histinfo(ifld)%count(ifile) = 0
+
+         end do ! Loop over fields
+#endif
 
          avetime(ifile) = 0.0
          ! Initialisation so min/max work

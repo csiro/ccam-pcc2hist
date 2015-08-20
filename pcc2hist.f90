@@ -101,9 +101,11 @@ program cc2hist
    call MPI_Comm_size(MPI_COMM_WORLD, nproc, ierr) ! Find number of processes
    call MPI_Comm_rank(MPI_COMM_WORLD, myid, ierr)  ! Find local processor id
 
+#ifdef parallel_int
    call MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, node_comm, ierr) ! Per node communictor
    call MPI_Comm_size(node_comm, node_nproc, ierr) ! Find number of processes on node
    call MPI_Comm_rank(node_comm, node_myid, ierr)  ! Find local processor id on node
+#endif
 
 !  Check versions of library modules.
    call checkver ( "history", history_revision, 7, 4 )
@@ -288,10 +290,10 @@ program cc2hist
 !  the memory.
    if ( npanels == 5 ) then
       write(source,"(a,a,a,a)" ) "CSIRO conformal-cubic model. Input file: ",&
-             trim(ifile), " Processed by cc2hist ", cc2hist_revision
+             trim(ifile(scan(ifile,'/',.TRUE.)+1:)), " Processed by cc2hist ", cc2hist_revision
    else
       write(source,"(a,a,a,a)" ) "CSIRO conformal-octagon model. Input file: ",& 
-             trim(ifile), " Processed by cc2hist ", cc2hist_revision
+             trim(ifile(scan(ifile,'/',.TRUE.)+1:)), " Processed by cc2hist ", cc2hist_revision
       print *,"conformal-octagon no longer supported"
       stop
    end if

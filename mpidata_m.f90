@@ -26,12 +26,18 @@ implicit none
 private
 
 integer, dimension(:), save, allocatable, public :: ncid_in
+#ifdef parallel_int
 integer, dimension(:,:), save, pointer, contiguous, public :: ioff, joff
 integer, dimension(:,:,:), save, pointer, contiguous, public :: ijoff
+#else
+integer, dimension(:,:), save, allocatable, public :: ioff, joff
+#endif
 integer, save, public :: myid, nproc
 integer, save, public :: pil, pjl, pnpan, pnproc, lproc
 integer, save, public :: pil_g, pjl_g
+#ifdef parallel_int
 integer, save, public :: node_comm, node_myid, node_nproc
 integer, save, public :: ijoff_win
+#endif
 
 end module mpidata_m

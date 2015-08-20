@@ -23,10 +23,15 @@ module interp_m
 
    implicit none
 
+#ifdef parallel_int
    real, pointer, contiguous, dimension(:,:), public :: xg, yg
    integer, pointer, contiguous, dimension(:,:), public :: nface
    real, pointer, contiguous, dimension(:,:,:), public :: xyg
    integer :: interp_win(2)
+#else
+   real, allocatable, dimension(:,:), public :: xg, yg
+   integer, allocatable, dimension(:,:), public :: nface
+#endif
 
 !  Type of interpolation
 !  Note that parameter int_default = 0 is defined in history module
