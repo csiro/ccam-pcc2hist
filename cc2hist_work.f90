@@ -119,13 +119,16 @@ contains
    end subroutine alloc_indata
 
    subroutine getdate ( kdate, ktime, ieof) 
+      use logging_m
 
 !     Get record data from header
       integer, intent(out) :: kdate, ktime, ieof
       integer :: ik, jk, kk, ierr, vid
 
+      call START_LOG(getdate_begin)
       if ( nrec > maxrec ) then
          ieof = 1
+         call END_LOG(getdate_end)
          return
       end if
       ! Get vid and then values for kdate, ktime, ktau
@@ -148,6 +151,7 @@ contains
          write(*,"(a,3i8)",advance="no") " kdate, ktime, ktau ", &
                                            kdate,  ktime, ktau
       end if
+      call END_LOG(getdate_end)
 
    end subroutine getdate
 
