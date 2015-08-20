@@ -101,9 +101,8 @@ subroutine setxyz ( il, jl, kl, npanels, ifull, iquad, diag, id, jd,        &
    real(kind=rx), parameter :: polelim = 10*epsilon(1.0)
 
 #ifdef parallel_int
-   integer(kind=MPI_ADDRESS_KIND) :: ssize, qsize
-   integer :: disp_unit, ierr
-   type(c_ptr) :: baseptr
+   integer(kind=MPI_ADDRESS_KIND) :: ssize
+   integer :: ierr
 
    ssize=ifull*10
    call allocshdata(i_ewns,ssize,(/ ifull, 10 /),indices_win(1))

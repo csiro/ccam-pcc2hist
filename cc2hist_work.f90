@@ -790,9 +790,7 @@ contains
       real :: grlong, grlat, grlongu, grlatu, grlongv, grlatv, tmp
 
 #ifdef parallel_int
-      integer(kind=MPI_ADDRESS_KIND) :: ssize, qsize, disp
-      integer :: disp_unit,win,tsize
-      type(c_ptr) :: baseptr
+      integer(kind=MPI_ADDRESS_KIND) :: ssize
 #endif
 !     Read the header here because doing the CC grid initialisation before
 !     alloc_indata minimises the total memory requirements
@@ -2157,9 +2155,8 @@ contains
       character(len=8) :: sdecomp
 
 #ifdef parallel_int
-      integer(kind=MPI_ADDRESS_KIND) :: ssize, qsize, disp
-      integer :: disp_unit, i, win,tsize
-      type(c_ptr) :: baseptr
+      integer(kind=MPI_ADDRESS_KIND) :: ssize
+      integer :: i
 #endif
 
       if ( myid == 0 ) then      
