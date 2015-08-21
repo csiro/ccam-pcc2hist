@@ -105,7 +105,7 @@ subroutine setxyz ( il, jl, kl, npanels, ifull, iquad, diag, id, jd,        &
    integer :: ierr
 
    ssize=ifull*10
-   call allocshdata(i_ewns,ssize,(/ ifull, 10 /),indices_win(1))
+   call allocshdata(i_ewns,ssize,(/ ifull, 10 /),i_ewns_win)
    i_w => i_ewns(:,1)
    i_ww => i_ewns(:,2)
    i_e => i_ewns(:,3)
@@ -132,7 +132,7 @@ subroutine setxyz ( il, jl, kl, npanels, ifull, iquad, diag, id, jd,        &
               i_nv(ifull) )
 #ifdef parallel_int
    ssize=(npanels+1)*10
-   call allocshdata(lewns,ssize,(/ npanels + 1, 10 /),indices_win(2))
+   call allocshdata(lewns,ssize,(/ npanels + 1, 10 /),lewns_win)
    lwws(0:npanels) => lewns(:,1)
    lws(0:npanels) => lewns(:,2)
    lwss(0:npanels) => lewns(:,3)
@@ -177,9 +177,8 @@ subroutine setxyz ( il, jl, kl, npanels, ifull, iquad, diag, id, jd,        &
    ijk = il*jl*kl
 
 #ifdef parallel_int
-   do i=1,2
-      call MPI_Win_fence(0,indices_win(i),ierr)
-   end do
+   call MPI_Win_fence(0,i_ewns_win,ierr)
+   call MPI_Win_fence(0,lewns_win,ierr)
 #endif
 !  When using the ifull notation: i_n, i_e, i_w and i_s give the
 !  indices for the n, e, w, s neighbours respectively
@@ -944,9 +943,8 @@ subroutine setxyz ( il, jl, kl, npanels, ifull, iquad, diag, id, jd,        &
    end if
 
 #ifdef parallel_int
-   do i=1,2
-      call MPI_Win_fence(0,indices_win(i),ierr)
-   end do
+   call MPI_Win_fence(0,i_ewns_win,ierr)
+   call MPI_Win_fence(0,lewns_win,ierr)
 #endif
 !   For calculating zonal and meridional wind components, use the
 !   following information, where theta is the angle between the

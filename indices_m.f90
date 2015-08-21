@@ -46,7 +46,7 @@ module indices_m
                                                  lnnw, lnee, lnne
 #ifdef parallel_int
    integer, public, dimension(:,:), pointer, contiguous :: lewns
-   integer, public :: indices_win(2)
+   integer, public :: i_ewns_win, lewns_win
 #endif
 
 end module indices_m

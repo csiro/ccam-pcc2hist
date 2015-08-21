@@ -930,7 +930,7 @@ contains
           else
               ssize=0
           endif
-          call allocshdata(i_ewns,ssize,(/ ifull, 10 /),indices_win(1))
+          call allocshdata(i_ewns,ssize,(/ ifull, 10 /),i_ewns_win)
           i_w => i_ewns(:,1)
           i_ww => i_ewns(:,2)
           i_e => i_ewns(:,3)
@@ -947,7 +947,7 @@ contains
           else
               ssize=0
           end if
-          call allocshdata(lewns,ssize,(/ npanels + 1, 10 /),indices_win(2))
+          call allocshdata(lewns,ssize,(/ npanels + 1, 10 /),lewns_win)
           lwws(0:npanels) => lewns(:,1)
           lws(0:npanels) => lewns(:,2)
           lwss(0:npanels) => lewns(:,3)
@@ -959,21 +959,14 @@ contains
           leen(0:npanels) => lewns(:,9)
           lenn(0:npanels) => lewns(:,10)
 
-          do i=1,2
-              call MPI_Win_fence(0,indices_win(i),ierr)
-          end do
-          do i=1,2
-              call MPI_Win_fence(0,indices_win(i),ierr)
-          end do
+          call MPI_Win_fence(0,i_ewns_win,ierr)
+          call MPI_Win_fence(0,lewns_win,ierr)
+!         the shared data is set from node_myid=0 between these fences
+          call MPI_Win_fence(0,i_ewns_win,ierr)
+          call MPI_Win_fence(0,lewns_win,ierr)
 #endif
 
       end if
-
-#ifdef parallel_int
-      call MPI_Win_fence(0,indices_win(1),ierr)
-
-      call MPI_Win_fence(0,indices_win(2),ierr)
-#endif
 
       if ( int_default == int_none ) then
          nxhis = il
@@ -1033,14 +1026,13 @@ contains
       else
          ssize=0
       end if
-      call allocshdata(xyg,ssize*2,(/ nxhis, nyhis, 2 /),interp_win(1))
+      call allocshdata(xyg,ssize*2,(/ nxhis, nyhis, 2 /),xyg_win)
       xg => xyg(:,:,1)
       yg => xyg(:,:,2)
-      call allocshdata(nface,ssize,(/ nxhis, nyhis /),interp_win(2))
+      call allocshdata(nface,ssize,(/ nxhis, nyhis /),nface_win)
 
-      do i=1, 2
-         call MPI_Win_fence(0,interp_win(i),ierr)
-      end do
+      call MPI_Win_fence(0,xyg_win,ierr)
+      call MPI_Win_fence(0,nface_win,ierr)
 
       if ( node_myid == 0 ) then
 #else
@@ -1080,13 +1072,8 @@ contains
       end if   
 
 #ifdef parallel_int
-      do i=1, 2
-         call MPI_Win_fence(0,interp_win(i),ierr)
-      end do
-
-      call MPI_Win_fence(0,interp_win(1),ierr)
-
-      call MPI_Win_fence(0,interp_win(2),ierr)
+      call MPI_Win_fence(0,xyg_win,ierr)
+      call MPI_Win_fence(0,nface_win,ierr)
 #endif
 
 

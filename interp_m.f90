@@ -27,7 +27,7 @@ module interp_m
    real, pointer, contiguous, dimension(:,:), public :: xg, yg
    integer, pointer, contiguous, dimension(:,:), public :: nface
    real, pointer, contiguous, dimension(:,:,:), public :: xyg
-   integer :: interp_win(2)
+   integer :: xyg_win, nface_win
 #else
    real, allocatable, dimension(:,:), public :: xg, yg
    integer, allocatable, dimension(:,:), public :: nface
