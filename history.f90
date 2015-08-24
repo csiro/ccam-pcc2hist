@@ -2347,6 +2347,7 @@ contains
                   
                   end if
 
+                  call START_LOG(writehistput_begin)
                   if ( nlev > 1 .or. histinfo(ifld)%multilev ) then
                      start3D = (/ 1, 1, k+1-istart, histset(ifile) /)
                      ierr = nf90_put_var ( ncid, vid, htemp, start=start3D, count=count3D )
@@ -2354,6 +2355,7 @@ contains
                      ierr = nf90_put_var ( ncid, vid, htemp, start=start2D, count=count2D )
                   end if
                   call check_ncerr( ierr, "Error writing history variable "//histinfo(ifld)%name )
+                  call END_LOG(writehistput_end)
                  
                end do   ! k loop
                

@@ -56,10 +56,11 @@ private
    integer, public, save :: mpigather_begin, mpigather_end
    integer, public, save :: gatherwrap_begin, gatherwrap_end
    integer, public, save :: getdate_begin, getdate_end
+   integer, public, save :: writehistput_begin, writehistput_end
 #ifdef simple_timer
    public :: simple_timer_finalize
 #endif
-   integer, parameter :: nevents = 22
+   integer, parameter :: nevents = 23
    real(kind=8), dimension(nevents), save :: tot_time = 0., start_time
    character(len=15), dimension(nevents), save :: event_name
 
@@ -185,6 +186,10 @@ contains
       getdate_begin = 22
       getdate_end =  getdate_begin
       event_name(getdate_begin) = "Getdate"
+
+      writehistput_begin = 23
+      writehistput_end =  writehistput_begin
+      event_name(writehistput_begin) = "WritehistPut"
 
    end subroutine log_setup
 
