@@ -791,6 +791,7 @@ contains
 
 #ifdef parallel_int
       integer(kind=MPI_ADDRESS_KIND) :: ssize
+      integer :: itest
 #endif
 !     Read the header here because doing the CC grid initialisation before
 !     alloc_indata minimises the total memory requirements
@@ -959,11 +960,12 @@ contains
           leen(0:npanels) => lewns(:,9)
           lenn(0:npanels) => lewns(:,10)
 
-          call MPI_Win_fence(0,i_ewns_win,ierr)
-          call MPI_Win_fence(0,lewns_win,ierr)
+          itest = MPI_MODE_NOPRECEDE + MPI_MODE_NOSTORE
+          call MPI_Win_fence(itest,i_ewns_win,ierr)
+          call MPI_Win_fence(itest,lewns_win,ierr)
 !         the shared data is set from node_myid=0 between these fences
-          call MPI_Win_fence(0,i_ewns_win,ierr)
-          call MPI_Win_fence(0,lewns_win,ierr)
+          call MPI_Win_fence(MPI_MODE_NOSUCCEED,i_ewns_win,ierr)
+          call MPI_Win_fence(MPI_MODE_NOSUCCEED,lewns_win,ierr)
 #endif
 
       end if
@@ -1031,8 +1033,9 @@ contains
       yg => xyg(:,:,2)
       call allocshdata(nface,ssize,(/ nxhis, nyhis /),nface_win)
 
-      call MPI_Win_fence(0,xyg_win,ierr)
-      call MPI_Win_fence(0,nface_win,ierr)
+      itest = MPI_MODE_NOPRECEDE + MPI_MODE_NOSTORE
+      call MPI_Win_fence(itest,xyg_win,ierr)
+      call MPI_Win_fence(itest,nface_win,ierr)
 
       if ( node_myid == 0 ) then
 #else
@@ -1072,8 +1075,8 @@ contains
       end if   
 
 #ifdef parallel_int
-      call MPI_Win_fence(0,xyg_win,ierr)
-      call MPI_Win_fence(0,nface_win,ierr)
+      call MPI_Win_fence(MPI_MODE_NOSUCCEED,xyg_win,ierr)
+      call MPI_Win_fence(MPI_MODE_NOSUCCEED,nface_win,ierr)
 #endif
 
 
@@ -2143,7 +2146,7 @@ contains
 
 #ifdef parallel_int
       integer(kind=MPI_ADDRESS_KIND) :: ssize
-      integer :: i
+      integer :: itest
 #endif
 
       if ( myid == 0 ) then      
@@ -2241,7 +2244,8 @@ contains
       call MPI_Bcast(pil_g,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
       call MPI_Bcast(pjl_g,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
       call MPI_Bcast(sdecomp,8,MPI_CHAR,0,MPI_COMM_WORLD,ierr)
-      call MPI_Win_fence(0,ijoff_win,ierr)
+      itest = MPI_MODE_NOPRECEDE + MPI_MODE_NOSTORE
+      call MPI_Win_fence(itest,ijoff_win,ierr)
       if ( node_myid == 0 ) then
 #endif
          select case(sdecomp)
@@ -2274,7 +2278,7 @@ contains
       
       end if
 #ifdef parallel_int
-      call MPI_Win_fence(0,ijoff_win,ierr)
+      call MPI_Win_fence(MPI_MODE_NOSUCCEED,ijoff_win,ierr)
 #endif
       
       call MPI_Bcast(jdum(1:5),5,MPI_INTEGER,0,MPI_COMM_WORLD,ier)
