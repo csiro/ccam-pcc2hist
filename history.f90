@@ -2423,8 +2423,7 @@ contains
                      end do
                 
                      if ( present(interp) ) then
-                        call interp ( hist_g, htemp,          &
-                                      histinfo(ifld)%int_type )
+                        call interp ( hist_g, htemp, histinfo(ifld)%int_type )
                      else
                         htemp = hist_g(:,:)
                      end if
@@ -2457,14 +2456,11 @@ contains
 
                   if ( nlev > 1 .or. histinfo(ifld)%multilev ) then
                      start3D = (/ 1, 1, k+1-istart, histset(ifile) /)
-                     ierr = nf90_put_var ( ncid, vid, htemp, start=start3D, &
-                                           count=count3D )
+                     ierr = nf90_put_var ( ncid, vid, htemp, start=start3D, count=count3D )
                   else
-                     ierr = nf90_put_var ( ncid, vid, htemp, start=start2D, &
-                                           count=count2D )
+                     ierr = nf90_put_var ( ncid, vid, htemp, start=start2D, count=count2D )
                   end if
-                  call check_ncerr(ierr, &
-                    "Error writing history variable "//histinfo(ifld)%name )
+                  call check_ncerr(ierr, "Error writing history variable "//histinfo(ifld)%name )
 
                end if
                  
