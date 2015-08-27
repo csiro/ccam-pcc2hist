@@ -1,7 +1,15 @@
 FC = mpif90
-FFLAGS = -O -xHost -fpp -ftz -Dsimple_timer
+FFLAGS = -O -xHost -fpp -ftz
 INC = -I $(NETCDF_ROOT)/include
 LIBS = -L $(NETCDF_ROOT)/lib -lnetcdf -lnetcdff
+
+# Options for building with VAMPIRTrace
+ifeq ($(VT),yes)
+FC = vtfort -vt:fc mpif90 -vt:inst manual
+FFLAGS += -Dvampir -DVTRACE
+else
+FFLAGS += -Dsimple_timer
+endif
 
 OBJ = pcc2hist.o cc2hist_work.o gldata_m.o height_m.o indices_m.o ind_m.o \
 interp_m.o jimcc_m.o jimco_m.o jim_utils.o latltoij_m.o newmpar_m.o nfft_m.o \

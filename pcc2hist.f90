@@ -102,7 +102,8 @@ program cc2hist
    call MPI_Comm_size(MPI_COMM_WORLD, nproc, ierr) ! Find number of processes
    call MPI_Comm_rank(MPI_COMM_WORLD, myid, ierr)  ! Find local processor id
 
-! Initalise timing logs
+!  Initalise timing logs
+   call log_off()
    call log_setup()
    call START_LOG(model_begin)
 
@@ -409,6 +410,7 @@ program cc2hist
       ktc = 1
    end if
 
+   call log_on()
    call START_LOG(timeloop_begin)
    timeloop: do kt=kta,ktb,ktc
       if ( debug ) then
@@ -517,6 +519,7 @@ program cc2hist
 
    end do timeloop
    call END_LOG(timeloop_end)
+   call log_off()
 
    call writehist(ktau, interp=ints, time=time, endofrun=.true. )
    if ( myid == 0 ) call closehist

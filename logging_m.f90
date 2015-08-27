@@ -32,7 +32,7 @@ implicit none
 
 private
 
-   public :: start_log, end_log, log_setup
+   public :: start_log, end_log, log_setup, log_off, log_on
 ! Timer
    integer, public, save :: model_begin, model_end
    integer, public, save :: paraopen_begin, paraopen_end
@@ -64,6 +64,10 @@ private
    real(kind=8), dimension(nevents), save :: tot_time = 0., start_time
    character(len=15), dimension(nevents), save :: event_name
 
+#ifdef vampir
+#include "vt_user.inc"
+#endif
+
 contains
 
    subroutine start_log ( event )
@@ -88,6 +92,18 @@ contains
       tot_time(event) = tot_time(event) + MPI_Wtime() - start_time(event)
 #endif
    end subroutine end_log
+
+   subroutine log_off()
+#ifdef vampir
+       VT_OFF()
+#endif
+   end subroutine log_off
+
+   subroutine log_on()
+#ifdef vampir
+      VT_ON()
+#endif
+   end subroutine log_on
 
    subroutine log_setup()
       integer :: ierr
