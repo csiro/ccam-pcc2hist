@@ -2123,7 +2123,11 @@ contains
 
       use mpidata_m
 #ifdef parallel_int
-      include 'mpif.h'
+#ifndef usenc3
+      use mpi
+#else
+      include 'mpif.h'   
+#endif
 #endif
 
       integer, intent(in) :: istep
