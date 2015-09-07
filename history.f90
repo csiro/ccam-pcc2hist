@@ -2158,6 +2158,7 @@ contains
 #ifdef parallel_int
       integer :: cnt,maxcnt,interp_nproc
       integer :: stat(MPI_STATUS_SIZE),rrank,slab,offset
+      integer, dimension(nproc) :: recvcounts,displs
 #endif
       
       if ( require_interp .and. .not. present(interp) ) then
@@ -2357,15 +2358,19 @@ contains
          end do ! Loop over fields
 
 !        now do the gather wrap
+         allocate( hist_a_tmp(pil,pjl*pnpan*lproc,slab,nproc) )
+         do ip = 1,nproc
+            displs(ip)=pil*pjl*pnpan*lproc*slab*(ip-1)
+         enddo
          do ip = 0,nproc-1
             if ( (1+slab*(ip-offset)).gt.0 ) then
                istart=1+slab*(ip-offset)
                iend=slab*(ip-offset+1)
                if (iend.gt.maxcnt) iend=maxcnt
                rrank=ip
-               allocate( hist_a_tmp(pil,pjl*pnpan*lproc,istart:iend,nproc) )
 
-               call MPI_Gather(histarray(:,:,(/k_indx(istart:iend)/)),pil*pjl*pnpan*lproc*(iend-istart+1),MPI_REAL,hist_a_tmp,pil*pjl*pnpan*lproc*(iend-istart+1),MPI_REAL, rrank, &
+               recvcounts=pil*pjl*pnpan*lproc*(iend-istart+1)
+               call MPI_Gatherv(histarray(:,:,(/k_indx(istart:iend)/)),pil*pjl*pnpan*lproc*(iend-istart+1),MPI_REAL,hist_a_tmp,recvcounts,displs,MPI_REAL, rrank, &
                                MPI_COMM_WORLD,ierr)
 
                hist_a_remap(1:pil,1:pjl*pnpan*lproc,1:nproc,istart:iend) => hist_a
@@ -2373,13 +2378,13 @@ contains
                if ( ip.eq.myid ) then
                   do k = istart,iend
                      do n = 1,nproc
-                        hist_a_remap(:,:,n,k)=hist_a_tmp(:,:,k,n)
+                        hist_a_remap(:,:,n,k)=hist_a_tmp(:,:,k-istart+1,n)
                      end do
                   end do
                end if
-               deallocate(hist_a_tmp)
             end if
          end do
+         deallocate(hist_a_tmp)
 
          cnt=0
 !        third pass
