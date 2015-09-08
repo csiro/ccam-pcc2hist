@@ -755,6 +755,16 @@ contains
       use parm_m, only : rlong0, rlat0, schmidt ! Share with final_init
       use physparams, only : erad
       use vertutils_m, only : sig2ds
+#ifdef parallel_int
+      use, intrinsic :: iso_c_binding, only : c_ptr, c_f_pointer
+#ifdef usempif
+      include 'mpif.h'
+#else
+      use mpi
+#endif
+      use mpidata_m
+      use shdata_m
+#endif
 
       real, intent(inout)  :: hres
       real, intent(inout)  :: minlon, maxlon, dlon, minlat, maxlat, dlat
@@ -779,6 +789,10 @@ contains
       integer :: hlen, ierr, vid, dimid, ieof
       real :: grlong, grlat, grlongu, grlatu, grlongv, grlatv, tmp
 
+#ifdef parallel_int
+      integer(kind=MPI_ADDRESS_KIND) :: ssize
+      integer :: itest
+#endif
 !     Read the header here because doing the CC grid initialisation before
 !     alloc_indata minimises the total memory requirements
 
@@ -901,11 +915,59 @@ contains
       ijk=il*jl*kl
       iquad=1+il*((8*npanels)/(npanels+4))
 
+#ifdef parallel_int
+      if ( node_myid == 0 ) then
+#else
       if ( myid == 0 ) then
+#endif
 
           call setxyz ( il, jl, kl, npanels, ifull, iquad, idiag, id, jd,        &
                     rlong0, rlat0, schmidt, schm13, ntang, erad )
                     
+!#ifdef parallel_int
+!      else
+!          if ( node_myid == 0 ) then
+!              ssize=ifull*10
+!          else
+!              ssize=0
+!          endif
+!          call allocshdata(i_ewns,ssize,(/ ifull, 10 /),i_ewns_win)
+!          i_w => i_ewns(:,1)
+!          i_ww => i_ewns(:,2)
+!          i_e => i_ewns(:,3)
+!          i_ee => i_ewns(:,4)
+!          i_s => i_ewns(:,5)
+!          i_ss => i_ewns(:,6)
+!          i_n => i_ewns(:,7)
+!          i_nn => i_ewns(:,8)
+!          i_en => i_ewns(:,9)
+!          i_wn => i_ewns(:,10)
+!
+!          if ( node_myid == 0 ) then
+!              ssize=(npanels+1)*10
+!          else
+!              ssize=0
+!          end if
+!          call allocshdata(lewns,ssize,(/ npanels + 1, 10 /),lewns_win)
+!          lwws(0:npanels) => lewns(:,1)
+!          lws(0:npanels) => lewns(:,2)
+!          lwss(0:npanels) => lewns(:,3)
+!          lees(0:npanels) => lewns(:,4)
+!          les(0:npanels) => lewns(:,5)
+!          less(0:npanels) => lewns(:,6)
+!          lwwn(0:npanels) => lewns(:,7)
+!          lwnn(0:npanels) => lewns(:,8)
+!          leen(0:npanels) => lewns(:,9)
+!          lenn(0:npanels) => lewns(:,10)
+!
+!          itest = MPI_MODE_NOPRECEDE + MPI_MODE_NOSTORE
+!          call MPI_Win_fence(itest,i_ewns_win,ierr)
+!          call MPI_Win_fence(itest,lewns_win,ierr)
+!!         the shared data is set from node_myid=0 between these fences
+!          call MPI_Win_fence(MPI_MODE_NOSUCCEED,i_ewns_win,ierr)
+!          call MPI_Win_fence(MPI_MODE_NOSUCCEED,lewns_win,ierr)
+!#endif
+
       end if
 
       if ( int_default == int_none ) then
@@ -949,13 +1011,37 @@ contains
       end if
 
 
+#ifdef parallel_int
+      if ( node_myid == 0 ) then
+#else
       if ( myid == 0 ) then
+#endif
 
 !        To save memory de-allocate a number of arrays defined by setxyz
 !        that aren't needed by cc2hist.
          deallocate ( f, fu, fv, dmdx, dmdy, dmdxv, dmdyu )
+#ifdef parallel_int
+      end if
+
+      if ( node_myid.eq.0 ) then
+         ssize=nxhis*nyhis
+      else
+         ssize=0
+      end if
+      call allocshdata(xyg,ssize*2,(/ nxhis, nyhis, 2 /),xyg_win)
+      xg => xyg(:,:,1)
+      yg => xyg(:,:,2)
+      call allocshdata(nface,ssize,(/ nxhis, nyhis /),nface_win)
+
+      itest = MPI_MODE_NOPRECEDE + MPI_MODE_NOSTORE
+      call MPI_Win_fence(itest,xyg_win,ierr)
+      call MPI_Win_fence(itest,nface_win,ierr)
+
+      if ( node_myid == 0 ) then
+#else
          allocate ( nface(nxhis,nyhis) )
          allocate ( xg(nxhis,nyhis), yg(nxhis,nyhis) )
+#endif
          allocate ( hlon(nxhis), hlat(nyhis) )
          if ( int_default == int_none ) then
             hlat = (/ ( real(j), j=1,nyhis ) /)
@@ -988,6 +1074,12 @@ contains
 
       end if   
 
+#ifdef parallel_int
+      call MPI_Win_fence(MPI_MODE_NOSUCCEED,xyg_win,ierr)
+      call MPI_Win_fence(MPI_MODE_NOSUCCEED,nface_win,ierr)
+#endif
+
+
    end subroutine initialise
 
    subroutine final_init(varlist, nvars)
@@ -999,7 +1091,7 @@ contains
       use indices_m
       use parm_m, only : rlong0, rlat0
       use physparams, only : pi
-#ifdef usenc3
+#ifdef usempif
       include 'mpif.h'
 #else
       use mpi
@@ -1015,7 +1107,11 @@ contains
       integer :: ierr, ip, n
       logical :: need_rotate
       
+#ifdef parallel_int
+      if ( node_myid == 0 ) then
+#else
       if ( myid == 0 ) then
+#endif
          deallocate ( em )
          deallocate ( i_wu, i_sv, i_eu, i_nv )
       end if
@@ -1039,7 +1135,11 @@ contains
 
          allocate ( costh(pil,pjl*pnpan*lproc), sinth(pil,pjl*pnpan*lproc) )
          
+#ifdef parallel_int
+         if ( node_myid == 0 ) then
+#else
          if ( myid == 0 ) then
+#endif
          
            allocate ( costh_g(il,jl), sinth_g(il,jl) )
            allocate ( c_io(pil,pjl*pnpan,pnproc) )
@@ -1088,7 +1188,11 @@ contains
 
          call MPI_Scatter(c_io,pil*pjl*pnpan*lproc,MPI_REAL,costh,pil*pjl*pnpan*lproc,MPI_REAL,0,MPI_COMM_WORLD,ierr)
 
+#ifdef parallel_int
+         if ( node_myid == 0 ) then
+#else
          if ( myid == 0 ) then
+#endif
             do ip = 0,pnproc-1   
                do n = 0,pnpan-1
                   c_io(1:pil,1+n*pjl:(n+1)*pjl,ip+1) = &
@@ -1099,14 +1203,22 @@ contains
 
          call MPI_Scatter(c_io,pil*pjl*pnpan*lproc,MPI_REAL,sinth,pil*pjl*pnpan*lproc,MPI_REAL,0,MPI_COMM_WORLD,ierr)
 
+#ifdef parallel_int
+         if ( node_myid == 0 ) then
+#else
          if ( myid == 0 ) then
+#endif
             deallocate( costh_g, sinth_g )
          end if
          deallocate( c_io )
 
       end if
       
+#ifdef parallel_int
+      if ( node_myid == 0 ) then
+#else
       if ( myid == 0 ) then
+#endif
 !       x, y, z, ax, ay, az, bx, by, bz no longer needed.
 !       ax etc are pointers to setxyz private arrays so the space can't be freed.
         deallocate ( x, y, z )
@@ -1878,7 +1990,7 @@ contains
    ! From ccam infile.f
    subroutine fill_cc(b_io,value)
 !     routine fills in interior of an array which has undefined points
-#ifdef usenc3
+#ifdef usempif
       include 'mpif.h'
 #else
       use mpi
@@ -1902,7 +2014,7 @@ contains
 !     routine fills in interior of an array which has undefined points
       use newmpar_m
       use indices_m
-#ifdef usenc3
+#ifdef usempif
       include 'mpif.h'
 #else
       use mpi
@@ -2010,10 +2122,17 @@ contains
    
    subroutine paraopen(ifile,nmode,ncid)
   
-#ifdef usenc3
+#ifdef parallel_int
+      use, intrinsic :: iso_c_binding, only : c_ptr, c_f_pointer
+#endif
+#ifdef usempif
       include 'mpif.h'
 #else
       use mpi
+#endif
+#ifdef parallel_int
+      use mpidata_m
+      use shdata_m
 #endif
   
       integer, intent(in) :: nmode
@@ -2024,6 +2143,11 @@ contains
       character(len=*), intent(in) :: ifile
       character(len=266) :: pfile
       character(len=8) :: sdecomp
+
+#ifdef parallel_int
+      integer(kind=MPI_ADDRESS_KIND) :: ssize
+      integer :: itest
+#endif
 
       if ( myid == 0 ) then      
   
@@ -2048,14 +2172,27 @@ contains
             write(6,*) "nproc,pnproc ",nproc,pnproc
             call MPI_Abort(MPI_COMM_WORLD,-1,ierr)
          end if
-      
+
+#ifndef parallel_int
          allocate( ioff(0:pnproc-1,0:5), joff(0:pnproc-1,0:5) )
+#endif
       
       end if
       
       call MPI_Bcast(pnproc,1,MPI_INTEGER,0,MPI_COMM_WORLD,ier)
       lproc = pnproc/nproc !number of files each mpi_proc will work on      
       allocate( ncid_in(0:lproc-1) )
+
+#ifdef parallel_int
+      if ( node_myid == 0 ) then
+          ssize=pnproc*6*2
+      else
+          ssize=0
+      end if
+      call allocshdata(ijoff,ssize,(/ pnproc, 6, 2 /),ijoff_win)
+      ioff(0:pnproc-1,0:5) => ijoff(:,:,1)
+      joff(0:pnproc-1,0:5) => ijoff(:,:,2)
+#endif
       
       if ( myid /= 0 ) then
       
@@ -2102,6 +2239,15 @@ contains
          sdecomp = ''
          ier = nf90_get_att(ncid_in(0), nf90_global, "decomp", sdecomp)
          call check_ncerr(ier, "decomp")
+#ifdef parallel_int
+      end if
+      call MPI_Bcast(pil_g,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(pjl_g,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(sdecomp,8,MPI_CHAR,0,MPI_COMM_WORLD,ierr)
+      itest = MPI_MODE_NOPRECEDE + MPI_MODE_NOSTORE
+      call MPI_Win_fence(itest,ijoff_win,ierr)
+      if ( node_myid == 0 ) then
+#endif
          select case(sdecomp)
             case ("uniform")
                do n = 0,5
@@ -2131,6 +2277,9 @@ contains
          jdum(5) = pjl_g
       
       end if
+#ifdef parallel_int
+      call MPI_Win_fence(MPI_MODE_NOSUCCEED,ijoff_win,ierr)
+#endif
       
       call MPI_Bcast(jdum(1:5),5,MPI_INTEGER,0,MPI_COMM_WORLD,ier)
       pil   = jdum(1)

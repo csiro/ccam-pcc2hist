@@ -43,7 +43,7 @@ contains
       ! Setup for sitop. Calculate things that don't depend on the field
       ! being interpolated.
       use utils_m, only : assert, search_fgt
-#ifdef usenc3
+#ifdef usempif
       include 'mpif.h'
 #else
       use mpi
@@ -375,7 +375,7 @@ contains
       ! being interpolated.
       use physparams
       use utils_m, only : assert, search_fgt
-#ifdef usenc3
+#ifdef usempif
       include 'mpif.h'
 #else
       use mpi

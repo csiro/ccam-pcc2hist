@@ -24,11 +24,10 @@ module usage_m
    contains
    subroutine usage()
    use mpidata_m
-#ifndef usenc3
-   use mpi
-#endif
-#ifdef usenc3
+#ifdef usempif
    include 'mpif.h'
+#else
+   use mpi
 #endif
    integer ierr
    if (myid==0) then
