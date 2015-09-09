@@ -2328,8 +2328,8 @@ contains
 
          end do ! Loop over fields
 
-!        now do the gatherv wrap
-         call gatherv_wrap(histarray,hist_a,slab,offset,maxcnt,k_indx)
+!        now do the gather wrap
+         call gather_wrap(histarray,hist_a,slab,offset,maxcnt,k_indx)
 
          cnt=0
 !        third pass
@@ -2707,6 +2707,7 @@ contains
 
    end subroutine clearhist
 
+#ifndef parallel_int
    subroutine gather_wrap(array_in,array_out)
       use mpidata_m, only : nproc, lproc
 #ifdef usempif
@@ -2730,9 +2731,8 @@ contains
       end do
       
    end subroutine gather_wrap
-
-
-   subroutine gatherv_wrap(histarray,hist_a,slab,offset,maxcnt,k_indx)
+#else
+   subroutine gather_wrap(histarray,hist_a,slab,offset,maxcnt,k_indx)
       use mpidata_m, only : nproc, lproc, myid, pil, pjl, pnpan
 #ifdef usempif
       include 'mpif.h'
@@ -2742,26 +2742,22 @@ contains
       integer, intent(in) :: slab, offset, maxcnt
       integer :: rrank, istart, iend, ip, k, n, ierr    
       integer, dimension(maxcnt), intent(in) :: k_indx
-      integer, dimension(nproc) :: displs, recvcounts
       real, dimension(:,:,:), intent(in) :: histarray
       real, dimension(size(histarray,1),size(histarray,2),slab) :: histarray_tmp
       real, dimension(:,:,:,:), pointer, contiguous, intent(out) :: hist_a
-      real, dimension(pil,pjl*pnpan*lproc,slab,nproc) :: hist_a_tmp
-      real, dimension(:,:,:,:), pointer, contiguous :: hist_a_remap      
+      real, dimension(pil*pjl*pnpan*lproc*slab*nproc), target :: hist_a_tmp
+      real, dimension(:,:,:,:), pointer, contiguous :: hist_a_remap, hist_a_tmp_remap
    
-      do ip = 1,nproc
-         displs(ip)=pil*pjl*pnpan*lproc*slab*(ip-1)
-      enddo
       do ip = 0,nproc-1
          if ( (1+slab*(ip-offset)).gt.0 ) then
             istart=1+slab*(ip-offset)
             iend=slab*(ip-offset+1)
-            if (iend.gt.maxcnt) iend=maxcnt
+	    iend=min(iend,maxcnt)
             rrank=ip
 
-            recvcounts=pil*pjl*pnpan*lproc*(iend-istart+1)
             histarray_tmp(:,:,1:iend-istart+1) = histarray(:,:,(/k_indx(istart:iend)/))
-            call MPI_Gatherv(histarray_tmp,pil*pjl*pnpan*lproc*(iend-istart+1),MPI_REAL,hist_a_tmp,recvcounts,displs,MPI_REAL, rrank, &
+            hist_a_tmp_remap(1:pil,1:pjl*pnpan*lproc,istart:iend,1:nproc) => hist_a_tmp(1:pil*pjl*pnpan*lproc*(iend-istart+1)*nproc)
+            call MPI_Gather(histarray_tmp,pil*pjl*pnpan*lproc*(iend-istart+1),MPI_REAL,hist_a_tmp_remap,pil*pjl*pnpan*lproc*(iend-istart+1),MPI_REAL, rrank, &
                             MPI_COMM_WORLD,ierr)
 
             hist_a_remap(1:pil,1:pjl*pnpan*lproc,1:nproc,istart:iend) => hist_a
@@ -2769,14 +2765,15 @@ contains
             if ( ip.eq.myid ) then
                do k = istart,iend
                   do n = 1,nproc
-                     hist_a_remap(:,:,n,k)=hist_a_tmp(:,:,k-istart+1,n)
+                     hist_a_remap(:,:,n,k)=hist_a_tmp_remap(:,:,k,n)
                   end do
                end do
             end if
          end if
       end do
    
-   end subroutine gatherv_wrap
+   end subroutine gather_wrap
+#endif
 
    subroutine sendrecv_wrap(htemp,cnt,slab,offset)
       use mpidata_m, only : nproc, lproc, myid
