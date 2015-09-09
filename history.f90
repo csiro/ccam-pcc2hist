@@ -101,7 +101,11 @@
 
 module history
 
+#ifdef usenc3
+   use netcdf_m
+#else
    use netcdf
+#endif
    use ncutils_m, only : check_ncerr
    use utils_m, only : fpequal
    implicit none
@@ -1192,9 +1196,9 @@ contains
                call check_ncerr(ierr,"Error writing coordinate height")
             end do
 
+#ifdef outsync
 !           Sync the file so that if the program crashes for some reason 
 !           there will still be useful output.
-#ifdef outsync
             ierr = nf90_sync ( ncid )
             call check_ncerr(ierr, "Error syncing history file")
 #endif
@@ -1358,7 +1362,6 @@ contains
             zdim = dims%z
          end if
          if ( vinfo%ave_type(ifile) == hist_fixed ) then
-!#ifdef usenc3
             ierr = nf90_def_var ( ncid, vinfo%name, vtype, &
                                 (/ dims%x, dims%y, zdim /), vid )
          else
@@ -1372,25 +1375,6 @@ contains
          else
             ierr = nf90_def_var ( ncid, vinfo%name, vtype, &
                                 (/ dims%x, dims%y, dims%t /), vid )
-!#else
-!            ierr = nf90_def_var ( ncid, vinfo%name, vtype, &
-!                                (/ dims%x, dims%y, zdim /), &
-!                                 vid, deflate_level=1 )
-!         else
-!            ierr = nf90_def_var ( ncid, vinfo%name, vtype, &
-!                                (/ dims%x, dims%y, zdim, dims%t /), &
-!                                 vid, deflate_level=1 )
-!         end if
-!      else
-!         if ( vinfo%ave_type(ifile) == hist_fixed ) then
-!            ierr = nf90_def_var ( ncid, vinfo%name, vtype, &
-!                                (/ dims%x, dims%y /), vid, &
-!                                deflate_level=1 )
-!         else
-!            ierr = nf90_def_var ( ncid, vinfo%name, vtype, &
-!                                (/ dims%x, dims%y, dims%t /), &
-!                                 vid, deflate_level=1 )
-!#endif
          end if
       end if
       if ( ierr /= 0 ) then
@@ -1520,12 +1504,7 @@ contains
       if ( hist_debug > 0 ) then
          print*, "Creating file ", filename
       end if
-#ifdef usenc3
-      ierr = nf90_create(filename, NF90_CLOBBER, ncid)
-      !ierr = nf90_create(filename, NF90_64BIT_OFFSET, ncid)
-#else
       ierr = nf90_create(filename, nf90_netcdf4, ncid)
-#endif
       call check_ncerr ( ierr, "Error in creating history file" )
                
 !     Create dimensions, lon, lat and rec

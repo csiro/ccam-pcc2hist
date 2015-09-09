@@ -21,7 +21,11 @@
     
 module ncutils_m
    ! Generally useful netcdf stuff
+#ifdef usenc3
+   use netcdf_m
+#else
    use netcdf
+#endif
    implicit none
    private
    public ::  check_ncerr, copy_atts, history_append, fix_ncatt

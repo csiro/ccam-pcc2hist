@@ -22,7 +22,11 @@
 module work
 
    use mpidata_m
+#ifdef usenc3   
+   use netcdf_m
+#else
    use netcdf
+#endif
    use ncutils_m, only : check_ncerr
    use gldata
    use precis_m, only : rx
@@ -744,7 +748,11 @@ contains
                            kdate, ktime, ntracers, ksoil, kice, debug,        &
                            nqg )
 
+#ifdef usenc3
+      use netcdf_m
+#else
       use netcdf
+#endif
       use newmpar_m
       use history
       use xyzinfo_m
