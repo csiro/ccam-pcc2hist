@@ -2782,8 +2782,10 @@ contains
       use mpi
 #endif   
       integer, intent(in) :: slab, offset, maxcnt
-      integer :: rrank, istart, iend, ip, k, n, ierr    
+      integer :: rrank, istart, iend, ip, k, n, ierr
+      integer :: nreq
       integer, dimension(maxcnt), intent(in) :: k_indx
+      integer, dimension(nproc) :: requestlist
       real, dimension(:,:,:), intent(in) :: histarray
       real, dimension(size(histarray,1),size(histarray,2),slab) :: histarray_tmp
       real, dimension(:,:,:,:), pointer, contiguous, intent(out) :: hist_a
@@ -2791,31 +2793,43 @@ contains
       real, dimension(:,:,:,:), pointer, contiguous :: hist_a_remap, hist_a_tmp_remap
    
       call START_LOG(gatherwrap_begin)
+      
+      nreq = 0
       do ip = 0,nproc-1
          if ( (1+slab*(ip-offset)).gt.0 ) then
-            istart=1+slab*(ip-offset)
-            iend=slab*(ip-offset+1)
-	    iend=min(iend,maxcnt)
-            rrank=ip
-
+            istart = 1+slab*(ip-offset)
+            iend = slab*(ip-offset+1)
+            iend = min(iend,maxcnt)
+            rrank = ip
+            nreq = nreq + 1
             histarray_tmp(:,:,1:iend-istart+1) = histarray(:,:,(/k_indx(istart:iend)/))
             hist_a_tmp_remap(1:pil,1:pjl*pnpan*lproc,istart:iend,1:nproc) => hist_a_tmp(1:pil*pjl*pnpan*lproc*(iend-istart+1)*nproc)
-            call START_LOG(mpigather_begin)	    
-            call MPI_Gather(histarray_tmp,pil*pjl*pnpan*lproc*(iend-istart+1),MPI_REAL,hist_a_tmp_remap,pil*pjl*pnpan*lproc*(iend-istart+1),MPI_REAL, rrank, &
-                            MPI_COMM_WORLD,ierr)
-            call END_LOG(mpigather_end)			    
-
-            hist_a_remap(1:pil,1:pjl*pnpan*lproc,1:nproc,istart:iend) => hist_a
-
-            if ( ip.eq.myid ) then
-               do k = istart,iend
-                  do n = 1,nproc
-                     hist_a_remap(:,:,n,k)=hist_a_tmp_remap(:,:,k,n)
-                  end do
-               end do
-            end if
+            call START_LOG(mpigather_begin)
+            call MPI_IGather(histarray_tmp,pil*pjl*pnpan*lproc*(iend-istart+1),MPI_REAL,hist_a_tmp_remap,pil*pjl*pnpan*lproc*(iend-istart+1),MPI_REAL, rrank, &
+                            MPI_COMM_WORLD,requestlist(nreq),ierr)
+            call END_LOG(mpigather_end)
          end if
       end do
+
+      if ( 1+slab*(myid-offset) > 0 ) then
+         call START_LOG(mpigather_begin)
+         call MPI_Wait(requestlist(myid+1),MPI_STATUS_IGNORE,ierr)
+         call END_LOG(mpigather_end)
+         istart = 1+slab*(myid-offset)
+         iend = slab*(myid-offset+1)
+         iend = min(iend,maxcnt)          
+         hist_a_remap(1:pil,1:pjl*pnpan*lproc,1:nproc,istart:iend) => hist_a
+         do k = istart,iend
+            do n = 1,nproc
+               hist_a_remap(:,:,n,k)=hist_a_tmp_remap(:,:,k,n)
+            end do
+         end do
+      end if
+      
+      call START_LOG(mpigather_begin)
+      call MPI_WaitAll(nreq,requestlist,MPI_STATUSES_IGNORE,ierr)
+      call END_LOG(mpigather_end)
+      
       call END_LOG(gatherwrap_end)
    
    end subroutine gather_wrap
