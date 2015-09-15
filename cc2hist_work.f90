@@ -1112,12 +1112,12 @@ contains
       use indices_m
       use parm_m, only : rlong0, rlat0
       use physparams, only : pi
+      use logging_m      
 #ifdef usempif
       include 'mpif.h'
 #else
       use mpi
 #endif
-      use logging_m
       type(input_var), dimension(:) :: varlist
       integer, intent(in) :: nvars
       real, dimension(:,:), allocatable :: costh_g, sinth_g
@@ -2017,12 +2017,12 @@ contains
    ! From ccam infile.f
    subroutine fill_cc(b_io,value)
 !     routine fills in interior of an array which has undefined points
+      use logging_m
 #ifdef usempif
       include 'mpif.h'
 #else
       use mpi
 #endif
-      use logging_m
       real, intent(inout) :: b_io(pil,pjl*pnpan*lproc)         ! input and output array
       real, intent(in)    :: value                             ! array value denoting undefined
       real, dimension(0,0,0) :: c_io
@@ -2048,12 +2048,12 @@ contains
 !     routine fills in interior of an array which has undefined points
       use newmpar_m
       use indices_m
+      use logging_m      
 #ifdef usempif
       include 'mpif.h'
 #else
       use mpi
 #endif
-      use logging_m
       real, dimension(pil,pjl*pnpan*lproc), intent(inout) :: b_io ! input and output array
       real, intent(in)    :: value                                ! array value denoting undefined
       real, dimension(pil,pjl*pnpan,pnproc) :: c_io
@@ -2166,9 +2166,7 @@ contains
 #ifdef parallel_int
       use, intrinsic :: iso_c_binding, only : c_ptr, c_f_pointer
 #endif
-#ifdef usempif
-      include 'mpif.h'
-#else
+#ifndef usempif
       use mpi
 #endif
 #ifdef parallel_int
@@ -2176,6 +2174,9 @@ contains
       use shdata_m
 #endif
       use logging_m
+#ifdef usempif
+      include 'mpif.h'
+#endif
   
       integer, intent(in) :: nmode
       integer, intent(out) :: ncid
