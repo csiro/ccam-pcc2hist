@@ -15,6 +15,7 @@
 /jimco_m.f90 -text
 /kinds_m.f90 -text
 /latltoij_m.f90 -text
+/logging_m.f90 -text
 /moistfuncs.f90 -text
 /mpidata_m.f90 -text
 /ncutils_m.f90 -text
