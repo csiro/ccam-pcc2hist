@@ -21,7 +21,7 @@
     
 module getopt_m
 
-   use ifport
+   !use ifport
    implicit none
    private
 
