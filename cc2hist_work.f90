@@ -1278,7 +1278,11 @@ contains
       type(input_var), dimension(:), pointer :: varlist
       integer, intent(out) :: nvars
       integer :: ierr, ndimensions, nvariables, ndims, ivar, int_type, xtype
+#ifdef procformat
+      integer :: londim, latdim, levdim, timedim, procdim, vid, ihr, ind
+#else
       integer :: londim, latdim, levdim, timedim, vid, ihr, ind
+#endif
       integer, dimension(nf90_max_var_dims) :: dimids
       character(len=10) :: vname, substr
       character(len=100) :: long_name, tmpname, valid_att, std_name, cell_methods
@@ -1303,6 +1307,10 @@ contains
       call check_ncerr(ierr,"Error getting levid")
       ierr = nf90_inq_dimid(ncid, "time", timedim)
       call check_ncerr(ierr,"Error getting timeid")
+#ifdef procformat
+      ierr = nf90_inq_dimid(ncid, "processor", procdim)
+      call check_ncerr(ierr,"Error getting procid")
+#endif
 
       nvars = 0
       ! For the sigma to pressure initialisation to work properly
@@ -1330,9 +1338,17 @@ contains
             !end if
          !end if
 !         print*, ivar, vname, ndims, dimids(1:ndims)
+#ifdef procformat
+         if ( ndims == 5 ) then
+#else
          if ( ndims == 4 ) then
+#endif
             ! Should be lon, lat, lev, time
+#ifdef procformat
+            if ( match ( dimids(1:ndims), (/ londim, latdim, levdim, procdim, timedim /) ) ) then
+#else
             if ( match ( dimids(1:ndims), (/ londim, latdim, levdim, timedim /) ) ) then
+#endif
                nvars = nvars + 1
                varlist(nvars)%fixed = .false.
                varlist(nvars)%ndims = 3  ! Space only
@@ -1340,14 +1356,22 @@ contains
                print*, "Error, unexpected dimensions in input variable", vname
                stop
             end if
+#ifdef procformat
+         else if ( ndims == 4 ) then
+#else
          else if ( ndims == 3 ) then
+#endif
 
             ! Check for soil variables
             if ( cf_compliant .and. is_soil_var(vname) ) then
                cycle
             end if
 
+#ifdef procformat
+            if ( match( dimids(1:ndims), (/ londim, latdim, procdim, timedim /) ) ) then
+#else
             if ( match( dimids(1:ndims), (/ londim, latdim, timedim /) ) ) then
+#endif
                nvars = nvars + 1
                varlist(nvars)%fixed = .false.
                varlist(nvars)%ndims = 2  ! Space only
@@ -1357,8 +1381,13 @@ contains
                print*, "Error, unexpected dimensions in input variable", vname
                stop
             end if
+#ifdef procformat
+         else if ( ndims == 3 ) then
+            if ( match( dimids(1:ndims), (/ londim, latdim, procdim /) ) ) then
+#else
          else if ( ndims == 2 ) then
             if ( match( dimids(1:ndims), (/ londim, latdim /) ) ) then
+#endif
                nvars = nvars + 1
                varlist(nvars)%fixed = .true.
                varlist(nvars)%ndims = 2  ! Space only
@@ -2151,6 +2180,9 @@ contains
       character(len=*), intent(in) :: ifile
       character(len=266) :: pfile
       character(len=8) :: sdecomp
+#ifdef procformat
+      integer :: dimid, proc_node
+#endif
 
 #ifdef parallel_int
       integer(kind=MPI_ADDRESS_KIND) :: ssize
@@ -2174,6 +2206,13 @@ contains
          ! parallel metadata
          ier = nf90_get_att(ncid, nf90_global, "nproc", pnproc)
          call check_ncerr(ier, "nproc")
+#ifdef procformat
+         ! number of processors in this file - assume the first file has maximum
+         ierr = nf90_inq_dimid ( ncid, "processor", dimid )
+         call check_ncerr(ierr, "Error getting processor dimension")
+         ierr = nf90_inquire_dimension ( ncid, dimid, len=proc_node )
+         call check_ncerr(ierr,"Error getting number of processors")
+#endif
 
          if ( mod(pnproc,nproc)/=0 ) then
             write(6,*) "ERROR: Number of processors is not a factor of the number of files"
@@ -2205,7 +2244,11 @@ contains
       if ( myid /= 0 ) then
       
          do ip = 0,lproc-1
+#ifdef procformat
+            rip = (myid*lproc + ip)/proc_node
+#else
             rip = myid*lproc + ip
+#endif
             write(pfile,"(a,'.',i6.6)") trim(ifile), rip
             ier = nf90_open ( pfile, nmode, ncid_in(ip) )
             !if (ier /= nf90_noerr ) then
@@ -2223,7 +2266,11 @@ contains
       
          ncid_in(0) = ncid
          do ip = 1,lproc-1
+#ifdef procformat
+            rip = ip/proc_node
+#else
             rip = ip
+#endif
             write(pfile,"(a,'.',i6.6)") trim(ifile), rip
             ier = nf90_open ( pfile, nmode, ncid_in(ip) )
             !if ( ier /= nf90_noerr ) then
@@ -2331,7 +2378,11 @@ contains
          ierr = nf90_inq_varid (ncid_in(ip), name, vid ) 
          call check_ncerr(ierr, "Error getting vid for "//name)
           
+#ifdef procformat
+         ierr = nf90_get_var ( ncid_in(ip), vid, inarray2(:,:), start=(/ 1, 1, node_myid+1, nrec /), count=(/ pil, pjl*pnpan, 1, 1 /) )
+#else
          ierr = nf90_get_var ( ncid_in(ip), vid, inarray2(:,:), start=(/ 1, 1, nrec /), count=(/ pil, pjl*pnpan, 1 /) )
+#endif
          call check_ncerr(ierr, "Error getting var "//name)
 
 !        Check the type of the variable
@@ -2368,8 +2419,13 @@ contains
          ierr = nf90_inq_varid ( ncid_in(ip), name, vid )
          call check_ncerr(ierr, "Error getting vid for "//name)
           
+#ifdef procformat
+         ierr = nf90_get_var ( ncid_in(ip), vid, inarray3(:,:,minlev:maxlev), start=(/ 1, 1, minlev, node_myid+1, nrec /), &
+                               count=(/ pil, pjl*pnpan, maxlev-minlev+1, 1, 1 /) )
+#else
          ierr = nf90_get_var ( ncid_in(ip), vid, inarray3(:,:,minlev:maxlev), start=(/ 1, 1, minlev, nrec /), &
                                count=(/ pil, pjl*pnpan, maxlev-minlev+1, 1 /) )
+#endif
          call check_ncerr(ierr, "Error getting var "//name)
       
          ierr = nf90_inquire_variable ( ncid_in(ip), vid, xtype=vartyp )
