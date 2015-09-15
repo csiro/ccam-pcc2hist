@@ -51,7 +51,11 @@ subroutine ints ( s_in, array, int_type )  ! input array (twice), output array
    use newmpar_m
    use indices_m
    use ind_m
+#ifdef usenc3
+   use netcdf_m, only : NF90_FILL_FLOAT
+#else
    use netcdf, only : NF90_FILL_FLOAT
+#endif
    use logging_m
 
    implicit none
