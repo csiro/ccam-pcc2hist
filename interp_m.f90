@@ -52,6 +52,7 @@ subroutine ints ( s_in, array, int_type )  ! input array (twice), output array
    use indices_m
    use ind_m
    use netcdf, only : NF90_FILL_FLOAT
+   use logging_m
 
    implicit none
    real, intent(in), dimension(:,:)  ::  s_in    ! (il,jl)
@@ -74,6 +75,8 @@ subroutine ints ( s_in, array, int_type )  ! input array (twice), output array
       array = s_in
       return
    end if
+   
+   call START_LOG(ints_begin)
    
    nxhis = size(array,1)
    nyhis = size(array,2)
@@ -217,6 +220,9 @@ subroutine ints ( s_in, array, int_type )  ! input array (twice), output array
   end select
 
   !deallocate ( sx )
+  
+  call END_LOG(ints_end)
+  
 end subroutine ints
 
 end module interp_m

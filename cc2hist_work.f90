@@ -123,6 +123,7 @@ contains
    end subroutine alloc_indata
 
    subroutine getdate ( kdate, ktime, ieof) 
+      use logging_m
 
 !     Get record data from header
       integer, intent(out) :: kdate, ktime, ieof
@@ -132,6 +133,7 @@ contains
          ieof = 1
          return
       end if
+      call START_LOG(getdate_begin)      
       ! Get vid and then values for kdate, ktime, ktau
       ierr = nf90_inq_varid (ncid, "kdate", vid )
       call check_ncerr(ierr, "Error getting kdate id")
@@ -152,6 +154,7 @@ contains
          write(*,"(a,3i8)",advance="no") " kdate, ktime, ktau ", &
                                            kdate,  ktime, ktau
       end if
+      call END_LOG(getdate_end)
 
    end subroutine getdate
 
@@ -162,6 +165,7 @@ contains
       use s2p_m
       use height_m
       use sitop_m
+      use logging_m
       type(input_var), dimension(:) :: varlist
       integer, intent(in) :: nvars
       logical, intent(in)  :: skip
@@ -179,6 +183,7 @@ contains
          return
       end if
 
+      call START_LOG(infile_begin)
       if ( first_in ) then
          call alloc_indata ( ik, jk, kk, ksoil, kice )
       end if
@@ -614,6 +619,8 @@ contains
       first_in = .false.
       nrec = nrec + 1
 
+      call END_LOG(infile_end)
+
    end subroutine infile
 
    function need3dfld(name) result ( needed )
@@ -647,6 +654,7 @@ contains
 
    subroutine vread2(name, var, required, vread_err)
 
+      use logging_m
       ! Routine to read a variable from either a fortran binary or netcdf file.
       character(len=*), intent(in) :: name
       real, dimension(:,:), intent(out) :: var
@@ -655,6 +663,7 @@ contains
       integer, intent(out), optional :: vread_err
       integer v_err
 
+      call START_LOG(vread_begin)
       if ( present( required ) .and. present ( vread_err ) ) then
          req = required
       else
@@ -669,18 +678,22 @@ contains
          ! If we get to this point, everything is ok.
          vread_err = 0
       end if
+      call END_LOG(vread_end)
 
    end subroutine vread2
    
    subroutine vread3(name, var)
-
+      use logging_m
+      
       ! Routine to read a variable from either a fortran binary or netcdf file. 
       character(len=*), intent(in) :: name
       real, dimension(:,:,:), intent(out) :: var
       integer :: pkl
 
+      call START_LOG(vread_begin)
       pkl = size(var,3)
       call paravar3a(name,var,nrec,pkl)
+      call END_LOG(vread_end)
 
    end subroutine vread3
    
@@ -1104,6 +1117,7 @@ contains
 #else
       use mpi
 #endif
+      use logging_m
       type(input_var), dimension(:) :: varlist
       integer, intent(in) :: nvars
       real, dimension(:,:), allocatable :: costh_g, sinth_g
@@ -1115,6 +1129,7 @@ contains
       integer :: ierr, ip, n
       logical :: need_rotate
       
+      call START_LOG(finalinit_begin)
 #ifdef parallel_int
       if ( node_myid == 0 ) then
 #else
@@ -1194,7 +1209,9 @@ contains
             allocate( c_io(0,0,0) )
          end if 
 
+         call START_LOG(mpiscatter_begin)
          call MPI_Scatter(c_io,pil*pjl*pnpan*lproc,MPI_REAL,costh,pil*pjl*pnpan*lproc,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+	 call END_LOG(mpiscatter_end)
 
 #ifdef parallel_int
          if ( node_myid == 0 ) then
@@ -1209,7 +1226,9 @@ contains
             end do
          end if
 
+         call START_LOG(mpiscatter_begin)
          call MPI_Scatter(c_io,pil*pjl*pnpan*lproc,MPI_REAL,sinth,pil*pjl*pnpan*lproc,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+	 call END_LOG(mpiscatter_end)
 
 #ifdef parallel_int
          if ( node_myid == 0 ) then
@@ -1231,7 +1250,7 @@ contains
 !       ax etc are pointers to setxyz private arrays so the space can't be freed.
         deallocate ( x, y, z )
       end if
-      
+      call END_LOG(finalinit_end)
 
 
    end subroutine final_init
@@ -2003,18 +2022,25 @@ contains
 #else
       use mpi
 #endif
+      use logging_m
       real, intent(inout) :: b_io(pil,pjl*pnpan*lproc)         ! input and output array
       real, intent(in)    :: value                             ! array value denoting undefined
       real, dimension(0,0,0) :: c_io
       integer :: ierr, lsize
       
+      call START_LOG(fillcc_begin)
       if ( myid == 0 ) then
          call fill_cc0(b_io,value)
       else
          lsize = pil*pjl*pnpan*lproc
+	 call START_LOG(mpigather_begin)
          call MPI_Gather(b_io,lsize,MPI_REAL,c_io,lsize,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+	 call END_LOG(mpigather_end)
+	 call START_LOG(mpiscatter_begin)
          call MPI_Scatter(c_io,lsize,MPI_REAL,b_io,lsize,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+	 call END_LOG(mpiscatter_end)
       end if
+      call END_LOG(fillcc_end)
       
    end subroutine fill_cc
 
@@ -2027,6 +2053,7 @@ contains
 #else
       use mpi
 #endif
+      use logging_m
       real, dimension(pil,pjl*pnpan*lproc), intent(inout) :: b_io ! input and output array
       real, intent(in)    :: value                                ! array value denoting undefined
       real, dimension(pil,pjl*pnpan,pnproc) :: c_io
@@ -2037,8 +2064,11 @@ contains
       integer :: ip, n, lsize
       real :: av, avx
       
+      call START_LOG(fillcc0_begin)
       lsize = pil*pjl*pnpan*lproc
+      call START_LOG(mpigather_begin)
       call MPI_Gather(b_io,lsize,MPI_REAL,c_io,lsize,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+      call END_LOG(mpigather_end)
 
       do ip = 0,pnproc-1   
          do n = 0,pnpan-1
@@ -2124,7 +2154,10 @@ contains
          end do
       end do
       
+      call START_LOG(mpiscatter_begin)
       call MPI_Scatter(c_io,lsize,MPI_REAL,b_io,lsize,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+      call END_LOG(mpiscatter_end)
+      call END_LOG(fillcc0_end)
       
    end subroutine fill_cc0
    
@@ -2142,6 +2175,7 @@ contains
       use mpidata_m
       use shdata_m
 #endif
+      use logging_m
   
       integer, intent(in) :: nmode
       integer, intent(out) :: ncid
@@ -2156,6 +2190,8 @@ contains
       integer(kind=MPI_ADDRESS_KIND) :: ssize
       integer :: itest
 #endif
+
+      call START_LOG(paraopen_begin)
 
       if ( myid == 0 ) then      
   
@@ -2187,7 +2223,9 @@ contains
       
       end if
       
+      call START_LOG(mpibcast_begin)
       call MPI_Bcast(pnproc,1,MPI_INTEGER,0,MPI_COMM_WORLD,ier)
+      call END_LOG(mpibcast_end)
       lproc = pnproc/nproc !number of files each mpi_proc will work on      
       allocate( ncid_in(0:lproc-1) )
 
@@ -2249,9 +2287,11 @@ contains
          call check_ncerr(ier, "decomp")
 #ifdef parallel_int
       end if
+      call START_LOG(mpibcast_begin)
       call MPI_Bcast(pil_g,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
       call MPI_Bcast(pjl_g,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
       call MPI_Bcast(sdecomp,8,MPI_CHAR,0,MPI_COMM_WORLD,ierr)
+      call END_LOG(mpibcast_end)
       itest = MPI_MODE_NOPRECEDE + MPI_MODE_NOSTORE
       call MPI_Win_fence(itest,ijoff_win,ierr)
       if ( node_myid == 0 ) then
@@ -2289,26 +2329,34 @@ contains
       call MPI_Win_fence(MPI_MODE_NOSUCCEED,ijoff_win,ierr)
 #endif
       
+      call START_LOG(mpibcast_begin)
       call MPI_Bcast(jdum(1:5),5,MPI_INTEGER,0,MPI_COMM_WORLD,ier)
+      call END_LOG(mpibcast_end)
       pil   = jdum(1)
       pjl   = jdum(2)
       pnpan = jdum(3)
       pil_g = jdum(4)
       pjl_g = jdum(5)
       
+      call END_LOG(paraopen_end)
+      
    end subroutine paraopen
    
    subroutine paraclose
+      use logging_m
       integer ip, ierr
       
+      call START_LOG(paraclose_begin)
       do ip = 0,lproc-1
          ierr = nf90_close(ncid_in(ip))
       end do
       deallocate(ncid_in)
+      call END_LOG(paraclose_end)
    
    end subroutine paraclose
    
    subroutine paravar2a(name,var,nrec,required,vread_err)
+      use logging_m   
       integer, intent(in) :: nrec
       integer, intent(out) :: vread_err
       integer ip, n, vid, ierr, vartyp
@@ -2325,6 +2373,8 @@ contains
          vread_err = NF90_NOERR
          return
       end if
+      
+      call START_LOG(paravar2a_begin)
       
       do ip = 0,lproc-1
          
@@ -2351,17 +2401,22 @@ contains
          var(:,1+ip*pjl*pnpan:(ip+1)*pjl*pnpan) = inarray2(:,:)
          
       end do
+      
+      call END_LOG(paravar2a_end)
    
    end subroutine paravar2a
 
    subroutine paravar3a(name,var,nrec,pkl)
       use s2p_m, only : minlev, maxlev
+      use logging_m
       integer, intent(in) :: nrec, pkl
       integer ip, n, vid, ierr, vartyp, k
       real, dimension(:,:,:), intent(out) :: var
       real, dimension(pil,pjl*pnpan,pkl) :: inarray3
       real addoff, sf
       character(len=*), intent(in) :: name
+
+      call START_LOG(paravar3a_begin)
 
       do ip = 0,lproc-1
 
@@ -2388,6 +2443,8 @@ contains
          var(:,1+ip*pjl*pnpan:(ip+1)*pjl*pnpan,minlev:maxlev) = inarray3(:,:,minlev:maxlev)
          
       end do
+      
+      call END_LOG(paravar3a_end)
    
    end subroutine paravar3a
 

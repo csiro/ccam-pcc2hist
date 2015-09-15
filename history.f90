@@ -782,6 +782,7 @@ contains
 !     Create netCDF history files using information in histinfo array.
 !
       use mpidata_m
+      use logging_m
 
       integer, intent(in) :: nx, ny, nl
       real, intent(in), dimension(:) :: sig
@@ -821,6 +822,8 @@ contains
       integer :: kc, ncoords, k, pkl
       logical :: soil_used
       real :: dx, dy
+      
+      call START_LOG(openhist_begin)
       
 !     Set the module variables
       if ( present (nxout) ) then
@@ -1276,6 +1279,8 @@ contains
             end if
          end do
       end do
+      
+      call END_LOG(openhist_end)
 
    end subroutine openhist
 
@@ -1874,8 +1879,12 @@ contains
 !-----------------------------------------------------------------------------
    subroutine closehist
       
+      use logging_m
+      
       integer :: ierr, ifile
      
+      call START_LOG(closehist_begin)
+      
       do ifile = 1,nhfiles
 !        The hist_oave files are closed individually in writehist.
          if ( ihtype(ifile) /= hist_oave ) then
@@ -1883,14 +1892,20 @@ contains
             call check_ncerr(ierr,"Error closing history file")
          end if
       end do
+      
+      call END_LOG(closehist_end)
+      
    end subroutine closehist
 !-------------------------------------------------------------------
 
    subroutine savehist2D ( name, array, jlat )
+      use logging_m
       character(len=*), intent(in) :: name
       real, dimension(:) :: array
       integer, intent(in) :: jlat
       real, dimension(size(array),1,1) :: temp
+
+      call START_LOG(savehist_begin)
 
 !     Copy to the 3D array that savehist_work expects. The extra level of
 !     subroutines is necessary to avoid multiple versions.
@@ -1899,34 +1914,50 @@ contains
       temp(:,1,1) = array
       call savehist_work  ( name, temp, jlat, jlat )
 
+      call END_LOG(savehist_end)
+
    end subroutine savehist2D
    
    subroutine gsavehist2D ( name, array )
+      use logging_m
       character(len=*), intent(in) :: name
       real, dimension(:,:) :: array
       real, dimension(size(array,1),size(array,2),1) :: temp
+
+      call START_LOG(savehist_begin)      
 
 !     Copy to the 3D array that savehist_work expects. The extra level of
 !     subroutines is necessary to avoid multiple versions.
       temp(:,:,1) = array
       call savehist_work  ( name, temp, 1, size(array,2) )
 
+      call END_LOG(savehist_end)
+
    end subroutine gsavehist2D
    
    subroutine savehist3D( name, array, jlat )
+      use logging_m       
       character(len=*), intent(in) :: name
       real, dimension(:,:) :: array
       integer, intent(in) :: jlat
       real, dimension(size(array,1),1,size(array,2)) :: temp
 
+      call START_LOG(savehist_begin)
+
       temp(:,1,:) = array
       call savehist_work  ( name, temp, jlat, jlat )
+      
+      call END_LOG(savehist_end)
+      
    end subroutine savehist3D
    
    subroutine gsavehist3D( name, array )
+      use logging_m
       character(len=*), intent(in) :: name
       real, dimension(:,:,:) :: array
+      call START_LOG(savehist_begin)
       call savehist_work  ( name, array, 1, size(array,2) )
+      call END_LOG(savehist_end)
    end subroutine gsavehist3D
    
    subroutine savehist_work ( name, array, jlat1, jlat2 )
@@ -2101,7 +2132,8 @@ contains
    subroutine writehist ( istep, endofrun, year, month, interp, time, time_bnds )
 
       use mpidata_m
-
+      use logging_m
+      
       integer, intent(in) :: istep
       logical, intent(in), optional :: endofrun
       integer, intent(in), optional :: year, month !  For old format files
@@ -2136,6 +2168,8 @@ contains
          print*, " Error, interp argument required for writehist "
          stop
       end if
+
+      call START_LOG(writehist_begin)
 
       do ifile = 1,nhfiles
 
@@ -2536,6 +2570,8 @@ contains
 
       end do ! Loop over files
 
+      call END_LOG(writehist_end)
+
    end subroutine writehist
 !-------------------------------------------------------------------
    subroutine oldwrite(nxhis, nyhis, year, month )
@@ -2710,6 +2746,7 @@ contains
 #ifndef parallel_int
    subroutine gather_wrap(array_in,array_out)
       use mpidata_m, only : nproc, lproc
+      use logging_m
 #ifdef usempif
       include 'mpif.h'
 #else
@@ -2720,8 +2757,11 @@ contains
       real, dimension(size(array_out,1),size(array_out,2),lproc,size(array_in,3),nproc) :: array_temp
       integer :: lsize, ierr, np, lp, k
       
+      call START_LOG(gatherwrap_begin)
       lsize = size(array_in)
+      call START_LOG(mpigather_begin)
       call MPI_Gather(array_in,lsize,MPI_REAL,array_temp,lsize,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+      call END_LOG(mpigather_end)
       do np = 0,nproc-1
          do k = 1,size(array_in,3)
             do lp = 0,lproc-1
@@ -2729,11 +2769,13 @@ contains
             end do
          end do
       end do
+      call END_LOG(gatherwrap_end)
       
    end subroutine gather_wrap
 #else
    subroutine gather_wrap(histarray,hist_a,slab,offset,maxcnt,k_indx)
       use mpidata_m, only : nproc, lproc, myid, pil, pjl, pnpan
+      use logging_m
 #ifdef usempif
       include 'mpif.h'
 #else
@@ -2748,6 +2790,7 @@ contains
       real, dimension(pil*pjl*pnpan*lproc*slab*nproc), target :: hist_a_tmp
       real, dimension(:,:,:,:), pointer, contiguous :: hist_a_remap, hist_a_tmp_remap
    
+      call START_LOG(gatherwrap_begin)
       do ip = 0,nproc-1
          if ( (1+slab*(ip-offset)).gt.0 ) then
             istart=1+slab*(ip-offset)
@@ -2757,8 +2800,10 @@ contains
 
             histarray_tmp(:,:,1:iend-istart+1) = histarray(:,:,(/k_indx(istart:iend)/))
             hist_a_tmp_remap(1:pil,1:pjl*pnpan*lproc,istart:iend,1:nproc) => hist_a_tmp(1:pil*pjl*pnpan*lproc*(iend-istart+1)*nproc)
+            call START_LOG(mpigather_begin)	    
             call MPI_Gather(histarray_tmp,pil*pjl*pnpan*lproc*(iend-istart+1),MPI_REAL,hist_a_tmp_remap,pil*pjl*pnpan*lproc*(iend-istart+1),MPI_REAL, rrank, &
                             MPI_COMM_WORLD,ierr)
+            call END_LOG(mpigather_end)			    
 
             hist_a_remap(1:pil,1:pjl*pnpan*lproc,1:nproc,istart:iend) => hist_a
 
@@ -2771,6 +2816,7 @@ contains
             end if
          end if
       end do
+      call END_LOG(gatherwrap_end)
    
    end subroutine gather_wrap
 #endif
