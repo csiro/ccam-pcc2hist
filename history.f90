@@ -2836,10 +2836,12 @@ contains
       nxhis = size(htemp,1)
       nyhis = size(htemp,2)
       rrank = ceiling(1.0d0*cnt/slab)-1+offset
-      if ( myid == 0 ) then
-         call MPI_Recv(htemp,nxhis*nyhis,MPI_REAL,rrank,1,MPI_COMM_WORLD,MPI_STATUS_IGNORE,ierr)
-      else if ( myid == rrank ) then
-         call MPI_Send(htemp,nxhis*nyhis,MPI_REAL,0,1,MPI_COMM_WORLD,ierr)
+      if ( rrank /= 0 ) then
+         if ( myid == 0 ) then
+            call MPI_Recv(htemp,nxhis*nyhis,MPI_REAL,rrank,1,MPI_COMM_WORLD,MPI_STATUS_IGNORE,ierr)
+         else if ( myid == rrank ) then
+            call MPI_Send(htemp,nxhis*nyhis,MPI_REAL,0,1,MPI_COMM_WORLD,ierr)
+         end if
       end if
 	       
    end subroutine sendrecv_wrap

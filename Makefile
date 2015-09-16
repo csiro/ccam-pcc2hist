@@ -1,6 +1,6 @@
 FC = mpif90
-FFLAGS = -O -xHost -fpp -ftz -Dparallel_int -Dsimple_timer
-#FFLAGS = -O -xHost -fpp -ftz -Dsimple_timer
+#FFLAGS = -O -xHost -fpp -ftz -Dparallel_int -Dsimple_timer
+FFLAGS = -O -xHost -fpp -ftz -Dsimple_timer
 INC = -I $(NETCDF_ROOT)/include
 LIBS = -L $(NETCDF_ROOT)/lib -lnetcdf -lnetcdff
 
