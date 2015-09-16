@@ -2265,6 +2265,7 @@ contains
       
       call START_LOG(mpibcast_begin)
       call MPI_Bcast(pnproc,1,MPI_INTEGER,0,MPI_COMM_WORLD,ier)
+      call MPI_Bcast(proc_node,1,MPI_INTEGER,0,MPI_COMM_WORLD,ier)
       call END_LOG(mpibcast_end)
       lproc = pnproc/nproc !number of files each mpi_proc will work on      
       allocate( ncid_in(0:lproc-1) )
@@ -2413,6 +2414,9 @@ contains
       real addoff, sf
       logical, intent(in) :: required
       character(len=*), intent(in) :: name
+#ifdef procformat
+      integer :: pid
+#endif
    
       ! If the variable has the required flag set to false, and the 
       ! vread_err argument is present, then return an error flag rather
@@ -2430,7 +2434,8 @@ contains
          call check_ncerr(ierr, "Error getting vid for "//name)
           
 #ifdef procformat
-         ierr = nf90_get_var ( ncid_in(ip), vid, inarray2(:,:), start=(/ 1, 1, node_myid+1, nrec /), count=(/ pil, pjl*pnpan, 1, 1 /) )
+         pid = myid*lproc + ip + 1
+         ierr = nf90_get_var ( ncid_in(ip), vid, inarray2(:,:), start=(/ 1, 1, pid, nrec /), count=(/ pil, pjl*pnpan, 1, 1 /) )
 #else
          ierr = nf90_get_var ( ncid_in(ip), vid, inarray2(:,:), start=(/ 1, 1, nrec /), count=(/ pil, pjl*pnpan, 1 /) )
 #endif
@@ -2467,6 +2472,9 @@ contains
       real, dimension(pil,pjl*pnpan,pkl) :: inarray3
       real addoff, sf
       character(len=*), intent(in) :: name
+#ifdef procformat
+      integer :: pid
+#endif
 
       call START_LOG(paravar3a_begin)
 
@@ -2476,7 +2484,8 @@ contains
          call check_ncerr(ierr, "Error getting vid for "//name)
           
 #ifdef procformat
-         ierr = nf90_get_var ( ncid_in(ip), vid, inarray3(:,:,minlev:maxlev), start=(/ 1, 1, minlev, node_myid+1, nrec /), &
+         pid = myid*lproc + ip + 1
+         ierr = nf90_get_var ( ncid_in(ip), vid, inarray3(:,:,minlev:maxlev), start=(/ 1, 1, minlev, pid, nrec /), &
                                count=(/ pil, pjl*pnpan, maxlev-minlev+1, 1, 1 /) )
 #else
          ierr = nf90_get_var ( ncid_in(ip), vid, inarray3(:,:,minlev:maxlev), start=(/ 1, 1, minlev, nrec /), &
