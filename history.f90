@@ -2795,27 +2795,30 @@ contains
          if ( (1+slab*(ip-offset)).gt.0 ) then
             istart=1+slab*(ip-offset)
             iend=slab*(ip-offset+1)
-	    iend=min(iend,maxcnt)
+            iend=min(iend,maxcnt)
             rrank=ip
-
             histarray_tmp(:,:,1:iend-istart+1) = histarray(:,:,(/k_indx(istart:iend)/))
             hist_a_tmp_remap(1:pil,1:pjl*pnpan*lproc,istart:iend,1:nproc) => hist_a_tmp(1:pil*pjl*pnpan*lproc*(iend-istart+1)*nproc)
-            call START_LOG(mpigather_begin)	    
+            call START_LOG(mpigather_begin)
             call MPI_Gather(histarray_tmp,pil*pjl*pnpan*lproc*(iend-istart+1),MPI_REAL,hist_a_tmp_remap,pil*pjl*pnpan*lproc*(iend-istart+1),MPI_REAL, rrank, &
                             MPI_COMM_WORLD,ierr)
-            call END_LOG(mpigather_end)			    
-
-            hist_a_remap(1:pil,1:pjl*pnpan*lproc,1:nproc,istart:iend) => hist_a
-
-            if ( ip.eq.myid ) then
-               do k = istart,iend
-                  do n = 1,nproc
-                     hist_a_remap(:,:,n,k)=hist_a_tmp_remap(:,:,k,n)
-                  end do
-               end do
-            end if
+            call END_LOG(mpigather_end)
          end if
       end do
+      
+      if ( 1+slab*(myid-offset) > 0 ) then  
+         istart=1+slab*(myid-offset)
+         iend=slab*(myid-offset+1)
+         iend=min(iend,maxcnt)          
+         hist_a_remap(1:pil,1:pjl*pnpan*lproc,1:nproc,istart:iend) => hist_a
+         hist_a_tmp_remap(1:pil,1:pjl*pnpan*lproc,istart:iend,1:nproc) => hist_a_tmp(1:pil*pjl*pnpan*lproc*(iend-istart+1)*nproc)
+         do k = istart,iend
+            do n = 1,nproc
+               hist_a_remap(:,:,n,k)=hist_a_tmp_remap(:,:,k,n)
+            end do
+         end do
+      end if
+      
       call END_LOG(gatherwrap_end)
    
    end subroutine gather_wrap
@@ -2835,10 +2838,12 @@ contains
       nxhis = size(htemp,1)
       nyhis = size(htemp,2)
       rrank = ceiling(1.0d0*cnt/slab)-1+offset
-      if ( myid == 0 ) then
-         call MPI_Recv(htemp,nxhis*nyhis,MPI_REAL,rrank,1,MPI_COMM_WORLD,MPI_STATUS_IGNORE,ierr)
-      else if ( myid == rrank ) then
-         call MPI_Send(htemp,nxhis*nyhis,MPI_REAL,0,1,MPI_COMM_WORLD,ierr)
+      if ( rrank /= 0 ) then
+         if ( myid == 0 ) then
+            call MPI_Recv(htemp,nxhis*nyhis,MPI_REAL,rrank,1,MPI_COMM_WORLD,MPI_STATUS_IGNORE,ierr)
+         else if ( myid == rrank ) then
+            call MPI_Send(htemp,nxhis*nyhis,MPI_REAL,0,1,MPI_COMM_WORLD,ierr)
+         end if
       end if
 	       
    end subroutine sendrecv_wrap
