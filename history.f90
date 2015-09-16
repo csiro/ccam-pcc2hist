@@ -2803,20 +2803,17 @@ contains
             call MPI_Gather(histarray_tmp,pil*pjl*pnpan*lproc*(iend-istart+1),MPI_REAL,hist_a_tmp_remap,pil*pjl*pnpan*lproc*(iend-istart+1),MPI_REAL, rrank, &
                             MPI_COMM_WORLD,ierr)
             call END_LOG(mpigather_end)
+
+            if ( ip.eq.myid ) then  
+               hist_a_remap(1:pil,1:pjl*pnpan*lproc,1:nproc,istart:iend) => hist_a
+               do k = istart,iend
+                  do n = 1,nproc
+                     hist_a_remap(:,:,n,k)=hist_a_tmp_remap(:,:,k,n)
+                  end do
+               end do
+            end if
          end if
       end do
-
-      if ( 1+slab*(myid-offset) > 0 ) then  
-         istart=1+slab*(myid-offset)
-         iend=slab*(myid-offset+1)
-         iend=min(iend,maxcnt)          
-         hist_a_remap(1:pil,1:pjl*pnpan*lproc,1:nproc,istart:iend) => hist_a
-         do k = istart,iend
-            do n = 1,nproc
-               hist_a_remap(:,:,n,k)=hist_a_tmp_remap(:,:,k,n)
-            end do
-         end do
-      end if
       call END_LOG(gatherwrap_end)
    
    end subroutine gather_wrap
