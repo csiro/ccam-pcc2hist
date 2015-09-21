@@ -2434,7 +2434,7 @@ contains
          call check_ncerr(ierr, "Error getting vid for "//name)
           
 #ifdef procformat
-         pid = mod(myid*lproc,proc_node) + ip + 1
+         pid = mod(myid*lproc+ip,proc_node)+1
          ierr = nf90_get_var ( ncid_in(ip), vid, inarray2(:,:), start=(/ 1, 1, pid, nrec /), count=(/ pil, pjl*pnpan, 1, 1 /) )
 #else
          ierr = nf90_get_var ( ncid_in(ip), vid, inarray2(:,:), start=(/ 1, 1, nrec /), count=(/ pil, pjl*pnpan, 1 /) )
@@ -2484,7 +2484,7 @@ contains
          call check_ncerr(ierr, "Error getting vid for "//name)
           
 #ifdef procformat
-         pid = mod(myid*lproc,proc_node) + ip + 1
+         pid = mod(myid*lproc+ip,proc_node)+1
          ierr = nf90_get_var ( ncid_in(ip), vid, inarray3(:,:,minlev:maxlev), start=(/ 1, 1, minlev, pid, nrec /), &
                                count=(/ pil, pjl*pnpan, maxlev-minlev+1, 1, 1 /) )
 #else
