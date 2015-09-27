@@ -2209,7 +2209,11 @@ contains
   
       integer, intent(in) :: nmode
       integer, intent(out) :: ncid
+#ifdef uselastrip
+      integer ier, ip, n, rip, ierr, lastrip
+#else
       integer ier, ip, n, rip, ierr
+#endif
       integer, dimension(5) :: jdum
       integer, dimension(54) :: int_header
       character(len=*), intent(in) :: ifile
@@ -2283,11 +2287,18 @@ contains
       
       if ( myid /= 0 ) then
       
+#ifdef uselastrip
+         lastrip=-1
+#endif
          do ip = 0,lproc-1
 #ifdef procformat
             rip = (myid*lproc + ip)/proc_node
 #else
             rip = myid*lproc + ip
+#endif
+#ifdef uselastrip
+            if (lastrip.ne.rip) then
+            lastrip=rip
 #endif
             write(pfile,"(a,'.',i6.6)") trim(ifile), rip
             ier = nf90_open ( pfile, nmode, ncid_in(ip) )
@@ -2299,17 +2310,29 @@ contains
                write(6,*) "ERROR: Cannot open ",trim(pfile)
                call check_ncerr(ier, "open")
             end if
+#ifdef uselastrip
+            else
+               ncid_in(ip)=ncid_in(ip-1)
+            end if
+#endif
          end do
          ncid = ncid_in(0) 
       
       else
       
          ncid_in(0) = ncid
+#ifdef uselastrip
+         lastrip=-1
+#endif
          do ip = 1,lproc-1
 #ifdef procformat
             rip = ip/proc_node
 #else
             rip = ip
+#endif
+#ifdef uselastrip
+            if (lastrip.ne.rip) then
+            lastrip=rip
 #endif
             write(pfile,"(a,'.',i6.6)") trim(ifile), rip
             ier = nf90_open ( pfile, nmode, ncid_in(ip) )
@@ -2321,6 +2344,11 @@ contains
                write(6,*) "ERROR: Cannot open ",trim(pfile)
                call check_ncerr(ier, "open")
             end if
+#ifdef uselastrip
+            else
+            ncid_in(ip)=ncid_in(ip-1)
+            end if
+#endif
          end do
       
          !  Get dimensions from int_header
