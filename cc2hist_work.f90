@@ -1391,6 +1391,7 @@ contains
       call check_ncerr(ierr, "nf90_inquire error")
 #ifdef usefirstrank
       end if
+      call MPI_Bcast(ndimensions,1,MPI_INTEGER,0,node_comm,ierr)
       call MPI_Bcast(nvariables,1,MPI_INTEGER,0,node_comm,ierr)
 #endif
       ! This is slightly bigger than required because not all the variables
@@ -1887,7 +1888,7 @@ contains
       call MPI_Type_create_struct(12,b,d,t,MPI_INPUT_VAR,ierr)
       call MPI_Type_commit(MPI_INPUT_VAR,ierr)
       call MPI_Bcast(nvars,1,MPI_INTEGER,0,node_comm,ierr)
-      call MPI_Bcast(varlist,nvars,MPI_INPUT_VAR,0,node_comm,ierr)
+      call MPI_Bcast(varlist,nvariables,MPI_INPUT_VAR,0,node_comm,ierr)
 
       call addfldcp
 #endif
@@ -2735,7 +2736,7 @@ contains
       integer ip, n, vid, ierr, vartyp, k
       real, dimension(:,:,:), intent(out) :: var
 #ifdef usefirstrank
-      real, dimension(pil,pjl*pnpan,pkl,0:lproc-1) :: inarray3
+      real, dimension(pil,pjl*pnpan,minlev:maxlev,0:lproc-1) :: inarray3
 #else
       real, dimension(pil,pjl*pnpan,pkl) :: inarray3
 #endif
@@ -2758,7 +2759,7 @@ contains
          call check_ncerr(ierr, "Error getting vid for "//name)
           
          pid = mod(myid*lproc+ip,proc_node)+1
-         ierr = nf90_get_var ( ncid_in(ip), vid, ginarray3(:,:,minlev:maxlev,ip), start=(/ 1, 1, minlev, pid, nrec /), &
+         ierr = nf90_get_var ( ncid_in(ip), vid, ginarray3(:,:,:,ip), start=(/ 1, 1, minlev, pid, nrec /), &
                                count=(/ pil, pjl*pnpan, maxlev-minlev+1, 1, 1 /) )
          call check_ncerr(ierr, "Error getting var "//name)
       end do
