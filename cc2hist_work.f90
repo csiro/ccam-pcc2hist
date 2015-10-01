@@ -123,6 +123,9 @@ contains
    end subroutine alloc_indata
 
    subroutine getdate ( kdate, ktime, ieof) 
+#ifdef usefirstrank
+      use mpi
+#endif
       use logging_m
 
 !     Get record data from header
@@ -134,6 +137,9 @@ contains
          return
       end if
       call START_LOG(getdate_begin)      
+#ifdef usefirstrank
+      if ( node_myid.eq.0 ) then
+#endif
       ! Get vid and then values for kdate, ktime, ktau
       ierr = nf90_inq_varid (ncid, "kdate", vid )
       call check_ncerr(ierr, "Error getting kdate id")
@@ -154,6 +160,13 @@ contains
          write(*,"(a,3i8)",advance="no") " kdate, ktime, ktau ", &
                                            kdate,  ktime, ktau
       end if
+#ifdef usefirstrank
+      end if
+      call MPI_Bcast(kdate,1,MPI_INTEGER,0,node_comm,ierr)
+      call MPI_Bcast(ktime,1,MPI_INTEGER,0,node_comm,ierr)
+      call MPI_Bcast(ktau,1,MPI_INTEGER,0,node_comm,ierr)
+      call MPI_Bcast(ieof,1,MPI_INTEGER,0,node_comm,ierr)
+#endif
       call END_LOG(getdate_end)
 
    end subroutine getdate
@@ -818,6 +831,9 @@ contains
 !     alloc_indata minimises the total memory requirements
 
       nrec = 1
+#ifdef usefirstrank
+      if ( node_myid.eq.0 ) then
+#endif
       ! Get the total number of timesteps
       ierr = nf90_inq_dimid ( ncid, "time", dimid )
       call check_ncerr(ierr, "Error getting time dimension")
@@ -829,11 +845,28 @@ contains
       call check_ncerr(ierr, "Error getting int_header length")
       if ( hlen < 43 ) then
          print*, "Error - insufficient header information: int_header too short"
+#ifdef usefirstrank
+         call MPI_Abort(MPI_COMM_WORLD,-1_4,ierr)
+#else
          stop
+#endif
       end if
+#ifdef usefirstrank
+      end if
+      call MPI_Bcast(maxrec,1,MPI_INTEGER,0,node_comm,ierr)
+      call MPI_Bcast(hlen,1,MPI_INTEGER,0,node_comm,ierr)
+#endif
       allocate (int_header(hlen))
+#ifdef usefirstrank
+      if ( node_myid.eq.0 ) then
       ierr = nf90_get_att(ncid, nf90_global, "int_header", int_header)
       call check_ncerr(ierr, "Error getting int_header")
+      end if
+      call MPI_Bcast(int_header,hlen,MPI_INTEGER,0,node_comm,ierr)
+#else
+      ierr = nf90_get_att(ncid, nf90_global, "int_header", int_header)
+      call check_ncerr(ierr, "Error getting int_header")
+#endif
       ! Only a few values are used
       il = int_header(1)
       jl = int_header(2)
@@ -849,15 +882,29 @@ contains
       ilt = int_header(42)
       ntrac = int_header(43)
 
+#ifdef usefirstrank
+      if ( node_myid.eq.0 ) then
+#endif
       ierr = nf90_inquire_attribute(ncid, nf90_global, "real_header", len=hlen)
       call check_ncerr(ierr, "Error getting real_header length")
+#ifdef usefirstrank
+      end if
+      call MPI_Bcast(hlen,1,MPI_INTEGER,0,node_comm,ierr)
+#endif
       if ( hlen < 8 ) then
          print*, "Error - insufficient header information: real_header too short"
          stop
       end if
       allocate (real_header(hlen))
+#ifdef usefirstrank
+      if ( node_myid.eq.0 ) then
+#endif
       ierr = nf90_get_att(ncid, nf90_global, "real_header", real_header)
       call check_ncerr(ierr, "Error getting real_header")
+#ifdef usefirstrank
+      end if
+      call MPI_Bcast(real_header,hlen,MPI_REAL,0,node_comm,ierr)
+#endif
       ! Only a few values are used
       rlong0 = real_header(5)
       rlat0 = real_header(6)
@@ -913,20 +960,34 @@ contains
 
       if ( kl > 1 ) then
             ! Get sigma levels from level variable
+#ifdef usefirstrank
+            if ( node_myid.eq.0 ) then
+#endif
             ierr = nf90_inq_varid (ncid, "lev", vid )
             call check_ncerr(ierr, "Error getting vid for lev")
             ierr = nf90_get_var ( ncid, vid, sig)
             call check_ncerr(ierr, "Error getting levels")
+#ifdef usefirstrank
+            end if
+            call MPI_Bcast(sig,kl,MPI_REAL,0,node_comm,ierr)
+#endif
       else
          sig = 1.0
       end if
       call sig2ds(sig, dsig)
       ! Note that some initial condition files don't have zsoil
       if ( cf_compliant ) then
+#ifdef usefirstrank
+         if ( node_myid.eq.0 ) then
+#endif
          ierr = nf90_inq_varid (ncid, "zsoil", vid )
          call check_ncerr(ierr, "Error getting vid for zsoil")
          ierr = nf90_get_var ( ncid, vid, zsoil)
          call check_ncerr(ierr, "Error getting zsoil")
+#ifdef usefirstrank
+         end if
+         call MPI_Bcast(zsoil,ksoil,MPI_REAL,0,node_comm,ierr)
+#endif
       end if
 
 !     Set all the resolution parameters
@@ -1289,8 +1350,15 @@ contains
    end subroutine fix_winds3
 
    subroutine get_var_list(varlist, nvars)
+#ifdef usefirstrank
+      use mpi
+#endif
       ! Get a list of the variables in the input file
+#ifdef usefirstrank
+      use history, only : addfld, int_default, cf_compliant, cordex_compliant, addfldcp
+#else
       use history, only : addfld, int_default, cf_compliant, cordex_compliant
+#endif
       use interp_m, only : int_nearest, int_none
       use physparams, only : grav, rdry
       use s2p_m, only: use_plevs, plevs, use_meters, mlevs
@@ -1310,13 +1378,28 @@ contains
       real :: xmin, xmax, aoff, sf, topsig, topheight
       real :: coord_height
       integer :: ivar_start
+#ifdef usefirstrank
+      integer, dimension(12) :: b,t
+      integer :: MPI_INPUT_VAR
+      integer(kind=MPI_ADDRESS_KIND), dimension(12) :: d
+#endif
 
+#ifdef usefirstrank
+      if ( node_myid.eq.0 ) then
+#endif
       ierr = nf90_inquire(ncid, ndimensions=ndimensions, nvariables=nvariables)
       call check_ncerr(ierr, "nf90_inquire error")
+#ifdef usefirstrank
+      end if
+      call MPI_Bcast(nvariables,1,MPI_INTEGER,0,node_comm,ierr)
+#endif
       ! This is slightly bigger than required because not all the variables
       ! in the netcdf file are processed.
       allocate ( varlist(nvariables) )
 
+#ifdef usefirstrank
+      if ( node_myid.eq.0 ) then
+#endif
       ! Get the values of the dimension IDs
       ierr = nf90_inq_dimid(ncid, "longitude", londim)
       call check_ncerr(ierr,"Error getting lonid")
@@ -1759,6 +1842,55 @@ contains
          ! Mentioned in Gregory email 2005-12-01. In official list?
          !call addfld('wb','Soil moisture','frac',0.,1.,ksoil,soil=.true.)
       end if
+#ifdef usefirstrank
+      end if
+
+      t(1)=MPI_CHARACTER
+      t(2)=MPI_CHARACTER
+      t(3)=MPI_CHARACTER
+      t(4)=MPI_REAL
+      t(5)=MPI_REAL
+      t(6)=MPI_INTEGER
+      t(7)=MPI_LOGICAL
+      t(8)=MPI_INTEGER
+      t(9)=MPI_LOGICAL
+      t(10)=MPI_LOGICAL
+      t(11)=MPI_LOGICAL
+      t(12)=MPI_INTEGER
+
+      b(1)=10
+      b(2)=100
+      b(3)=20
+      b(4)=1
+      b(5)=1
+      b(6)=1
+      b(7)=1
+      b(8)=1
+      b(9)=1
+      b(10)=1
+      b(11)=1
+      b(12)=1
+
+      d(1)=0
+      d(2)=10
+      d(3)=110
+      d(4)=130
+      d(5)=134
+      d(6)=138
+      d(7)=142
+      d(8)=146
+      d(9)=150
+      d(10)=154
+      d(11)=158
+      d(12)=162
+
+      call MPI_Type_create_struct(12,b,d,t,MPI_INPUT_VAR,ierr)
+      call MPI_Type_commit(MPI_INPUT_VAR,ierr)
+      call MPI_Bcast(nvars,1,MPI_INTEGER,0,node_comm,ierr)
+      call MPI_Bcast(varlist,nvars,MPI_INPUT_VAR,0,node_comm,ierr)
+
+      call addfldcp
+#endif
 
    end subroutine get_var_list
 
@@ -1873,11 +2005,17 @@ contains
    end subroutine calc_rh
 
    subroutine check_cc2histfile()
+#ifdef usefirstrank
+      use mpi
+#endif
       ! Check whether the input file was created by cc2hist. Without this
       ! check the error message that this gives rise to is rather obscure.
       integer :: ierr, attlen
       character(len=1000) :: source
 
+#ifdef usefirstrank
+      if ( node_myid.eq.0 ) then
+#endif
       ! Look for the source attribute
       source = ""
       ierr = nf90_inquire_attribute ( ncid, nf90_global, "source", len=attlen)
@@ -1888,10 +2026,17 @@ contains
             call check_ncerr(ierr, "Error getting source attribute")
             if ( index(source, "Processed by cc2hist") > 0 ) then
                print*, "Error - the input file is already processed by cc2hist"
+#ifdef usefirstrank
+               call MPI_Abort(MPI_COMM_WORLD,-1_4,ierr)
+#else
                stop
+#endif
             end if
          end if
       end if
+#ifdef usefirstrank
+      end if
+#endif
    end subroutine check_cc2histfile
 
    subroutine cc_cfproperties(vinfo, stdname, cell_methods)
@@ -2272,7 +2417,11 @@ contains
       call MPI_Bcast(proc_node,1,MPI_INTEGER,0,MPI_COMM_WORLD,ier)
       call END_LOG(mpibcast_end)
       lproc = pnproc/nproc !number of files each mpi_proc will work on      
+#ifdef usefirstrank
+      allocate( ncid_in(0:lproc*node_nproc-1) )
+#else
       allocate( ncid_in(0:lproc-1) )
+#endif
 
 #ifdef parallel_int
       if ( node_myid == 0 ) then
@@ -2285,12 +2434,20 @@ contains
       joff(0:pnproc-1,0:5) => ijoff(:,:,2)
 #endif
       
+#ifdef usefirstrank
+      if ( myid /= 0 .and. node_myid.eq.0 ) then
+#else
       if ( myid /= 0 ) then
+#endif
       
 #ifdef uselastrip
          lastrip=-1
 #endif
+#ifdef usefirstrank
+         do ip = 0,lproc*node_nproc-1
+#else
          do ip = 0,lproc-1
+#endif
 #ifdef procformat
             rip = (myid*lproc + ip)/proc_node
 #else
@@ -2318,13 +2475,21 @@ contains
          end do
          ncid = ncid_in(0) 
       
+#ifdef usefirstrank
+      else if ( myid.eq.0 .and. node_myid.eq.0 ) then
+#else
       else
+#endif
       
          ncid_in(0) = ncid
 #ifdef uselastrip
-         lastrip=-1
+         lastrip=0
 #endif
+#ifdef usefirstrank
+         do ip = 1,lproc*node_nproc-1
+#else
          do ip = 1,lproc-1
+#endif
 #ifdef procformat
             rip = ip/proc_node
 #else
@@ -2420,11 +2585,18 @@ contains
    end subroutine paraopen
    
    subroutine paraclose
+#ifdef usefirstrank
+      use mpidata_m
+#endif
       use logging_m
       integer ip, ierr
       
       call START_LOG(paraclose_begin)
+#ifdef usefirstrank
+      do ip = 0,lproc*node_nproc-1
+#else
       do ip = 0,lproc-1
+#endif
          ierr = nf90_close(ncid_in(ip))
       end do
       deallocate(ncid_in)
@@ -2433,12 +2605,28 @@ contains
    end subroutine paraclose
    
    subroutine paravar2a(name,var,nrec,required,vread_err)
+#ifndef usempif
+      use mpi
+#endif
+#ifdef usefirstrank
+      use mpidata_m
+#endif
       use logging_m   
+#ifdef usempif
+      include 'mpif.h'
+#endif
       integer, intent(in) :: nrec
       integer, intent(out) :: vread_err
       integer ip, n, vid, ierr, vartyp
       real, dimension(:,:), intent(out) :: var
+#ifdef usefirstrank
+      real, dimension(pil,pjl*pnpan,0:lproc-1) :: inarray2
+#else
       real, dimension(pil,pjl*pnpan) :: inarray2
+#endif
+#ifdef usefirstrank
+      real, dimension(pil,pjl*pnpan,0:lproc*node_nproc-1) :: ginarray2
+#endif
       real addoff, sf
       logical, intent(in) :: required
       character(len=*), intent(in) :: name
@@ -2456,6 +2644,45 @@ contains
       
       call START_LOG(paravar2a_begin)
       
+#ifdef usefirstrank
+      if ( node_myid.eq.0 ) then
+      do ip = 0,lproc*node_nproc-1
+         
+         ierr = nf90_inq_varid (ncid_in(ip), name, vid ) 
+         call check_ncerr(ierr, "Error getting vid for "//name)
+          
+         pid = mod(myid*lproc+ip,proc_node)+1
+         ierr = nf90_get_var ( ncid_in(ip), vid, ginarray2(:,:,ip), start=(/ 1, 1, pid, nrec /), count=(/ pil, pjl*pnpan, 1, 1 /) )
+         call check_ncerr(ierr, "Error getting var "//name)
+      end do
+      end if
+      call MPI_Scatter(ginarray2,pil*pjl*pnpan*lproc,MPI_REAL,inarray2,pil*pjl*pnpan*lproc,MPI_REAL,0,node_comm,ierr)
+      if ( node_myid.eq.0 ) then
+!     Check the type of the variable
+       ierr = nf90_inq_varid (ncid_in(0), name, vid ) 
+       call check_ncerr(ierr, "Error getting vid for "//name)
+       ierr = nf90_inquire_variable ( ncid_in(0), vid, xtype=vartyp)
+       if ( vartyp == NF90_SHORT ) then
+         ierr = nf90_get_att ( ncid_in(0), vid, "add_offset", addoff )
+         call check_ncerr(ierr, "Error getting add_offset attribute")
+         ierr = nf90_get_att ( ncid_in(0), vid, "scale_factor", sf )
+         call check_ncerr (ierr,"Error getting scale_factor attribute")
+       end if
+      end if
+      call MPI_Bcast(vartyp,1,MPI_INTEGER,0,node_comm,ierr)
+      call MPI_Bcast(addoff,1,MPI_INTEGER,0,node_comm,ierr)
+      call MPI_Bcast(sf,1,MPI_INTEGER,0,node_comm,ierr)
+      do ip = 0,lproc-1
+         if ( vartyp == NF90_SHORT ) then
+            if ( all( inarray2(:,:,ip) == -32501. ) ) then
+               inarray2(:,:,ip) = NF90_FILL_FLOAT
+            else
+               inarray2(:,:,ip) = addoff + inarray2(:,:,ip)*sf
+            end if
+         end if
+         var(:,1+ip*pjl*pnpan:(ip+1)*pjl*pnpan) = inarray2(:,:,ip)
+      end do
+#else
       do ip = 0,lproc-1
          
          ierr = nf90_inq_varid (ncid_in(ip), name, vid ) 
@@ -2486,18 +2713,35 @@ contains
          var(:,1+ip*pjl*pnpan:(ip+1)*pjl*pnpan) = inarray2(:,:)
          
       end do
+#endif
       
       call END_LOG(paravar2a_end)
    
    end subroutine paravar2a
 
    subroutine paravar3a(name,var,nrec,pkl)
+#ifndef usempif
+      use mpi
+#endif
+#ifdef usefirstrank
+      use mpidata_m
+#endif
       use s2p_m, only : minlev, maxlev
       use logging_m
+#ifdef usempif
+      include 'mpif.h'
+#endif
       integer, intent(in) :: nrec, pkl
       integer ip, n, vid, ierr, vartyp, k
       real, dimension(:,:,:), intent(out) :: var
+#ifdef usefirstrank
+      real, dimension(pil,pjl*pnpan,pkl,0:lproc-1) :: inarray3
+#else
       real, dimension(pil,pjl*pnpan,pkl) :: inarray3
+#endif
+#ifdef usefirstrank
+      real, dimension(pil,pjl*pnpan,minlev:maxlev,0:lproc*node_nproc-1) :: ginarray3
+#endif
       real addoff, sf
       character(len=*), intent(in) :: name
 #ifdef procformat
@@ -2506,6 +2750,45 @@ contains
 
       call START_LOG(paravar3a_begin)
 
+#ifdef usefirstrank
+      if ( node_myid.eq.0 ) then
+      do ip = 0,lproc*node_nproc-1
+
+         ierr = nf90_inq_varid ( ncid_in(ip), name, vid )
+         call check_ncerr(ierr, "Error getting vid for "//name)
+          
+         pid = mod(myid*lproc+ip,proc_node)+1
+         ierr = nf90_get_var ( ncid_in(ip), vid, ginarray3(:,:,minlev:maxlev,ip), start=(/ 1, 1, minlev, pid, nrec /), &
+                               count=(/ pil, pjl*pnpan, maxlev-minlev+1, 1, 1 /) )
+         call check_ncerr(ierr, "Error getting var "//name)
+      end do
+      end if
+      call MPI_Scatter(ginarray3,pil*pjl*pnpan*(maxlev-minlev+1)*lproc,MPI_REAL,inarray3,pil*pjl*pnpan*(maxlev-minlev+1)*lproc,MPI_REAL,0,node_comm,ierr)
+      if ( node_myid.eq.0 ) then
+       ierr = nf90_inq_varid ( ncid_in(0), name, vid )
+       call check_ncerr(ierr, "Error getting vid for "//name)
+       ierr = nf90_inquire_variable ( ncid_in(0), vid, xtype=vartyp )
+       if ( vartyp == NF90_SHORT ) then
+         ierr = nf90_get_att ( ncid_in(0), vid, "add_offset", addoff )
+         call check_ncerr(ierr, "Error getting add_offset attribute")
+         ierr = nf90_get_att ( ncid_in(0), vid, "scale_factor", sf )
+         call check_ncerr (ierr,"Error getting scale_factor attribute")                
+       end if
+      end if
+      call MPI_Bcast(vartyp,1,MPI_INTEGER,0,node_comm,ierr)
+      call MPI_Bcast(addoff,1,MPI_INTEGER,0,node_comm,ierr)
+      call MPI_Bcast(sf,1,MPI_INTEGER,0,node_comm,ierr)
+      do ip = 0,lproc-1
+         if ( vartyp == NF90_SHORT ) then
+            if ( all( inarray3(:,:,:,ip) == -32501. ) ) then
+               inarray3(:,:,:,ip) = NF90_FILL_FLOAT
+            else
+               inarray3(:,:,:,ip) = addoff + inarray3(:,:,:,ip)*sf
+            end if
+         end if
+         var(:,1+ip*pjl*pnpan:(ip+1)*pjl*pnpan,minlev:maxlev) = inarray3(:,:,minlev:maxlev,ip)
+      end do
+#else
       do ip = 0,lproc-1
 
          ierr = nf90_inq_varid ( ncid_in(ip), name, vid )
@@ -2537,6 +2820,7 @@ contains
          var(:,1+ip*pjl*pnpan:(ip+1)*pjl*pnpan,minlev:maxlev) = inarray3(:,:,minlev:maxlev)
          
       end do
+#endif
       
       call END_LOG(paravar3a_end)
    

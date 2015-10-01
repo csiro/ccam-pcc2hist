@@ -308,6 +308,9 @@ program cc2hist
    end if
 
 !     If the input is a netcdf file with a time:units attribute then copy that.
+#ifdef usefirstrank
+   if ( node_myid.eq.0 ) then
+#endif
    ierr = nf90_inq_varid (ncid, "time", vid )
    call check_ncerr(ierr, "Error getting time id")
    basetime = ""
@@ -315,6 +318,11 @@ program cc2hist
    call check_ncerr(ierr, "Error getting time:units attribute")
    calendar = ""
    ierr = nf90_get_att(ncid, vid, "calendar", calendar)
+#ifdef usefirstrank
+   end if
+   call MPI_Bcast(basetime,80,MPI_CHARACTER,0,node_comm,ierr)
+   call MPI_Bcast(calendar,80,MPI_CHARACTER,0,node_comm,ierr)
+#endif
 
    if ( cf_compliant .and. basetime(1:13) == "minutes since" ) then
       basetime = "days" // basetime(8:len_trim(basetime))

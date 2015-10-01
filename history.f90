@@ -115,7 +115,11 @@ module history
    private   
 
 !  Only these routine names need to be public
+#ifdef usefirstrank
+   public :: savehist, openhist, closehist, writehist, addfld, addfldcp, &
+#else
    public :: savehist, openhist, closehist, writehist, addfld, &
+#endif
              inithist, histnamelist, needfld, clearhist, hstring
 
 !  Routine that provide access to the namelist control variables.
@@ -773,6 +777,93 @@ contains
 
    end subroutine addfld
    
+#ifdef usefirstrank
+!-------------------------------------------------------------------
+   subroutine addfldcp
+      use mpi
+      use mpidata_m
+      integer ierr
+      integer, dimension(22) :: b,t
+      integer :: MPI_HINFO
+      integer(kind=MPI_ADDRESS_KIND), dimension(22) :: d
+
+      t(1)=MPI_CHARACTER
+      t(2)=MPI_CHARACTER
+      t(3)=MPI_CHARACTER
+      t(4)=MPI_CHARACTER
+      t(5)=MPI_CHARACTER
+      t(6)=MPI_REAL
+      t(7)=MPI_REAL
+      t(8)=MPI_INTEGER
+      t(9)=MPI_LOGICAL
+      t(10)=MPI_REAL
+      t(11)=MPI_LOGICAL
+      t(12)=MPI_INTEGER
+      t(13)=MPI_INTEGER
+      t(14)=MPI_INTEGER
+      t(15)=MPI_INTEGER
+      t(16)=MPI_REAL
+      t(17)=MPI_REAL
+      t(18)=MPI_INTEGER
+      t(19)=MPI_LOGICAL
+      t(20)=MPI_LOGICAL
+      t(21)=MPI_REAL
+      t(22)=MPI_CHARACTER
+
+      b(1)=MAX_NAMELEN
+      b(2)=MAX_NAMELEN
+      b(3)=80
+      b(4)=80
+      b(5)=30
+      b(6)=1
+      b(7)=1
+      b(8)=1
+      b(9)=1
+      b(10)=1
+      b(11)=MAX_HFILES
+      b(12)=MAX_HFILES
+      b(13)=MAX_HFILES
+      b(14)=MAX_HFILES
+      b(15)=MAX_HFILES
+      b(16)=MAX_HFILES
+      b(17)=MAX_HFILES
+      b(18)=1
+      b(19)=1
+      b(20)=1
+      b(21)=1
+      b(22)=30
+
+      d(1)=0
+      d(2)=MAX_NAMELEN
+      d(3)=2*MAX_NAMELEN
+      d(4)=2*MAX_NAMELEN+80
+      d(5)=2*MAX_NAMELEN+80+80
+      d(6)=2*MAX_NAMELEN+80+80+30
+      d(7)=2*MAX_NAMELEN+80+80+30+4
+      d(8)=2*MAX_NAMELEN+80+80+30+4+4
+      d(9)=2*MAX_NAMELEN+80+80+30+4+4+4
+      d(10)=2*MAX_NAMELEN+80+80+30+4+4+4+4
+      d(11)=2*MAX_NAMELEN+80+80+30+4+4+4+4+4
+      d(12)=2*MAX_NAMELEN+1*4*MAX_HFILES+80+80+30+4+4+4+4+4
+      d(13)=2*MAX_NAMELEN+2*4*MAX_HFILES+80+80+30+4+4+4+4+4
+      d(14)=2*MAX_NAMELEN+3*4*MAX_HFILES+80+80+30+4+4+4+4+4
+      d(15)=2*MAX_NAMELEN+4*4*MAX_HFILES+80+80+30+4+4+4+4+4
+      d(16)=2*MAX_NAMELEN+5*4*MAX_HFILES+80+80+30+4+4+4+4+4
+      d(17)=2*MAX_NAMELEN+6*4*MAX_HFILES+80+80+30+4+4+4+4+4
+      d(18)=2*MAX_NAMELEN+7*4*MAX_HFILES+80+80+30+4+4+4+4+4
+      d(19)=2*MAX_NAMELEN+7*4*MAX_HFILES+80+80+30+4+4+4+4+4+4
+      d(20)=2*MAX_NAMELEN+7*4*MAX_HFILES+80+80+30+4+4+4+4+4+4+4
+      d(21)=2*MAX_NAMELEN+7*4*MAX_HFILES+80+80+30+4+4+4+4+4+4+4+4
+      d(22)=2*MAX_NAMELEN+7*4*MAX_HFILES+80+80+30+4+4+4+4+4+4+4+4+4
+
+      call MPI_Type_create_struct(22,b,d,t,MPI_HINFO,ierr)
+      call MPI_Type_commit(MPI_HINFO,ierr)
+      call MPI_Bcast(totflds,1,MPI_INTEGER,0,node_comm,ierr)
+      call MPI_Bcast(histinfo,totflds,MPI_HINFO,0,node_comm,ierr)
+
+   end subroutine addfldcp
+
+#endif
 !-------------------------------------------------------------------
    subroutine openhist ( nx, ny, nl, sig, suffix, hlon, hlat, basetime,       &
                          doublerow, year, nxout, nyout, source, histfilename, &
