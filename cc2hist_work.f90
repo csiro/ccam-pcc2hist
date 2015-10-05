@@ -2423,6 +2423,17 @@ contains
 #else
       allocate( ncid_in(0:lproc-1) )
 #endif
+#ifdef singleget
+#ifdef usefirstrank
+      allocate( ncid_cnt(0:lproc*node_nproc-1) )
+      allocate( ncid_min(0:lproc*node_nproc-1) )
+      allocate( ncid_max(0:lproc*node_nproc-1) )
+#else
+      allocate( ncid_cnt(0:lproc-1) )
+      allocate( ncid_min(0:lproc-1) )
+      allocate( ncid_max(0:lproc-1) )
+#endif
+#endif
 
 #ifdef parallel_int
       if ( node_myid == 0 ) then
@@ -2444,6 +2455,11 @@ contains
 #ifdef uselastrip
          lastrip=-1
 #endif
+#ifdef singleget
+         ncid_maxcnt=-1
+         ncid_min=-1
+         ncid_max=-1
+#endif
 #ifdef usefirstrank
          do ip = 0,lproc*node_nproc-1
 #else
@@ -2458,8 +2474,16 @@ contains
             if (lastrip.ne.rip) then
             lastrip=rip
 #endif
+#ifdef singleget
+            ncid_maxcnt=ncid_maxcnt+1
+            ncid_min(ncid_maxcnt)=ip
+#endif
             write(pfile,"(a,'.',i6.6)") trim(ifile), rip
+#ifdef singleget
+            ier = nf90_open ( pfile, nmode, ncid_in(ncid_maxcnt) )
+#else
             ier = nf90_open ( pfile, nmode, ncid_in(ip) )
+#endif
             !if (ier /= nf90_noerr ) then
             !   write(pfile,"(a,'.',i4.4)") trim(ifile), rip
             !   ier = nf90_open ( pfile, nmode, ncid_in(ip) )
@@ -2470,7 +2494,11 @@ contains
             end if
 #ifdef uselastrip
             else
+#ifdef singleget
+               ncid_max(ncid_maxcnt)=ip
+#else
                ncid_in(ip)=ncid_in(ip-1)
+#endif
             end if
 #endif
          end do
@@ -2486,6 +2514,13 @@ contains
 #ifdef uselastrip
          lastrip=0
 #endif
+#ifdef singleget
+         ncid_maxcnt=0
+         ncid_min=-1
+         ncid_max=-1
+         ncid_min(0)=0
+         ncid_max(0)=0
+#endif
 #ifdef usefirstrank
          do ip = 1,lproc*node_nproc-1
 #else
@@ -2500,8 +2535,16 @@ contains
             if (lastrip.ne.rip) then
             lastrip=rip
 #endif
+#ifdef singleget
+            ncid_maxcnt=ncid_maxcnt+1
+            ncid_min(ncid_maxcnt)=ip
+#endif
             write(pfile,"(a,'.',i6.6)") trim(ifile), rip
+#ifdef singleget
+            ier = nf90_open ( pfile, nmode, ncid_in(ncid_maxcnt) )
+#else
             ier = nf90_open ( pfile, nmode, ncid_in(ip) )
+#endif
             !if ( ier /= nf90_noerr ) then
             !   write(pfile,"(a,'.',i4.4)") trim(ifile), rip
             !   ier = nf90_open ( pfile, nmode, ncid_in(ip) )
@@ -2512,7 +2555,11 @@ contains
             end if
 #ifdef uselastrip
             else
+#ifdef singleget
+            ncid_max(ncid_maxcnt)=ip
+#else
             ncid_in(ip)=ncid_in(ip-1)
+#endif
             end if
 #endif
          end do
@@ -2634,6 +2681,9 @@ contains
 #ifdef procformat
       integer :: pid
 #endif
+#ifdef singleget
+      integer :: min_pid, max_pid
+#endif
    
       ! If the variable has the required flag set to false, and the 
       ! vread_err argument is present, then return an error flag rather
@@ -2647,6 +2697,17 @@ contains
       
 #ifdef usefirstrank
       if ( node_myid.eq.0 ) then
+#ifdef singleget
+      do ip = 0,ncid_maxcnt
+         ierr = nf90_inq_varid (ncid_in(ip), name, vid ) 
+         call check_ncerr(ierr, "Error getting vid for "//name)
+          
+         min_pid = mod(myid*lproc+ncid_min(ip),proc_node)+1
+         max_pid = mod(myid*lproc+ncid_max(ip),proc_node)+1
+         ierr = nf90_get_var ( ncid_in(ip), vid, ginarray2(:,:,ncid_min(ip):ncid_max(ip)), start=(/ 1, 1, min_pid, nrec /), count=(/ pil, pjl*pnpan, max_pid-min_pid+1, 1 /) )
+         call check_ncerr(ierr, "Error getting var "//name)
+      end do
+#else
       do ip = 0,lproc*node_nproc-1
          
          ierr = nf90_inq_varid (ncid_in(ip), name, vid ) 
@@ -2656,6 +2717,7 @@ contains
          ierr = nf90_get_var ( ncid_in(ip), vid, ginarray2(:,:,ip), start=(/ 1, 1, pid, nrec /), count=(/ pil, pjl*pnpan, 1, 1 /) )
          call check_ncerr(ierr, "Error getting var "//name)
       end do
+#endif
       end if
       call MPI_Scatter(ginarray2,pil*pjl*pnpan*lproc,MPI_REAL,inarray2,pil*pjl*pnpan*lproc,MPI_REAL,0,node_comm,ierr)
       if ( node_myid.eq.0 ) then
@@ -2748,11 +2810,26 @@ contains
 #ifdef procformat
       integer :: pid
 #endif
+#ifdef singleget
+      integer :: min_pid, max_pid
+#endif
 
       call START_LOG(paravar3a_begin)
 
 #ifdef usefirstrank
       if ( node_myid.eq.0 ) then
+#ifdef singleget
+      do ip = 0,ncid_maxcnt
+         ierr = nf90_inq_varid ( ncid_in(ip), name, vid )
+         call check_ncerr(ierr, "Error getting vid for "//name)
+          
+         min_pid = mod(myid*lproc+ncid_min(ip),proc_node)+1
+         max_pid = mod(myid*lproc+ncid_max(ip),proc_node)+1
+         ierr = nf90_get_var ( ncid_in(ip), vid, ginarray3(:,:,:,ncid_min(ip):ncid_max(ip)), start=(/ 1, 1, minlev, min_pid, nrec /), &
+                               count=(/ pil, pjl*pnpan, maxlev-minlev+1, max_pid-min_pid+1, 1 /) )
+         call check_ncerr(ierr, "Error getting var "//name)
+      end do
+#else
       do ip = 0,lproc*node_nproc-1
 
          ierr = nf90_inq_varid ( ncid_in(ip), name, vid )
@@ -2763,6 +2840,7 @@ contains
                                count=(/ pil, pjl*pnpan, maxlev-minlev+1, 1, 1 /) )
          call check_ncerr(ierr, "Error getting var "//name)
       end do
+#endif
       end if
       call MPI_Scatter(ginarray3,pil*pjl*pnpan*(maxlev-minlev+1)*lproc,MPI_REAL,inarray3,pil*pjl*pnpan*(maxlev-minlev+1)*lproc,MPI_REAL,0,node_comm,ierr)
       if ( node_myid.eq.0 ) then

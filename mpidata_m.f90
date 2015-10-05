@@ -26,6 +26,10 @@ implicit none
 private
 
 integer, dimension(:), save, allocatable, public :: ncid_in
+#ifdef singleget
+integer, dimension(:), save, allocatable, public :: ncid_cnt, ncid_min, ncid_max
+integer, save, public :: ncid_maxcnt
+#endif
 #ifdef parallel_int
 integer, dimension(:,:), save, pointer, contiguous, public :: ioff, joff
 integer, dimension(:,:,:), save, pointer, contiguous, public :: ijoff
