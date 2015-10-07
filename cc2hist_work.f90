@@ -2667,7 +2667,7 @@ contains
       integer, intent(out) :: vread_err
       integer ip, n, vid, ierr, vartyp
       real, dimension(:,:), intent(out) :: var
-#ifdef usefirstrank
+#if defined(usefirstrank) || defined(singleget)
       real, dimension(pil,pjl*pnpan,0:lproc-1) :: inarray2
 #else
       real, dimension(pil,pjl*pnpan) :: inarray2
@@ -2746,6 +2746,37 @@ contains
          var(:,1+ip*pjl*pnpan:(ip+1)*pjl*pnpan) = inarray2(:,:,ip)
       end do
 #else
+#ifdef singleget
+      do ip = 0,ncid_maxcnt
+         ierr = nf90_inq_varid (ncid_in(ip), name, vid ) 
+         call check_ncerr(ierr, "Error getting vid for "//name)
+          
+         min_pid = mod(myid*lproc+ncid_min(ip),proc_node)+1
+         max_pid = mod(myid*lproc+ncid_max(ip),proc_node)+1
+         ierr = nf90_get_var ( ncid_in(ip), vid, inarray2(:,:,ncid_min(ip):ncid_max(ip)), start=(/ 1, 1, min_pid, nrec /), count=(/ pil, pjl*pnpan, max_pid-min_pid+1, 1 /) )
+         call check_ncerr(ierr, "Error getting var "//name)
+      end do
+!     Check the type of the variable
+      ierr = nf90_inq_varid (ncid_in(0), name, vid ) 
+      call check_ncerr(ierr, "Error getting vid for "//name)
+      ierr = nf90_inquire_variable ( ncid_in(0), vid, xtype=vartyp)
+      if ( vartyp == NF90_SHORT ) then
+        ierr = nf90_get_att ( ncid_in(0), vid, "add_offset", addoff )
+        call check_ncerr(ierr, "Error getting add_offset attribute")
+        ierr = nf90_get_att ( ncid_in(0), vid, "scale_factor", sf )
+        call check_ncerr (ierr,"Error getting scale_factor attribute")
+      end if
+      do ip = 0,lproc-1
+         if ( vartyp == NF90_SHORT ) then
+            if ( all( inarray2(:,:,ip) == -32501. ) ) then
+               inarray2(:,:,ip) = NF90_FILL_FLOAT
+            else
+               inarray2(:,:,ip) = addoff + inarray2(:,:,ip)*sf
+            end if
+         end if
+         var(:,1+ip*pjl*pnpan:(ip+1)*pjl*pnpan) = inarray2(:,:,ip)
+      end do
+#else
       do ip = 0,lproc-1
          
          ierr = nf90_inq_varid (ncid_in(ip), name, vid ) 
@@ -2777,6 +2808,7 @@ contains
          
       end do
 #endif
+#endif
       
       call END_LOG(paravar2a_end)
    
@@ -2797,7 +2829,7 @@ contains
       integer, intent(in) :: nrec, pkl
       integer ip, n, vid, ierr, vartyp, k
       real, dimension(:,:,:), intent(out) :: var
-#ifdef usefirstrank
+#if defined(usefirstrank) || defined(singleget)
       real, dimension(pil,pjl*pnpan,minlev:maxlev,0:lproc-1) :: inarray3
 #else
       real, dimension(pil,pjl*pnpan,pkl) :: inarray3
@@ -2868,6 +2900,37 @@ contains
          var(:,1+ip*pjl*pnpan:(ip+1)*pjl*pnpan,minlev:maxlev) = inarray3(:,:,minlev:maxlev,ip)
       end do
 #else
+#ifdef singleget
+      do ip = 0,ncid_maxcnt
+         ierr = nf90_inq_varid ( ncid_in(ip), name, vid )
+         call check_ncerr(ierr, "Error getting vid for "//name)
+          
+         min_pid = mod(myid*lproc+ncid_min(ip),proc_node)+1
+         max_pid = mod(myid*lproc+ncid_max(ip),proc_node)+1
+         ierr = nf90_get_var ( ncid_in(ip), vid, inarray3(:,:,:,ncid_min(ip):ncid_max(ip)), start=(/ 1, 1, minlev, min_pid, nrec /), &
+                               count=(/ pil, pjl*pnpan, maxlev-minlev+1, max_pid-min_pid+1, 1 /) )
+         call check_ncerr(ierr, "Error getting var "//name)
+      end do
+      ierr = nf90_inq_varid ( ncid_in(0), name, vid )
+      call check_ncerr(ierr, "Error getting vid for "//name)
+      ierr = nf90_inquire_variable ( ncid_in(0), vid, xtype=vartyp )
+      if ( vartyp == NF90_SHORT ) then
+        ierr = nf90_get_att ( ncid_in(0), vid, "add_offset", addoff )
+        call check_ncerr(ierr, "Error getting add_offset attribute")
+        ierr = nf90_get_att ( ncid_in(0), vid, "scale_factor", sf )
+        call check_ncerr (ierr,"Error getting scale_factor attribute")                
+      end if
+      do ip = 0,lproc-1
+         if ( vartyp == NF90_SHORT ) then
+            if ( all( inarray3(:,:,:,ip) == -32501. ) ) then
+               inarray3(:,:,:,ip) = NF90_FILL_FLOAT
+            else
+               inarray3(:,:,:,ip) = addoff + inarray3(:,:,:,ip)*sf
+            end if
+         end if
+         var(:,1+ip*pjl*pnpan:(ip+1)*pjl*pnpan,minlev:maxlev) = inarray3(:,:,minlev:maxlev,ip)
+      end do
+#else
       do ip = 0,lproc-1
 
          ierr = nf90_inq_varid ( ncid_in(ip), name, vid )
@@ -2899,6 +2962,7 @@ contains
          var(:,1+ip*pjl*pnpan:(ip+1)*pjl*pnpan,minlev:maxlev) = inarray3(:,:,minlev:maxlev)
          
       end do
+#endif
 #endif
       
       call END_LOG(paravar3a_end)
