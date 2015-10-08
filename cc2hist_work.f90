@@ -2477,6 +2477,7 @@ contains
 #ifdef singleget
             ncid_maxcnt=ncid_maxcnt+1
             ncid_min(ncid_maxcnt)=ip
+            ncid_max(ncid_maxcnt)=ip
 #endif
             write(pfile,"(a,'.',i6.6)") trim(ifile), rip
 #ifdef singleget
@@ -2538,6 +2539,7 @@ contains
 #ifdef singleget
             ncid_maxcnt=ncid_maxcnt+1
             ncid_min(ncid_maxcnt)=ip
+            ncid_max(ncid_maxcnt)=ip
 #endif
             write(pfile,"(a,'.',i6.6)") trim(ifile), rip
 #ifdef singleget
