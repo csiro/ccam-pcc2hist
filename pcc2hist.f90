@@ -68,13 +68,21 @@ program cc2hist
    character(len=10) :: name
    character(len=80) :: longname
    real :: minsig = 0., maxsig = 1.0
+#ifdef usefirstrank
+   integer :: fac
+   integer :: iowriters=1
+#endif
 
    namelist /input/ kta, ktb, ktc, ndate, ntime,                      &
                     minlon, maxlon, dlon, minlat, maxlat, dlat,       &
                     minlev, maxlev, minsig, maxsig, use_plevs, plevs, &
                     use_meters, mlevs, sdate, edate, stime, etime,    &
                     hres, debug, ifile, ofile, int_default, vextrap,  &
+#ifdef usefirstrank
+                    cf_compliant, cordex_compliant, iowriters
+#else
                     cf_compliant, cordex_compliant
+#endif
 
    integer :: kt, kdate, ktime, ierr, ieof, ntracers
    logical :: debug=.false.
@@ -192,6 +200,15 @@ program cc2hist
    ! Read namelist - allows overwriting of command line options
    if ( myid==0 ) print *,"reading cc.nml"
    open(1,file='cc.nml')
+#ifdef usefirstrank
+   fac=max(1,node_nproc/iowriters)
+!   write(6,*)myid,node_myid,node_nproc,iowriters,fac,node_myid/fac
+   call MPI_Comm_split(node_comm, node_myid/fac, myid, node2_comm, ierr) ! Split communicator based on node_myid/node_nproc
+   call MPI_Comm_size(node2_comm, node2_nproc, ierr) ! Find number of nodes
+   call MPI_Comm_rank(node2_comm, node2_myid, ierr)  ! Find local processor id of the nodes
+   if (node2_myid.eq.0 ) write(6,*)"I/O writer:",myid,node2_nproc
+#endif
+
    read(1,input)   
    
    if ( vextrap == vextrap_missing .and. int_default == int_normal ) then

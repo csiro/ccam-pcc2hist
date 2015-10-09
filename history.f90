@@ -858,8 +858,8 @@ contains
 
       call MPI_Type_create_struct(22,b,d,t,MPI_HINFO,ierr)
       call MPI_Type_commit(MPI_HINFO,ierr)
-      call MPI_Bcast(totflds,1,MPI_INTEGER,0,node_comm,ierr)
-      call MPI_Bcast(histinfo,nfmax,MPI_HINFO,0,node_comm,ierr)
+      call MPI_Bcast(totflds,1,MPI_INTEGER,0,node2_comm,ierr)
+      call MPI_Bcast(histinfo,nfmax,MPI_HINFO,0,node2_comm,ierr)
 
    end subroutine addfldcp
 

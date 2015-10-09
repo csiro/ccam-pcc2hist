@@ -138,7 +138,7 @@ contains
       end if
       call START_LOG(getdate_begin)      
 #ifdef usefirstrank
-      if ( node_myid.eq.0 ) then
+      if ( node2_myid.eq.0 ) then
 #endif
       ! Get vid and then values for kdate, ktime, ktau
       ierr = nf90_inq_varid (ncid, "kdate", vid )
@@ -162,10 +162,10 @@ contains
       end if
 #ifdef usefirstrank
       end if
-      call MPI_Bcast(kdate,1,MPI_INTEGER,0,node_comm,ierr)
-      call MPI_Bcast(ktime,1,MPI_INTEGER,0,node_comm,ierr)
-      call MPI_Bcast(ktau,1,MPI_INTEGER,0,node_comm,ierr)
-      call MPI_Bcast(ieof,1,MPI_INTEGER,0,node_comm,ierr)
+      call MPI_Bcast(kdate,1,MPI_INTEGER,0,node2_comm,ierr)
+      call MPI_Bcast(ktime,1,MPI_INTEGER,0,node2_comm,ierr)
+      call MPI_Bcast(ktau,1,MPI_INTEGER,0,node2_comm,ierr)
+      call MPI_Bcast(ieof,1,MPI_INTEGER,0,node2_comm,ierr)
 #endif
       call END_LOG(getdate_end)
 
@@ -832,7 +832,7 @@ contains
 
       nrec = 1
 #ifdef usefirstrank
-      if ( node_myid.eq.0 ) then
+      if ( node2_myid.eq.0 ) then
 #endif
       ! Get the total number of timesteps
       ierr = nf90_inq_dimid ( ncid, "time", dimid )
@@ -853,16 +853,16 @@ contains
       end if
 #ifdef usefirstrank
       end if
-      call MPI_Bcast(maxrec,1,MPI_INTEGER,0,node_comm,ierr)
-      call MPI_Bcast(hlen,1,MPI_INTEGER,0,node_comm,ierr)
+      call MPI_Bcast(maxrec,1,MPI_INTEGER,0,node2_comm,ierr)
+      call MPI_Bcast(hlen,1,MPI_INTEGER,0,node2_comm,ierr)
 #endif
       allocate (int_header(hlen))
 #ifdef usefirstrank
-      if ( node_myid.eq.0 ) then
+      if ( node2_myid.eq.0 ) then
       ierr = nf90_get_att(ncid, nf90_global, "int_header", int_header)
       call check_ncerr(ierr, "Error getting int_header")
       end if
-      call MPI_Bcast(int_header,hlen,MPI_INTEGER,0,node_comm,ierr)
+      call MPI_Bcast(int_header,hlen,MPI_INTEGER,0,node2_comm,ierr)
 #else
       ierr = nf90_get_att(ncid, nf90_global, "int_header", int_header)
       call check_ncerr(ierr, "Error getting int_header")
@@ -883,13 +883,13 @@ contains
       ntrac = int_header(43)
 
 #ifdef usefirstrank
-      if ( node_myid.eq.0 ) then
+      if ( node2_myid.eq.0 ) then
 #endif
       ierr = nf90_inquire_attribute(ncid, nf90_global, "real_header", len=hlen)
       call check_ncerr(ierr, "Error getting real_header length")
 #ifdef usefirstrank
       end if
-      call MPI_Bcast(hlen,1,MPI_INTEGER,0,node_comm,ierr)
+      call MPI_Bcast(hlen,1,MPI_INTEGER,0,node2_comm,ierr)
 #endif
       if ( hlen < 8 ) then
          print*, "Error - insufficient header information: real_header too short"
@@ -897,13 +897,13 @@ contains
       end if
       allocate (real_header(hlen))
 #ifdef usefirstrank
-      if ( node_myid.eq.0 ) then
+      if ( node2_myid.eq.0 ) then
 #endif
       ierr = nf90_get_att(ncid, nf90_global, "real_header", real_header)
       call check_ncerr(ierr, "Error getting real_header")
 #ifdef usefirstrank
       end if
-      call MPI_Bcast(real_header,hlen,MPI_REAL,0,node_comm,ierr)
+      call MPI_Bcast(real_header,hlen,MPI_REAL,0,node2_comm,ierr)
 #endif
       ! Only a few values are used
       rlong0 = real_header(5)
@@ -961,7 +961,7 @@ contains
       if ( kl > 1 ) then
             ! Get sigma levels from level variable
 #ifdef usefirstrank
-            if ( node_myid.eq.0 ) then
+            if ( node2_myid.eq.0 ) then
 #endif
             ierr = nf90_inq_varid (ncid, "lev", vid )
             call check_ncerr(ierr, "Error getting vid for lev")
@@ -969,7 +969,7 @@ contains
             call check_ncerr(ierr, "Error getting levels")
 #ifdef usefirstrank
             end if
-            call MPI_Bcast(sig,kl,MPI_REAL,0,node_comm,ierr)
+            call MPI_Bcast(sig,kl,MPI_REAL,0,node2_comm,ierr)
 #endif
       else
          sig = 1.0
@@ -978,7 +978,7 @@ contains
       ! Note that some initial condition files don't have zsoil
       if ( cf_compliant ) then
 #ifdef usefirstrank
-         if ( node_myid.eq.0 ) then
+         if ( node2_myid.eq.0 ) then
 #endif
          ierr = nf90_inq_varid (ncid, "zsoil", vid )
          call check_ncerr(ierr, "Error getting vid for zsoil")
@@ -986,7 +986,7 @@ contains
          call check_ncerr(ierr, "Error getting zsoil")
 #ifdef usefirstrank
          end if
-         call MPI_Bcast(zsoil,ksoil,MPI_REAL,0,node_comm,ierr)
+         call MPI_Bcast(zsoil,ksoil,MPI_REAL,0,node2_comm,ierr)
 #endif
       end if
 
@@ -1385,21 +1385,21 @@ contains
 #endif
 
 #ifdef usefirstrank
-      if ( node_myid.eq.0 ) then
+      if ( node2_myid.eq.0 ) then
 #endif
       ierr = nf90_inquire(ncid, ndimensions=ndimensions, nvariables=nvariables)
       call check_ncerr(ierr, "nf90_inquire error")
 #ifdef usefirstrank
       end if
-      call MPI_Bcast(ndimensions,1,MPI_INTEGER,0,node_comm,ierr)
-      call MPI_Bcast(nvariables,1,MPI_INTEGER,0,node_comm,ierr)
+      call MPI_Bcast(ndimensions,1,MPI_INTEGER,0,node2_comm,ierr)
+      call MPI_Bcast(nvariables,1,MPI_INTEGER,0,node2_comm,ierr)
 #endif
       ! This is slightly bigger than required because not all the variables
       ! in the netcdf file are processed.
       allocate ( varlist(nvariables) )
 
 #ifdef usefirstrank
-      if ( node_myid.eq.0 ) then
+      if ( node2_myid.eq.0 ) then
 #endif
       ! Get the values of the dimension IDs
       ierr = nf90_inq_dimid(ncid, "longitude", londim)
@@ -1887,8 +1887,8 @@ contains
 
       call MPI_Type_create_struct(12,b,d,t,MPI_INPUT_VAR,ierr)
       call MPI_Type_commit(MPI_INPUT_VAR,ierr)
-      call MPI_Bcast(nvars,1,MPI_INTEGER,0,node_comm,ierr)
-      call MPI_Bcast(varlist,nvariables,MPI_INPUT_VAR,0,node_comm,ierr)
+      call MPI_Bcast(nvars,1,MPI_INTEGER,0,node2_comm,ierr)
+      call MPI_Bcast(varlist,nvariables,MPI_INPUT_VAR,0,node2_comm,ierr)
 
       call addfldcp
 #endif
@@ -2015,7 +2015,7 @@ contains
       character(len=1000) :: source
 
 #ifdef usefirstrank
-      if ( node_myid.eq.0 ) then
+      if ( node2_myid.eq.0 ) then
 #endif
       ! Look for the source attribute
       source = ""
@@ -2419,15 +2419,15 @@ contains
       call END_LOG(mpibcast_end)
       lproc = pnproc/nproc !number of files each mpi_proc will work on      
 #ifdef usefirstrank
-      allocate( ncid_in(0:lproc*node_nproc-1) )
+      allocate( ncid_in(0:lproc*node2_nproc-1) )
 #else
       allocate( ncid_in(0:lproc-1) )
 #endif
 #ifdef singleget
 #ifdef usefirstrank
-      allocate( ncid_cnt(0:lproc*node_nproc-1) )
-      allocate( ncid_min(0:lproc*node_nproc-1) )
-      allocate( ncid_max(0:lproc*node_nproc-1) )
+      allocate( ncid_cnt(0:lproc*node2_nproc-1) )
+      allocate( ncid_min(0:lproc*node2_nproc-1) )
+      allocate( ncid_max(0:lproc*node2_nproc-1) )
 #else
       allocate( ncid_cnt(0:lproc-1) )
       allocate( ncid_min(0:lproc-1) )
@@ -2447,7 +2447,7 @@ contains
 #endif
       
 #ifdef usefirstrank
-      if ( myid /= 0 .and. node_myid.eq.0 ) then
+      if ( myid /= 0 .and. node2_myid.eq.0 ) then
 #else
       if ( myid /= 0 ) then
 #endif
@@ -2461,7 +2461,7 @@ contains
          ncid_max=-1
 #endif
 #ifdef usefirstrank
-         do ip = 0,lproc*node_nproc-1
+         do ip = 0,lproc*node2_nproc-1
 #else
          do ip = 0,lproc-1
 #endif
@@ -2506,7 +2506,7 @@ contains
          ncid = ncid_in(0) 
       
 #ifdef usefirstrank
-      else if ( myid.eq.0 .and. node_myid.eq.0 ) then
+      else if ( myid.eq.0 .and. node2_myid.eq.0 ) then
 #else
       else
 #endif
@@ -2523,7 +2523,7 @@ contains
          ncid_max(0)=0
 #endif
 #ifdef usefirstrank
-         do ip = 1,lproc*node_nproc-1
+         do ip = 1,lproc*node2_nproc-1
 #else
          do ip = 1,lproc-1
 #endif
@@ -2643,7 +2643,7 @@ contains
       
       call START_LOG(paraclose_begin)
 #ifdef usefirstrank
-      do ip = 0,lproc*node_nproc-1
+      do ip = 0,lproc*node2_nproc-1
 #else
       do ip = 0,lproc-1
 #endif
@@ -2675,7 +2675,7 @@ contains
       real, dimension(pil,pjl*pnpan) :: inarray2
 #endif
 #ifdef usefirstrank
-      real, dimension(pil,pjl*pnpan,0:lproc*node_nproc-1) :: ginarray2
+      real, dimension(pil,pjl*pnpan,0:lproc*node2_nproc-1) :: ginarray2
 #endif
       real addoff, sf
       logical, intent(in) :: required
@@ -2698,7 +2698,7 @@ contains
       call START_LOG(paravar2a_begin)
       
 #ifdef usefirstrank
-      if ( node_myid.eq.0 ) then
+      if ( node2_myid.eq.0 ) then
 #ifdef singleget
       do ip = 0,ncid_maxcnt
          ierr = nf90_inq_varid (ncid_in(ip), name, vid ) 
@@ -2721,8 +2721,8 @@ contains
       end do
 #endif
       end if
-      call MPI_Scatter(ginarray2,pil*pjl*pnpan*lproc,MPI_REAL,inarray2,pil*pjl*pnpan*lproc,MPI_REAL,0,node_comm,ierr)
-      if ( node_myid.eq.0 ) then
+      call MPI_Scatter(ginarray2,pil*pjl*pnpan*lproc,MPI_REAL,inarray2,pil*pjl*pnpan*lproc,MPI_REAL,0,node2_comm,ierr)
+      if ( node2_myid.eq.0 ) then
 !     Check the type of the variable
        ierr = nf90_inq_varid (ncid_in(0), name, vid ) 
        call check_ncerr(ierr, "Error getting vid for "//name)
@@ -2734,9 +2734,9 @@ contains
          call check_ncerr (ierr,"Error getting scale_factor attribute")
        end if
       end if
-      call MPI_Bcast(vartyp,1,MPI_INTEGER,0,node_comm,ierr)
-      call MPI_Bcast(addoff,1,MPI_INTEGER,0,node_comm,ierr)
-      call MPI_Bcast(sf,1,MPI_INTEGER,0,node_comm,ierr)
+      call MPI_Bcast(vartyp,1,MPI_INTEGER,0,node2_comm,ierr)
+      call MPI_Bcast(addoff,1,MPI_INTEGER,0,node2_comm,ierr)
+      call MPI_Bcast(sf,1,MPI_INTEGER,0,node2_comm,ierr)
       do ip = 0,lproc-1
          if ( vartyp == NF90_SHORT ) then
             if ( all( inarray2(:,:,ip) == -32501. ) ) then
@@ -2837,7 +2837,7 @@ contains
       real, dimension(pil,pjl*pnpan,pkl) :: inarray3
 #endif
 #ifdef usefirstrank
-      real, dimension(pil,pjl*pnpan,minlev:maxlev,0:lproc*node_nproc-1) :: ginarray3
+      real, dimension(pil,pjl*pnpan,minlev:maxlev,0:lproc*node2_nproc-1) :: ginarray3
 #endif
       real addoff, sf
       character(len=*), intent(in) :: name
@@ -2851,7 +2851,7 @@ contains
       call START_LOG(paravar3a_begin)
 
 #ifdef usefirstrank
-      if ( node_myid.eq.0 ) then
+      if ( node2_myid.eq.0 ) then
 #ifdef singleget
       do ip = 0,ncid_maxcnt
          ierr = nf90_inq_varid ( ncid_in(ip), name, vid )
@@ -2876,8 +2876,8 @@ contains
       end do
 #endif
       end if
-      call MPI_Scatter(ginarray3,pil*pjl*pnpan*(maxlev-minlev+1)*lproc,MPI_REAL,inarray3,pil*pjl*pnpan*(maxlev-minlev+1)*lproc,MPI_REAL,0,node_comm,ierr)
-      if ( node_myid.eq.0 ) then
+      call MPI_Scatter(ginarray3,pil*pjl*pnpan*(maxlev-minlev+1)*lproc,MPI_REAL,inarray3,pil*pjl*pnpan*(maxlev-minlev+1)*lproc,MPI_REAL,0,node2_comm,ierr)
+      if ( node2_myid.eq.0 ) then
        ierr = nf90_inq_varid ( ncid_in(0), name, vid )
        call check_ncerr(ierr, "Error getting vid for "//name)
        ierr = nf90_inquire_variable ( ncid_in(0), vid, xtype=vartyp )
@@ -2888,9 +2888,9 @@ contains
          call check_ncerr (ierr,"Error getting scale_factor attribute")                
        end if
       end if
-      call MPI_Bcast(vartyp,1,MPI_INTEGER,0,node_comm,ierr)
-      call MPI_Bcast(addoff,1,MPI_INTEGER,0,node_comm,ierr)
-      call MPI_Bcast(sf,1,MPI_INTEGER,0,node_comm,ierr)
+      call MPI_Bcast(vartyp,1,MPI_INTEGER,0,node2_comm,ierr)
+      call MPI_Bcast(addoff,1,MPI_INTEGER,0,node2_comm,ierr)
+      call MPI_Bcast(sf,1,MPI_INTEGER,0,node2_comm,ierr)
       do ip = 0,lproc-1
          if ( vartyp == NF90_SHORT ) then
             if ( all( inarray3(:,:,:,ip) == -32501. ) ) then
