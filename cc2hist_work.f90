@@ -2425,13 +2425,11 @@ contains
 #endif
 #ifdef singleget
 #ifdef usefirstrank
-      allocate( ncid_cnt(0:lproc*node2_nproc-1) )
-      allocate( ncid_min(0:lproc*node2_nproc-1) )
-      allocate( ncid_max(0:lproc*node2_nproc-1) )
+      allocate( ip_min(0:lproc*node2_nproc-1) )
+      allocate( ip_max(0:lproc*node2_nproc-1) )
 #else
-      allocate( ncid_cnt(0:lproc-1) )
-      allocate( ncid_min(0:lproc-1) )
-      allocate( ncid_max(0:lproc-1) )
+      allocate( ip_min(0:lproc-1) )
+      allocate( ip_max(0:lproc-1) )
 #endif
 #endif
 
@@ -2456,9 +2454,9 @@ contains
          lastrip=-1
 #endif
 #ifdef singleget
-         ncid_maxcnt=-1
-         ncid_min=-1
-         ncid_max=-1
+         ip_maxcnt=-1
+         ip_min=-1
+         ip_max=-1
 #endif
 #ifdef usefirstrank
          do ip = 0,lproc*node2_nproc-1
@@ -2475,13 +2473,13 @@ contains
             lastrip=rip
 #endif
 #ifdef singleget
-            ncid_maxcnt=ncid_maxcnt+1
-            ncid_min(ncid_maxcnt)=ip
-            ncid_max(ncid_maxcnt)=ip
+            ip_maxcnt=ip_maxcnt+1
+            ip_min(ip_maxcnt)=ip
+            ip_max(ip_maxcnt)=ip
 #endif
             write(pfile,"(a,'.',i6.6)") trim(ifile), rip
 #ifdef singleget
-            ier = nf90_open ( pfile, nmode, ncid_in(ncid_maxcnt) )
+            ier = nf90_open ( pfile, nmode, ncid_in(ip_maxcnt) )
 #else
             ier = nf90_open ( pfile, nmode, ncid_in(ip) )
 #endif
@@ -2496,7 +2494,7 @@ contains
 #ifdef uselastrip
             else
 #ifdef singleget
-               ncid_max(ncid_maxcnt)=ip
+               ip_max(ip_maxcnt)=ip
 #else
                ncid_in(ip)=ncid_in(ip-1)
 #endif
@@ -2516,11 +2514,11 @@ contains
          lastrip=0
 #endif
 #ifdef singleget
-         ncid_maxcnt=0
-         ncid_min=-1
-         ncid_max=-1
-         ncid_min(0)=0
-         ncid_max(0)=0
+         ip_maxcnt=0
+         ip_min=-1
+         ip_max=-1
+         ip_min(0)=0
+         ip_max(0)=0
 #endif
 #ifdef usefirstrank
          do ip = 1,lproc*node2_nproc-1
@@ -2537,13 +2535,13 @@ contains
             lastrip=rip
 #endif
 #ifdef singleget
-            ncid_maxcnt=ncid_maxcnt+1
-            ncid_min(ncid_maxcnt)=ip
-            ncid_max(ncid_maxcnt)=ip
+            ip_maxcnt=ip_maxcnt+1
+            ip_min(ip_maxcnt)=ip
+            ip_max(ip_maxcnt)=ip
 #endif
             write(pfile,"(a,'.',i6.6)") trim(ifile), rip
 #ifdef singleget
-            ier = nf90_open ( pfile, nmode, ncid_in(ncid_maxcnt) )
+            ier = nf90_open ( pfile, nmode, ncid_in(ip_maxcnt) )
 #else
             ier = nf90_open ( pfile, nmode, ncid_in(ip) )
 #endif
@@ -2558,7 +2556,7 @@ contains
 #ifdef uselastrip
             else
 #ifdef singleget
-            ncid_max(ncid_maxcnt)=ip
+            ip_max(ip_maxcnt)=ip
 #else
             ncid_in(ip)=ncid_in(ip-1)
 #endif
@@ -2700,13 +2698,13 @@ contains
 #ifdef usefirstrank
       if ( node2_myid.eq.0 ) then
 #ifdef singleget
-      do ip = 0,ncid_maxcnt
+      do ip = 0,ip_maxcnt
          ierr = nf90_inq_varid (ncid_in(ip), name, vid ) 
          call check_ncerr(ierr, "Error getting vid for "//name)
           
-         min_pid = mod(myid*lproc+ncid_min(ip),proc_node)+1
-         max_pid = mod(myid*lproc+ncid_max(ip),proc_node)+1
-         ierr = nf90_get_var ( ncid_in(ip), vid, ginarray2(:,:,ncid_min(ip):ncid_max(ip)), start=(/ 1, 1, min_pid, nrec /), count=(/ pil, pjl*pnpan, max_pid-min_pid+1, 1 /) )
+         min_pid = mod(myid*lproc+ip_min(ip),proc_node)+1
+         max_pid = mod(myid*lproc+ip_max(ip),proc_node)+1
+         ierr = nf90_get_var ( ncid_in(ip), vid, ginarray2(:,:,ip_min(ip):ip_max(ip)), start=(/ 1, 1, min_pid, nrec /), count=(/ pil, pjl*pnpan, max_pid-min_pid+1, 1 /) )
          call check_ncerr(ierr, "Error getting var "//name)
       end do
 #else
@@ -2749,13 +2747,13 @@ contains
       end do
 #else
 #ifdef singleget
-      do ip = 0,ncid_maxcnt
+      do ip = 0,ip_maxcnt
          ierr = nf90_inq_varid (ncid_in(ip), name, vid ) 
          call check_ncerr(ierr, "Error getting vid for "//name)
           
-         min_pid = mod(myid*lproc+ncid_min(ip),proc_node)+1
-         max_pid = mod(myid*lproc+ncid_max(ip),proc_node)+1
-         ierr = nf90_get_var ( ncid_in(ip), vid, inarray2(:,:,ncid_min(ip):ncid_max(ip)), start=(/ 1, 1, min_pid, nrec /), count=(/ pil, pjl*pnpan, max_pid-min_pid+1, 1 /) )
+         min_pid = mod(myid*lproc+ip_min(ip),proc_node)+1
+         max_pid = mod(myid*lproc+ip_max(ip),proc_node)+1
+         ierr = nf90_get_var ( ncid_in(ip), vid, inarray2(:,:,ip_min(ip):ip_max(ip)), start=(/ 1, 1, min_pid, nrec /), count=(/ pil, pjl*pnpan, max_pid-min_pid+1, 1 /) )
          call check_ncerr(ierr, "Error getting var "//name)
       end do
 !     Check the type of the variable
@@ -2853,13 +2851,13 @@ contains
 #ifdef usefirstrank
       if ( node2_myid.eq.0 ) then
 #ifdef singleget
-      do ip = 0,ncid_maxcnt
+      do ip = 0,ip_maxcnt
          ierr = nf90_inq_varid ( ncid_in(ip), name, vid )
          call check_ncerr(ierr, "Error getting vid for "//name)
           
-         min_pid = mod(myid*lproc+ncid_min(ip),proc_node)+1
-         max_pid = mod(myid*lproc+ncid_max(ip),proc_node)+1
-         ierr = nf90_get_var ( ncid_in(ip), vid, ginarray3(:,:,:,ncid_min(ip):ncid_max(ip)), start=(/ 1, 1, minlev, min_pid, nrec /), &
+         min_pid = mod(myid*lproc+ip_min(ip),proc_node)+1
+         max_pid = mod(myid*lproc+ip_max(ip),proc_node)+1
+         ierr = nf90_get_var ( ncid_in(ip), vid, ginarray3(:,:,:,ip_min(ip):ip_max(ip)), start=(/ 1, 1, minlev, min_pid, nrec /), &
                                count=(/ pil, pjl*pnpan, maxlev-minlev+1, max_pid-min_pid+1, 1 /) )
          call check_ncerr(ierr, "Error getting var "//name)
       end do
@@ -2903,13 +2901,13 @@ contains
       end do
 #else
 #ifdef singleget
-      do ip = 0,ncid_maxcnt
+      do ip = 0,ip_maxcnt
          ierr = nf90_inq_varid ( ncid_in(ip), name, vid )
          call check_ncerr(ierr, "Error getting vid for "//name)
           
-         min_pid = mod(myid*lproc+ncid_min(ip),proc_node)+1
-         max_pid = mod(myid*lproc+ncid_max(ip),proc_node)+1
-         ierr = nf90_get_var ( ncid_in(ip), vid, inarray3(:,:,:,ncid_min(ip):ncid_max(ip)), start=(/ 1, 1, minlev, min_pid, nrec /), &
+         min_pid = mod(myid*lproc+ip_min(ip),proc_node)+1
+         max_pid = mod(myid*lproc+ip_max(ip),proc_node)+1
+         ierr = nf90_get_var ( ncid_in(ip), vid, inarray3(:,:,:,ip_min(ip):ip_max(ip)), start=(/ 1, 1, minlev, min_pid, nrec /), &
                                count=(/ pil, pjl*pnpan, maxlev-minlev+1, max_pid-min_pid+1, 1 /) )
          call check_ncerr(ierr, "Error getting var "//name)
       end do
