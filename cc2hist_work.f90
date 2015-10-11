@@ -2355,8 +2355,8 @@ contains
   
       integer, intent(in) :: nmode
       integer, intent(out) :: ncid
-#ifdef uselastrip
-      integer ier, ip, n, rip, ierr, lastrip
+#ifdef procformat
+      integer ier, ip, n, rip, ierr, lastrip, dimid
 #else
       integer ier, ip, n, rip, ierr
 #endif
@@ -2365,9 +2365,6 @@ contains
       character(len=*), intent(in) :: ifile
       character(len=266) :: pfile
       character(len=8) :: sdecomp
-#ifdef procformat
-      integer :: dimid
-#endif
 
 #ifdef parallel_int
       integer(kind=MPI_ADDRESS_KIND) :: ssize
@@ -2450,7 +2447,7 @@ contains
       if ( myid /= 0 ) then
 #endif
       
-#ifdef uselastrip
+#ifdef procformat
          lastrip=-1
 #endif
 #ifdef singleget
@@ -2465,12 +2462,10 @@ contains
 #endif
 #ifdef procformat
             rip = (myid*lproc + ip)/proc_node
-#else
-            rip = myid*lproc + ip
-#endif
-#ifdef uselastrip
             if (lastrip.ne.rip) then
             lastrip=rip
+#else
+            rip = myid*lproc + ip
 #endif
 #ifdef singleget
             ip_maxcnt=ip_maxcnt+1
@@ -2491,7 +2486,7 @@ contains
                write(6,*) "ERROR: Cannot open ",trim(pfile)
                call check_ncerr(ier, "open")
             end if
-#ifdef uselastrip
+#ifdef procformat
             else
 #ifdef singleget
                ip_max(ip_maxcnt)=ip
@@ -2510,7 +2505,7 @@ contains
 #endif
       
          ncid_in(0) = ncid
-#ifdef uselastrip
+#ifdef procformat
          lastrip=0
 #endif
 #ifdef singleget
@@ -2527,12 +2522,10 @@ contains
 #endif
 #ifdef procformat
             rip = ip/proc_node
-#else
-            rip = ip
-#endif
-#ifdef uselastrip
             if (lastrip.ne.rip) then
             lastrip=rip
+#else
+            rip = ip
 #endif
 #ifdef singleget
             ip_maxcnt=ip_maxcnt+1
@@ -2553,7 +2546,7 @@ contains
                write(6,*) "ERROR: Cannot open ",trim(pfile)
                call check_ncerr(ier, "open")
             end if
-#ifdef uselastrip
+#ifdef procformat
             else
 #ifdef singleget
             ip_max(ip_maxcnt)=ip

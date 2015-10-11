@@ -202,11 +202,9 @@ program cc2hist
    open(1,file='cc.nml')
 #ifdef usefirstrank
    fac=max(1,node_nproc/iowriters)
-!   write(6,*)myid,node_myid,node_nproc,iowriters,fac,node_myid/fac
    call MPI_Comm_split(node_comm, node_myid/fac, myid, node2_comm, ierr) ! Split communicator based on node_myid/node_nproc
    call MPI_Comm_size(node2_comm, node2_nproc, ierr) ! Find number of nodes
    call MPI_Comm_rank(node2_comm, node2_myid, ierr)  ! Find local processor id of the nodes
-   if (node2_myid.eq.0 ) write(6,*)"I/O writer:",myid,node2_nproc
 #endif
 
    read(1,input)   
