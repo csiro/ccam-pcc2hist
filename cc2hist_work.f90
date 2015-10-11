@@ -2412,7 +2412,9 @@ contains
       
       call START_LOG(mpibcast_begin)
       call MPI_Bcast(pnproc,1,MPI_INTEGER,0,MPI_COMM_WORLD,ier)
+#ifdef procformat
       call MPI_Bcast(proc_node,1,MPI_INTEGER,0,MPI_COMM_WORLD,ier)
+#endif
       call END_LOG(mpibcast_end)
       lproc = pnproc/nproc !number of files each mpi_proc will work on      
 #ifdef usefirstrank
@@ -2420,7 +2422,7 @@ contains
 #else
       allocate( ncid_in(0:lproc-1) )
 #endif
-#ifdef singleget
+#ifdef procformat
 #ifdef usefirstrank
       allocate( ip_min(0:lproc*node2_nproc-1) )
       allocate( ip_max(0:lproc*node2_nproc-1) )
@@ -2449,8 +2451,6 @@ contains
       
 #ifdef procformat
          lastrip=-1
-#endif
-#ifdef singleget
          ip_maxcnt=-1
          ip_min=-1
          ip_max=-1
@@ -2464,16 +2464,14 @@ contains
             rip = (myid*lproc + ip)/proc_node
             if (lastrip.ne.rip) then
             lastrip=rip
-#else
-            rip = myid*lproc + ip
-#endif
-#ifdef singleget
             ip_maxcnt=ip_maxcnt+1
             ip_min(ip_maxcnt)=ip
             ip_max(ip_maxcnt)=ip
+#else
+            rip = myid*lproc + ip
 #endif
             write(pfile,"(a,'.',i6.6)") trim(ifile), rip
-#ifdef singleget
+#ifdef procformat
             ier = nf90_open ( pfile, nmode, ncid_in(ip_maxcnt) )
 #else
             ier = nf90_open ( pfile, nmode, ncid_in(ip) )
@@ -2488,11 +2486,7 @@ contains
             end if
 #ifdef procformat
             else
-#ifdef singleget
                ip_max(ip_maxcnt)=ip
-#else
-               ncid_in(ip)=ncid_in(ip-1)
-#endif
             end if
 #endif
          end do
@@ -2508,7 +2502,7 @@ contains
 #ifdef procformat
          lastrip=0
 #endif
-#ifdef singleget
+#ifdef procformat
          ip_maxcnt=0
          ip_min=-1
          ip_max=-1
@@ -2524,16 +2518,14 @@ contains
             rip = ip/proc_node
             if (lastrip.ne.rip) then
             lastrip=rip
-#else
-            rip = ip
-#endif
-#ifdef singleget
             ip_maxcnt=ip_maxcnt+1
             ip_min(ip_maxcnt)=ip
             ip_max(ip_maxcnt)=ip
+#else
+            rip = ip
 #endif
             write(pfile,"(a,'.',i6.6)") trim(ifile), rip
-#ifdef singleget
+#ifdef procformat
             ier = nf90_open ( pfile, nmode, ncid_in(ip_maxcnt) )
 #else
             ier = nf90_open ( pfile, nmode, ncid_in(ip) )
@@ -2548,11 +2540,7 @@ contains
             end if
 #ifdef procformat
             else
-#ifdef singleget
             ip_max(ip_maxcnt)=ip
-#else
-            ncid_in(ip)=ncid_in(ip-1)
-#endif
             end if
 #endif
          end do
@@ -2660,7 +2648,7 @@ contains
       integer, intent(out) :: vread_err
       integer ip, n, vid, ierr, vartyp
       real, dimension(:,:), intent(out) :: var
-#if defined(usefirstrank) || defined(singleget)
+#if defined(usefirstrank) || defined(procformat)
       real, dimension(pil,pjl*pnpan,0:lproc-1) :: inarray2
 #else
       real, dimension(pil,pjl*pnpan) :: inarray2
@@ -2673,8 +2661,6 @@ contains
       character(len=*), intent(in) :: name
 #ifdef procformat
       integer :: pid
-#endif
-#ifdef singleget
       integer :: min_pid, max_pid
 #endif
    
@@ -2690,7 +2676,6 @@ contains
       
 #ifdef usefirstrank
       if ( node2_myid.eq.0 ) then
-#ifdef singleget
       do ip = 0,ip_maxcnt
          ierr = nf90_inq_varid (ncid_in(ip), name, vid ) 
          call check_ncerr(ierr, "Error getting vid for "//name)
@@ -2700,17 +2685,6 @@ contains
          ierr = nf90_get_var ( ncid_in(ip), vid, ginarray2(:,:,ip_min(ip):ip_max(ip)), start=(/ 1, 1, min_pid, nrec /), count=(/ pil, pjl*pnpan, max_pid-min_pid+1, 1 /) )
          call check_ncerr(ierr, "Error getting var "//name)
       end do
-#else
-      do ip = 0,lproc*node_nproc-1
-         
-         ierr = nf90_inq_varid (ncid_in(ip), name, vid ) 
-         call check_ncerr(ierr, "Error getting vid for "//name)
-          
-         pid = mod(myid*lproc+ip,proc_node)+1
-         ierr = nf90_get_var ( ncid_in(ip), vid, ginarray2(:,:,ip), start=(/ 1, 1, pid, nrec /), count=(/ pil, pjl*pnpan, 1, 1 /) )
-         call check_ncerr(ierr, "Error getting var "//name)
-      end do
-#endif
       end if
       call MPI_Scatter(ginarray2,pil*pjl*pnpan*lproc,MPI_REAL,inarray2,pil*pjl*pnpan*lproc,MPI_REAL,0,node2_comm,ierr)
       if ( node2_myid.eq.0 ) then
@@ -2739,7 +2713,7 @@ contains
          var(:,1+ip*pjl*pnpan:(ip+1)*pjl*pnpan) = inarray2(:,:,ip)
       end do
 #else
-#ifdef singleget
+#ifdef procformat
       do ip = 0,ip_maxcnt
          ierr = nf90_inq_varid (ncid_in(ip), name, vid ) 
          call check_ncerr(ierr, "Error getting vid for "//name)
@@ -2775,12 +2749,7 @@ contains
          ierr = nf90_inq_varid (ncid_in(ip), name, vid ) 
          call check_ncerr(ierr, "Error getting vid for "//name)
           
-#ifdef procformat
-         pid = mod(myid*lproc+ip,proc_node)+1
-         ierr = nf90_get_var ( ncid_in(ip), vid, inarray2(:,:), start=(/ 1, 1, pid, nrec /), count=(/ pil, pjl*pnpan, 1, 1 /) )
-#else
          ierr = nf90_get_var ( ncid_in(ip), vid, inarray2(:,:), start=(/ 1, 1, nrec /), count=(/ pil, pjl*pnpan, 1 /) )
-#endif
          call check_ncerr(ierr, "Error getting var "//name)
 
 !        Check the type of the variable
@@ -2822,7 +2791,7 @@ contains
       integer, intent(in) :: nrec, pkl
       integer ip, n, vid, ierr, vartyp, k
       real, dimension(:,:,:), intent(out) :: var
-#if defined(usefirstrank) || defined(singleget)
+#if defined(usefirstrank) || defined(procformat)
       real, dimension(pil,pjl*pnpan,minlev:maxlev,0:lproc-1) :: inarray3
 #else
       real, dimension(pil,pjl*pnpan,pkl) :: inarray3
@@ -2834,8 +2803,6 @@ contains
       character(len=*), intent(in) :: name
 #ifdef procformat
       integer :: pid
-#endif
-#ifdef singleget
       integer :: min_pid, max_pid
 #endif
 
@@ -2843,7 +2810,6 @@ contains
 
 #ifdef usefirstrank
       if ( node2_myid.eq.0 ) then
-#ifdef singleget
       do ip = 0,ip_maxcnt
          ierr = nf90_inq_varid ( ncid_in(ip), name, vid )
          call check_ncerr(ierr, "Error getting vid for "//name)
@@ -2854,18 +2820,6 @@ contains
                                count=(/ pil, pjl*pnpan, maxlev-minlev+1, max_pid-min_pid+1, 1 /) )
          call check_ncerr(ierr, "Error getting var "//name)
       end do
-#else
-      do ip = 0,lproc*node_nproc-1
-
-         ierr = nf90_inq_varid ( ncid_in(ip), name, vid )
-         call check_ncerr(ierr, "Error getting vid for "//name)
-          
-         pid = mod(myid*lproc+ip,proc_node)+1
-         ierr = nf90_get_var ( ncid_in(ip), vid, ginarray3(:,:,:,ip), start=(/ 1, 1, minlev, pid, nrec /), &
-                               count=(/ pil, pjl*pnpan, maxlev-minlev+1, 1, 1 /) )
-         call check_ncerr(ierr, "Error getting var "//name)
-      end do
-#endif
       end if
       call MPI_Scatter(ginarray3,pil*pjl*pnpan*(maxlev-minlev+1)*lproc,MPI_REAL,inarray3,pil*pjl*pnpan*(maxlev-minlev+1)*lproc,MPI_REAL,0,node2_comm,ierr)
       if ( node2_myid.eq.0 ) then
@@ -2893,7 +2847,7 @@ contains
          var(:,1+ip*pjl*pnpan:(ip+1)*pjl*pnpan,minlev:maxlev) = inarray3(:,:,minlev:maxlev,ip)
       end do
 #else
-#ifdef singleget
+#ifdef procformat
       do ip = 0,ip_maxcnt
          ierr = nf90_inq_varid ( ncid_in(ip), name, vid )
          call check_ncerr(ierr, "Error getting vid for "//name)
@@ -2929,14 +2883,8 @@ contains
          ierr = nf90_inq_varid ( ncid_in(ip), name, vid )
          call check_ncerr(ierr, "Error getting vid for "//name)
           
-#ifdef procformat
-         pid = mod(myid*lproc+ip,proc_node)+1
-         ierr = nf90_get_var ( ncid_in(ip), vid, inarray3(:,:,minlev:maxlev), start=(/ 1, 1, minlev, pid, nrec /), &
-                               count=(/ pil, pjl*pnpan, maxlev-minlev+1, 1, 1 /) )
-#else
          ierr = nf90_get_var ( ncid_in(ip), vid, inarray3(:,:,minlev:maxlev), start=(/ 1, 1, minlev, nrec /), &
                                count=(/ pil, pjl*pnpan, maxlev-minlev+1, 1 /) )
-#endif
          call check_ncerr(ierr, "Error getting var "//name)
       
          ierr = nf90_inquire_variable ( ncid_in(ip), vid, xtype=vartyp )

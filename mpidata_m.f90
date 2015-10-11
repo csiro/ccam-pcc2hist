@@ -26,7 +26,7 @@ implicit none
 private
 
 integer, dimension(:), save, allocatable, public :: ncid_in
-#ifdef singleget
+#ifdef procformat
 integer, dimension(:), save, allocatable, public :: ip_min, ip_max
 integer, save, public :: ip_maxcnt
 #endif
