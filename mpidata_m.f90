@@ -26,10 +26,8 @@ implicit none
 private
 
 integer, dimension(:), save, allocatable, public :: ncid_in
-#ifdef procformat
 integer, dimension(:), save, allocatable, public :: ip_min, ip_max
 integer, save, public :: ip_maxcnt
-#endif
 #ifdef parallel_int
 integer, dimension(:,:), save, pointer, contiguous, public :: ioff, joff
 integer, dimension(:,:,:), save, pointer, contiguous, public :: ijoff
@@ -37,17 +35,13 @@ integer, dimension(:,:,:), save, pointer, contiguous, public :: ijoff
 integer, dimension(:,:), save, allocatable, public :: ioff, joff
 #endif
 integer, save, public :: myid, nproc
-integer, save, public :: pil, pjl, pnpan, pnproc, lproc
+integer, save, public :: pil, pjl, pnpan, pnproc, lproc, inarray2size
 integer, save, public :: pil_g, pjl_g
 #ifdef parallel_int
 integer, save, public :: node_comm, node_myid, node_nproc
 integer, save, public :: ijoff_win
 #endif
-#ifdef usefirstrank
 integer, save, public :: node2_comm, node2_myid, node2_nproc
-#endif
-#ifdef procformat
 integer, save, public :: proc_node
-#endif
 
 end module mpidata_m

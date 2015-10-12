@@ -68,21 +68,15 @@ program cc2hist
    character(len=10) :: name
    character(len=80) :: longname
    real :: minsig = 0., maxsig = 1.0
-#ifdef usefirstrank
    integer :: fac
-   integer :: iowriters=1
-#endif
+   integer :: ioreaders=999999
 
    namelist /input/ kta, ktb, ktc, ndate, ntime,                      &
                     minlon, maxlon, dlon, minlat, maxlat, dlat,       &
                     minlev, maxlev, minsig, maxsig, use_plevs, plevs, &
                     use_meters, mlevs, sdate, edate, stime, etime,    &
                     hres, debug, ifile, ofile, int_default, vextrap,  &
-#ifdef usefirstrank
-                    cf_compliant, cordex_compliant, iowriters
-#else
-                    cf_compliant, cordex_compliant
-#endif
+                    cf_compliant, cordex_compliant, ioreaders
 
    integer :: kt, kdate, ktime, ierr, ieof, ntracers
    logical :: debug=.false.
@@ -200,14 +194,12 @@ program cc2hist
    ! Read namelist - allows overwriting of command line options
    if ( myid==0 ) print *,"reading cc.nml"
    open(1,file='cc.nml')
-#ifdef usefirstrank
-   fac=max(1,node_nproc/iowriters)
-   call MPI_Comm_split(node_comm, node_myid/fac, myid, node2_comm, ierr) ! Split communicator based on node_myid/node_nproc
+   read(1,input)   
+
+   fac=max(1,node_nproc/ioreaders)
+   call MPI_Comm_split(node_comm, node_myid/fac, myid, node2_comm, ierr) ! Split communicator based on fac
    call MPI_Comm_size(node2_comm, node2_nproc, ierr) ! Find number of nodes
    call MPI_Comm_rank(node2_comm, node2_myid, ierr)  ! Find local processor id of the nodes
-#endif
-
-   read(1,input)   
    
    if ( vextrap == vextrap_missing .and. int_default == int_normal ) then
       print*, "For missing option to work, must set interp to linear or nearest"

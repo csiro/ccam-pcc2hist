@@ -82,4 +82,6 @@ module parm_m
 
 !  Just do advection
    logical, public, save :: advect_only = .false.
+
+   logical, public, save :: procformat = .false.
 end module parm_m

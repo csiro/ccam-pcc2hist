@@ -1362,14 +1362,13 @@ contains
       use interp_m, only : int_nearest, int_none
       use physparams, only : grav, rdry
       use s2p_m, only: use_plevs, plevs, use_meters, mlevs
+      use parm_m, only : procformat
       type(input_var), dimension(:), pointer :: varlist
       integer, intent(out) :: nvars
       integer :: ierr, ndimensions, nvariables, ndims, ivar, int_type, xtype
-#ifdef procformat
       integer :: londim, latdim, levdim, timedim, procdim, vid, ihr, ind
-#else
-      integer :: londim, latdim, levdim, timedim, vid, ihr, ind
-#endif
+      integer :: dim4, dim3, dim2
+      integer :: idim(5), jdim(4), kdim(3)
       integer, dimension(nf90_max_var_dims) :: dimids
       character(len=10) :: vname, substr
       character(len=100) :: long_name, tmpname, valid_att, std_name, cell_methods
@@ -1410,10 +1409,23 @@ contains
       call check_ncerr(ierr,"Error getting levid")
       ierr = nf90_inq_dimid(ncid, "time", timedim)
       call check_ncerr(ierr,"Error getting timeid")
-#ifdef procformat
-      ierr = nf90_inq_dimid(ncid, "processor", procdim)
-      call check_ncerr(ierr,"Error getting procid")
-#endif
+      if ( procformat ) then
+         ierr = nf90_inq_dimid(ncid, "processor", procdim)
+         call check_ncerr(ierr,"Error getting procid")
+         dim4=5
+         dim3=4
+         dim2=3
+         idim=(/ londim, latdim, levdim, procdim, timedim /)
+         jdim=(/ londim, latdim, procdim, timedim /)
+         kdim=(/ londim, latdim, procdim /)
+      else
+         dim4=4
+         dim3=3
+         dim2=2
+         idim=(/ londim, latdim, levdim, timedim, 0 /)
+         jdim=(/ londim, latdim, timedim, 0 /)
+         kdim=(/ londim, latdim, 0 /)
+      end if
 
       nvars = 0
       ! For the sigma to pressure initialisation to work properly
@@ -1441,17 +1453,9 @@ contains
             !end if
          !end if
 !         print*, ivar, vname, ndims, dimids(1:ndims)
-#ifdef procformat
-         if ( ndims == 5 ) then
-#else
-         if ( ndims == 4 ) then
-#endif
+         if ( ndims == dim4 ) then
             ! Should be lon, lat, lev, time
-#ifdef procformat
-            if ( match ( dimids(1:ndims), (/ londim, latdim, levdim, procdim, timedim /) ) ) then
-#else
-            if ( match ( dimids(1:ndims), (/ londim, latdim, levdim, timedim /) ) ) then
-#endif
+            if ( match ( dimids(1:ndims), idim(1:dim4) ) ) then
                nvars = nvars + 1
                varlist(nvars)%fixed = .false.
                varlist(nvars)%ndims = 3  ! Space only
@@ -1459,22 +1463,14 @@ contains
                print*, "Error, unexpected dimensions in input variable", vname
                stop
             end if
-#ifdef procformat
-         else if ( ndims == 4 ) then
-#else
-         else if ( ndims == 3 ) then
-#endif
+         else if ( ndims == dim3 ) then
 
             ! Check for soil variables
             if ( cf_compliant .and. is_soil_var(vname) ) then
                cycle
             end if
 
-#ifdef procformat
-            if ( match( dimids(1:ndims), (/ londim, latdim, procdim, timedim /) ) ) then
-#else
-            if ( match( dimids(1:ndims), (/ londim, latdim, timedim /) ) ) then
-#endif
+            if ( match( dimids(1:ndims), jdim(1:dim3) ) ) then
                nvars = nvars + 1
                varlist(nvars)%fixed = .false.
                varlist(nvars)%ndims = 2  ! Space only
@@ -1484,13 +1480,8 @@ contains
                print*, "Error, unexpected dimensions in input variable", vname
                stop
             end if
-#ifdef procformat
-         else if ( ndims == 3 ) then
-            if ( match( dimids(1:ndims), (/ londim, latdim, procdim /) ) ) then
-#else
-         else if ( ndims == 2 ) then
-            if ( match( dimids(1:ndims), (/ londim, latdim /) ) ) then
-#endif
+         else if ( ndims == dim2 ) then
+            if ( match( dimids(1:ndims), kdim(1:dim2) ) ) then
                nvars = nvars + 1
                varlist(nvars)%fixed = .true.
                varlist(nvars)%ndims = 2  ! Space only
@@ -2349,17 +2340,14 @@ contains
       use shdata_m
 #endif
       use logging_m
+      use parm_m, only : procformat
 #ifdef usempif
       include 'mpif.h'
 #endif
   
       integer, intent(in) :: nmode
       integer, intent(out) :: ncid
-#ifdef procformat
       integer ier, ip, n, rip, ierr, lastrip, dimid
-#else
-      integer ier, ip, n, rip, ierr
-#endif
       integer, dimension(5) :: jdum
       integer, dimension(54) :: int_header
       character(len=*), intent(in) :: ifile
@@ -2390,13 +2378,14 @@ contains
          ! parallel metadata
          ier = nf90_get_att(ncid, nf90_global, "nproc", pnproc)
          call check_ncerr(ier, "nproc")
-#ifdef procformat
+
          ! number of processors in this file - assume the first file has maximum
          ierr = nf90_inq_dimid ( ncid, "processor", dimid )
-         call check_ncerr(ierr, "Error getting processor dimension")
-         ierr = nf90_inquire_dimension ( ncid, dimid, len=proc_node )
-         call check_ncerr(ierr,"Error getting number of processors")
-#endif
+         if ( ierr.eq.nf90_noerr ) then
+           procformat = .true.
+           ierr = nf90_inquire_dimension ( ncid, dimid, len=proc_node )
+           call check_ncerr(ierr,"Error getting number of processors")
+         end if
 
          if ( mod(pnproc,nproc)/=0 ) then
             write(6,*) "ERROR: Number of processors is not a factor of the number of files"
@@ -2412,25 +2401,30 @@ contains
       
       call START_LOG(mpibcast_begin)
       call MPI_Bcast(pnproc,1,MPI_INTEGER,0,MPI_COMM_WORLD,ier)
-#ifdef procformat
+      call MPI_Bcast(procformat,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ier)
       call MPI_Bcast(proc_node,1,MPI_INTEGER,0,MPI_COMM_WORLD,ier)
-#endif
       call END_LOG(mpibcast_end)
       lproc = pnproc/nproc !number of files each mpi_proc will work on      
+      if ( procformat ) then
+         inarray2size=lproc
 #ifdef usefirstrank
-      allocate( ncid_in(0:lproc*node2_nproc-1) )
+         allocate( ncid_in(0:lproc*node2_nproc-1) )
 #else
-      allocate( ncid_in(0:lproc-1) )
+         allocate( ncid_in(0:lproc-1) )
 #endif
-#ifdef procformat
+      else
+         inarray2size=1
+         allocate( ncid_in(0:lproc-1) )
+      end if
+      if ( procformat ) then
 #ifdef usefirstrank
-      allocate( ip_min(0:lproc*node2_nproc-1) )
-      allocate( ip_max(0:lproc*node2_nproc-1) )
+         allocate( ip_min(0:lproc*node2_nproc-1) )
+         allocate( ip_max(0:lproc*node2_nproc-1) )
 #else
-      allocate( ip_min(0:lproc-1) )
-      allocate( ip_max(0:lproc-1) )
+         allocate( ip_min(0:lproc-1) )
+         allocate( ip_max(0:lproc-1) )
 #endif
-#endif
+      end if
 
 #ifdef parallel_int
       if ( node_myid == 0 ) then
@@ -2449,46 +2443,53 @@ contains
       if ( myid /= 0 ) then
 #endif
       
-#ifdef procformat
-         lastrip=-1
-         ip_maxcnt=-1
-         ip_min=-1
-         ip_max=-1
-#endif
+         if ( procformat ) then
+            lastrip=-1
+            ip_maxcnt=-1
+            ip_min=-1
+            ip_max=-1
+         end if
 #ifdef usefirstrank
          do ip = 0,lproc*node2_nproc-1
 #else
          do ip = 0,lproc-1
 #endif
-#ifdef procformat
-            rip = (myid*lproc + ip)/proc_node
-            if (lastrip.ne.rip) then
-            lastrip=rip
-            ip_maxcnt=ip_maxcnt+1
-            ip_min(ip_maxcnt)=ip
-            ip_max(ip_maxcnt)=ip
-#else
-            rip = myid*lproc + ip
-#endif
-            write(pfile,"(a,'.',i6.6)") trim(ifile), rip
-#ifdef procformat
-            ier = nf90_open ( pfile, nmode, ncid_in(ip_maxcnt) )
-#else
-            ier = nf90_open ( pfile, nmode, ncid_in(ip) )
-#endif
-            !if (ier /= nf90_noerr ) then
-            !   write(pfile,"(a,'.',i4.4)") trim(ifile), rip
-            !   ier = nf90_open ( pfile, nmode, ncid_in(ip) )
-            !end if
-            if (ier /= nf90_noerr ) then
-               write(6,*) "ERROR: Cannot open ",trim(pfile)
-               call check_ncerr(ier, "open")
-            end if
-#ifdef procformat
+            if ( procformat ) then
+               rip = (myid*lproc + ip)/proc_node
             else
-               ip_max(ip_maxcnt)=ip
+               rip = myid*lproc + ip
             end if
-#endif
+            if ( procformat ) then
+               if (lastrip.ne.rip) then
+                  lastrip=rip
+                  ip_maxcnt=ip_maxcnt+1
+                  ip_min(ip_maxcnt)=ip
+                  ip_max(ip_maxcnt)=ip
+                  write(pfile,"(a,'.',i6.6)") trim(ifile), rip
+                  ier = nf90_open ( pfile, nmode, ncid_in(ip_maxcnt) )
+                  !if (ier /= nf90_noerr ) then
+                  !   write(pfile,"(a,'.',i4.4)") trim(ifile), rip
+                  !   ier = nf90_open ( pfile, nmode, ncid_in(ip) )
+                  !end if
+                  if (ier /= nf90_noerr ) then
+                     write(6,*) "ERROR: Cannot open ",trim(pfile)
+                     call check_ncerr(ier, "open")
+                  end if
+               else
+                  ip_max(ip_maxcnt)=ip
+               end if
+            else
+               write(pfile,"(a,'.',i6.6)") trim(ifile), rip
+               ier = nf90_open ( pfile, nmode, ncid_in(ip) )
+               !if (ier /= nf90_noerr ) then
+               !   write(pfile,"(a,'.',i4.4)") trim(ifile), rip
+               !   ier = nf90_open ( pfile, nmode, ncid_in(ip) )
+               !end if
+               if (ier /= nf90_noerr ) then
+                  write(6,*) "ERROR: Cannot open ",trim(pfile)
+                  call check_ncerr(ier, "open")
+               end if
+            end if
          end do
          ncid = ncid_in(0) 
       
@@ -2499,50 +2500,52 @@ contains
 #endif
       
          ncid_in(0) = ncid
-#ifdef procformat
-         lastrip=0
-#endif
-#ifdef procformat
-         ip_maxcnt=0
-         ip_min=-1
-         ip_max=-1
-         ip_min(0)=0
-         ip_max(0)=0
-#endif
+         if ( procformat ) then
+            lastrip=0
+            ip_maxcnt=0
+            ip_min=-1
+            ip_max=-1
+            ip_min(0)=0
+            ip_max(0)=0
+         end if
 #ifdef usefirstrank
          do ip = 1,lproc*node2_nproc-1
 #else
          do ip = 1,lproc-1
 #endif
-#ifdef procformat
-            rip = ip/proc_node
-            if (lastrip.ne.rip) then
-            lastrip=rip
-            ip_maxcnt=ip_maxcnt+1
-            ip_min(ip_maxcnt)=ip
-            ip_max(ip_maxcnt)=ip
-#else
-            rip = ip
-#endif
-            write(pfile,"(a,'.',i6.6)") trim(ifile), rip
-#ifdef procformat
-            ier = nf90_open ( pfile, nmode, ncid_in(ip_maxcnt) )
-#else
-            ier = nf90_open ( pfile, nmode, ncid_in(ip) )
-#endif
-            !if ( ier /= nf90_noerr ) then
-            !   write(pfile,"(a,'.',i4.4)") trim(ifile), rip
-            !   ier = nf90_open ( pfile, nmode, ncid_in(ip) )
-            !end if
-            if ( ier /= nf90_noerr ) then
-               write(6,*) "ERROR: Cannot open ",trim(pfile)
-               call check_ncerr(ier, "open")
-            end if
-#ifdef procformat
+            if ( procformat ) then
+               rip = ip/proc_node
+               if (lastrip.ne.rip) then
+                  lastrip=rip
+                  ip_maxcnt=ip_maxcnt+1
+                  ip_min(ip_maxcnt)=ip
+                  ip_max(ip_maxcnt)=ip
+                  write(pfile,"(a,'.',i6.6)") trim(ifile), rip
+                  ier = nf90_open ( pfile, nmode, ncid_in(ip_maxcnt) )
+                  !if ( ier /= nf90_noerr ) then
+                  !   write(pfile,"(a,'.',i4.4)") trim(ifile), rip
+                  !   ier = nf90_open ( pfile, nmode, ncid_in(ip) )
+                  !end if
+                  if ( ier /= nf90_noerr ) then
+                     write(6,*) "ERROR: Cannot open ",trim(pfile)
+                     call check_ncerr(ier, "open")
+                  end if
+               else
+                  ip_max(ip_maxcnt)=ip
+               end if
             else
-            ip_max(ip_maxcnt)=ip
+               rip = ip
+               write(pfile,"(a,'.',i6.6)") trim(ifile), rip
+               ier = nf90_open ( pfile, nmode, ncid_in(ip) )
+               !if ( ier /= nf90_noerr ) then
+               !   write(pfile,"(a,'.',i4.4)") trim(ifile), rip
+               !   ier = nf90_open ( pfile, nmode, ncid_in(ip) )
+               !end if
+               if ( ier /= nf90_noerr ) then
+                  write(6,*) "ERROR: Cannot open ",trim(pfile)
+                  call check_ncerr(ier, "open")
+               end if
             end if
-#endif
          end do
       
          !  Get dimensions from int_header
@@ -2641,6 +2644,7 @@ contains
       use mpidata_m
 #endif
       use logging_m   
+      use parm_m, only : procformat
 #ifdef usempif
       include 'mpif.h'
 #endif
@@ -2648,21 +2652,15 @@ contains
       integer, intent(out) :: vread_err
       integer ip, n, vid, ierr, vartyp
       real, dimension(:,:), intent(out) :: var
-#if defined(usefirstrank) || defined(procformat)
-      real, dimension(pil,pjl*pnpan,0:lproc-1) :: inarray2
-#else
-      real, dimension(pil,pjl*pnpan) :: inarray2
-#endif
+      real, dimension(pil,pjl*pnpan,0:inarray2size-1) :: inarray2
 #ifdef usefirstrank
       real, dimension(pil,pjl*pnpan,0:lproc*node2_nproc-1) :: ginarray2
 #endif
       real addoff, sf
       logical, intent(in) :: required
       character(len=*), intent(in) :: name
-#ifdef procformat
       integer :: pid
       integer :: min_pid, max_pid
-#endif
    
       ! If the variable has the required flag set to false, and the 
       ! vread_err argument is present, then return an error flag rather
@@ -2674,103 +2672,79 @@ contains
       
       call START_LOG(paravar2a_begin)
       
+      if ( procformat ) then
+         if ( node2_myid.eq.0 ) then
+            do ip = 0,ip_maxcnt
+               ierr = nf90_inq_varid (ncid_in(ip), name, vid ) 
+               call check_ncerr(ierr, "Error getting vid for "//name)
+          
+               min_pid = mod(myid*lproc+ip_min(ip),proc_node)+1
+               max_pid = mod(myid*lproc+ip_max(ip),proc_node)+1
 #ifdef usefirstrank
-      if ( node2_myid.eq.0 ) then
-      do ip = 0,ip_maxcnt
-         ierr = nf90_inq_varid (ncid_in(ip), name, vid ) 
-         call check_ncerr(ierr, "Error getting vid for "//name)
-          
-         min_pid = mod(myid*lproc+ip_min(ip),proc_node)+1
-         max_pid = mod(myid*lproc+ip_max(ip),proc_node)+1
-         ierr = nf90_get_var ( ncid_in(ip), vid, ginarray2(:,:,ip_min(ip):ip_max(ip)), start=(/ 1, 1, min_pid, nrec /), count=(/ pil, pjl*pnpan, max_pid-min_pid+1, 1 /) )
-         call check_ncerr(ierr, "Error getting var "//name)
-      end do
-      end if
-      call MPI_Scatter(ginarray2,pil*pjl*pnpan*lproc,MPI_REAL,inarray2,pil*pjl*pnpan*lproc,MPI_REAL,0,node2_comm,ierr)
-      if ( node2_myid.eq.0 ) then
-!     Check the type of the variable
-       ierr = nf90_inq_varid (ncid_in(0), name, vid ) 
-       call check_ncerr(ierr, "Error getting vid for "//name)
-       ierr = nf90_inquire_variable ( ncid_in(0), vid, xtype=vartyp)
-       if ( vartyp == NF90_SHORT ) then
-         ierr = nf90_get_att ( ncid_in(0), vid, "add_offset", addoff )
-         call check_ncerr(ierr, "Error getting add_offset attribute")
-         ierr = nf90_get_att ( ncid_in(0), vid, "scale_factor", sf )
-         call check_ncerr (ierr,"Error getting scale_factor attribute")
-       end if
-      end if
-      call MPI_Bcast(vartyp,1,MPI_INTEGER,0,node2_comm,ierr)
-      call MPI_Bcast(addoff,1,MPI_INTEGER,0,node2_comm,ierr)
-      call MPI_Bcast(sf,1,MPI_INTEGER,0,node2_comm,ierr)
-      do ip = 0,lproc-1
-         if ( vartyp == NF90_SHORT ) then
-            if ( all( inarray2(:,:,ip) == -32501. ) ) then
-               inarray2(:,:,ip) = NF90_FILL_FLOAT
-            else
-               inarray2(:,:,ip) = addoff + inarray2(:,:,ip)*sf
-            end if
-         end if
-         var(:,1+ip*pjl*pnpan:(ip+1)*pjl*pnpan) = inarray2(:,:,ip)
-      end do
+               ierr = nf90_get_var ( ncid_in(ip), vid, ginarray2(:,:,ip_min(ip):ip_max(ip)), start=(/ 1, 1, min_pid, nrec /), count=(/ pil, pjl*pnpan, max_pid-min_pid+1, 1 /) )
 #else
-#ifdef procformat
-      do ip = 0,ip_maxcnt
-         ierr = nf90_inq_varid (ncid_in(ip), name, vid ) 
-         call check_ncerr(ierr, "Error getting vid for "//name)
-          
-         min_pid = mod(myid*lproc+ip_min(ip),proc_node)+1
-         max_pid = mod(myid*lproc+ip_max(ip),proc_node)+1
-         ierr = nf90_get_var ( ncid_in(ip), vid, inarray2(:,:,ip_min(ip):ip_max(ip)), start=(/ 1, 1, min_pid, nrec /), count=(/ pil, pjl*pnpan, max_pid-min_pid+1, 1 /) )
-         call check_ncerr(ierr, "Error getting var "//name)
-      end do
-!     Check the type of the variable
-      ierr = nf90_inq_varid (ncid_in(0), name, vid ) 
-      call check_ncerr(ierr, "Error getting vid for "//name)
-      ierr = nf90_inquire_variable ( ncid_in(0), vid, xtype=vartyp)
-      if ( vartyp == NF90_SHORT ) then
-        ierr = nf90_get_att ( ncid_in(0), vid, "add_offset", addoff )
-        call check_ncerr(ierr, "Error getting add_offset attribute")
-        ierr = nf90_get_att ( ncid_in(0), vid, "scale_factor", sf )
-        call check_ncerr (ierr,"Error getting scale_factor attribute")
-      end if
-      do ip = 0,lproc-1
-         if ( vartyp == NF90_SHORT ) then
-            if ( all( inarray2(:,:,ip) == -32501. ) ) then
-               inarray2(:,:,ip) = NF90_FILL_FLOAT
-            else
-               inarray2(:,:,ip) = addoff + inarray2(:,:,ip)*sf
-            end if
+               ierr = nf90_get_var ( ncid_in(ip), vid, inarray2(:,:,ip_min(ip):ip_max(ip)), start=(/ 1, 1, min_pid, nrec /), count=(/ pil, pjl*pnpan, max_pid-min_pid+1, 1 /) )
+#endif
+               call check_ncerr(ierr, "Error getting var "//name)
+            end do
          end if
-         var(:,1+ip*pjl*pnpan:(ip+1)*pjl*pnpan) = inarray2(:,:,ip)
-      end do
-#else
-      do ip = 0,lproc-1
+#ifdef usefirstrank
+         call MPI_Scatter(ginarray2,pil*pjl*pnpan*lproc,MPI_REAL,inarray2,pil*pjl*pnpan*lproc,MPI_REAL,0,node2_comm,ierr)
+#endif
+         if ( node2_myid.eq.0 ) then
+!           Check the type of the variable
+             ierr = nf90_inq_varid (ncid_in(0), name, vid ) 
+             call check_ncerr(ierr, "Error getting vid for "//name)
+             ierr = nf90_inquire_variable ( ncid_in(0), vid, xtype=vartyp)
+             if ( vartyp == NF90_SHORT ) then
+                ierr = nf90_get_att ( ncid_in(0), vid, "add_offset", addoff )
+                call check_ncerr(ierr, "Error getting add_offset attribute")
+                ierr = nf90_get_att ( ncid_in(0), vid, "scale_factor", sf )
+                call check_ncerr (ierr,"Error getting scale_factor attribute")
+             end if
+         end if
+#ifdef usefirstrank
+         call MPI_Bcast(vartyp,1,MPI_INTEGER,0,node2_comm,ierr)
+         call MPI_Bcast(addoff,1,MPI_INTEGER,0,node2_comm,ierr)
+         call MPI_Bcast(sf,1,MPI_INTEGER,0,node2_comm,ierr)
+#endif
+         do ip = 0,lproc-1
+            if ( vartyp == NF90_SHORT ) then
+               if ( all( inarray2(:,:,ip) == -32501. ) ) then
+                  inarray2(:,:,ip) = NF90_FILL_FLOAT
+               else
+                  inarray2(:,:,ip) = addoff + inarray2(:,:,ip)*sf
+               end if
+            end if
+            var(:,1+ip*pjl*pnpan:(ip+1)*pjl*pnpan) = inarray2(:,:,ip)
+         end do
+      else
+         do ip = 0,lproc-1
          
-         ierr = nf90_inq_varid (ncid_in(ip), name, vid ) 
-         call check_ncerr(ierr, "Error getting vid for "//name)
+            ierr = nf90_inq_varid (ncid_in(ip), name, vid ) 
+            call check_ncerr(ierr, "Error getting vid for "//name)
           
-         ierr = nf90_get_var ( ncid_in(ip), vid, inarray2(:,:), start=(/ 1, 1, nrec /), count=(/ pil, pjl*pnpan, 1 /) )
-         call check_ncerr(ierr, "Error getting var "//name)
+            ierr = nf90_get_var ( ncid_in(ip), vid, inarray2(:,:,0), start=(/ 1, 1, nrec /), count=(/ pil, pjl*pnpan, 1 /) )
+            call check_ncerr(ierr, "Error getting var "//name)
 
-!        Check the type of the variable
-         ierr = nf90_inquire_variable ( ncid_in(ip), vid, xtype=vartyp)
-         if ( vartyp == NF90_SHORT ) then
-            if ( all( inarray2 == -32501. ) ) then
-               inarray2 = NF90_FILL_FLOAT
-            else
-               ierr = nf90_get_att ( ncid_in(ip), vid, "add_offset", addoff )
-               call check_ncerr(ierr, "Error getting add_offset attribute")
-               ierr = nf90_get_att ( ncid_in(ip), vid, "scale_factor", sf )
-               call check_ncerr (ierr,"Error getting scale_factor attribute")
-               inarray2 = addoff + inarray2*sf
+!           Check the type of the variable
+            ierr = nf90_inquire_variable ( ncid_in(ip), vid, xtype=vartyp)
+            if ( vartyp == NF90_SHORT ) then
+               if ( all( inarray2 == -32501. ) ) then
+                  inarray2 = NF90_FILL_FLOAT
+               else
+                  ierr = nf90_get_att ( ncid_in(ip), vid, "add_offset", addoff )
+                  call check_ncerr(ierr, "Error getting add_offset attribute")
+                  ierr = nf90_get_att ( ncid_in(ip), vid, "scale_factor", sf )
+                  call check_ncerr (ierr,"Error getting scale_factor attribute")
+                  inarray2 = addoff + inarray2*sf
+               end if
             end if
-         end if
    
-         var(:,1+ip*pjl*pnpan:(ip+1)*pjl*pnpan) = inarray2(:,:)
+            var(:,1+ip*pjl*pnpan:(ip+1)*pjl*pnpan) = inarray2(:,:,0)
          
-      end do
-#endif
-#endif
+         end do
+      end if
       
       call END_LOG(paravar2a_end)
    
@@ -2785,126 +2759,98 @@ contains
 #endif
       use s2p_m, only : minlev, maxlev
       use logging_m
+      use parm_m, only : procformat
 #ifdef usempif
       include 'mpif.h'
 #endif
       integer, intent(in) :: nrec, pkl
       integer ip, n, vid, ierr, vartyp, k
       real, dimension(:,:,:), intent(out) :: var
-#if defined(usefirstrank) || defined(procformat)
-      real, dimension(pil,pjl*pnpan,minlev:maxlev,0:lproc-1) :: inarray3
-#else
-      real, dimension(pil,pjl*pnpan,pkl) :: inarray3
-#endif
+      real, dimension(pil,pjl*pnpan,minlev:maxlev,0:inarray2size-1) :: inarray3
 #ifdef usefirstrank
       real, dimension(pil,pjl*pnpan,minlev:maxlev,0:lproc*node2_nproc-1) :: ginarray3
 #endif
       real addoff, sf
       character(len=*), intent(in) :: name
-#ifdef procformat
       integer :: pid
       integer :: min_pid, max_pid
-#endif
 
       call START_LOG(paravar3a_begin)
 
+      if ( procformat ) then
+         if ( node2_myid.eq.0 ) then
+            do ip = 0,ip_maxcnt
+               ierr = nf90_inq_varid ( ncid_in(ip), name, vid )
+               call check_ncerr(ierr, "Error getting vid for "//name)
+          
+               min_pid = mod(myid*lproc+ip_min(ip),proc_node)+1
+               max_pid = mod(myid*lproc+ip_max(ip),proc_node)+1
 #ifdef usefirstrank
-      if ( node2_myid.eq.0 ) then
-      do ip = 0,ip_maxcnt
-         ierr = nf90_inq_varid ( ncid_in(ip), name, vid )
-         call check_ncerr(ierr, "Error getting vid for "//name)
-          
-         min_pid = mod(myid*lproc+ip_min(ip),proc_node)+1
-         max_pid = mod(myid*lproc+ip_max(ip),proc_node)+1
-         ierr = nf90_get_var ( ncid_in(ip), vid, ginarray3(:,:,:,ip_min(ip):ip_max(ip)), start=(/ 1, 1, minlev, min_pid, nrec /), &
+               ierr = nf90_get_var ( ncid_in(ip), vid, ginarray3(:,:,:,ip_min(ip):ip_max(ip)), start=(/ 1, 1, minlev, min_pid, nrec /), &
                                count=(/ pil, pjl*pnpan, maxlev-minlev+1, max_pid-min_pid+1, 1 /) )
-         call check_ncerr(ierr, "Error getting var "//name)
-      end do
-      end if
-      call MPI_Scatter(ginarray3,pil*pjl*pnpan*(maxlev-minlev+1)*lproc,MPI_REAL,inarray3,pil*pjl*pnpan*(maxlev-minlev+1)*lproc,MPI_REAL,0,node2_comm,ierr)
-      if ( node2_myid.eq.0 ) then
-       ierr = nf90_inq_varid ( ncid_in(0), name, vid )
-       call check_ncerr(ierr, "Error getting vid for "//name)
-       ierr = nf90_inquire_variable ( ncid_in(0), vid, xtype=vartyp )
-       if ( vartyp == NF90_SHORT ) then
-         ierr = nf90_get_att ( ncid_in(0), vid, "add_offset", addoff )
-         call check_ncerr(ierr, "Error getting add_offset attribute")
-         ierr = nf90_get_att ( ncid_in(0), vid, "scale_factor", sf )
-         call check_ncerr (ierr,"Error getting scale_factor attribute")                
-       end if
-      end if
-      call MPI_Bcast(vartyp,1,MPI_INTEGER,0,node2_comm,ierr)
-      call MPI_Bcast(addoff,1,MPI_INTEGER,0,node2_comm,ierr)
-      call MPI_Bcast(sf,1,MPI_INTEGER,0,node2_comm,ierr)
-      do ip = 0,lproc-1
-         if ( vartyp == NF90_SHORT ) then
-            if ( all( inarray3(:,:,:,ip) == -32501. ) ) then
-               inarray3(:,:,:,ip) = NF90_FILL_FLOAT
-            else
-               inarray3(:,:,:,ip) = addoff + inarray3(:,:,:,ip)*sf
-            end if
-         end if
-         var(:,1+ip*pjl*pnpan:(ip+1)*pjl*pnpan,minlev:maxlev) = inarray3(:,:,minlev:maxlev,ip)
-      end do
 #else
-#ifdef procformat
-      do ip = 0,ip_maxcnt
-         ierr = nf90_inq_varid ( ncid_in(ip), name, vid )
-         call check_ncerr(ierr, "Error getting vid for "//name)
-          
-         min_pid = mod(myid*lproc+ip_min(ip),proc_node)+1
-         max_pid = mod(myid*lproc+ip_max(ip),proc_node)+1
-         ierr = nf90_get_var ( ncid_in(ip), vid, inarray3(:,:,:,ip_min(ip):ip_max(ip)), start=(/ 1, 1, minlev, min_pid, nrec /), &
+               ierr = nf90_get_var ( ncid_in(ip), vid, inarray3(:,:,:,ip_min(ip):ip_max(ip)), start=(/ 1, 1, minlev, min_pid, nrec /), &
                                count=(/ pil, pjl*pnpan, maxlev-minlev+1, max_pid-min_pid+1, 1 /) )
-         call check_ncerr(ierr, "Error getting var "//name)
-      end do
-      ierr = nf90_inq_varid ( ncid_in(0), name, vid )
-      call check_ncerr(ierr, "Error getting vid for "//name)
-      ierr = nf90_inquire_variable ( ncid_in(0), vid, xtype=vartyp )
-      if ( vartyp == NF90_SHORT ) then
-        ierr = nf90_get_att ( ncid_in(0), vid, "add_offset", addoff )
-        call check_ncerr(ierr, "Error getting add_offset attribute")
-        ierr = nf90_get_att ( ncid_in(0), vid, "scale_factor", sf )
-        call check_ncerr (ierr,"Error getting scale_factor attribute")                
-      end if
-      do ip = 0,lproc-1
-         if ( vartyp == NF90_SHORT ) then
-            if ( all( inarray3(:,:,:,ip) == -32501. ) ) then
-               inarray3(:,:,:,ip) = NF90_FILL_FLOAT
-            else
-               inarray3(:,:,:,ip) = addoff + inarray3(:,:,:,ip)*sf
-            end if
+#endif
+               call check_ncerr(ierr, "Error getting var "//name)
+            end do
          end if
-         var(:,1+ip*pjl*pnpan:(ip+1)*pjl*pnpan,minlev:maxlev) = inarray3(:,:,minlev:maxlev,ip)
-      end do
-#else
-      do ip = 0,lproc-1
-
-         ierr = nf90_inq_varid ( ncid_in(ip), name, vid )
-         call check_ncerr(ierr, "Error getting vid for "//name)
-          
-         ierr = nf90_get_var ( ncid_in(ip), vid, inarray3(:,:,minlev:maxlev), start=(/ 1, 1, minlev, nrec /), &
-                               count=(/ pil, pjl*pnpan, maxlev-minlev+1, 1 /) )
-         call check_ncerr(ierr, "Error getting var "//name)
-      
-         ierr = nf90_inquire_variable ( ncid_in(ip), vid, xtype=vartyp )
-         if ( vartyp == NF90_SHORT ) then
-            if ( all( inarray3 == -32501. ) ) then
-               inarray3 = NF90_FILL_FLOAT
-            else
-               ierr = nf90_get_att ( ncid_in(ip), vid, "add_offset", addoff )
+#ifdef usefirstrank
+         call MPI_Scatter(ginarray3,pil*pjl*pnpan*(maxlev-minlev+1)*lproc,MPI_REAL,inarray3,pil*pjl*pnpan*(maxlev-minlev+1)*lproc,MPI_REAL,0,node2_comm,ierr)
+#endif
+         if ( node2_myid.eq.0 ) then
+             ierr = nf90_inq_varid ( ncid_in(0), name, vid )
+             call check_ncerr(ierr, "Error getting vid for "//name)
+             ierr = nf90_inquire_variable ( ncid_in(0), vid, xtype=vartyp )
+             if ( vartyp == NF90_SHORT ) then
+               ierr = nf90_get_att ( ncid_in(0), vid, "add_offset", addoff )
                call check_ncerr(ierr, "Error getting add_offset attribute")
-               ierr = nf90_get_att ( ncid_in(ip), vid, "scale_factor", sf )
+               ierr = nf90_get_att ( ncid_in(0), vid, "scale_factor", sf )
                call check_ncerr (ierr,"Error getting scale_factor attribute")                
-               inarray3 = addoff + inarray3*sf
-            end if
+             end if
          end if
+#ifdef usefirstrank
+         call MPI_Bcast(vartyp,1,MPI_INTEGER,0,node2_comm,ierr)
+         call MPI_Bcast(addoff,1,MPI_INTEGER,0,node2_comm,ierr)
+         call MPI_Bcast(sf,1,MPI_INTEGER,0,node2_comm,ierr)
+#endif
+         do ip = 0,lproc-1
+            if ( vartyp == NF90_SHORT ) then
+               if ( all( inarray3(:,:,:,ip) == -32501. ) ) then
+                  inarray3(:,:,:,ip) = NF90_FILL_FLOAT
+               else
+                  inarray3(:,:,:,ip) = addoff + inarray3(:,:,:,ip)*sf
+               end if
+            end if
+            var(:,1+ip*pjl*pnpan:(ip+1)*pjl*pnpan,minlev:maxlev) = inarray3(:,:,minlev:maxlev,ip)
+         end do
+      else
+         do ip = 0,lproc-1
+
+            ierr = nf90_inq_varid ( ncid_in(ip), name, vid )
+            call check_ncerr(ierr, "Error getting vid for "//name)
+          
+            ierr = nf90_get_var ( ncid_in(ip), vid, inarray3(:,:,minlev:maxlev,0), start=(/ 1, 1, minlev, nrec /), &
+                                  count=(/ pil, pjl*pnpan, maxlev-minlev+1, 1 /) )
+            call check_ncerr(ierr, "Error getting var "//name)
       
-         var(:,1+ip*pjl*pnpan:(ip+1)*pjl*pnpan,minlev:maxlev) = inarray3(:,:,minlev:maxlev)
+            ierr = nf90_inquire_variable ( ncid_in(ip), vid, xtype=vartyp )
+            if ( vartyp == NF90_SHORT ) then
+               if ( all( inarray3 == -32501. ) ) then
+                  inarray3 = NF90_FILL_FLOAT
+               else
+                  ierr = nf90_get_att ( ncid_in(ip), vid, "add_offset", addoff )
+                  call check_ncerr(ierr, "Error getting add_offset attribute")
+                  ierr = nf90_get_att ( ncid_in(ip), vid, "scale_factor", sf )
+                  call check_ncerr (ierr,"Error getting scale_factor attribute")                
+                  inarray3 = addoff + inarray3*sf
+               end if
+            end if
+      
+            var(:,1+ip*pjl*pnpan:(ip+1)*pjl*pnpan,minlev:maxlev) = inarray3(:,:,minlev:maxlev,0)
          
-      end do
-#endif
-#endif
+         end do
+      end if
       
       call END_LOG(paravar3a_end)
    
