@@ -123,9 +123,7 @@ contains
    end subroutine alloc_indata
 
    subroutine getdate ( kdate, ktime, ieof) 
-#ifdef usefirstrank
       use mpi
-#endif
       use logging_m
 
 !     Get record data from header
@@ -137,36 +135,34 @@ contains
          return
       end if
       call START_LOG(getdate_begin)      
-#ifdef usefirstrank
       if ( node2_myid.eq.0 ) then
-#endif
-      ! Get vid and then values for kdate, ktime, ktau
-      ierr = nf90_inq_varid (ncid, "kdate", vid )
-      call check_ncerr(ierr, "Error getting kdate id")
-      ierr = nf90_get_var ( ncid, vid, kdate, start=(/ nrec /) )
-      call check_ncerr(ierr, "Error getting kdate")
-      ierr = nf90_inq_varid (ncid, "ktime", vid )
-      call check_ncerr(ierr, "Error getting ktime id")
-      ierr = nf90_get_var ( ncid, vid, ktime, start=(/ nrec /) )
-      call check_ncerr(ierr, "Error getting ktime")
-      ! Get ktau from time. Really should be renamed
-      ierr = nf90_inq_varid (ncid, "time", vid )
-      call check_ncerr(ierr, "Error getting time id")
-      ierr = nf90_get_var ( ncid, vid, ktau, start=(/ nrec /) )
-      call check_ncerr(ierr, "Error getting time")
-      ieof = 0
+         ! Get vid and then values for kdate, ktime, ktau
+         ierr = nf90_inq_varid (ncid, "kdate", vid )
+         call check_ncerr(ierr, "Error getting kdate id")
+         ierr = nf90_get_var ( ncid, vid, kdate, start=(/ nrec /) )
+         call check_ncerr(ierr, "Error getting kdate")
+         ierr = nf90_inq_varid (ncid, "ktime", vid )
+         call check_ncerr(ierr, "Error getting ktime id")
+         ierr = nf90_get_var ( ncid, vid, ktime, start=(/ nrec /) )
+         call check_ncerr(ierr, "Error getting ktime")
+         ! Get ktau from time. Really should be renamed
+         ierr = nf90_inq_varid (ncid, "time", vid )
+         call check_ncerr(ierr, "Error getting time id")
+         ierr = nf90_get_var ( ncid, vid, ktau, start=(/ nrec /) )
+         call check_ncerr(ierr, "Error getting time")
+         ieof = 0
             
-      if ( myid == 0 ) then
-         write(*,"(a,3i8)",advance="no") " kdate, ktime, ktau ", &
-                                           kdate,  ktime, ktau
+         if ( myid == 0 ) then
+            write(*,"(a,3i8)",advance="no") " kdate, ktime, ktau ", &
+                                              kdate,  ktime, ktau
+         end if
       end if
-#ifdef usefirstrank
+      if ( node2_nproc.gt.1 ) then
+         call MPI_Bcast(kdate,1,MPI_INTEGER,0,node2_comm,ierr)
+         call MPI_Bcast(ktime,1,MPI_INTEGER,0,node2_comm,ierr)
+         call MPI_Bcast(ktau,1,MPI_INTEGER,0,node2_comm,ierr)
+         call MPI_Bcast(ieof,1,MPI_INTEGER,0,node2_comm,ierr)
       end if
-      call MPI_Bcast(kdate,1,MPI_INTEGER,0,node2_comm,ierr)
-      call MPI_Bcast(ktime,1,MPI_INTEGER,0,node2_comm,ierr)
-      call MPI_Bcast(ktau,1,MPI_INTEGER,0,node2_comm,ierr)
-      call MPI_Bcast(ieof,1,MPI_INTEGER,0,node2_comm,ierr)
-#endif
       call END_LOG(getdate_end)
 
    end subroutine getdate
@@ -831,42 +827,35 @@ contains
 !     alloc_indata minimises the total memory requirements
 
       nrec = 1
-#ifdef usefirstrank
       if ( node2_myid.eq.0 ) then
-#endif
-      ! Get the total number of timesteps
-      ierr = nf90_inq_dimid ( ncid, "time", dimid )
-      call check_ncerr(ierr, "Error getting time dimension")
-      ierr = nf90_inquire_dimension ( ncid, dimid, len=maxrec )
-      call check_ncerr(ierr,"Error getting number of sets")
-      ! Get integer and real headers from attibutes. First check the 
-      ! lengths of these.
-      ierr = nf90_inquire_attribute(ncid, nf90_global, "int_header", len=hlen)
-      call check_ncerr(ierr, "Error getting int_header length")
-      if ( hlen < 43 ) then
-         print*, "Error - insufficient header information: int_header too short"
-#ifdef usefirstrank
-         call MPI_Abort(MPI_COMM_WORLD,-1_4,ierr)
-#else
-         stop
-#endif
+         ! Get the total number of timesteps
+         ierr = nf90_inq_dimid ( ncid, "time", dimid )
+         call check_ncerr(ierr, "Error getting time dimension")
+         ierr = nf90_inquire_dimension ( ncid, dimid, len=maxrec )
+         call check_ncerr(ierr,"Error getting number of sets")
+         ! Get integer and real headers from attibutes. First check the 
+         ! lengths of these.
+         ierr = nf90_inquire_attribute(ncid, nf90_global, "int_header", len=hlen)
+         call check_ncerr(ierr, "Error getting int_header length")
+         if ( hlen < 43 ) then
+            print*, "Error - insufficient header information: int_header too short"
+            call MPI_Abort(MPI_COMM_WORLD,-1_4,ierr)
+         end if
       end if
-#ifdef usefirstrank
+      if ( node2_nproc.gt.1 ) then
+         call MPI_Bcast(maxrec,1,MPI_INTEGER,0,node2_comm,ierr)
+         call MPI_Bcast(hlen,1,MPI_INTEGER,0,node2_comm,ierr)
       end if
-      call MPI_Bcast(maxrec,1,MPI_INTEGER,0,node2_comm,ierr)
-      call MPI_Bcast(hlen,1,MPI_INTEGER,0,node2_comm,ierr)
-#endif
       allocate (int_header(hlen))
-#ifdef usefirstrank
+
       if ( node2_myid.eq.0 ) then
-      ierr = nf90_get_att(ncid, nf90_global, "int_header", int_header)
-      call check_ncerr(ierr, "Error getting int_header")
+         ierr = nf90_get_att(ncid, nf90_global, "int_header", int_header)
+         call check_ncerr(ierr, "Error getting int_header")
       end if
-      call MPI_Bcast(int_header,hlen,MPI_INTEGER,0,node2_comm,ierr)
-#else
-      ierr = nf90_get_att(ncid, nf90_global, "int_header", int_header)
-      call check_ncerr(ierr, "Error getting int_header")
-#endif
+      if ( node2_nproc.gt.1 ) then
+         call MPI_Bcast(int_header,hlen,MPI_INTEGER,0,node2_comm,ierr)
+      end if
+
       ! Only a few values are used
       il = int_header(1)
       jl = int_header(2)
@@ -882,29 +871,28 @@ contains
       ilt = int_header(42)
       ntrac = int_header(43)
 
-#ifdef usefirstrank
       if ( node2_myid.eq.0 ) then
-#endif
-      ierr = nf90_inquire_attribute(ncid, nf90_global, "real_header", len=hlen)
-      call check_ncerr(ierr, "Error getting real_header length")
-#ifdef usefirstrank
+         ierr = nf90_inquire_attribute(ncid, nf90_global, "real_header", len=hlen)
+         call check_ncerr(ierr, "Error getting real_header length")
       end if
-      call MPI_Bcast(hlen,1,MPI_INTEGER,0,node2_comm,ierr)
-#endif
+      if ( node2_nproc.gt.1 ) then
+         call MPI_Bcast(hlen,1,MPI_INTEGER,0,node2_comm,ierr)
+      end if
+
       if ( hlen < 8 ) then
          print*, "Error - insufficient header information: real_header too short"
          stop
       end if
       allocate (real_header(hlen))
-#ifdef usefirstrank
+
       if ( node2_myid.eq.0 ) then
-#endif
-      ierr = nf90_get_att(ncid, nf90_global, "real_header", real_header)
-      call check_ncerr(ierr, "Error getting real_header")
-#ifdef usefirstrank
+         ierr = nf90_get_att(ncid, nf90_global, "real_header", real_header)
+         call check_ncerr(ierr, "Error getting real_header")
       end if
-      call MPI_Bcast(real_header,hlen,MPI_REAL,0,node2_comm,ierr)
-#endif
+      if ( node2_nproc.gt.1 ) then
+         call MPI_Bcast(real_header,hlen,MPI_REAL,0,node2_comm,ierr)
+      end if
+
       ! Only a few values are used
       rlong0 = real_header(5)
       rlat0 = real_header(6)
@@ -960,34 +948,30 @@ contains
 
       if ( kl > 1 ) then
             ! Get sigma levels from level variable
-#ifdef usefirstrank
             if ( node2_myid.eq.0 ) then
-#endif
-            ierr = nf90_inq_varid (ncid, "lev", vid )
-            call check_ncerr(ierr, "Error getting vid for lev")
-            ierr = nf90_get_var ( ncid, vid, sig)
-            call check_ncerr(ierr, "Error getting levels")
-#ifdef usefirstrank
+               ierr = nf90_inq_varid (ncid, "lev", vid )
+               call check_ncerr(ierr, "Error getting vid for lev")
+               ierr = nf90_get_var ( ncid, vid, sig)
+               call check_ncerr(ierr, "Error getting levels")
             end if
-            call MPI_Bcast(sig,kl,MPI_REAL,0,node2_comm,ierr)
-#endif
+            if ( node2_nproc.gt.1 ) then
+               call MPI_Bcast(sig,kl,MPI_REAL,0,node2_comm,ierr)
+            end if
       else
          sig = 1.0
       end if
       call sig2ds(sig, dsig)
       ! Note that some initial condition files don't have zsoil
       if ( cf_compliant ) then
-#ifdef usefirstrank
          if ( node2_myid.eq.0 ) then
-#endif
-         ierr = nf90_inq_varid (ncid, "zsoil", vid )
-         call check_ncerr(ierr, "Error getting vid for zsoil")
-         ierr = nf90_get_var ( ncid, vid, zsoil)
-         call check_ncerr(ierr, "Error getting zsoil")
-#ifdef usefirstrank
+            ierr = nf90_inq_varid (ncid, "zsoil", vid )
+            call check_ncerr(ierr, "Error getting vid for zsoil")
+            ierr = nf90_get_var ( ncid, vid, zsoil)
+            call check_ncerr(ierr, "Error getting zsoil")
          end if
-         call MPI_Bcast(zsoil,ksoil,MPI_REAL,0,node2_comm,ierr)
-#endif
+         if ( node2_nproc.gt.1 ) then
+            call MPI_Bcast(zsoil,ksoil,MPI_REAL,0,node2_comm,ierr)
+         end if
       end if
 
 !     Set all the resolution parameters
@@ -1350,15 +1334,9 @@ contains
    end subroutine fix_winds3
 
    subroutine get_var_list(varlist, nvars)
-#ifdef usefirstrank
       use mpi
-#endif
       ! Get a list of the variables in the input file
-#ifdef usefirstrank
       use history, only : addfld, int_default, cf_compliant, cordex_compliant, addfldcp
-#else
-      use history, only : addfld, int_default, cf_compliant, cordex_compliant
-#endif
       use interp_m, only : int_nearest, int_none
       use physparams, only : grav, rdry
       use s2p_m, only: use_plevs, plevs, use_meters, mlevs
@@ -1377,512 +1355,506 @@ contains
       real :: xmin, xmax, aoff, sf, topsig, topheight
       real :: coord_height
       integer :: ivar_start
-#ifdef usefirstrank
       integer, dimension(12) :: b,t
       integer :: MPI_INPUT_VAR
       integer(kind=MPI_ADDRESS_KIND), dimension(12) :: d
-#endif
 
-#ifdef usefirstrank
       if ( node2_myid.eq.0 ) then
-#endif
-      ierr = nf90_inquire(ncid, ndimensions=ndimensions, nvariables=nvariables)
-      call check_ncerr(ierr, "nf90_inquire error")
-#ifdef usefirstrank
+         ierr = nf90_inquire(ncid, ndimensions=ndimensions, nvariables=nvariables)
+         call check_ncerr(ierr, "nf90_inquire error")
       end if
-      call MPI_Bcast(ndimensions,1,MPI_INTEGER,0,node2_comm,ierr)
-      call MPI_Bcast(nvariables,1,MPI_INTEGER,0,node2_comm,ierr)
-#endif
+      if ( node2_nproc.gt.1 ) then
+         call MPI_Bcast(ndimensions,1,MPI_INTEGER,0,node2_comm,ierr)
+         call MPI_Bcast(nvariables,1,MPI_INTEGER,0,node2_comm,ierr)
+      end if
       ! This is slightly bigger than required because not all the variables
       ! in the netcdf file are processed.
       allocate ( varlist(nvariables) )
 
-#ifdef usefirstrank
       if ( node2_myid.eq.0 ) then
-#endif
-      ! Get the values of the dimension IDs
-      ierr = nf90_inq_dimid(ncid, "longitude", londim)
-      call check_ncerr(ierr,"Error getting lonid")
-      ierr = nf90_inq_dimid(ncid, "latitude", latdim)
-      call check_ncerr(ierr,"Error getting latid")
-      ierr = nf90_inq_dimid(ncid, "lev", levdim)
-      call check_ncerr(ierr,"Error getting levid")
-      ierr = nf90_inq_dimid(ncid, "time", timedim)
-      call check_ncerr(ierr,"Error getting timeid")
-      if ( procformat ) then
-         ierr = nf90_inq_dimid(ncid, "processor", procdim)
-         call check_ncerr(ierr,"Error getting procid")
-         dim4=5
-         dim3=4
-         dim2=3
-         idim=(/ londim, latdim, levdim, procdim, timedim /)
-         jdim=(/ londim, latdim, procdim, timedim /)
-         kdim=(/ londim, latdim, procdim /)
-      else
-         dim4=4
-         dim3=3
-         dim2=2
-         idim=(/ londim, latdim, levdim, timedim, 0 /)
-         jdim=(/ londim, latdim, timedim, 0 /)
-         kdim=(/ londim, latdim, 0 /)
-      end if
+         ! Get the values of the dimension IDs
+         ierr = nf90_inq_dimid(ncid, "longitude", londim)
+         call check_ncerr(ierr,"Error getting lonid")
+         ierr = nf90_inq_dimid(ncid, "latitude", latdim)
+         call check_ncerr(ierr,"Error getting latid")
+         ierr = nf90_inq_dimid(ncid, "lev", levdim)
+         call check_ncerr(ierr,"Error getting levid")
+         ierr = nf90_inq_dimid(ncid, "time", timedim)
+         call check_ncerr(ierr,"Error getting timeid")
+         if ( procformat ) then
+            ierr = nf90_inq_dimid(ncid, "processor", procdim)
+            call check_ncerr(ierr,"Error getting procid")
+            dim4=5
+            dim3=4
+            dim2=3
+            idim=(/ londim, latdim, levdim, procdim, timedim /)
+            jdim=(/ londim, latdim, procdim, timedim /)
+            kdim=(/ londim, latdim, procdim /)
+         else
+            dim4=4
+            dim3=3
+            dim2=2
+            idim=(/ londim, latdim, levdim, timedim, 0 /)
+            jdim=(/ londim, latdim, timedim, 0 /)
+            kdim=(/ londim, latdim, 0 /)
+         end if
 
-      nvars = 0
-      ! For the sigma to pressure initialisation to work properly
-      ! the surface pressure has to be read before any of the 3D variables
-      ! Force it to be first by having an extra 0 iteration on the loop
-      ! Some special purpose outputs don't have psf, so only treat cases where
-      ! use_plevs=T in this way.
-      !if ( use_plevs ) then
-      !   ivar_start = 0
-      !else
-         ivar_start = 1
-      !end if
-      do ivar=ivar_start,nvariables
-         !if ( ivar == 0 ) then
-         !   ierr = nf90_inq_varid ( ncid, "psf", vid )
-         !   call check_ncerr(ierr, "Error getting vid for psf")
-         !   ierr = nf90_inquire_variable (ncid, vid, name=vname, ndims=ndims, dimids=dimids, xtype=xtype)
-         !   call check_ncerr(ierr, "nf90_inquire_variable error")
+         nvars = 0
+         ! For the sigma to pressure initialisation to work properly
+         ! the surface pressure has to be read before any of the 3D variables
+         ! Force it to be first by having an extra 0 iteration on the loop
+         ! Some special purpose outputs don't have psf, so only treat cases where
+         ! use_plevs=T in this way.
+         !if ( use_plevs ) then
+         !   ivar_start = 0
          !else
-            ierr = nf90_inquire_variable (ncid, ivar, name=vname, ndims=ndims, dimids=dimids, xtype=xtype)
-            call check_ncerr(ierr, "nf90_inquire_variable error")
-            !if ( use_plevs .and. vname == "psf" ) then
-            !   ! This has already been handled above
-            !   cycle
-            !end if
+            ivar_start = 1
          !end if
-!         print*, ivar, vname, ndims, dimids(1:ndims)
-         if ( ndims == dim4 ) then
-            ! Should be lon, lat, lev, time
-            if ( match ( dimids(1:ndims), idim(1:dim4) ) ) then
-               nvars = nvars + 1
-               varlist(nvars)%fixed = .false.
-               varlist(nvars)%ndims = 3  ! Space only
-            else
-               print*, "Error, unexpected dimensions in input variable", vname
-               stop
-            end if
-         else if ( ndims == dim3 ) then
+         do ivar=ivar_start,nvariables
+            !if ( ivar == 0 ) then
+            !   ierr = nf90_inq_varid ( ncid, "psf", vid )
+            !   call check_ncerr(ierr, "Error getting vid for psf")
+            !   ierr = nf90_inquire_variable (ncid, vid, name=vname, ndims=ndims, dimids=dimids, xtype=xtype)
+            !   call check_ncerr(ierr, "nf90_inquire_variable error")
+            !else
+               ierr = nf90_inquire_variable (ncid, ivar, name=vname, ndims=ndims, dimids=dimids, xtype=xtype)
+               call check_ncerr(ierr, "nf90_inquire_variable error")
+               !if ( use_plevs .and. vname == "psf" ) then
+               !   ! This has already been handled above
+               !   cycle
+               !end if
+            !end if
+!            print*, ivar, vname, ndims, dimids(1:ndims)
+            if ( ndims == dim4 ) then
+               ! Should be lon, lat, lev, time
+               if ( match ( dimids(1:ndims), idim(1:dim4) ) ) then
+                  nvars = nvars + 1
+                  varlist(nvars)%fixed = .false.
+                  varlist(nvars)%ndims = 3  ! Space only
+               else
+                  print*, "Error, unexpected dimensions in input variable", vname
+                  stop
+               end if
+            else if ( ndims == dim3 ) then
 
-            ! Check for soil variables
-            if ( cf_compliant .and. is_soil_var(vname) ) then
+               ! Check for soil variables
+               if ( cf_compliant .and. is_soil_var(vname) ) then
+                  cycle
+               end if
+
+               if ( match( dimids(1:ndims), jdim(1:dim3) ) ) then
+                  nvars = nvars + 1
+                  varlist(nvars)%fixed = .false.
+                  varlist(nvars)%ndims = 2  ! Space only
+               else
+                  ! 3D variables fixed in time aren't supported at the moment
+                  ! though there's no reason why they couldn't be
+                  print*, "Error, unexpected dimensions in input variable", vname
+                  stop
+               end if
+            else if ( ndims == dim2 ) then
+               if ( match( dimids(1:ndims), kdim(1:dim2) ) ) then
+                  nvars = nvars + 1
+                  varlist(nvars)%fixed = .true.
+                  varlist(nvars)%ndims = 2  ! Space only
+               else
+                  print*, "Error, unexpected dimensions in input variable", vname
+                  stop
+               end if
+            else
                cycle
             end if
 
-            if ( match( dimids(1:ndims), jdim(1:dim3) ) ) then
-               nvars = nvars + 1
-               varlist(nvars)%fixed = .false.
-               varlist(nvars)%ndims = 2  ! Space only
+            varlist(nvars)%vname = vname
+            ierr = nf90_inq_varid(ncid, vname, varlist(nvars)%vid)
+            call check_ncerr(ierr, "Error getting vid for "//trim(vname))
+
+            ierr = nf90_get_att(ncid, varlist(nvars)%vid, 'long_name', &
+                                varlist(nvars)%long_name)
+            call check_ncerr(ierr, "Error getting long_name for "//trim(vname))
+
+            ierr = nf90_get_att(ncid, varlist(nvars)%vid, 'units',     &
+                                varlist(nvars)%units)
+            ! In initial condition files, some fields do not have units
+            if ( vname /= "psf" .and. vname /= "wfg" .and. vname /= "wfb" .and. &
+                 vname /= "snd" .and. vname /= "fracice" ) then
+               call check_ncerr(ierr, "Error getting units for "//trim(vname))
+            end if
+
+            if ( xtype == nf90_short ) then
+               ierr = nf90_get_att(ncid, varlist(nvars)%vid, 'add_offset',   &
+                    varlist(nvars)%add_offset)
+               call check_ncerr(ierr, "Error getting add_offset for "//trim(vname))
+
+               ierr = nf90_get_att(ncid, varlist(nvars)%vid, 'scale_factor',     &
+                    varlist(nvars)%scale_factor)
+               call check_ncerr(ierr, "Error getting scale_factor for "//trim(vname))
             else
-               ! 3D variables fixed in time aren't supported at the moment
-               ! though there's no reason why they couldn't be
-               print*, "Error, unexpected dimensions in input variable", vname
-               stop
+               ! Should have some way of setting these. At the moment 16 bit
+               ! output won't work with 32 bit input.
+               varlist(nvars)%add_offset = 0.
+               varlist(nvars)%scale_factor = 1.
             end if
-         else if ( ndims == dim2 ) then
-            if ( match( dimids(1:ndims), kdim(1:dim2) ) ) then
-               nvars = nvars + 1
-               varlist(nvars)%fixed = .true.
-               varlist(nvars)%ndims = 2  ! Space only
-            else
-               print*, "Error, unexpected dimensions in input variable", vname
-               stop
-            end if
-         else
-            cycle
+
+         end do
+
+         if ( cf_compliant ) then
+            nvars = nvars+1
+            varlist(nvars)%vname = "tgg"
+            varlist(nvars)%fixed = .false.
+            varlist(nvars)%ndims = 4
+            !nvars = nvars+1
+            !varlist(nvars)%vname = "wb"
+            !varlist(nvars)%fixed = .false.
+            !varlist(nvars)%ndims = 4
+            nvars = nvars+1
+            varlist(nvars)%vname = "wetfrac"
+            varlist(nvars)%fixed = .false.
+            varlist(nvars)%ndims = 4
+!           Don't need to set extra parameters because there's an explicit 
+!           addfld call later.
+!            call addfld('tgg','Soil temperature','K',100.,350.,ksoil,soil=.true.)
+!            call addfld('wb','Soil moisture','frac',0.,1.,ksoil,soil=.true.)
          end if
 
-         varlist(nvars)%vname = vname
-         ierr = nf90_inq_varid(ncid, vname, varlist(nvars)%vid)
-         call check_ncerr(ierr, "Error getting vid for "//trim(vname))
 
-         ierr = nf90_get_att(ncid, varlist(nvars)%vid, 'long_name', &
-                             varlist(nvars)%long_name)
-         call check_ncerr(ierr, "Error getting long_name for "//trim(vname))
-
-         ierr = nf90_get_att(ncid, varlist(nvars)%vid, 'units',     &
-                             varlist(nvars)%units)
-         ! In initial condition files, some fields do not have units
-         if ( vname /= "psf" .and. vname /= "wfg" .and. vname /= "wfb" .and. &
-              vname /= "snd" .and. vname /= "fracice" ) then
-            call check_ncerr(ierr, "Error getting units for "//trim(vname))
-         end if
-
-         if ( xtype == nf90_short ) then
-            ierr = nf90_get_att(ncid, varlist(nvars)%vid, 'add_offset',   &
-                 varlist(nvars)%add_offset)
-            call check_ncerr(ierr, "Error getting add_offset for "//trim(vname))
-
-            ierr = nf90_get_att(ncid, varlist(nvars)%vid, 'scale_factor',     &
-                 varlist(nvars)%scale_factor)
-            call check_ncerr(ierr, "Error getting scale_factor for "//trim(vname))
-         else
-            ! Should have some way of setting these. At the moment 16 bit
-            ! output won't work with 32 bit input.
-            varlist(nvars)%add_offset = 0.
-            varlist(nvars)%scale_factor = 1.
-         end if
-
-      end do
-
-      if ( cf_compliant ) then
-         nvars = nvars+1
-         varlist(nvars)%vname = "tgg"
-         varlist(nvars)%fixed = .false.
-         varlist(nvars)%ndims = 4
-         !nvars = nvars+1
-         !varlist(nvars)%vname = "wb"
-         !varlist(nvars)%fixed = .false.
-         !varlist(nvars)%ndims = 4
-         nvars = nvars+1
-         varlist(nvars)%vname = "wetfrac"
-         varlist(nvars)%fixed = .false.
-         varlist(nvars)%ndims = 4
-!        Don't need to set extra parameters because there's an explicit 
-!        addfld call later.
-!         call addfld('tgg','Soil temperature','K',100.,350.,ksoil,soil=.true.)
-!         call addfld('wb','Soil moisture','frac',0.,1.,ksoil,soil=.true.)
-      end if
-
-
-      do ivar=1,nvars
-         ! Check is variable is a component of a vector
-         ! For now test both x-component and x-direction. Eventually
-         ! only the former should be needed but older files use the
-         ! latter for wind stress.
-         if ( index(varlist(ivar)%long_name,"x-comp") /= 0 .or. &
-              index(varlist(ivar)%long_name,"x-direction") /= 0) then
-            varlist(ivar)%vector = .true.
-            varlist(ivar)%xcmpnt = .true.
-            ! Search for the matching y-component
-            tmpname = varlist(ivar)%long_name
-            ind = index(varlist(ivar)%long_name,"x-")
-            tmpname(ind:ind) = "y"
-            ! Some variables have name like u10 (should be 10m wind).
-            ind = index(varlist(ivar)%long_name,"u10")
-            if ( ind /= 0 ) tmpname(ind:ind) = "v"
-            ! For now handle this specially.
-            varlist(ivar)%othercmpnt = match_longname(varlist,tmpname)
-            if ( varlist(ivar)%othercmpnt == 0 ) then
-               print*, "Failed to find matching vector component for variable ", varlist(ivar)%vname
-               stop
-            end if
-         else if ( index(varlist(ivar)%long_name,"y-comp") /= 0 .or. &
-                   index(varlist(ivar)%long_name,"y-direction") /= 0) then
-            varlist(ivar)%vector = .true.
-            varlist(ivar)%xcmpnt = .false.
-         else
-            varlist(ivar)%vector = .false.
-         end if
-
-      end do
-
-      ! Fix up the names of the vector fields. This comes after the checking
-      ! to make sure that it doesn't muck up finding the matching component
-      ! Some variables use x-compt rather than x-component which makes things
-      ! more complicated.
-      do ivar=1,nvars
-         if ( varlist(ivar)%vector ) then
-            if ( varlist(ivar)%xcmpnt ) then
-               ind = index(varlist(ivar)%long_name,"x-comp")
-               if ( ind /= 0 ) then
-                  ! Search for space so that x-compt and x-component both work
-                  ind = index(varlist(ivar)%long_name," ")
-                  write( varlist(ivar)%long_name, "(a,a)" ) "Zonal",  &
-                       varlist(ivar)%long_name(ind:len_trim(varlist(ivar)%long_name))
+         do ivar=1,nvars
+            ! Check is variable is a component of a vector
+            ! For now test both x-component and x-direction. Eventually
+            ! only the former should be needed but older files use the
+            ! latter for wind stress.
+            if ( index(varlist(ivar)%long_name,"x-comp") /= 0 .or. &
+                 index(varlist(ivar)%long_name,"x-direction") /= 0) then
+               varlist(ivar)%vector = .true.
+               varlist(ivar)%xcmpnt = .true.
+               ! Search for the matching y-component
+               tmpname = varlist(ivar)%long_name
+               ind = index(varlist(ivar)%long_name,"x-")
+               tmpname(ind:ind) = "y"
+               ! Some variables have name like u10 (should be 10m wind).
+               ind = index(varlist(ivar)%long_name,"u10")
+               if ( ind /= 0 ) tmpname(ind:ind) = "v"
+               ! For now handle this specially.
+               varlist(ivar)%othercmpnt = match_longname(varlist,tmpname)
+               if ( varlist(ivar)%othercmpnt == 0 ) then
+                  print*, "Failed to find matching vector component for variable ", varlist(ivar)%vname
+                  stop
                end if
+            else if ( index(varlist(ivar)%long_name,"y-comp") /= 0 .or. &
+                      index(varlist(ivar)%long_name,"y-direction") /= 0) then
+               varlist(ivar)%vector = .true.
+               varlist(ivar)%xcmpnt = .false.
             else
-               ind = index(varlist(ivar)%long_name,"y-comp")
-               if ( ind /= 0 ) then
-                  ind = index(varlist(ivar)%long_name," ")
-                  write( varlist(ivar)%long_name, "(a,a)" ) "Meridional",  &
-                       varlist(ivar)%long_name(ind:len_trim(varlist(ivar)%long_name))
-               end if
+               varlist(ivar)%vector = .false.
             end if
-         end if
-      end do
 
-      do ivar=1,nvars
-         xmin = varlist(ivar)%add_offset + varlist(ivar)%scale_factor*vmin
-         xmax = varlist(ivar)%add_offset + varlist(ivar)%scale_factor*vmax
-         ! As a check re-calc offset, scalef
-         sf = (xmax - xmin) /(real(vmax)-real(vmin)) ! jlm fix for precision problems
-         aoff = xmin - sf*vmin
-!         print*, varlist(ivar)%vname, xmin, xmax, varlist(ivar)%add_offset, varlist(ivar)%scale_factor, aoff, sf
+         end do
 
-         ! Check if variable is only valid once per day. This is true for min
-         ! and max variables and those with 3hr, 6hr .. 24hr in their long
-         ! names
-         varlist(ivar)%daily = .false.
-         do ihr=3,24,3
-            write(substr,"(i2,a)") ihr, "hr"
-            if ( index(varlist(ivar)%long_name,trim(adjustl(substr))) /= 0 ) then
-               varlist(ivar)%daily = .true.
-               exit
+         ! Fix up the names of the vector fields. This comes after the checking
+         ! to make sure that it doesn't muck up finding the matching component
+         ! Some variables use x-compt rather than x-component which makes things
+         ! more complicated.
+         do ivar=1,nvars
+            if ( varlist(ivar)%vector ) then
+               if ( varlist(ivar)%xcmpnt ) then
+                  ind = index(varlist(ivar)%long_name,"x-comp")
+                  if ( ind /= 0 ) then
+                     ! Search for space so that x-compt and x-component both work
+                     ind = index(varlist(ivar)%long_name," ")
+                     write( varlist(ivar)%long_name, "(a,a)" ) "Zonal",  &
+                          varlist(ivar)%long_name(ind:len_trim(varlist(ivar)%long_name))
+                  end if
+               else
+                  ind = index(varlist(ivar)%long_name,"y-comp")
+                  if ( ind /= 0 ) then
+                     ind = index(varlist(ivar)%long_name," ")
+                     write( varlist(ivar)%long_name, "(a,a)" ) "Meridional",  &
+                          varlist(ivar)%long_name(ind:len_trim(varlist(ivar)%long_name))
+                  end if
+               end if
             end if
          end do
-         if ( varlist(ivar)%vname == "tmaxscr" .or.         &
-              varlist(ivar)%vname == "tminscr" .or.         &
-              varlist(ivar)%vname == "maxrnd") then
-            varlist(ivar)%daily = .true.
-         end if
-         ! Also set daily if variable has a 'valid_time' attribute with the 
-         ! value daily.
-         valid_att = ""
-         ierr = nf90_get_att(ncid, varlist(ivar)%vid, 'valid_time',valid_att)
-         if ( ierr == 0 ) then
-            varlist(ivar)%daily = valid_att == "daily"
-         end if
 
-         ! Is this really simpler than a string of if tests?
-         if ( match ( varlist(ivar)%vname, &
-               (/ "vegt      ", "soilt     ", "rsmin     ", "rs        ", "zolnd     ", &
-                  "sigmf     ", "wetfrac   ", "wetfrac?  ", "tgg?      ", "tgg??     ", &
-                  "sal??     ", "roadtgg?  ", "rooftgg?  ", "waletgg?  ", "walwtgg?  ", &
-                  "dmse_ave  ", "dmsso2_ave", "so2e_ave  ", "so2dd_ave ", "so2wd_ave ", &
-                  "so2so4_ave", "so4e_ave  ", "so4dd_ave ", "so4wd_ave ", "bce_ave   ", &
-                  "bcdd_ave  ", "bcwd_ave  ", "oce_ave   ", "ocdd_ave  ", "ocwd_ave  ", &
-                  "duste_ave ", "dustdd_ave", "dustwd_ave" /)) .and. int_type /= int_none ) then
-            int_type = int_nearest
-         else
-            int_type = int_default
-         end if
-         if ( varlist(ivar)%vname == "pmsl" ) then
-            varlist(ivar)%vname = "psl"
-         else if ( varlist(ivar)%vname == "psf" ) then
-            cycle  ! Skip this one to avoid messages about it never being set
-         else if ( varlist(ivar)%vname == "zht" ) then
-            varlist(ivar)%vname = "zs"
-            varlist(ivar)%units = "m"
-            varlist(ivar)%long_name = "Surface height"
-            xmin = 0.
-            xmax = 9000.
-         end if
-         if ( cordex_compliant ) then
-            if ( varlist(ivar)%vname == "cld" ) then
-               varlist(ivar)%vname = "clt"
-            else if ( varlist(ivar)%vname == "eg_ave" ) then
-               varlist(ivar)%vname = "hfls"
-            else if ( varlist(ivar)%vname == "evap" ) then
-               varlist(ivar)%vname = "evspsbl"
-               varlist(ivar)%units = "kg/m2/s"
-               varlist(ivar)%long_name = "Surface Evaporation"
-               xmin = 0.
-               xmax = 0.013
-            else if ( varlist(ivar)%vname == "fg_ave" ) then
-               varlist(ivar)%vname = "hfss"
-            else if ( varlist(ivar)%vname == "iwp_ave" ) then
-               varlist(ivar)%vname = "clivi"
-            else if ( varlist(ivar)%vname == "lwp_ave" ) then
-               varlist(ivar)%vname = "clwvi"
-            else if ( varlist(ivar)%vname == "pblh" ) then
-               varlist(ivar)%vname = "zmla"
-            else if ( varlist(ivar)%vname == "rgdn_ave" ) then
-               varlist(ivar)%vname = "rlds"
-            else if ( varlist(ivar)%vname == "rnd" ) then
-               varlist(ivar)%vname = "pr"
-               varlist(ivar)%units = "kg/m2/s"
-               varlist(ivar)%long_name = "Precipitation"
-               xmin = 0.
-               xmax = 0.013
-            else if ( varlist(ivar)%vname == "rnc" ) then
-               varlist(ivar)%vname = "prc"
-               varlist(ivar)%units = "kg/m2/s"
-               varlist(ivar)%long_name = "Convective Precipitation"
-               xmin = 0.
-               xmax = 0.013
-            else if ( varlist(ivar)%vname == "runoff" ) then
-               varlist(ivar)%vname = "mrros"
-               varlist(ivar)%units = "kg/m2/s"
-               varlist(ivar)%long_name = "Total Runoff"
-               xmin = 0.
-               xmax = 0.013
-            else if ( varlist(ivar)%vname == "rtu_ave" ) then
-               varlist(ivar)%vname = "rlut"
-            else if ( varlist(ivar)%vname == "sint_ave" ) then
-               varlist(ivar)%vname = "rsdt"
-            else if ( varlist(ivar)%vname == "snd" ) then
-               varlist(ivar)%vname = "snw"
-               varlist(ivar)%units = "kg/m2"
-               varlist(ivar)%long_name = "Snow Amount"
-               xmin = 0.
-               xmax = 6.5
-            else if ( varlist(ivar)%vname == "sot_ave" ) then
-               varlist(ivar)%vname = "rsut"
-            else if ( varlist(ivar)%vname == "sunhours" ) then
-               varlist(ivar)%vname = "sund"
-               varlist(ivar)%units = "s"
-               varlist(ivar)%long_name = "Sunshine Hours"
-               xmin = 0.
-               xmax = 86400.
-            else if ( varlist(ivar)%vname == "taux" ) then
-               varlist(ivar)%vname = "tauu"
-            else if ( varlist(ivar)%vname == "tauy" ) then
-               varlist(ivar)%vname = "tauv"
-            else if ( varlist(ivar)%vname == "tmaxscr" ) then
-               varlist(ivar)%vname = "tasmax"
-            else if ( varlist(ivar)%vname == "tminscr" ) then
-               varlist(ivar)%vname = "tasmin"
-            else if ( varlist(ivar)%vname == "tscrn" ) then
-               varlist(ivar)%vname = "tas"
-            else if ( varlist(ivar)%vname == "tscrn" ) then
-               varlist(ivar)%vname = "tas"
-            else if ( varlist(ivar)%vname == "tsu" ) then
-               varlist(ivar)%vname = "ts"
-            else if ( varlist(ivar)%vname == "u10" ) then
-               varlist(ivar)%vname = "sfcwind"
-            else if ( varlist(ivar)%vname == "zs" ) then
-               varlist(ivar)%vname = "orog"
-            end if
-         end if
-         call cc_cfproperties(varlist(ivar), std_name, cell_methods)
-         if ( varlist(ivar)%fixed ) then
-            call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name, &
-                      varlist(ivar)%units, xmin, xmax, 1, ave_type="fixed", int_type=int_type, std_name=std_name )
-         else if ( varlist(ivar)%ndims == 2 ) then
-            if ( varlist(ivar)%vname(1:3) == "max" ) then
-               ! Special check for maximum rainfall rate
-               call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name, &
-                      varlist(ivar)%units, xmin, xmax, 1, ave_type="max", std_name=std_name, cell_methods=cell_methods )
-            else
-               ! Check for screen and 10m variables
-               coord_height = -huge(1.) ! Acts as a null value
-               if ( cf_compliant ) then
-                  if ( index(varlist(ivar)%long_name, "screen") /= 0 .or. &
-                       index(varlist(ivar)%long_name, "Screen") /= 0 ) then
-                     coord_height = 2.
-                  end if
-                  if ( index(varlist(ivar)%long_name, "10m") /= 0 ) then
-                     coord_height = 10.
-                  end if
+         do ivar=1,nvars
+            xmin = varlist(ivar)%add_offset + varlist(ivar)%scale_factor*vmin
+            xmax = varlist(ivar)%add_offset + varlist(ivar)%scale_factor*vmax
+            ! As a check re-calc offset, scalef
+            sf = (xmax - xmin) /(real(vmax)-real(vmin)) ! jlm fix for precision problems
+            aoff = xmin - sf*vmin
+!            print*, varlist(ivar)%vname, xmin, xmax, varlist(ivar)%add_offset, varlist(ivar)%scale_factor, aoff, sf
+
+            ! Check if variable is only valid once per day. This is true for min
+            ! and max variables and those with 3hr, 6hr .. 24hr in their long
+            ! names
+            varlist(ivar)%daily = .false.
+            do ihr=3,24,3
+               write(substr,"(i2,a)") ihr, "hr"
+               if ( index(varlist(ivar)%long_name,trim(adjustl(substr))) /= 0 ) then
+                  varlist(ivar)%daily = .true.
+                  exit
                end if
-               call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name,   &
-                      varlist(ivar)%units, xmin, xmax, 1, std_name=std_name, &
-                      coord_height=coord_height, cell_methods=cell_methods,  & 
-                      int_type=int_type )
+            end do
+            if ( varlist(ivar)%vname == "tmaxscr" .or.         &
+                 varlist(ivar)%vname == "tminscr" .or.         &
+                 varlist(ivar)%vname == "maxrnd") then
+               varlist(ivar)%daily = .true.
             end if
-         else if ( varlist(ivar)%ndims == 3 ) then
-            call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name, &
-                      varlist(ivar)%units, xmin, xmax, nlev, multilev=.true., &
-                      std_name=std_name, cell_methods=cell_methods, int_type=int_type )
+            ! Also set daily if variable has a 'valid_time' attribute with the 
+            ! value daily.
+            valid_att = ""
+            ierr = nf90_get_att(ncid, varlist(ivar)%vid, 'valid_time',valid_att)
+            if ( ierr == 0 ) then
+               varlist(ivar)%daily = valid_att == "daily"
+            end if
+
+            ! Is this really simpler than a string of if tests?
+            if ( match ( varlist(ivar)%vname, &
+                  (/ "vegt      ", "soilt     ", "rsmin     ", "rs        ", "zolnd     ", &
+                     "sigmf     ", "wetfrac   ", "wetfrac?  ", "tgg?      ", "tgg??     ", &
+                     "sal??     ", "roadtgg?  ", "rooftgg?  ", "waletgg?  ", "walwtgg?  ", &
+                     "dmse_ave  ", "dmsso2_ave", "so2e_ave  ", "so2dd_ave ", "so2wd_ave ", &
+                     "so2so4_ave", "so4e_ave  ", "so4dd_ave ", "so4wd_ave ", "bce_ave   ", &
+                     "bcdd_ave  ", "bcwd_ave  ", "oce_ave   ", "ocdd_ave  ", "ocwd_ave  ", &
+                     "duste_ave ", "dustdd_ave", "dustwd_ave" /)) .and. int_type /= int_none ) then
+               int_type = int_nearest
+            else
+               int_type = int_default
+            end if
+            if ( varlist(ivar)%vname == "pmsl" ) then
+               varlist(ivar)%vname = "psl"
+            else if ( varlist(ivar)%vname == "psf" ) then
+               cycle  ! Skip this one to avoid messages about it never being set
+            else if ( varlist(ivar)%vname == "zht" ) then
+               varlist(ivar)%vname = "zs"
+               varlist(ivar)%units = "m"
+               varlist(ivar)%long_name = "Surface height"
+               xmin = 0.
+               xmax = 9000.
+            end if
+            if ( cordex_compliant ) then
+               if ( varlist(ivar)%vname == "cld" ) then
+                  varlist(ivar)%vname = "clt"
+               else if ( varlist(ivar)%vname == "eg_ave" ) then
+                  varlist(ivar)%vname = "hfls"
+               else if ( varlist(ivar)%vname == "evap" ) then
+                  varlist(ivar)%vname = "evspsbl"
+                  varlist(ivar)%units = "kg/m2/s"
+                  varlist(ivar)%long_name = "Surface Evaporation"
+                  xmin = 0.
+                  xmax = 0.013
+               else if ( varlist(ivar)%vname == "fg_ave" ) then
+                  varlist(ivar)%vname = "hfss"
+               else if ( varlist(ivar)%vname == "iwp_ave" ) then
+                  varlist(ivar)%vname = "clivi"
+               else if ( varlist(ivar)%vname == "lwp_ave" ) then
+                  varlist(ivar)%vname = "clwvi"
+               else if ( varlist(ivar)%vname == "pblh" ) then
+                  varlist(ivar)%vname = "zmla"
+               else if ( varlist(ivar)%vname == "rgdn_ave" ) then
+                  varlist(ivar)%vname = "rlds"
+               else if ( varlist(ivar)%vname == "rnd" ) then
+                  varlist(ivar)%vname = "pr"
+                  varlist(ivar)%units = "kg/m2/s"
+                  varlist(ivar)%long_name = "Precipitation"
+                  xmin = 0.
+                  xmax = 0.013
+               else if ( varlist(ivar)%vname == "rnc" ) then
+                  varlist(ivar)%vname = "prc"
+                  varlist(ivar)%units = "kg/m2/s"
+                  varlist(ivar)%long_name = "Convective Precipitation"
+                  xmin = 0.
+                  xmax = 0.013
+               else if ( varlist(ivar)%vname == "runoff" ) then
+                  varlist(ivar)%vname = "mrros"
+                  varlist(ivar)%units = "kg/m2/s"
+                  varlist(ivar)%long_name = "Total Runoff"
+                  xmin = 0.
+                  xmax = 0.013
+               else if ( varlist(ivar)%vname == "rtu_ave" ) then
+                  varlist(ivar)%vname = "rlut"
+               else if ( varlist(ivar)%vname == "sint_ave" ) then
+                  varlist(ivar)%vname = "rsdt"
+               else if ( varlist(ivar)%vname == "snd" ) then
+                  varlist(ivar)%vname = "snw"
+                  varlist(ivar)%units = "kg/m2"
+                  varlist(ivar)%long_name = "Snow Amount"
+                  xmin = 0.
+                  xmax = 6.5
+               else if ( varlist(ivar)%vname == "sot_ave" ) then
+                  varlist(ivar)%vname = "rsut"
+               else if ( varlist(ivar)%vname == "sunhours" ) then
+                  varlist(ivar)%vname = "sund"
+                  varlist(ivar)%units = "s"
+                  varlist(ivar)%long_name = "Sunshine Hours"
+                  xmin = 0.
+                  xmax = 86400.
+               else if ( varlist(ivar)%vname == "taux" ) then
+                  varlist(ivar)%vname = "tauu"
+               else if ( varlist(ivar)%vname == "tauy" ) then
+                  varlist(ivar)%vname = "tauv"
+               else if ( varlist(ivar)%vname == "tmaxscr" ) then
+                  varlist(ivar)%vname = "tasmax"
+               else if ( varlist(ivar)%vname == "tminscr" ) then
+                  varlist(ivar)%vname = "tasmin"
+               else if ( varlist(ivar)%vname == "tscrn" ) then
+                  varlist(ivar)%vname = "tas"
+               else if ( varlist(ivar)%vname == "tscrn" ) then
+                  varlist(ivar)%vname = "tas"
+               else if ( varlist(ivar)%vname == "tsu" ) then
+                  varlist(ivar)%vname = "ts"
+               else if ( varlist(ivar)%vname == "u10" ) then
+                  varlist(ivar)%vname = "sfcwind"
+               else if ( varlist(ivar)%vname == "zs" ) then
+                  varlist(ivar)%vname = "orog"
+               end if
+            end if
+            call cc_cfproperties(varlist(ivar), std_name, cell_methods)
+            if ( varlist(ivar)%fixed ) then
+               call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name, &
+                         varlist(ivar)%units, xmin, xmax, 1, ave_type="fixed", int_type=int_type, std_name=std_name )
+            else if ( varlist(ivar)%ndims == 2 ) then
+               if ( varlist(ivar)%vname(1:3) == "max" ) then
+                  ! Special check for maximum rainfall rate
+                  call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name, &
+                         varlist(ivar)%units, xmin, xmax, 1, ave_type="max", std_name=std_name, cell_methods=cell_methods )
+               else
+                  ! Check for screen and 10m variables
+                  coord_height = -huge(1.) ! Acts as a null value
+                  if ( cf_compliant ) then
+                     if ( index(varlist(ivar)%long_name, "screen") /= 0 .or. &
+                          index(varlist(ivar)%long_name, "Screen") /= 0 ) then
+                        coord_height = 2.
+                     end if
+                     if ( index(varlist(ivar)%long_name, "10m") /= 0 ) then
+                        coord_height = 10.
+                     end if
+                  end if
+                  call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name,   &
+                         varlist(ivar)%units, xmin, xmax, 1, std_name=std_name, &
+                         coord_height=coord_height, cell_methods=cell_methods,  & 
+                         int_type=int_type )
+               end if
+            else if ( varlist(ivar)%ndims == 3 ) then
+               call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name, &
+                         varlist(ivar)%units, xmin, xmax, nlev, multilev=.true., &
+                         std_name=std_name, cell_methods=cell_methods, int_type=int_type )
+            end if
+         end do
+
+         ! Extra fields are handled explicitly
+         call addfld ( "ps", "Surface pressure", "hPa", 0., 1200., 1, &
+                        std_name="surface_air_pressure" )
+         call addfld ( "tsea", "Sea surface temperature", "K", 150., 350., 1, &
+                        std_name="sea_surface_temperature" )
+         if ( cordex_compliant ) then
+            call addfld ( "prw", "Precipitable water column", "kg/m2", 0.0, 100.0, 1, std_name="atmosphere_water_vapor_content")
+            call addfld ( "sftlf", "Land-sea mask", "",  0.0, 1.0, 1, &
+                           ave_type="fixed", int_type=int_nearest )
+            call addfld ( "huss", "2m specific humidity", "none", 0., 0.06, 1 )
+            call addfld ( "rlus", "Upwelling Longwave radiation", "W/m2", -1000., 1000., 1 )
+            call addfld ( "rsus", "Upwelling Shortwave radiation", "W/m2", -1000., 1000., 1 )
+         else
+            call addfld ( "pwc", "Precipitable water column", "kg/m2", 0.0, 100.0, 1, std_name="atmosphere_water_vapor_content")
+            call addfld ( "land_mask", "Land-sea mask", "",  0.0, 1.0, 1, &
+                           ave_type="fixed", int_type=int_nearest )
+            call addfld ( "d10", "10m wind direction", "deg", 0.0, 360.0, 1 )
          end if
-      end do
-
-      ! Extra fields are handled explicitly
-      call addfld ( "ps", "Surface pressure", "hPa", 0., 1200., 1, &
-                     std_name="surface_air_pressure" )
-      call addfld ( "tsea", "Sea surface temperature", "K", 150., 350., 1, &
-                     std_name="sea_surface_temperature" )
-      if ( cordex_compliant ) then
-         call addfld ( "prw", "Precipitable water column", "kg/m2", 0.0, 100.0, 1, std_name="atmosphere_water_vapor_content")
-         call addfld ( "sftlf", "Land-sea mask", "",  0.0, 1.0, 1, &
-                        ave_type="fixed", int_type=int_nearest )
-         call addfld ( "huss", "2m specific humidity", "none", 0., 0.06, 1 )
-         call addfld ( "rlus", "Upwelling Longwave radiation", "W/m2", -1000., 1000., 1 )
-         call addfld ( "rsus", "Upwelling Shortwave radiation", "W/m2", -1000., 1000., 1 )
-      else
-         call addfld ( "pwc", "Precipitable water column", "kg/m2", 0.0, 100.0, 1, std_name="atmosphere_water_vapor_content")
-         call addfld ( "land_mask", "Land-sea mask", "",  0.0, 1.0, 1, &
-                        ave_type="fixed", int_type=int_nearest )
-         call addfld ( "d10", "10m wind direction", "deg", 0.0, 360.0, 1 )
-      end if
-      if ( kk > 1 ) then
-         call addfld ( "uas", "x-component 10m wind", "m/s", -100.0, 100.0, 1 )
-         call addfld ( "vas", "y-component 10m wind", "m/s", -100.0, 100.0, 1 )
-      end if
-      ! Packing is not going to work well in this case
-      ! For height, estimate the height of the top level and use that
-      ! for scaling
-      if ( use_plevs ) then
-         topsig = plevs(nlev) / 1000.
-      else if ( use_meters ) then
-         topsig = exp(-grav*mlevs(nlev)/(300.*rdry))
-      else
-         topsig = sig(kk)
-      end if
-      ! Assume isothermal 300K profile. This will lead to an overestimate
-      ! of the height so is safe. Using moist adiabatic lapse rate can
-      ! give an underestimate.
-      topheight = -rdry*300./grav * log(topsig)
-      ! Round to next highest 1000 m
-      topheight = 1000*(floor(0.001*topheight)+1)
-      call addfld ( "zg", "Geopotential height", "m", 0., topheight, nlev, &
-                     multilev=.true., std_name="geopotential_height" )
-      call addfld ( "press", "Air pressure", "hPa", 0., 1500., nlev,       &
-                     multilev=.true., std_name="air_pressure" )
+         if ( kk > 1 ) then
+            call addfld ( "uas", "x-component 10m wind", "m/s", -100.0, 100.0, 1 )
+            call addfld ( "vas", "y-component 10m wind", "m/s", -100.0, 100.0, 1 )
+         end if
+         ! Packing is not going to work well in this case
+         ! For height, estimate the height of the top level and use that
+         ! for scaling
+         if ( use_plevs ) then
+            topsig = plevs(nlev) / 1000.
+         else if ( use_meters ) then
+            topsig = exp(-grav*mlevs(nlev)/(300.*rdry))
+         else
+            topsig = sig(kk)
+         end if
+         ! Assume isothermal 300K profile. This will lead to an overestimate
+         ! of the height so is safe. Using moist adiabatic lapse rate can
+         ! give an underestimate.
+         topheight = -rdry*300./grav * log(topsig)
+         ! Round to next highest 1000 m
+         topheight = 1000*(floor(0.001*topheight)+1)
+         call addfld ( "zg", "Geopotential height", "m", 0., topheight, nlev, &
+                        multilev=.true., std_name="geopotential_height" )
+         call addfld ( "press", "Air pressure", "hPa", 0., 1500., nlev,       &
+                        multilev=.true., std_name="air_pressure" )
       
-      ! If the output uses pressure levels save the lowest sigma level of
-      ! the basic fields.
-      call addfld ( "tbot", "Air temperature at lowest sigma level", "K", 100., 400., 1 )
-      call addfld ( "ubot", "Eastward wind at lowest sigma level", "m/s", -100., 100., 1)
-      call addfld ( "vbot", "Northward wind at lowest sigma level", "m/s", -100., 100., 1)
-      call addfld ( "qbot", "Specific humidity at lowest sigma level", "kg/kg", 0., 0.1, 1)
+         ! If the output uses pressure levels save the lowest sigma level of
+         ! the basic fields.
+         call addfld ( "tbot", "Air temperature at lowest sigma level", "K", 100., 400., 1 )
+         call addfld ( "ubot", "Eastward wind at lowest sigma level", "m/s", -100., 100., 1)
+         call addfld ( "vbot", "Northward wind at lowest sigma level", "m/s", -100., 100., 1)
+         call addfld ( "qbot", "Specific humidity at lowest sigma level", "kg/kg", 0., 0.1, 1)
 
-      ! Vertical averaged fluxes. Note that these are NOT vertical integrals
-      call addfld ( "vaveuq", "Vertical average of zonal humidity flux", "m/s kg/kg", -0.5, 0.5, 1, std_name=std_name )
-      call addfld ( "vavevq", "Vertical average of meridional humidity flux", "m/s kg/kg", -0.5, 0.5, 1, std_name=std_name )
-      call addfld ( "vaveut", "Vertical average of zonal temperature flux", "m/s K", -1e4, 1e4, 1, std_name=std_name )
-      call addfld ( "vavevt", "Vertical average of meridional temperature flux", "m/s K", -1e4, 2e4, 1, std_name=std_name )
-      call addfld ( "rh", "Relative humidity", "%", 0., 110., nlev,  multilev=.true., std_name="relative_humidity" )
-      call addfld ( "theta", "Potential temperature", "K", 150., 1200., nlev, multilev=.true., std_name="potential_temperature" )
+         ! Vertical averaged fluxes. Note that these are NOT vertical integrals
+         call addfld ( "vaveuq", "Vertical average of zonal humidity flux", "m/s kg/kg", -0.5, 0.5, 1, std_name=std_name )
+         call addfld ( "vavevq", "Vertical average of meridional humidity flux", "m/s kg/kg", -0.5, 0.5, 1, std_name=std_name )
+         call addfld ( "vaveut", "Vertical average of zonal temperature flux", "m/s K", -1e4, 1e4, 1, std_name=std_name )
+         call addfld ( "vavevt", "Vertical average of meridional temperature flux", "m/s K", -1e4, 2e4, 1, std_name=std_name )
+         call addfld ( "rh", "Relative humidity", "%", 0., 110., nlev,  multilev=.true., std_name="relative_humidity" )
+         call addfld ( "theta", "Potential temperature", "K", 150., 1200., nlev, multilev=.true., std_name="potential_temperature" )
 
-      if ( cf_compliant ) then
-         ! Define as an extra field for now
-         call addfld('tgg','Soil temperature','K',100.,350.,ksoil,soil=.true.)
-         ! Should have std_name = volume_fraction_of_water_in_soil, units=1
-         ! Mentioned in Gregory email 2005-12-01. In official list?
-         !call addfld('wb','Soil moisture','frac',0.,1.,ksoil,soil=.true.)
+         if ( cf_compliant ) then
+            ! Define as an extra field for now
+            call addfld('tgg','Soil temperature','K',100.,350.,ksoil,soil=.true.)
+            ! Should have std_name = volume_fraction_of_water_in_soil, units=1
+            ! Mentioned in Gregory email 2005-12-01. In official list?
+            !call addfld('wb','Soil moisture','frac',0.,1.,ksoil,soil=.true.)
+         end if
       end if
-#ifdef usefirstrank
+
+      if ( node2_nproc.gt.1 ) then
+         t(1)=MPI_CHARACTER
+         t(2)=MPI_CHARACTER
+         t(3)=MPI_CHARACTER
+         t(4)=MPI_REAL
+         t(5)=MPI_REAL
+         t(6)=MPI_INTEGER
+         t(7)=MPI_LOGICAL
+         t(8)=MPI_INTEGER
+         t(9)=MPI_LOGICAL
+         t(10)=MPI_LOGICAL
+         t(11)=MPI_LOGICAL
+         t(12)=MPI_INTEGER
+
+         b(1)=10
+         b(2)=100
+         b(3)=20
+         b(4)=1
+         b(5)=1
+         b(6)=1
+         b(7)=1
+         b(8)=1
+         b(9)=1
+         b(10)=1
+         b(11)=1
+         b(12)=1
+
+         d(1)=0
+         d(2)=10
+         d(3)=110
+         d(4)=130
+         d(5)=134
+         d(6)=138
+         d(7)=142
+         d(8)=146
+         d(9)=150
+         d(10)=154
+         d(11)=158
+         d(12)=162
+
+         call MPI_Type_create_struct(12,b,d,t,MPI_INPUT_VAR,ierr)
+         call MPI_Type_commit(MPI_INPUT_VAR,ierr)
+         call MPI_Bcast(nvars,1,MPI_INTEGER,0,node2_comm,ierr)
+         call MPI_Bcast(varlist,nvariables,MPI_INPUT_VAR,0,node2_comm,ierr)
+
+         call addfldcp
       end if
-
-      t(1)=MPI_CHARACTER
-      t(2)=MPI_CHARACTER
-      t(3)=MPI_CHARACTER
-      t(4)=MPI_REAL
-      t(5)=MPI_REAL
-      t(6)=MPI_INTEGER
-      t(7)=MPI_LOGICAL
-      t(8)=MPI_INTEGER
-      t(9)=MPI_LOGICAL
-      t(10)=MPI_LOGICAL
-      t(11)=MPI_LOGICAL
-      t(12)=MPI_INTEGER
-
-      b(1)=10
-      b(2)=100
-      b(3)=20
-      b(4)=1
-      b(5)=1
-      b(6)=1
-      b(7)=1
-      b(8)=1
-      b(9)=1
-      b(10)=1
-      b(11)=1
-      b(12)=1
-
-      d(1)=0
-      d(2)=10
-      d(3)=110
-      d(4)=130
-      d(5)=134
-      d(6)=138
-      d(7)=142
-      d(8)=146
-      d(9)=150
-      d(10)=154
-      d(11)=158
-      d(12)=162
-
-      call MPI_Type_create_struct(12,b,d,t,MPI_INPUT_VAR,ierr)
-      call MPI_Type_commit(MPI_INPUT_VAR,ierr)
-      call MPI_Bcast(nvars,1,MPI_INTEGER,0,node2_comm,ierr)
-      call MPI_Bcast(varlist,nvariables,MPI_INPUT_VAR,0,node2_comm,ierr)
-
-      call addfldcp
-#endif
 
    end subroutine get_var_list
 
@@ -1997,38 +1969,28 @@ contains
    end subroutine calc_rh
 
    subroutine check_cc2histfile()
-#ifdef usefirstrank
       use mpi
-#endif
       ! Check whether the input file was created by cc2hist. Without this
       ! check the error message that this gives rise to is rather obscure.
       integer :: ierr, attlen
       character(len=1000) :: source
 
-#ifdef usefirstrank
       if ( node2_myid.eq.0 ) then
-#endif
-      ! Look for the source attribute
-      source = ""
-      ierr = nf90_inquire_attribute ( ncid, nf90_global, "source", len=attlen)
-      if ( ierr == nf90_noerr ) then
-         if ( attlen < len(source) ) then
-            ! This will be true if it came from cc2hist
-            ierr = nf90_get_att ( ncid, nf90_global, "source", source )
-            call check_ncerr(ierr, "Error getting source attribute")
-            if ( index(source, "Processed by cc2hist") > 0 ) then
-               print*, "Error - the input file is already processed by cc2hist"
-#ifdef usefirstrank
-               call MPI_Abort(MPI_COMM_WORLD,-1_4,ierr)
-#else
-               stop
-#endif
+         ! Look for the source attribute
+         source = ""
+         ierr = nf90_inquire_attribute ( ncid, nf90_global, "source", len=attlen)
+         if ( ierr == nf90_noerr ) then
+            if ( attlen < len(source) ) then
+               ! This will be true if it came from cc2hist
+               ierr = nf90_get_att ( ncid, nf90_global, "source", source )
+               call check_ncerr(ierr, "Error getting source attribute")
+               if ( index(source, "Processed by cc2hist") > 0 ) then
+                  print*, "Error - the input file is already processed by cc2hist"
+                  call MPI_Abort(MPI_COMM_WORLD,-1_4,ierr)
+               end if
             end if
          end if
       end if
-#ifdef usefirstrank
-      end if
-#endif
    end subroutine check_cc2histfile
 
    subroutine cc_cfproperties(vinfo, stdname, cell_methods)
@@ -2340,7 +2302,7 @@ contains
       use shdata_m
 #endif
       use logging_m
-      use parm_m, only : procformat
+      use parm_m, only : procformat, ioreaders
 #ifdef usempif
       include 'mpif.h'
 #endif
@@ -2353,6 +2315,7 @@ contains
       character(len=*), intent(in) :: ifile
       character(len=266) :: pfile
       character(len=8) :: sdecomp
+      integer :: fac
 
 #ifdef parallel_int
       integer(kind=MPI_ADDRESS_KIND) :: ssize
@@ -2405,25 +2368,27 @@ contains
       call MPI_Bcast(proc_node,1,MPI_INTEGER,0,MPI_COMM_WORLD,ier)
       call END_LOG(mpibcast_end)
       lproc = pnproc/nproc !number of files each mpi_proc will work on      
+
+      if ( procformat ) then
+         fac=max(1,node_nproc/ioreaders)
+      else
+         fac=1
+      end if
+      call MPI_Comm_split(node_comm, node_myid/fac, myid, node2_comm, ierr) ! Split communicator based on fac
+      call MPI_Comm_size(node2_comm, node2_nproc, ierr) ! Find number of nodes
+      call MPI_Comm_rank(node2_comm, node2_myid, ierr)  ! Find local processor id of the nodes
+      write(6,*)myid,node_myid,node2_myid
+
       if ( procformat ) then
          inarray2size=lproc
-#ifdef usefirstrank
          allocate( ncid_in(0:lproc*node2_nproc-1) )
-#else
-         allocate( ncid_in(0:lproc-1) )
-#endif
       else
          inarray2size=1
          allocate( ncid_in(0:lproc-1) )
       end if
       if ( procformat ) then
-#ifdef usefirstrank
          allocate( ip_min(0:lproc*node2_nproc-1) )
          allocate( ip_max(0:lproc*node2_nproc-1) )
-#else
-         allocate( ip_min(0:lproc-1) )
-         allocate( ip_max(0:lproc-1) )
-#endif
       end if
 
 #ifdef parallel_int
@@ -2437,11 +2402,7 @@ contains
       joff(0:pnproc-1,0:5) => ijoff(:,:,2)
 #endif
       
-#ifdef usefirstrank
       if ( myid /= 0 .and. node2_myid.eq.0 ) then
-#else
-      if ( myid /= 0 ) then
-#endif
       
          if ( procformat ) then
             lastrip=-1
@@ -2449,11 +2410,7 @@ contains
             ip_min=-1
             ip_max=-1
          end if
-#ifdef usefirstrank
          do ip = 0,lproc*node2_nproc-1
-#else
-         do ip = 0,lproc-1
-#endif
             if ( procformat ) then
                rip = (myid*lproc + ip)/proc_node
             else
@@ -2493,11 +2450,7 @@ contains
          end do
          ncid = ncid_in(0) 
       
-#ifdef usefirstrank
       else if ( myid.eq.0 .and. node2_myid.eq.0 ) then
-#else
-      else
-#endif
       
          ncid_in(0) = ncid
          if ( procformat ) then
@@ -2508,11 +2461,7 @@ contains
             ip_min(0)=0
             ip_max(0)=0
          end if
-#ifdef usefirstrank
          do ip = 1,lproc*node2_nproc-1
-#else
-         do ip = 1,lproc-1
-#endif
             if ( procformat ) then
                rip = ip/proc_node
                if (lastrip.ne.rip) then
@@ -2617,18 +2566,12 @@ contains
    end subroutine paraopen
    
    subroutine paraclose
-#ifdef usefirstrank
       use mpidata_m
-#endif
       use logging_m
       integer ip, ierr
       
       call START_LOG(paraclose_begin)
-#ifdef usefirstrank
       do ip = 0,lproc*node2_nproc-1
-#else
-      do ip = 0,lproc-1
-#endif
          ierr = nf90_close(ncid_in(ip))
       end do
       deallocate(ncid_in)
@@ -2640,9 +2583,7 @@ contains
 #ifndef usempif
       use mpi
 #endif
-#ifdef usefirstrank
       use mpidata_m
-#endif
       use logging_m   
       use parm_m, only : procformat
 #ifdef usempif
@@ -2653,9 +2594,7 @@ contains
       integer ip, n, vid, ierr, vartyp
       real, dimension(:,:), intent(out) :: var
       real, dimension(pil,pjl*pnpan,0:inarray2size-1) :: inarray2
-#ifdef usefirstrank
       real, dimension(pil,pjl*pnpan,0:lproc*node2_nproc-1) :: ginarray2
-#endif
       real addoff, sf
       logical, intent(in) :: required
       character(len=*), intent(in) :: name
@@ -2680,17 +2619,17 @@ contains
           
                min_pid = mod(myid*lproc+ip_min(ip),proc_node)+1
                max_pid = mod(myid*lproc+ip_max(ip),proc_node)+1
-#ifdef usefirstrank
-               ierr = nf90_get_var ( ncid_in(ip), vid, ginarray2(:,:,ip_min(ip):ip_max(ip)), start=(/ 1, 1, min_pid, nrec /), count=(/ pil, pjl*pnpan, max_pid-min_pid+1, 1 /) )
-#else
-               ierr = nf90_get_var ( ncid_in(ip), vid, inarray2(:,:,ip_min(ip):ip_max(ip)), start=(/ 1, 1, min_pid, nrec /), count=(/ pil, pjl*pnpan, max_pid-min_pid+1, 1 /) )
-#endif
+               if ( node2_nproc.gt.1 ) then
+                  ierr = nf90_get_var ( ncid_in(ip), vid, ginarray2(:,:,ip_min(ip):ip_max(ip)), start=(/ 1, 1, min_pid, nrec /), count=(/ pil, pjl*pnpan, max_pid-min_pid+1, 1 /) )
+               else
+                  ierr = nf90_get_var ( ncid_in(ip), vid, inarray2(:,:,ip_min(ip):ip_max(ip)), start=(/ 1, 1, min_pid, nrec /), count=(/ pil, pjl*pnpan, max_pid-min_pid+1, 1 /) )
+               end if
                call check_ncerr(ierr, "Error getting var "//name)
             end do
          end if
-#ifdef usefirstrank
-         call MPI_Scatter(ginarray2,pil*pjl*pnpan*lproc,MPI_REAL,inarray2,pil*pjl*pnpan*lproc,MPI_REAL,0,node2_comm,ierr)
-#endif
+         if ( node2_nproc.gt.1 ) then
+            call MPI_Scatter(ginarray2,pil*pjl*pnpan*lproc,MPI_REAL,inarray2,pil*pjl*pnpan*lproc,MPI_REAL,0,node2_comm,ierr)
+         end if
          if ( node2_myid.eq.0 ) then
 !           Check the type of the variable
              ierr = nf90_inq_varid (ncid_in(0), name, vid ) 
@@ -2703,11 +2642,11 @@ contains
                 call check_ncerr (ierr,"Error getting scale_factor attribute")
              end if
          end if
-#ifdef usefirstrank
-         call MPI_Bcast(vartyp,1,MPI_INTEGER,0,node2_comm,ierr)
-         call MPI_Bcast(addoff,1,MPI_INTEGER,0,node2_comm,ierr)
-         call MPI_Bcast(sf,1,MPI_INTEGER,0,node2_comm,ierr)
-#endif
+         if ( node2_nproc.gt.1 ) then
+            call MPI_Bcast(vartyp,1,MPI_INTEGER,0,node2_comm,ierr)
+            call MPI_Bcast(addoff,1,MPI_INTEGER,0,node2_comm,ierr)
+            call MPI_Bcast(sf,1,MPI_INTEGER,0,node2_comm,ierr)
+         end if
          do ip = 0,lproc-1
             if ( vartyp == NF90_SHORT ) then
                if ( all( inarray2(:,:,ip) == -32501. ) ) then
@@ -2754,9 +2693,7 @@ contains
 #ifndef usempif
       use mpi
 #endif
-#ifdef usefirstrank
       use mpidata_m
-#endif
       use s2p_m, only : minlev, maxlev
       use logging_m
       use parm_m, only : procformat
@@ -2767,9 +2704,7 @@ contains
       integer ip, n, vid, ierr, vartyp, k
       real, dimension(:,:,:), intent(out) :: var
       real, dimension(pil,pjl*pnpan,minlev:maxlev,0:inarray2size-1) :: inarray3
-#ifdef usefirstrank
       real, dimension(pil,pjl*pnpan,minlev:maxlev,0:lproc*node2_nproc-1) :: ginarray3
-#endif
       real addoff, sf
       character(len=*), intent(in) :: name
       integer :: pid
@@ -2785,19 +2720,19 @@ contains
           
                min_pid = mod(myid*lproc+ip_min(ip),proc_node)+1
                max_pid = mod(myid*lproc+ip_max(ip),proc_node)+1
-#ifdef usefirstrank
-               ierr = nf90_get_var ( ncid_in(ip), vid, ginarray3(:,:,:,ip_min(ip):ip_max(ip)), start=(/ 1, 1, minlev, min_pid, nrec /), &
+               if ( node2_nproc.gt.1 ) then
+                  ierr = nf90_get_var ( ncid_in(ip), vid, ginarray3(:,:,:,ip_min(ip):ip_max(ip)), start=(/ 1, 1, minlev, min_pid, nrec /), &
                                count=(/ pil, pjl*pnpan, maxlev-minlev+1, max_pid-min_pid+1, 1 /) )
-#else
-               ierr = nf90_get_var ( ncid_in(ip), vid, inarray3(:,:,:,ip_min(ip):ip_max(ip)), start=(/ 1, 1, minlev, min_pid, nrec /), &
+               else
+                  ierr = nf90_get_var ( ncid_in(ip), vid, inarray3(:,:,:,ip_min(ip):ip_max(ip)), start=(/ 1, 1, minlev, min_pid, nrec /), &
                                count=(/ pil, pjl*pnpan, maxlev-minlev+1, max_pid-min_pid+1, 1 /) )
-#endif
+               end if
                call check_ncerr(ierr, "Error getting var "//name)
             end do
          end if
-#ifdef usefirstrank
-         call MPI_Scatter(ginarray3,pil*pjl*pnpan*(maxlev-minlev+1)*lproc,MPI_REAL,inarray3,pil*pjl*pnpan*(maxlev-minlev+1)*lproc,MPI_REAL,0,node2_comm,ierr)
-#endif
+         if ( node2_nproc.gt.1 ) then
+            call MPI_Scatter(ginarray3,pil*pjl*pnpan*(maxlev-minlev+1)*lproc,MPI_REAL,inarray3,pil*pjl*pnpan*(maxlev-minlev+1)*lproc,MPI_REAL,0,node2_comm,ierr)
+         end if
          if ( node2_myid.eq.0 ) then
              ierr = nf90_inq_varid ( ncid_in(0), name, vid )
              call check_ncerr(ierr, "Error getting vid for "//name)
@@ -2809,11 +2744,11 @@ contains
                call check_ncerr (ierr,"Error getting scale_factor attribute")                
              end if
          end if
-#ifdef usefirstrank
-         call MPI_Bcast(vartyp,1,MPI_INTEGER,0,node2_comm,ierr)
-         call MPI_Bcast(addoff,1,MPI_INTEGER,0,node2_comm,ierr)
-         call MPI_Bcast(sf,1,MPI_INTEGER,0,node2_comm,ierr)
-#endif
+         if ( node2_nproc.gt.1 ) then
+            call MPI_Bcast(vartyp,1,MPI_INTEGER,0,node2_comm,ierr)
+            call MPI_Bcast(addoff,1,MPI_INTEGER,0,node2_comm,ierr)
+            call MPI_Bcast(sf,1,MPI_INTEGER,0,node2_comm,ierr)
+         end if
          do ip = 0,lproc-1
             if ( vartyp == NF90_SHORT ) then
                if ( all( inarray3(:,:,:,ip) == -32501. ) ) then

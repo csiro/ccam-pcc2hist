@@ -115,11 +115,7 @@ module history
    private   
 
 !  Only these routine names need to be public
-#ifdef usefirstrank
    public :: savehist, openhist, closehist, writehist, addfld, addfldcp, &
-#else
-   public :: savehist, openhist, closehist, writehist, addfld, &
-#endif
              inithist, histnamelist, needfld, clearhist, hstring
 
 !  Routine that provide access to the namelist control variables.
@@ -777,7 +773,6 @@ contains
 
    end subroutine addfld
    
-#ifdef usefirstrank
 !-------------------------------------------------------------------
    subroutine addfldcp
       use mpi
@@ -863,7 +858,6 @@ contains
 
    end subroutine addfldcp
 
-#endif
 !-------------------------------------------------------------------
    subroutine openhist ( nx, ny, nl, sig, suffix, hlon, hlat, basetime,       &
                          doublerow, year, nxout, nyout, source, histfilename, &

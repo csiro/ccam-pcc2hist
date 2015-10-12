@@ -44,7 +44,7 @@ program cc2hist
    use s2p_m
    use interp_m
    use checkver_m
-   use parm_m, only : rlong0, rlat0, schmidt
+   use parm_m, only : rlong0, rlat0, schmidt, ioreaders
    use logging_m
 
    implicit none
@@ -68,8 +68,6 @@ program cc2hist
    character(len=10) :: name
    character(len=80) :: longname
    real :: minsig = 0., maxsig = 1.0
-   integer :: fac
-   integer :: ioreaders=999999
 
    namelist /input/ kta, ktb, ktc, ndate, ntime,                      &
                     minlon, maxlon, dlon, minlat, maxlat, dlat,       &
@@ -196,11 +194,6 @@ program cc2hist
    open(1,file='cc.nml')
    read(1,input)   
 
-   fac=max(1,node_nproc/ioreaders)
-   call MPI_Comm_split(node_comm, node_myid/fac, myid, node2_comm, ierr) ! Split communicator based on fac
-   call MPI_Comm_size(node2_comm, node2_nproc, ierr) ! Find number of nodes
-   call MPI_Comm_rank(node2_comm, node2_myid, ierr)  ! Find local processor id of the nodes
-   
    if ( vextrap == vextrap_missing .and. int_default == int_normal ) then
       print*, "For missing option to work, must set interp to linear or nearest"
       call MPI_ABORT(MPI_COMM_WORLD,-1,ierr)
@@ -315,21 +308,19 @@ program cc2hist
    end if
 
 !     If the input is a netcdf file with a time:units attribute then copy that.
-#ifdef usefirstrank
-   if ( node_myid.eq.0 ) then
-#endif
-   ierr = nf90_inq_varid (ncid, "time", vid )
-   call check_ncerr(ierr, "Error getting time id")
-   basetime = ""
-   ierr = nf90_get_att(ncid, vid, "units", basetime)
-   call check_ncerr(ierr, "Error getting time:units attribute")
-   calendar = ""
-   ierr = nf90_get_att(ncid, vid, "calendar", calendar)
-#ifdef usefirstrank
+   if ( node2_myid.eq.0 ) then
+      ierr = nf90_inq_varid (ncid, "time", vid )
+      call check_ncerr(ierr, "Error getting time id")
+      basetime = ""
+      ierr = nf90_get_att(ncid, vid, "units", basetime)
+      call check_ncerr(ierr, "Error getting time:units attribute")
+      calendar = ""
+      ierr = nf90_get_att(ncid, vid, "calendar", calendar)
    end if
-   call MPI_Bcast(basetime,80,MPI_CHARACTER,0,node_comm,ierr)
-   call MPI_Bcast(calendar,80,MPI_CHARACTER,0,node_comm,ierr)
-#endif
+   if ( node2_nproc.gt.1 ) then
+      call MPI_Bcast(basetime,80,MPI_CHARACTER,0,node_comm,ierr)
+      call MPI_Bcast(calendar,80,MPI_CHARACTER,0,node_comm,ierr)
+   end if
 
    if ( cf_compliant .and. basetime(1:13) == "minutes since" ) then
       basetime = "days" // basetime(8:len_trim(basetime))
