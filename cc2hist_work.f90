@@ -2316,7 +2316,6 @@ contains
       character(len=266) :: pfile
       character(len=8) :: sdecomp
       integer :: fac
-      integer, dimension(:), allocatable :: gprocessor, proc2file
 
 #ifdef parallel_int
       integer(kind=MPI_ADDRESS_KIND) :: ssize
@@ -2366,11 +2365,17 @@ contains
 
             allocate( gprocessor(0:pnproc-1) )
             allocate( proc2file(0:pnproc-1) )
+            allocate( nodeseq(0:pnproc-1) )
             
             ierr = nf90_inq_varid (ncid, "processor", vid )
             call check_ncerr(ierr, "Error getting vid for processor")
             ierr = nf90_get_var ( ncid, vid, gprocessor(0:proc_node-1), start=(/ 1 /), count=(/ proc_node /) )
             call check_ncerr(ierr, "Error getting processor")
+            do i=0,proc_node-1
+               proc2file(gprocessor(i))=0
+               nodeseq(gprocessor(i))=i+1
+            end do
+             
             idx=proc_node
 
             do ip = 1, nnodes-1
@@ -2387,6 +2392,7 @@ contains
 
                do i=idx,idx+lproc_node-1
                   proc2file(gprocessor(i))=ip
+                  nodeseq(gprocessor(i))=i-idx+1
                end do
                
                ierr = nf90_close(lncid)
@@ -2395,6 +2401,8 @@ contains
             write(6,*)gprocessor
             write(6,*)
             write(6,*)proc2file
+            write(6,*)
+            write(6,*)nodeseq
 
          end if
 
@@ -2410,6 +2418,18 @@ contains
       call MPI_Bcast(proc_node,1,MPI_INTEGER,0,MPI_COMM_WORLD,ier)
       call END_LOG(mpibcast_end)
       lproc = pnproc/nproc !number of files each mpi_proc will work on      
+
+      if ( procformat ) then
+         if ( myid.ne.0 ) then
+            allocate( gprocessor(0:pnproc-1) )
+            allocate( proc2file(0:pnproc-1) )
+            allocate( nodeseq(0:pnproc-1) )
+         end if
+
+         call MPI_Bcast(gprocessor,pnproc,MPI_INTEGER,0,MPI_COMM_WORLD,ier)
+         call MPI_Bcast(proc2file,pnproc,MPI_INTEGER,0,MPI_COMM_WORLD,ier)
+         call MPI_Bcast(nodeseq,pnproc,MPI_INTEGER,0,MPI_COMM_WORLD,ier)
+      endif
 
       if ( procformat ) then
          fac=max(1,node_nproc/ioreaders)
@@ -2454,7 +2474,8 @@ contains
          end if
          do ip = 0,lproc*node2_nproc-1
             if ( procformat ) then
-               rip = (myid*lproc + ip)/proc_node
+!               rip = (myid*lproc + ip)/proc_node
+               rip = proc2file(myid*lproc + ip)
             else
                rip = myid*lproc + ip
             end if
@@ -2505,7 +2526,8 @@ contains
          end if
          do ip = 1,lproc*node2_nproc-1
             if ( procformat ) then
-               rip = ip/proc_node
+!               rip = ip/proc_node
+               rip = proc2file(ip)
                if (lastrip.ne.rip) then
                   lastrip=rip
                   ip_maxcnt=ip_maxcnt+1
@@ -2659,8 +2681,10 @@ contains
                ierr = nf90_inq_varid (ncid_in(ip), name, vid ) 
                call check_ncerr(ierr, "Error getting vid for "//name)
           
-               min_pid = mod(myid*lproc+ip_min(ip),proc_node)+1
-               max_pid = mod(myid*lproc+ip_max(ip),proc_node)+1
+!               min_pid = mod(myid*lproc+ip_min(ip),proc_node)+1
+!               max_pid = mod(myid*lproc+ip_max(ip),proc_node)+1
+               min_pid = nodeseq(myid*lproc+ip_min(ip))
+               max_pid = nodeseq(myid*lproc+ip_max(ip))
                if ( node2_nproc.gt.1 ) then
                   ierr = nf90_get_var ( ncid_in(ip), vid, ginarray2(:,:,ip_min(ip):ip_max(ip)), start=(/ 1, 1, min_pid, nrec /), count=(/ pil, pjl*pnpan, max_pid-min_pid+1, 1 /) )
                else
@@ -2760,8 +2784,10 @@ contains
                ierr = nf90_inq_varid ( ncid_in(ip), name, vid )
                call check_ncerr(ierr, "Error getting vid for "//name)
           
-               min_pid = mod(myid*lproc+ip_min(ip),proc_node)+1
-               max_pid = mod(myid*lproc+ip_max(ip),proc_node)+1
+!               min_pid = mod(myid*lproc+ip_min(ip),proc_node)+1
+!               max_pid = mod(myid*lproc+ip_max(ip),proc_node)+1
+               min_pid = nodeseq(myid*lproc+ip_min(ip))
+               max_pid = nodeseq(myid*lproc+ip_max(ip))
                if ( node2_nproc.gt.1 ) then
                   ierr = nf90_get_var ( ncid_in(ip), vid, ginarray3(:,:,:,ip_min(ip):ip_max(ip)), start=(/ 1, 1, minlev, min_pid, nrec /), &
                                count=(/ pil, pjl*pnpan, maxlev-minlev+1, max_pid-min_pid+1, 1 /) )

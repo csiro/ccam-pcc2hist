@@ -43,5 +43,6 @@ integer, save, public :: ijoff_win
 #endif
 integer, save, public :: node2_comm, node2_myid, node2_nproc
 integer, save, public :: proc_node
+integer, dimension(:), save, allocatable, public :: gprocessor, proc2file, nodeseq
 
 end module mpidata_m
