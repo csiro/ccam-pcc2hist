@@ -2398,11 +2398,6 @@ contains
                ierr = nf90_close(lncid)
                idx = idx + lproc_node
             end do
-            write(6,*)gprocessor
-            write(6,*)
-            write(6,*)proc2file
-            write(6,*)
-            write(6,*)nodeseq
 
          end if
 
@@ -2439,7 +2434,6 @@ contains
       call MPI_Comm_split(node_comm, node_myid/fac, myid, node2_comm, ierr) ! Split communicator based on fac
       call MPI_Comm_size(node2_comm, node2_nproc, ierr) ! Find number of nodes
       call MPI_Comm_rank(node2_comm, node2_myid, ierr)  ! Find local processor id of the nodes
-!      write(6,*)myid,node_myid,node2_myid
 
       if ( procformat ) then
          inarray2size=lproc
