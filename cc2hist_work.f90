@@ -2309,14 +2309,14 @@ contains
   
       integer, intent(in) :: nmode
       integer, intent(out) :: ncid
-      integer ier, ip, n, rip, ierr, lastrip, dimid, vid, idx, nnodes, lproc_node, lncid
+      integer ier, ip, n, rip, ierr, lastrip, dimid, vid, idx, nnodes, lproc_node, lncid, i
       integer, dimension(5) :: jdum
       integer, dimension(54) :: int_header
       character(len=*), intent(in) :: ifile
       character(len=266) :: pfile
       character(len=8) :: sdecomp
       integer :: fac
-      integer, dimension(:), allocatable :: gprocessor
+      integer, dimension(:), allocatable :: gprocessor, proc2file
 
 #ifdef parallel_int
       integer(kind=MPI_ADDRESS_KIND) :: ssize
@@ -2365,11 +2365,12 @@ contains
             call check_ncerr(ier, "nnodes")
 
             allocate( gprocessor(0:pnproc-1) )
+            allocate( proc2file(0:pnproc-1) )
             
             ierr = nf90_inq_varid (ncid, "processor", vid )
             call check_ncerr(ierr, "Error getting vid for processor")
             ierr = nf90_get_var ( ncid, vid, gprocessor(0:proc_node-1), start=(/ 1 /), count=(/ proc_node /) )
-            call check_ncerr(ierr, "Error getting levels")
+            call check_ncerr(ierr, "Error getting processor")
             idx=proc_node
 
             do ip = 1, nnodes-1
@@ -2382,11 +2383,18 @@ contains
                ierr = nf90_inq_varid (lncid, "processor", vid )
                call check_ncerr(ierr, "Error getting vid for processor")
                ierr = nf90_get_var ( lncid, vid, gprocessor(idx:idx+lproc_node-1), start=(/ 1 /), count=(/ lproc_node /) )
-               call check_ncerr(ierr, "Error getting levels")
+               call check_ncerr(ierr, "Error getting processor")
+
+               do i=idx,idx+lproc_node-1
+                  proc2file(gprocessor(i))=ip
+               end do
                
                ierr = nf90_close(lncid)
                idx = idx + lproc_node
             end do
+            write(6,*)gprocessor
+            write(6,*)
+            write(6,*)proc2file
 
          end if
 
