@@ -2309,13 +2309,14 @@ contains
   
       integer, intent(in) :: nmode
       integer, intent(out) :: ncid
-      integer ier, ip, n, rip, ierr, lastrip, dimid
+      integer ier, ip, n, rip, ierr, lastrip, dimid, vid, idx, nnodes, lproc_node, lncid
       integer, dimension(5) :: jdum
       integer, dimension(54) :: int_header
       character(len=*), intent(in) :: ifile
       character(len=266) :: pfile
       character(len=8) :: sdecomp
       integer :: fac
+      integer, dimension(:), allocatable :: gprocessor
 
 #ifdef parallel_int
       integer(kind=MPI_ADDRESS_KIND) :: ssize
@@ -2354,6 +2355,39 @@ contains
             write(6,*) "ERROR: Number of processors is not a factor of the number of files"
             write(6,*) "nproc,pnproc ",nproc,pnproc
             call MPI_Abort(MPI_COMM_WORLD,-1,ierr)
+         end if
+
+         if ( procformat ) then
+            ! opening all the per node files on rank 0 to get this info
+            ! prefer to gather this info from other ranks
+
+            ier = nf90_get_att(ncid, nf90_global, "nnodes", nnodes)
+            call check_ncerr(ier, "nnodes")
+
+            allocate( gprocessor(0:pnproc-1) )
+            
+            ierr = nf90_inq_varid (ncid, "processor", vid )
+            call check_ncerr(ierr, "Error getting vid for processor")
+            ierr = nf90_get_var ( ncid, vid, gprocessor(0:proc_node-1), start=(/ 1 /), count=(/ proc_node /) )
+            call check_ncerr(ierr, "Error getting levels")
+            idx=proc_node
+
+            do ip = 1, nnodes-1
+               write(pfile,"(a,'.',i6.6)") trim(ifile), ip
+               ierr = nf90_open(pfile, nmode, lncid)
+
+               ierr = nf90_inquire_dimension ( ncid, dimid, len=lproc_node )
+               call check_ncerr(ierr,"Error getting number of processors")
+
+               ierr = nf90_inq_varid (lncid, "processor", vid )
+               call check_ncerr(ierr, "Error getting vid for processor")
+               ierr = nf90_get_var ( lncid, vid, gprocessor(idx:idx+lproc_node-1), start=(/ 1 /), count=(/ lproc_node /) )
+               call check_ncerr(ierr, "Error getting levels")
+               
+               ierr = nf90_close(lncid)
+               idx = idx + lproc_node
+            end do
+
          end if
 
 #ifndef parallel_int
