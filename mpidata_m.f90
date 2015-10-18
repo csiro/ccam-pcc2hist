@@ -27,6 +27,7 @@ private
 
 integer, dimension(:), save, allocatable, public :: ncid_in
 integer, dimension(:), save, allocatable, public :: ip_min, ip_max
+integer, dimension(:), save, allocatable, public :: pid_min, pid_max
 integer, save, public :: ip_maxcnt
 #ifdef parallel_int
 integer, dimension(:,:), save, pointer, contiguous, public :: ioff, joff

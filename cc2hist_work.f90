@@ -2309,13 +2309,14 @@ contains
   
       integer, intent(in) :: nmode
       integer, intent(out) :: ncid
-      integer ier, ip, n, rip, ierr, lastrip, dimid, vid, idx, nnodes, lproc_node, lncid, i
+      integer ier, ip, n, rip, ierr, lastrip, dimid, vid, idx, nnodes, lproc_node, lncid, i, iq, ir, irstart, lastpid
       integer, dimension(5) :: jdum
       integer, dimension(54) :: int_header
       character(len=*), intent(in) :: ifile
       character(len=266) :: pfile
       character(len=8) :: sdecomp
       integer :: fac
+      integer, dimension(:), allocatable :: l2gid
 
 #ifdef parallel_int
       integer(kind=MPI_ADDRESS_KIND) :: ssize
@@ -2434,6 +2435,8 @@ contains
       call MPI_Comm_split(node_comm, node_myid/fac, myid, node2_comm, ierr) ! Split communicator based on fac
       call MPI_Comm_size(node2_comm, node2_nproc, ierr) ! Find number of nodes
       call MPI_Comm_rank(node2_comm, node2_myid, ierr)  ! Find local processor id of the nodes
+      allocate(l2gid(0:node2_nproc-1))
+      call MPI_Gather(myid, 1, MPI_INTEGER, l2gid, 1, MPI_INTEGER, 0, node2_comm, ierr)
 
       if ( procformat ) then
          inarray2size=lproc
@@ -2445,6 +2448,8 @@ contains
       if ( procformat ) then
          allocate( ip_min(0:lproc*node2_nproc-1) )
          allocate( ip_max(0:lproc*node2_nproc-1) )
+         allocate( pid_min(0:lproc*node2_nproc-1) )
+         allocate( pid_max(0:lproc*node2_nproc-1) )
       end if
 
 #ifdef parallel_int
@@ -2462,23 +2467,28 @@ contains
       
          if ( procformat ) then
             lastrip=-1
+            lastpid=-1
             ip_maxcnt=-1
             ip_min=-1
             ip_max=-1
          end if
-         do ip = 0,lproc*node2_nproc-1
+         do iq = 0,node2_nproc-1
+         do ir = 0,lproc-1
+            ip = iq*lproc+ir
             if ( procformat ) then
-!               rip = (myid*lproc + ip)/proc_node
-               rip = proc2file(myid*lproc + ip)
+               rip = proc2file(l2gid(iq)*lproc + ir)
             else
                rip = myid*lproc + ip
             end if
             if ( procformat ) then
-               if (lastrip.ne.rip) then
+               if (lastrip.ne.rip .or. lastpid.ne.nodeseq(l2gid(iq)*lproc + ir)) then
                   lastrip=rip
                   ip_maxcnt=ip_maxcnt+1
                   ip_min(ip_maxcnt)=ip
                   ip_max(ip_maxcnt)=ip
+                  pid_min(ip_maxcnt)=nodeseq(l2gid(iq)*lproc + ir)
+                  pid_max(ip_maxcnt)=nodeseq(l2gid(iq)*lproc + ir)
+                  lastpid=nodeseq(l2gid(iq)*lproc + ir)+1
                   write(pfile,"(a,'.',i6.6)") trim(ifile), rip
                   ier = nf90_open ( pfile, nmode, ncid_in(ip_maxcnt) )
                   !if (ier /= nf90_noerr ) then
@@ -2491,6 +2501,8 @@ contains
                   end if
                else
                   ip_max(ip_maxcnt)=ip
+                  pid_max(ip_maxcnt)=nodeseq(l2gid(iq)*lproc + ir)
+                  lastpid=nodeseq(l2gid(iq)*lproc + ir)+1
                end if
             else
                write(pfile,"(a,'.',i6.6)") trim(ifile), rip
@@ -2505,6 +2517,7 @@ contains
                end if
             end if
          end do
+         end do
          ncid = ncid_in(0) 
       
       else if ( myid.eq.0 .and. node2_myid.eq.0 ) then
@@ -2517,16 +2530,24 @@ contains
             ip_max=-1
             ip_min(0)=0
             ip_max(0)=0
+            pid_min(0)=nodeseq(0)
+            pid_max(0)=nodeseq(0)
+            lastpid=nodeseq(0)+1
          end if
-         do ip = 1,lproc*node2_nproc-1
+         irstart=1
+         do iq = 0,node2_nproc-1
+         do ir = irstart,lproc-1
+            ip = iq*lproc+ir
             if ( procformat ) then
-!               rip = ip/proc_node
-               rip = proc2file(ip)
-               if (lastrip.ne.rip) then
+               rip = proc2file(l2gid(iq)*lproc + ir)
+               if (lastrip.ne.rip .or. lastpid.ne.nodeseq(l2gid(iq)*lproc + ir)) then
                   lastrip=rip
                   ip_maxcnt=ip_maxcnt+1
                   ip_min(ip_maxcnt)=ip
                   ip_max(ip_maxcnt)=ip
+                  pid_min(ip_maxcnt)=nodeseq(l2gid(iq)*lproc + ir)
+                  pid_max(ip_maxcnt)=nodeseq(l2gid(iq)*lproc + ir)
+                  lastpid=nodeseq(l2gid(iq)*lproc + ir)+1
                   write(pfile,"(a,'.',i6.6)") trim(ifile), rip
                   ier = nf90_open ( pfile, nmode, ncid_in(ip_maxcnt) )
                   !if ( ier /= nf90_noerr ) then
@@ -2539,6 +2560,8 @@ contains
                   end if
                else
                   ip_max(ip_maxcnt)=ip
+                  pid_max(ip_maxcnt)=nodeseq(l2gid(iq)*lproc + ir)
+                  lastpid=nodeseq(l2gid(iq)*lproc + ir)+1
                end if
             else
                rip = ip
@@ -2553,6 +2576,8 @@ contains
                   call check_ncerr(ier, "open")
                end if
             end if
+         end do
+         irstart=0
          end do
       
          !  Get dimensions from int_header
@@ -2675,10 +2700,8 @@ contains
                ierr = nf90_inq_varid (ncid_in(ip), name, vid ) 
                call check_ncerr(ierr, "Error getting vid for "//name)
           
-!               min_pid = mod(myid*lproc+ip_min(ip),proc_node)+1
-!               max_pid = mod(myid*lproc+ip_max(ip),proc_node)+1
-               min_pid = nodeseq(myid*lproc+ip_min(ip))
-               max_pid = nodeseq(myid*lproc+ip_max(ip))
+               min_pid = pid_min(ip)
+               max_pid = pid_max(ip)
                if ( node2_nproc.gt.1 ) then
                   ierr = nf90_get_var ( ncid_in(ip), vid, ginarray2(:,:,ip_min(ip):ip_max(ip)), start=(/ 1, 1, min_pid, nrec /), count=(/ pil, pjl*pnpan, max_pid-min_pid+1, 1 /) )
                else
@@ -2778,10 +2801,8 @@ contains
                ierr = nf90_inq_varid ( ncid_in(ip), name, vid )
                call check_ncerr(ierr, "Error getting vid for "//name)
           
-!               min_pid = mod(myid*lproc+ip_min(ip),proc_node)+1
-!               max_pid = mod(myid*lproc+ip_max(ip),proc_node)+1
-               min_pid = nodeseq(myid*lproc+ip_min(ip))
-               max_pid = nodeseq(myid*lproc+ip_max(ip))
+               min_pid = pid_min(ip)
+               max_pid = pid_max(ip)
                if ( node2_nproc.gt.1 ) then
                   ierr = nf90_get_var ( ncid_in(ip), vid, ginarray3(:,:,:,ip_min(ip):ip_max(ip)), start=(/ 1, 1, minlev, min_pid, nrec /), &
                                count=(/ pil, pjl*pnpan, maxlev-minlev+1, max_pid-min_pid+1, 1 /) )
