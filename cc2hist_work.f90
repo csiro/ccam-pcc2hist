@@ -2367,6 +2367,7 @@ contains
             allocate( gprocessor(0:pnproc-1) )
             allocate( proc2file(0:pnproc-1) )
             allocate( gproc_map(0:pnproc-1) )
+            allocate( node_ip(0:pnproc-1) )
             
             ierr = nf90_inq_varid (ncid, "processor", vid )
             call check_ncerr(ierr, "Error getting vid for processor")
@@ -2375,6 +2376,7 @@ contains
             do i=0,proc_node-1
                proc2file(gprocessor(i))=0
                gproc_map(gprocessor(i))=i
+               node_ip(i)=i
             end do
              
             idx=proc_node
@@ -2394,6 +2396,7 @@ contains
                do i=idx,idx+lproc_node-1
                   proc2file(gprocessor(i))=ip
                   gproc_map(gprocessor(i))=i
+                  node_ip(i)=i-idx
                end do
                
                ierr = nf90_close(lncid)
@@ -2420,11 +2423,13 @@ contains
             allocate( gprocessor(0:pnproc-1) )
             allocate( proc2file(0:pnproc-1) )
             allocate( gproc_map(0:pnproc-1) )
+            allocate( node_ip(0:pnproc-1) )
          end if
 
          call MPI_Bcast(gprocessor,pnproc,MPI_INTEGER,0,comm_world,ier)
          call MPI_Bcast(proc2file,pnproc,MPI_INTEGER,0,comm_world,ier)
          call MPI_Bcast(gproc_map,pnproc,MPI_INTEGER,0,comm_world,ier)
+         call MPI_Bcast(node_ip,pnproc,MPI_INTEGER,0,comm_world,ier)
       endif
 
       if ( procformat ) then
@@ -2471,7 +2476,7 @@ contains
          end if
          do ip = 0,lproc*node2_nproc-1
             if ( procformat ) then
-               rip = (myid*lproc + ip)/proc_node
+               rip = proc2file(myid*lproc + ip)
             else
                rip = myid*lproc + ip
             end if
@@ -2481,8 +2486,8 @@ contains
                   ip_maxcnt=ip_maxcnt+1
                   ip_min(ip_maxcnt)=ip
                   ip_max(ip_maxcnt)=ip
-                  pid_min(ip_maxcnt)=mod(myid*lproc + ip,proc_node)+1
-                  pid_max(ip_maxcnt)=mod(myid*lproc + ip,proc_node)+1
+                  pid_min(ip_maxcnt)=node_ip(myid*lproc + ip)+1
+                  pid_max(ip_maxcnt)=node_ip(myid*lproc + ip)+1
                   write(pfile,"(a,'.',i6.6)") trim(ifile), rip
                   ier = nf90_open ( pfile, nmode, ncid_in(ip_maxcnt) )
                   !if (ier /= nf90_noerr ) then
@@ -2495,7 +2500,7 @@ contains
                   end if
                else
                   ip_max(ip_maxcnt)=ip
-                  pid_max(ip_maxcnt)=mod(myid*lproc + ip,proc_node)+1
+                  pid_max(ip_maxcnt)=node_ip(myid*lproc + ip)+1
                end if
             else
                write(pfile,"(a,'.',i6.6)") trim(ifile), rip
@@ -2527,14 +2532,14 @@ contains
          end if
          do ip = 1,lproc*node2_nproc-1
             if ( procformat ) then
-               rip = ip/proc_node
+               rip = proc2file(ip)
                if (lastrip.ne.rip) then
                   lastrip=rip
                   ip_maxcnt=ip_maxcnt+1
                   ip_min(ip_maxcnt)=ip
                   ip_max(ip_maxcnt)=ip
-                  pid_min(ip_maxcnt)=mod(myid*lproc + ip,proc_node)+1
-                  pid_max(ip_maxcnt)=mod(myid*lproc + ip,proc_node)+1
+                  pid_min(ip_maxcnt)=node_ip(myid*lproc + ip)+1
+                  pid_max(ip_maxcnt)=node_ip(myid*lproc + ip)+1
                   write(pfile,"(a,'.',i6.6)") trim(ifile), rip
                   ier = nf90_open ( pfile, nmode, ncid_in(ip_maxcnt) )
                   !if ( ier /= nf90_noerr ) then
@@ -2547,7 +2552,7 @@ contains
                   end if
                else
                   ip_max(ip_maxcnt)=ip
-                  pid_max(ip_maxcnt)=mod(myid*lproc + ip,proc_node)+1
+                  pid_max(ip_maxcnt)=node_ip(myid*lproc + ip)+1
                end if
             else
                rip = ip
