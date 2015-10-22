@@ -2347,8 +2347,6 @@ contains
          ierr = nf90_inq_dimid ( ncid, "processor", dimid )
          if ( ierr.eq.nf90_noerr ) then
            procformat = .true.
-           ierr = nf90_inquire_dimension ( ncid, dimid, len=proc_node )
-           call check_ncerr(ierr,"Error getting number of processors")
          end if
 
          if ( mod(pnproc,nproc)/=0 ) then
@@ -2369,19 +2367,8 @@ contains
             allocate( gproc_map(0:pnproc-1) )
             allocate( node_ip(0:pnproc-1) )
             
-            ierr = nf90_inq_varid (ncid, "processor", vid )
-            call check_ncerr(ierr, "Error getting vid for processor")
-            ierr = nf90_get_var ( ncid, vid, gprocessor(0:proc_node-1), start=(/ 1 /), count=(/ proc_node /) )
-            call check_ncerr(ierr, "Error getting processor")
-            do i=0,proc_node-1
-               proc2file(gprocessor(i))=0
-               gproc_map(gprocessor(i))=i
-               node_ip(i)=i
-            end do
-             
-            idx=proc_node
-
-            do ip = 1, nnodes-1
+            idx=0
+            do ip = 0, nnodes-1
                write(pfile,"(a,'.',i6.6)") trim(ifile), ip
                ierr = nf90_open(pfile, nmode, lncid)
 
@@ -2394,7 +2381,7 @@ contains
                call check_ncerr(ierr, "Error getting processor")
 
                do i=idx,idx+lproc_node-1
-                  proc2file(gprocessor(i))=ip
+                  proc2file(i)=ip
                   gproc_map(gprocessor(i))=i
                   node_ip(i)=i-idx
                end do
@@ -2414,7 +2401,6 @@ contains
       call START_LOG(mpibcast_begin)
       call MPI_Bcast(pnproc,1,MPI_INTEGER,0,comm_world,ier)
       call MPI_Bcast(procformat,1,MPI_LOGICAL,0,comm_world,ier)
-      call MPI_Bcast(proc_node,1,MPI_INTEGER,0,comm_world,ier)
       call END_LOG(mpibcast_end)
       lproc = pnproc/nproc !number of files each mpi_proc will work on      
 
