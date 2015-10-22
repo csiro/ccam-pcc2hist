@@ -110,18 +110,24 @@ program cc2hist
    call MPI_Comm_rank(node_comm, node_myid, ierr)  ! Find local processor id on node
 #endif
 
+   !split the per node communicator based on node_myid=0
    if (node_myid.eq.0 ) then
       colour=0
    else
       colour=1
    end if
-   call MPI_Comm_split(comm_world, colour, myid, comm_leader, ierr) ! Split communicator based on myid_nproc=0
-   call MPI_Comm_size(comm_leader, nproc_leader, ierr) ! Find number of nodes
-   call MPI_Comm_rank(comm_leader, myid_leader, ierr)  ! Find local processor id of the nodes
+   call MPI_Comm_split(comm_world, colour, myid, comm_leader, ierr)
+   call MPI_Comm_size(comm_leader, nproc_leader, ierr)
+   call MPI_Comm_rank(comm_leader, myid_leader, ierr)
+
+   !myid_leader is essentially a node sequence number - distribute this intra-node
    call MPI_Bcast(myid_leader,1,MPI_INTEGER,0,node_comm,ierr)
 
-   call MPI_Comm_split(comm_world,0,myid_leader*100+node_myid,comm_reordered,ierr)
+   !reorder the ranks based on the node sequence
+   call MPI_Comm_split(comm_world,0,myid_leader*nproc+node_myid,comm_reordered,ierr)
    call MPI_Comm_rank(comm_reordered, myid_reordered, ierr)
+
+   !redefine comm_world & myid
    comm_world=comm_reordered
    myid=myid_reordered
 
