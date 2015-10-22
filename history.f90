@@ -2845,7 +2845,7 @@ contains
       call START_LOG(gatherwrap_begin)
       lsize = size(array_in)
       call START_LOG(mpigather_begin)
-      call MPI_Gather(array_in,lsize,MPI_REAL,array_temp,lsize,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Gather(array_in,lsize,MPI_REAL,array_temp,lsize,MPI_REAL,0,comm_world,ierr)
       call END_LOG(mpigather_end)
       do np = 0,nproc-1
          do k = 1,size(array_in,3)
@@ -2859,7 +2859,7 @@ contains
    end subroutine gather_wrap
 #else
    subroutine gather_wrap(histarray,hist_a,slab,offset,maxcnt,k_indx)
-      use mpidata_m, only : nproc, lproc, myid, pil, pjl, pnpan
+      use mpidata_m, only : nproc, lproc, myid, pil, pjl, pnpan, comm_world
       use logging_m
 #ifdef usempif
       include 'mpif.h'
@@ -2886,7 +2886,7 @@ contains
             hist_a_tmp_remap(1:pil,1:pjl*pnpan*lproc,istart:iend,1:nproc) => hist_a_tmp(1:pil*pjl*pnpan*lproc*(iend-istart+1)*nproc)
             call START_LOG(mpigather_begin)
             call MPI_Gather(histarray_tmp,pil*pjl*pnpan*lproc*(iend-istart+1),MPI_REAL,hist_a_tmp_remap,pil*pjl*pnpan*lproc*(iend-istart+1),MPI_REAL, rrank, &
-                            MPI_COMM_WORLD,ierr)
+                            comm_world,ierr)
             call END_LOG(mpigather_end)
          end if
       end do
@@ -2910,7 +2910,7 @@ contains
 #endif
 
    subroutine sendrecv_wrap(htemp,cnt,slab,offset)
-      use mpidata_m, only : nproc, lproc, myid
+      use mpidata_m, only : nproc, lproc, myid, comm_world
 #ifdef usempif
       include 'mpif.h'
 #else
@@ -2925,9 +2925,9 @@ contains
       rrank = ceiling(1.0d0*cnt/slab)-1+offset
       if ( rrank /= 0 ) then
          if ( myid == 0 ) then
-            call MPI_Recv(htemp,nxhis*nyhis,MPI_REAL,rrank,1,MPI_COMM_WORLD,MPI_STATUS_IGNORE,ierr)
+            call MPI_Recv(htemp,nxhis*nyhis,MPI_REAL,rrank,1,comm_world,MPI_STATUS_IGNORE,ierr)
          else if ( myid == rrank ) then
-            call MPI_Send(htemp,nxhis*nyhis,MPI_REAL,0,1,MPI_COMM_WORLD,ierr)
+            call MPI_Send(htemp,nxhis*nyhis,MPI_REAL,0,1,comm_world,ierr)
          end if
       end if
 	       

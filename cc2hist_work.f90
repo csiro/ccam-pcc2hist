@@ -839,7 +839,7 @@ contains
          call check_ncerr(ierr, "Error getting int_header length")
          if ( hlen < 43 ) then
             print*, "Error - insufficient header information: int_header too short"
-            call MPI_Abort(MPI_COMM_WORLD,-1_4,ierr)
+            call MPI_Abort(comm_world,-1_4,ierr)
          end if
       end if
       if ( node2_nproc.gt.1 ) then
@@ -1255,7 +1255,7 @@ contains
          end if 
 
          call START_LOG(mpiscatter_begin)
-         call MPI_Scatter(c_io,pil*pjl*pnpan*lproc,MPI_REAL,costh,pil*pjl*pnpan*lproc,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+         call MPI_Scatter(c_io,pil*pjl*pnpan*lproc,MPI_REAL,costh,pil*pjl*pnpan*lproc,MPI_REAL,0,comm_world,ierr)
 	 call END_LOG(mpiscatter_end)
 
 #ifdef parallel_int
@@ -1272,7 +1272,7 @@ contains
          end if
 
          call START_LOG(mpiscatter_begin)
-         call MPI_Scatter(c_io,pil*pjl*pnpan*lproc,MPI_REAL,sinth,pil*pjl*pnpan*lproc,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+         call MPI_Scatter(c_io,pil*pjl*pnpan*lproc,MPI_REAL,sinth,pil*pjl*pnpan*lproc,MPI_REAL,0,comm_world,ierr)
 	 call END_LOG(mpiscatter_end)
 
 #ifdef parallel_int
@@ -1986,7 +1986,7 @@ contains
                call check_ncerr(ierr, "Error getting source attribute")
                if ( index(source, "Processed by cc2hist") > 0 ) then
                   print*, "Error - the input file is already processed by cc2hist"
-                  call MPI_Abort(MPI_COMM_WORLD,-1_4,ierr)
+                  call MPI_Abort(comm_world,-1_4,ierr)
                end if
             end if
          end if
@@ -2162,10 +2162,10 @@ contains
       else
          lsize = pil*pjl*pnpan*lproc
 	 call START_LOG(mpigather_begin)
-         call MPI_Gather(b_io,lsize,MPI_REAL,c_io,lsize,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+         call MPI_Gather(b_io,lsize,MPI_REAL,c_io,lsize,MPI_REAL,0,comm_world,ierr)
 	 call END_LOG(mpigather_end)
 	 call START_LOG(mpiscatter_begin)
-         call MPI_Scatter(c_io,lsize,MPI_REAL,b_io,lsize,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+         call MPI_Scatter(c_io,lsize,MPI_REAL,b_io,lsize,MPI_REAL,0,comm_world,ierr)
 	 call END_LOG(mpiscatter_end)
       end if
       call END_LOG(fillcc_end)
@@ -2195,7 +2195,7 @@ contains
       call START_LOG(fillcc0_begin)
       lsize = pil*pjl*pnpan*lproc
       call START_LOG(mpigather_begin)
-      call MPI_Gather(b_io,lsize,MPI_REAL,c_io,lsize,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Gather(b_io,lsize,MPI_REAL,c_io,lsize,MPI_REAL,0,comm_world,ierr)
       call END_LOG(mpigather_end)
 
       do ip = 0,pnproc-1   
@@ -2283,7 +2283,7 @@ contains
       end do
       
       call START_LOG(mpiscatter_begin)
-      call MPI_Scatter(c_io,lsize,MPI_REAL,b_io,lsize,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Scatter(c_io,lsize,MPI_REAL,b_io,lsize,MPI_REAL,0,comm_world,ierr)
       call END_LOG(mpiscatter_end)
       call END_LOG(fillcc0_end)
       
@@ -2309,14 +2309,14 @@ contains
   
       integer, intent(in) :: nmode
       integer, intent(out) :: ncid
-      integer ier, ip, n, rip, ierr, lastrip, dimid, vid, idx, nnodes, lproc_node, lncid, i, iq, ir, irstart, lastpid
+      integer ier, ip, n, rip, ierr, lastrip, dimid
+      integer vid, idx, nnodes, lproc_node, lncid, i
       integer, dimension(5) :: jdum
       integer, dimension(54) :: int_header
       character(len=*), intent(in) :: ifile
       character(len=266) :: pfile
       character(len=8) :: sdecomp
       integer :: fac
-      integer, dimension(:), allocatable :: l2gid
 
 #ifdef parallel_int
       integer(kind=MPI_ADDRESS_KIND) :: ssize
@@ -2354,7 +2354,7 @@ contains
          if ( mod(pnproc,nproc)/=0 ) then
             write(6,*) "ERROR: Number of processors is not a factor of the number of files"
             write(6,*) "nproc,pnproc ",nproc,pnproc
-            call MPI_Abort(MPI_COMM_WORLD,-1,ierr)
+            call MPI_Abort(comm_world,-1,ierr)
          end if
 
          if ( procformat ) then
@@ -2366,7 +2366,7 @@ contains
 
             allocate( gprocessor(0:pnproc-1) )
             allocate( proc2file(0:pnproc-1) )
-            allocate( nodeseq(0:pnproc-1) )
+            allocate( gproc_map(0:pnproc-1) )
             
             ierr = nf90_inq_varid (ncid, "processor", vid )
             call check_ncerr(ierr, "Error getting vid for processor")
@@ -2374,7 +2374,7 @@ contains
             call check_ncerr(ierr, "Error getting processor")
             do i=0,proc_node-1
                proc2file(gprocessor(i))=0
-               nodeseq(gprocessor(i))=i+1
+               gproc_map(gprocessor(i))=i
             end do
              
             idx=proc_node
@@ -2393,7 +2393,7 @@ contains
 
                do i=idx,idx+lproc_node-1
                   proc2file(gprocessor(i))=ip
-                  nodeseq(gprocessor(i))=i-idx+1
+                  gproc_map(gprocessor(i))=i
                end do
                
                ierr = nf90_close(lncid)
@@ -2409,9 +2409,9 @@ contains
       end if
       
       call START_LOG(mpibcast_begin)
-      call MPI_Bcast(pnproc,1,MPI_INTEGER,0,MPI_COMM_WORLD,ier)
-      call MPI_Bcast(procformat,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ier)
-      call MPI_Bcast(proc_node,1,MPI_INTEGER,0,MPI_COMM_WORLD,ier)
+      call MPI_Bcast(pnproc,1,MPI_INTEGER,0,comm_world,ier)
+      call MPI_Bcast(procformat,1,MPI_LOGICAL,0,comm_world,ier)
+      call MPI_Bcast(proc_node,1,MPI_INTEGER,0,comm_world,ier)
       call END_LOG(mpibcast_end)
       lproc = pnproc/nproc !number of files each mpi_proc will work on      
 
@@ -2419,12 +2419,12 @@ contains
          if ( myid.ne.0 ) then
             allocate( gprocessor(0:pnproc-1) )
             allocate( proc2file(0:pnproc-1) )
-            allocate( nodeseq(0:pnproc-1) )
+            allocate( gproc_map(0:pnproc-1) )
          end if
 
-         call MPI_Bcast(gprocessor,pnproc,MPI_INTEGER,0,MPI_COMM_WORLD,ier)
-         call MPI_Bcast(proc2file,pnproc,MPI_INTEGER,0,MPI_COMM_WORLD,ier)
-         call MPI_Bcast(nodeseq,pnproc,MPI_INTEGER,0,MPI_COMM_WORLD,ier)
+         call MPI_Bcast(gprocessor,pnproc,MPI_INTEGER,0,comm_world,ier)
+         call MPI_Bcast(proc2file,pnproc,MPI_INTEGER,0,comm_world,ier)
+         call MPI_Bcast(gproc_map,pnproc,MPI_INTEGER,0,comm_world,ier)
       endif
 
       if ( procformat ) then
@@ -2435,8 +2435,6 @@ contains
       call MPI_Comm_split(node_comm, node_myid/fac, myid, node2_comm, ierr) ! Split communicator based on fac
       call MPI_Comm_size(node2_comm, node2_nproc, ierr) ! Find number of nodes
       call MPI_Comm_rank(node2_comm, node2_myid, ierr)  ! Find local processor id of the nodes
-      allocate(l2gid(0:node2_nproc-1))
-      call MPI_Gather(myid, 1, MPI_INTEGER, l2gid, 1, MPI_INTEGER, 0, node2_comm, ierr)
 
       if ( procformat ) then
          inarray2size=lproc
@@ -2467,28 +2465,24 @@ contains
       
          if ( procformat ) then
             lastrip=-1
-            lastpid=-1
             ip_maxcnt=-1
             ip_min=-1
             ip_max=-1
          end if
-         do iq = 0,node2_nproc-1
-         do ir = 0,lproc-1
-            ip = iq*lproc+ir
+         do ip = 0,lproc*node2_nproc-1
             if ( procformat ) then
-               rip = proc2file(l2gid(iq)*lproc + ir)
+               rip = (myid*lproc + ip)/proc_node
             else
                rip = myid*lproc + ip
             end if
             if ( procformat ) then
-               if (lastrip.ne.rip .or. lastpid.ne.nodeseq(l2gid(iq)*lproc + ir)) then
+               if (lastrip.ne.rip) then
                   lastrip=rip
                   ip_maxcnt=ip_maxcnt+1
                   ip_min(ip_maxcnt)=ip
                   ip_max(ip_maxcnt)=ip
-                  pid_min(ip_maxcnt)=nodeseq(l2gid(iq)*lproc + ir)
-                  pid_max(ip_maxcnt)=nodeseq(l2gid(iq)*lproc + ir)
-                  lastpid=nodeseq(l2gid(iq)*lproc + ir)+1
+                  pid_min(ip_maxcnt)=mod(myid*lproc + ip,proc_node)+1
+                  pid_max(ip_maxcnt)=mod(myid*lproc + ip,proc_node)+1
                   write(pfile,"(a,'.',i6.6)") trim(ifile), rip
                   ier = nf90_open ( pfile, nmode, ncid_in(ip_maxcnt) )
                   !if (ier /= nf90_noerr ) then
@@ -2501,8 +2495,7 @@ contains
                   end if
                else
                   ip_max(ip_maxcnt)=ip
-                  pid_max(ip_maxcnt)=nodeseq(l2gid(iq)*lproc + ir)
-                  lastpid=nodeseq(l2gid(iq)*lproc + ir)+1
+                  pid_max(ip_maxcnt)=mod(myid*lproc + ip,proc_node)+1
                end if
             else
                write(pfile,"(a,'.',i6.6)") trim(ifile), rip
@@ -2517,7 +2510,6 @@ contains
                end if
             end if
          end do
-         end do
          ncid = ncid_in(0) 
       
       else if ( myid.eq.0 .and. node2_myid.eq.0 ) then
@@ -2530,24 +2522,19 @@ contains
             ip_max=-1
             ip_min(0)=0
             ip_max(0)=0
-            pid_min(0)=nodeseq(0)
-            pid_max(0)=nodeseq(0)
-            lastpid=nodeseq(0)+1
+            pid_min(0)=1
+            pid_max(0)=1
          end if
-         irstart=1
-         do iq = 0,node2_nproc-1
-         do ir = irstart,lproc-1
-            ip = iq*lproc+ir
+         do ip = 1,lproc*node2_nproc-1
             if ( procformat ) then
-               rip = proc2file(l2gid(iq)*lproc + ir)
-               if (lastrip.ne.rip .or. lastpid.ne.nodeseq(l2gid(iq)*lproc + ir)) then
+               rip = ip/proc_node
+               if (lastrip.ne.rip) then
                   lastrip=rip
                   ip_maxcnt=ip_maxcnt+1
                   ip_min(ip_maxcnt)=ip
                   ip_max(ip_maxcnt)=ip
-                  pid_min(ip_maxcnt)=nodeseq(l2gid(iq)*lproc + ir)
-                  pid_max(ip_maxcnt)=nodeseq(l2gid(iq)*lproc + ir)
-                  lastpid=nodeseq(l2gid(iq)*lproc + ir)+1
+                  pid_min(ip_maxcnt)=mod(myid*lproc + ip,proc_node)+1
+                  pid_max(ip_maxcnt)=mod(myid*lproc + ip,proc_node)+1
                   write(pfile,"(a,'.',i6.6)") trim(ifile), rip
                   ier = nf90_open ( pfile, nmode, ncid_in(ip_maxcnt) )
                   !if ( ier /= nf90_noerr ) then
@@ -2560,8 +2547,7 @@ contains
                   end if
                else
                   ip_max(ip_maxcnt)=ip
-                  pid_max(ip_maxcnt)=nodeseq(l2gid(iq)*lproc + ir)
-                  lastpid=nodeseq(l2gid(iq)*lproc + ir)+1
+                  pid_max(ip_maxcnt)=mod(myid*lproc + ip,proc_node)+1
                end if
             else
                rip = ip
@@ -2576,8 +2562,6 @@ contains
                   call check_ncerr(ier, "open")
                end if
             end if
-         end do
-         irstart=0
          end do
       
          !  Get dimensions from int_header
@@ -2594,9 +2578,9 @@ contains
 #ifdef parallel_int
       end if
       call START_LOG(mpibcast_begin)
-      call MPI_Bcast(pil_g,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(pjl_g,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(sdecomp,8,MPI_CHAR,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(pil_g,1,MPI_INTEGER,0,comm_world,ierr)
+      call MPI_Bcast(pjl_g,1,MPI_INTEGER,0,comm_world,ierr)
+      call MPI_Bcast(sdecomp,8,MPI_CHAR,0,comm_world,ierr)
       call END_LOG(mpibcast_end)
       itest = MPI_MODE_NOPRECEDE + MPI_MODE_NOSTORE
       call MPI_Win_fence(itest,ijoff_win,ierr)
@@ -2636,7 +2620,7 @@ contains
 #endif
       
       call START_LOG(mpibcast_begin)
-      call MPI_Bcast(jdum(1:5),5,MPI_INTEGER,0,MPI_COMM_WORLD,ier)
+      call MPI_Bcast(jdum(1:5),5,MPI_INTEGER,0,comm_world,ier)
       call END_LOG(mpibcast_end)
       pil   = jdum(1)
       pjl   = jdum(2)
@@ -2681,8 +2665,6 @@ contains
       real addoff, sf
       logical, intent(in) :: required
       character(len=*), intent(in) :: name
-      integer :: pid
-      integer :: min_pid, max_pid
    
       ! If the variable has the required flag set to false, and the 
       ! vread_err argument is present, then return an error flag rather
@@ -2700,12 +2682,10 @@ contains
                ierr = nf90_inq_varid (ncid_in(ip), name, vid ) 
                call check_ncerr(ierr, "Error getting vid for "//name)
           
-               min_pid = pid_min(ip)
-               max_pid = pid_max(ip)
                if ( node2_nproc.gt.1 ) then
-                  ierr = nf90_get_var ( ncid_in(ip), vid, ginarray2(:,:,ip_min(ip):ip_max(ip)), start=(/ 1, 1, min_pid, nrec /), count=(/ pil, pjl*pnpan, max_pid-min_pid+1, 1 /) )
+                  ierr = nf90_get_var ( ncid_in(ip), vid, ginarray2(:,:,ip_min(ip):ip_max(ip)), start=(/ 1, 1, pid_min(ip), nrec /), count=(/ pil, pjl*pnpan, pid_max(ip)-pid_min(ip)+1, 1 /) )
                else
-                  ierr = nf90_get_var ( ncid_in(ip), vid, inarray2(:,:,ip_min(ip):ip_max(ip)), start=(/ 1, 1, min_pid, nrec /), count=(/ pil, pjl*pnpan, max_pid-min_pid+1, 1 /) )
+                  ierr = nf90_get_var ( ncid_in(ip), vid, inarray2(:,:,ip_min(ip):ip_max(ip)), start=(/ 1, 1, pid_min(ip), nrec /), count=(/ pil, pjl*pnpan, pid_max(ip)-pid_min(ip)+1, 1 /) )
                end if
                call check_ncerr(ierr, "Error getting var "//name)
             end do
@@ -2790,8 +2770,6 @@ contains
       real, dimension(pil,pjl*pnpan,minlev:maxlev,0:lproc*node2_nproc-1) :: ginarray3
       real addoff, sf
       character(len=*), intent(in) :: name
-      integer :: pid
-      integer :: min_pid, max_pid
 
       call START_LOG(paravar3a_begin)
 
@@ -2801,14 +2779,12 @@ contains
                ierr = nf90_inq_varid ( ncid_in(ip), name, vid )
                call check_ncerr(ierr, "Error getting vid for "//name)
           
-               min_pid = pid_min(ip)
-               max_pid = pid_max(ip)
                if ( node2_nproc.gt.1 ) then
-                  ierr = nf90_get_var ( ncid_in(ip), vid, ginarray3(:,:,:,ip_min(ip):ip_max(ip)), start=(/ 1, 1, minlev, min_pid, nrec /), &
-                               count=(/ pil, pjl*pnpan, maxlev-minlev+1, max_pid-min_pid+1, 1 /) )
+                  ierr = nf90_get_var ( ncid_in(ip), vid, ginarray3(:,:,:,ip_min(ip):ip_max(ip)), start=(/ 1, 1, minlev, pid_min(ip), nrec /), &
+                               count=(/ pil, pjl*pnpan, maxlev-minlev+1, pid_max(ip)-pid_min(ip)+1, 1 /) )
                else
-                  ierr = nf90_get_var ( ncid_in(ip), vid, inarray3(:,:,:,ip_min(ip):ip_max(ip)), start=(/ 1, 1, minlev, min_pid, nrec /), &
-                               count=(/ pil, pjl*pnpan, maxlev-minlev+1, max_pid-min_pid+1, 1 /) )
+                  ierr = nf90_get_var ( ncid_in(ip), vid, inarray3(:,:,:,ip_min(ip):ip_max(ip)), start=(/ 1, 1, minlev, pid_min(ip), nrec /), &
+                               count=(/ pil, pjl*pnpan, maxlev-minlev+1, pid_max(ip)-pid_min(ip)+1, 1 /) )
                end if
                call check_ncerr(ierr, "Error getting var "//name)
             end do
@@ -2875,6 +2851,7 @@ contains
    end subroutine paravar3a
 
    subroutine proc_setup(il_g,jl_g,nproc,nin,il,jl,ioff,joff,npan)
+      use parm_m, only : procformat
       integer, intent(in) :: il_g, jl_g, nproc, nin
       integer, intent(out) :: il, jl, npan
       integer, dimension(0:) :: ioff, joff
@@ -2923,8 +2900,13 @@ contains
       n = 0
       do j = 0, nyproc-1
          do i = 0, nxproc-1
-            ioff(n) = i*il
-            joff(n) = j*jl
+            if ( procformat ) then
+               ioff(gproc_map(n)) = i*il
+               joff(gproc_map(n)) = j*jl
+            else
+               ioff(n) = i*il
+               joff(n) = j*jl
+            end if
             n = n + 1
          end do
       end do
