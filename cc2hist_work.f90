@@ -2383,7 +2383,7 @@ contains
                write(pfile,"(a,'.',i6.6)") trim(ifile), ip
                ierr = nf90_open(pfile, nmode, lncid)
 
-               ierr = nf90_inquire_dimension ( ncid, dimid, len=lproc_node )
+               ierr = nf90_inquire_dimension ( lncid, dimid, len=lproc_node )
                call check_ncerr(ierr,"Error getting number of processors")
 
                ierr = nf90_inq_varid (lncid, "processor", vid )
