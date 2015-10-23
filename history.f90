@@ -2830,7 +2830,7 @@ contains
 
 #ifndef parallel_int
    subroutine gather_wrap(array_in,array_out)
-      use mpidata_m, only : nproc, lproc
+      use mpidata_m, only : nproc, lproc, comm_world
       use logging_m
 #ifdef usempif
       include 'mpif.h'

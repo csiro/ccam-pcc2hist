@@ -40,8 +40,8 @@ integer, save, public :: myid_leader, nproc_leader
 integer, save, public :: myid_reordered, nproc_reordered
 integer, save, public :: pil, pjl, pnpan, pnproc, lproc, inarray2size
 integer, save, public :: pil_g, pjl_g
-#ifdef parallel_int
 integer, save, public :: node_comm, node_myid, node_nproc
+#ifdef parallel_int
 integer, save, public :: ijoff_win
 #endif
 integer, save, public :: comm_world, comm_reordered, comm_leader
