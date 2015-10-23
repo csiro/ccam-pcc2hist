@@ -90,7 +90,7 @@ program cc2hist
    type(input_var), dimension(:), pointer :: varlist
    integer :: nvars
    type(hist_att), dimension(:), allocatable :: extra_atts
-   integer :: veg_int, colour, len
+   integer :: veg_int, colour, llen
    real :: time_prev = 0.
    character*(MPI_MAX_PROCESSOR_NAME) :: node_name
 
@@ -111,7 +111,7 @@ program cc2hist
    call MPI_Comm_rank(node_comm, node_myid, ierr)  ! Find local processor id on node
 #else
    ! not perfect - assumes a node form of xxx000
-   call MPI_Get_processor_name(node_name, len, ierr)
+   call MPI_Get_processor_name(node_name, llen, ierr)
    read(node_name(scan(node_name,"0123456789"):),*)colour
    call MPI_Comm_split(comm_world, colour, myid, node_comm, ierr)
    call MPI_Comm_size(node_comm, node_nproc, ierr) ! Find number of processes on node
