@@ -2318,6 +2318,7 @@ contains
       character(len=266) :: pfile
       character(len=8) :: sdecomp
       integer :: fac
+      integer, dimension(:), allocatable :: proc_nodes
 
 #ifdef parallel_int
       integer(kind=MPI_ADDRESS_KIND) :: ssize
@@ -2367,28 +2368,27 @@ contains
             allocate( proc2file(0:pnproc-1) )
             allocate( gproc_map(0:pnproc-1) )
             allocate( node_ip(0:pnproc-1) )
+            allocate( proc_nodes(0:nnodes-1) )
             
+            ierr = nf90_inq_varid (ncid, "gprocessor", vid )
+            call check_ncerr(ierr, "Error getting vid for gprocessor")
+            ierr = nf90_get_var ( ncid, vid, gprocessor, start=(/ 1 /), count=(/ pnproc /) )
+            call check_ncerr(ierr, "Error getting gprocessor")
+
+            ierr = nf90_inq_varid (ncid, "proc_nodes", vid )
+            call check_ncerr(ierr, "Error getting vid for proc_nodes")
+            ierr = nf90_get_var ( ncid, vid, proc_nodes, start=(/ 1 /), count=(/ nnodes /) )
+            call check_ncerr(ierr, "Error getting proc_nodes")
+
             idx=0
             do ip = 0, nnodes-1
-               write(pfile,"(a,'.',i6.6)") trim(ifile), ip
-               ierr = nf90_open(pfile, nmode, lncid)
-
-               ierr = nf90_inquire_dimension ( lncid, dimid, len=lproc_node )
-               call check_ncerr(ierr,"Error getting number of processors")
-
-               ierr = nf90_inq_varid (lncid, "processor", vid )
-               call check_ncerr(ierr, "Error getting vid for processor")
-               ierr = nf90_get_var ( lncid, vid, gprocessor(idx:idx+lproc_node-1), start=(/ 1 /), count=(/ lproc_node /) )
-               call check_ncerr(ierr, "Error getting processor")
-
-               do i=idx,idx+lproc_node-1
+               do i=idx,idx+proc_nodes(ip)-1
                   proc2file(i)=ip
                   gproc_map(gprocessor(i))=i
                   node_ip(i)=i-idx
                end do
                
-               ierr = nf90_close(lncid)
-               idx = idx + lproc_node
+               idx = idx + proc_nodes(ip)
             end do
 
          end if
