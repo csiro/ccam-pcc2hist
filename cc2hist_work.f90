@@ -778,13 +778,13 @@ contains
       use vertutils_m, only : sig2ds
 #ifdef parallel_int
       use, intrinsic :: iso_c_binding, only : c_ptr, c_f_pointer
+      use mpidata_m
+      use shdata_m
 #ifdef usempif
       include 'mpif.h'
 #else
       use mpi
 #endif
-      use mpidata_m
-      use shdata_m
 #endif
 
       real, intent(inout)  :: hres
