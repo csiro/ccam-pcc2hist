@@ -1,8 +1,17 @@
 FC = mpif90
-#FFLAGS = -O -xHost -fpp -ftz -Dparallel_int -Dsimple_timer
-FFLAGS = -O -xHost -fpp -ftz -Dsimple_timer
+FFLAGS = -O -xHost -ftz -Dsimple_timer -Dparallel_int -Dusempif
 INC = -I $(NETCDF_ROOT)/include
 LIBS = -L $(NETCDF_ROOT)/lib -lnetcdf -lnetcdff
+PPFLAG90 = -fpp
+
+ifeq ($(GFORTRAN),yes)
+MPIFC = gfortran
+MPIF77 = gfortran
+FC = mpif90
+FFLAGS = -O2 -mtune=native -march=native -Dsimple_timer -Dusempif -Dusenc3
+PPFLAG90 = -x f95-cpp-input
+endif
+
 
 # Options for building with VAMPIRTrace
 ifeq ($(VT),yes)
@@ -29,7 +38,7 @@ stacklimit.o: stacklimit.c
 	cc -c stacklimit.c
 
 .f90.o:
-	$(FC) -c $(FFLAGS) $(INC) $(LIBS) $<
+	$(FC) -c $(FFLAGS) $(INC) $(LIBS) $(PPFLAG90) $<
 
 # Remove mod rule from Modula 2
 %.o : %.mod

@@ -24,9 +24,9 @@ module interp_m
    implicit none
 
 #ifdef parallel_int
-   real, pointer, contiguous, dimension(:,:), public :: xg, yg
-   integer, pointer, contiguous, dimension(:,:), public :: nface
-   real, pointer, contiguous, dimension(:,:,:), public :: xyg
+   real, pointer, dimension(:,:), public :: xg, yg
+   integer, pointer, dimension(:,:), public :: nface
+   real, pointer, dimension(:,:,:), public :: xyg
    integer :: xyg_win, nface_win
 #else
    real, allocatable, dimension(:,:), public :: xg, yg
