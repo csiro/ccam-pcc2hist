@@ -27,8 +27,8 @@ private
 
 integer, dimension(:), save, allocatable, public :: ncid_in
 #ifdef parallel_int
-integer, dimension(:,:), save, pointer, public :: ioff, joff
-integer, dimension(:,:,:), save, pointer, public :: ijoff
+integer, dimension(:,:), save, pointer, contiguous, public :: ioff, joff
+integer, dimension(:,:,:), save, pointer, contiguous, public :: ijoff
 #else
 integer, dimension(:,:), save, allocatable, public :: ioff, joff
 #endif
