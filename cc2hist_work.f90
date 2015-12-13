@@ -424,6 +424,7 @@ contains
                   ! possibly reorder temp, mixr, u and v in CCAM
                   call vread( "temp", t)
                   call vread( "mixr", q)
+		  q = max( q, 1.e-20 )
                   ! psl will not be used in height
                   call height( t, q, zs, psl, sig, hstd )
                   do k=1,size(hstd,dim=3)
@@ -440,6 +441,7 @@ contains
                if ( need3dfld("mixr")) then
                   if ( .not. use_meters ) then
                      call vread( "mixr", q )
+		     q = max( q, 1.e-20 )
                   end if
                   call vsavehist ( "mixr", q )
                end if
