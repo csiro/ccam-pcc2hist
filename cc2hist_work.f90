@@ -785,16 +785,15 @@ contains
       use parm_m, only : rlong0, rlat0, schmidt ! Share with final_init
       use physparams, only : erad
       use vertutils_m, only : sig2ds
-#ifndef usempif
-      use mpi
-#endif
 #ifdef parallel_int
       use, intrinsic :: iso_c_binding, only : c_ptr, c_f_pointer
       use mpidata_m
       use shdata_m
-#endif
 #ifdef usempif
       include 'mpif.h'
+#else
+      use mpi
+#endif
 #endif
 
       real, intent(inout)  :: hres
