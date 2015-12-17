@@ -192,7 +192,7 @@ program cc2hist
    ! Read namelist - allows overwriting of command line options
    if ( myid==0 ) print *,"reading cc.nml"
    open(1,file='cc.nml')
-   read(1,input)   
+   read(1,NML=input)   
    
    if ( vextrap == vextrap_missing .and. int_default == int_normal ) then
       print*, "For missing option to work, must set interp to linear or nearest"
