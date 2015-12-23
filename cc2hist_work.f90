@@ -103,6 +103,7 @@ contains
       allocate ( psl(pil,pjl*pnpan*lproc),   zs(pil,pjl*pnpan*lproc) )
       allocate ( soilt(pil,pjl*pnpan*lproc), u(pil,pjl*pnpan*lproc,kl), v(pil,pjl*pnpan*lproc,kl),  t(pil,pjl*pnpan*lproc,kl) )
       allocate ( q(pil,pjl*pnpan*lproc,kl),  ql(pil,pjl*pnpan*lproc,kl), qf(pil,pjl*pnpan*lproc,kl) )
+      allocate ( qs(pil,pjl*pnpan*lproc,kl), qg(pil,pjl*pnpan*lproc,kl) )
       allocate ( tgg(pil,pjl*pnpan*lproc,ksoil), wbice(pil,pjl*pnpan*lproc,kice) )
       allocate ( snowvar(pil,pjl*pnpan*lproc,3) )
       if ( needfld("zg") ) then
@@ -415,7 +416,7 @@ contains
                   ! possibly reorder temp, mixr, u and v in CCAM
                   call vread( "temp", t)
                   call vread( "mixr", q)
-		  q = max( q, 1.e-20 )
+                  q = max( q, 1.e-20 )
                   ! psl will not be used in height
                   call height( t, q, zs, psl, sig, hstd )
                   do k=1,size(hstd,dim=3)
@@ -432,19 +433,33 @@ contains
                if ( need3dfld("mixr")) then
                   if ( .not. use_meters ) then
                      call vread( "mixr", q )
-		     q = max( q, 1.e-20 )
+                     q = max( q, 1.e-20 )
                   end if
                   call vsavehist ( "mixr", q )
                end if
             case ( "qlg" )
                if ( need3dfld("qlg")) then
                   call vread( "qlg", ql )
+                  ql = max( ql, 0. )
                   call vsavehist ( "qlg", ql )
                end if
             case ( "qfg" )
                if ( need3dfld("qfg")) then
                   call vread( "qfg", qf )
+                  qf = max( qf, 0. )
                   call vsavehist ( "qfg", qf )
+               end if
+            case ( "qsng" )
+               if ( need3dfld("qsng")) then
+                  call vread( "qsng", qs )
+                  qs = max( qs, 0. )
+                  call vsavehist ( "qsng", qs )
+               end if
+            case ( "qgrg" )
+               if ( need3dfld("qgrg")) then
+                  call vread( "qgrg", qg )
+                  qg = max( qg, 0. )
+                  call vsavehist ( "qgrg", qg )
                end if
             ! Should to u, v as above with vector flag, but this will do for now
             case ( "u" )
@@ -781,7 +796,7 @@ contains
 #ifdef parallel_int
       use, intrinsic :: iso_c_binding, only : c_ptr, c_f_pointer
       use mpidata_m
-      use shdata_m
+      use shdata_m      
 #ifdef usempif
       include 'mpif.h'
 #else
@@ -1046,7 +1061,7 @@ contains
 #ifdef parallel_int
       end if
 
-      if ( node_myid.eq.0 ) then
+      if ( node_myid == 0 ) then
          ssize=nxhis*nyhis
       else
          ssize=0
@@ -2202,10 +2217,6 @@ contains
          ip = 0
          write(pfile,"(a,'.',i6.6)") trim(ifile), ip
          ierr = nf90_open(pfile, nmode, ncid)
-         !if ( ierr /= nf90_noerr ) then
-         !   write(pfile,"(a,'.',i4.4)") trim(ifile), ip
-         !   ierr = nf90_open(pfile, nmode, ncid)
-         !end if
          call check_ncerr(ierr, "Error opening file")
       
          write(6,*) "Using parallel input files"
@@ -2249,10 +2260,6 @@ contains
             rip = myid*lproc + ip
             write(pfile,"(a,'.',i6.6)") trim(ifile), rip
             ier = nf90_open ( pfile, nmode, ncid_in(ip) )
-            !if (ier /= nf90_noerr ) then
-            !   write(pfile,"(a,'.',i4.4)") trim(ifile), rip
-            !   ier = nf90_open ( pfile, nmode, ncid_in(ip) )
-            !end if
             if (ier /= nf90_noerr ) then
                write(6,*) "ERROR: Cannot open ",trim(pfile)
                call check_ncerr(ier, "open")
@@ -2267,10 +2274,6 @@ contains
             rip = ip
             write(pfile,"(a,'.',i6.6)") trim(ifile), rip
             ier = nf90_open ( pfile, nmode, ncid_in(ip) )
-            !if ( ier /= nf90_noerr ) then
-            !   write(pfile,"(a,'.',i4.4)") trim(ifile), rip
-            !   ier = nf90_open ( pfile, nmode, ncid_in(ip) )
-            !end if
             if ( ier /= nf90_noerr ) then
                write(6,*) "ERROR: Cannot open ",trim(pfile)
                call check_ncerr(ier, "open")
