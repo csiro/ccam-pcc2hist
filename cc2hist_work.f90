@@ -450,13 +450,13 @@ contains
                   call vsavehist ( "qfg", qf )
                end if
             case ( "qsng" )
-               if ( need3dfld("qsng")) then
+               if ( needfld("qsng")) then
                   call vread( "qsng", qs )
                   qs = max( qs, 0. )
                   call vsavehist ( "qsng", qs )
                end if
             case ( "qgrg" )
-               if ( need3dfld("qgrg")) then
+               if ( needfld("qgrg")) then
                   call vread( "qgrg", qg )
                   qg = max( qg, 0. )
                   call vsavehist ( "qgrg", qg )
