@@ -24,10 +24,10 @@ module usage_m
    contains
    subroutine usage()
    use mpidata_m
-#ifdef usempif
-   include 'mpif.h'
-#else
+#ifdef usempi_mod
    use mpi
+#else
+   include 'mpif.h'
 #endif
    integer ierr
    if (myid==0) then
@@ -41,7 +41,11 @@ module usage_m
 
    subroutine help(version)
    use mpidata_m
+#ifdef usempi_mod
+   use mpi
+#else
    include 'mpif.h'
+#endif
    integer ierr
    character(len=*), intent(in) :: version
    if (myid==0) then

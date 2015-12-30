@@ -22,10 +22,10 @@
 module work
 
    use mpidata_m
-#ifdef usenc3   
-   use netcdf_m
-#else
+#ifdef usenc_mod
    use netcdf
+#else
+   use netcdf_m
 #endif
    use ncutils_m, only : check_ncerr
    use gldata
@@ -450,13 +450,13 @@ contains
                   call vsavehist ( "qfg", qf )
                end if
             case ( "qsng" )
-               if ( needfld("qsng")) then
+               if ( need3dfld("qsng")) then
                   call vread( "qsng", qs )
                   qs = max( qs, 0. )
                   call vsavehist ( "qsng", qs )
                end if
             case ( "qgrg" )
-               if ( needfld("qgrg")) then
+               if ( need3dfld("qgrg")) then
                   call vread( "qgrg", qg )
                   qg = max( qg, 0. )
                   call vsavehist ( "qgrg", qg )
@@ -663,6 +663,10 @@ contains
          needed = needfld("qlg") .or. needfld("rh")
       case ( "qfg" )
          needed = needfld("qfg") .or. needfld("rh")
+      case ( "qsng" )
+         needed = needfld("qsng")
+      case ( "qgrg" )
+         needed = needfld("qgrg")
       case default
          print*, "Error - unsupported argument for need3dfld", name
          stop
@@ -778,10 +782,10 @@ contains
                            kdate, ktime, ntracers, ksoil, kice, debug,        &
                            nqg )
 
-#ifdef usenc3
-      use netcdf_m
-#else
+#ifdef usenc_mod
       use netcdf
+#else
+      use netcdf_m
 #endif
       use newmpar_m
       use history
@@ -797,10 +801,10 @@ contains
       use, intrinsic :: iso_c_binding, only : c_ptr, c_f_pointer
       use mpidata_m
       use shdata_m      
-#ifdef usempif
-      include 'mpif.h'
-#else
+#ifdef usempi_mod
       use mpi
+#else
+      include 'mpif.h'
 #endif
 #endif
 
@@ -1130,10 +1134,10 @@ contains
       use parm_m, only : rlong0, rlat0
       use physparams, only : pi
       use logging_m      
-#ifdef usempif
-      include 'mpif.h'
-#else
+#ifdef usempi_mod
       use mpi
+#else
+      include 'mpif.h'
 #endif
       type(input_var), dimension(:) :: varlist
       integer, intent(in) :: nvars
@@ -2035,10 +2039,10 @@ contains
    subroutine fill_cc(b_io,value)
 !     routine fills in interior of an array which has undefined points
       use logging_m
-#ifdef usempif
-      include 'mpif.h'
-#else
+#ifdef usempi_mod
       use mpi
+#else
+      include 'mpif.h'
 #endif
       real, intent(inout) :: b_io(pil,pjl*pnpan*lproc)         ! input and output array
       real, intent(in)    :: value                             ! array value denoting undefined
@@ -2066,10 +2070,10 @@ contains
       use newmpar_m
       use indices_m
       use logging_m      
-#ifdef usempif
-      include 'mpif.h'
-#else
+#ifdef usempi_mod
       use mpi
+#else
+      include 'mpif.h'
 #endif
       real, dimension(pil,pjl*pnpan*lproc), intent(inout) :: b_io ! input and output array
       real, intent(in)    :: value                                ! array value denoting undefined
@@ -2183,7 +2187,7 @@ contains
 #ifdef parallel_int
       use, intrinsic :: iso_c_binding, only : c_ptr, c_f_pointer
 #endif
-#ifndef usempif
+#ifdef usempi_mod
       use mpi
 #endif
 #ifdef parallel_int
@@ -2191,7 +2195,7 @@ contains
       use shdata_m
 #endif
       use logging_m
-#ifdef usempif
+#ifndef usempi_mod
       include 'mpif.h'
 #endif
   
@@ -2211,7 +2215,7 @@ contains
 
       call START_LOG(paraopen_begin)
 
-      if ( myid == 0 ) then      
+      if ( myid==0 ) then      
   
          ! parallel file input
          ip = 0
@@ -2227,7 +2231,20 @@ contains
 
          if ( mod(pnproc,nproc)/=0 ) then
             write(6,*) "ERROR: Number of processors is not a factor of the number of files"
-            write(6,*) "nproc,pnproc ",nproc,pnproc
+            write(6,*) "Number of processes ",nproc
+            write(6,*) "Number of files     ",pnproc
+            do n = nproc,1,-1
+               if ( mod(pnproc,n)==0 ) then
+                  write(6,*) "Try using pcc2hist with the following number of processes ",n
+                  exit
+               end if
+            end do
+            do n = nproc,pnproc
+               if ( mod(pnproc,n)==0 ) then
+                  write(6,*) "Try using pcc2hist with the following number of processes ",n
+                  exit
+               end if
+            end do
             call MPI_Abort(MPI_COMM_WORLD,-1,ierr)
          end if
 
@@ -2244,17 +2261,17 @@ contains
       allocate( ncid_in(0:lproc-1) )
 
 #ifdef parallel_int
-      if ( node_myid == 0 ) then
-          ssize=pnproc*6*2
+      if ( node_myid==0 ) then
+          ssize = pnproc*6*2
       else
-          ssize=0
+          ssize = 0
       end if
       call allocshdata(ijoff,ssize,(/ pnproc, 6, 2 /),ijoff_win)
       ioff(0:pnproc-1,0:5) => ijoff(:,:,1)
       joff(0:pnproc-1,0:5) => ijoff(:,:,2)
 #endif
       
-      if ( myid /= 0 ) then
+      if ( myid/=0 ) then
       
          do ip = 0,lproc-1
             rip = myid*lproc + ip
@@ -2300,7 +2317,7 @@ contains
       call END_LOG(mpibcast_end)
       itest = MPI_MODE_NOPRECEDE + MPI_MODE_NOSTORE
       call MPI_Win_fence(itest,ijoff_win,ierr)
-      if ( node_myid == 0 ) then
+      if ( node_myid==0 ) then
 #endif
          select case(sdecomp)
             case ("uniform")

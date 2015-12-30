@@ -1,5 +1,5 @@
 FC = mpif90
-FFLAGS = -O -xHost -ftz -Dsimple_timer -Dparallel_int -Dusempif
+FFLAGS = -O -xHost -ftz -Dparallel_int
 INC = -I $(NETCDF_ROOT)/include
 LIBS = -L $(NETCDF_ROOT)/lib -lnetcdf -lnetcdff
 PPFLAG90 = -fpp
@@ -8,7 +8,7 @@ ifeq ($(GFORTRAN),yes)
 MPIFC = gfortran
 MPIF77 = gfortran
 FC = mpif90
-FFLAGS = -O2 -mtune=native -march=native -Dsimple_timer -Dusempif -Dusenc3
+FFLAGS = -O2 -mtune=native -march=native
 PPFLAG90 = -x f95-cpp-input
 endif
 

@@ -101,10 +101,10 @@
 
 module history
 
-#ifdef usenc3
-   use netcdf_m
-#else
+#ifdef usenc_mod
    use netcdf
+#else
+   use netcdf_m
 #endif
    use ncutils_m, only : check_ncerr
    use utils_m, only : fpequal
@@ -2747,10 +2747,10 @@ contains
    subroutine gather_wrap(array_in,array_out)
       use mpidata_m, only : nproc, lproc
       use logging_m
-#ifdef usempif
-      include 'mpif.h'
-#else
+#ifdef usempi_mod
       use mpi
+#else
+      include 'mpif.h'
 #endif   
       real, dimension(:,:,:), intent(in) :: array_in
       real, dimension(:,:,:,:), intent(out) :: array_out
@@ -2776,11 +2776,11 @@ contains
    subroutine gather_wrap(histarray,hist_a,slab,offset,maxcnt,k_indx)
       use mpidata_m, only : nproc, lproc, myid, pil, pjl, pnpan
       use logging_m
-#ifdef usempif
-      include 'mpif.h'
-#else
+#ifdef usempi_mod
       use mpi
-#endif   
+#else
+      include 'mpif.h'
+#endif 
       integer, intent(in) :: slab, offset, maxcnt
       integer :: rrank, istart, iend, ip, k, n, ierr    
       integer, dimension(maxcnt), intent(in) :: k_indx
@@ -2792,7 +2792,7 @@ contains
    
       call START_LOG(gatherwrap_begin)
       do ip = 0,nproc-1
-         if ( (1+slab*(ip-offset)).gt.0 ) then
+         if ( (1+slab*(ip-offset)) > 0 ) then
             istart = 1+slab*(ip-offset)
             iend = slab*(ip-offset+1)
             iend = min( iend, maxcnt )
@@ -2801,9 +2801,9 @@ contains
             hist_a_tmp_remap(1:pil,1:pjl*pnpan*lproc,istart:iend,1:nproc) => &
               hist_a_tmp(1:pil*pjl*pnpan*lproc*(iend-istart+1)*nproc)
             call START_LOG(mpigather_begin)
-            call MPI_Gather(histarray_tmp,pil*pjl*pnpan*lproc*(iend-istart+1),    &
-                   MPI_REAL,hist_a_tmp_remap,pil*pjl*pnpan*lproc*(iend-istart+1), &
-                   MPI_REAL, rrank, MPI_COMM_WORLD,ierr)
+            call MPI_Gather(histarray_tmp, pil*pjl*pnpan*lproc*(iend-istart+1), MPI_REAL,    &
+                            hist_a_tmp_remap, pil*pjl*pnpan*lproc*(iend-istart+1), MPI_REAL, &
+                            rrank, MPI_COMM_WORLD, ierr)
             call END_LOG(mpigather_end)
          end if
       end do
@@ -2829,11 +2829,11 @@ contains
 
    subroutine sendrecv_wrap(htemp,cnt,slab,offset)
       use mpidata_m, only : nproc, lproc, myid
-#ifdef usempif
-      include 'mpif.h'
-#else
+#ifdef usempi_mod
       use mpi
-#endif   
+#else
+      include 'mpif.h'
+#endif  
       real, dimension(:,:), intent(inout) :: htemp
       integer, intent(in) :: cnt, slab, offset
       integer :: rrank, nxhis, nyhis, ierr

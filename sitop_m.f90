@@ -43,10 +43,10 @@ contains
       ! Setup for sitop. Calculate things that don't depend on the field
       ! being interpolated.
       use utils_m, only : assert, search_fgt
-#ifdef usempif
-      include 'mpif.h'
-#else
+#ifdef usempi_mod
       use mpi
+#else
+      include 'mpif.h'
 #endif
       real, dimension(:), intent(in)       :: sigr   ! Sigma levels
       real, dimension(:), intent(in)       :: prelvs ! Pressure levels
@@ -204,10 +204,10 @@ contains
 !     imposed separately. This means that the derivatives are not continuous
 !     across the boundary between interpolation and extrapolation.
 
-#ifdef usenc3
-      use netcdf_m, only : NF90_FILL_FLOAT
-#else
+#ifdef usenc_mod
       use netcdf, only : NF90_FILL_FLOAT
+#else
+      use netcdf_m, only : NF90_FILL_FLOAT
 #endif      
       use utils_m, only : assert, search_fgt
       use physparams
@@ -379,10 +379,10 @@ contains
       ! being interpolated.
       use physparams
       use utils_m, only : assert, search_fgt
-#ifdef usempif
-      include 'mpif.h'
-#else
+#ifdef usempi_mod
       use mpi
+#else
+      include 'mpif.h'
 #endif
       real, dimension(:), intent(in)       :: sigr      ! Sigma levels
       real, dimension(:), intent(in)       :: mtrlvs    ! Height levels
@@ -555,10 +555,10 @@ contains
 !     imposed separately. This means that the derivatives are not continuous
 !     across the boundary between interpolation and extrapolation.
 
-#ifdef usenc3
-      use netcdf_m, only : NF90_FILL_FLOAT
-#else
+#ifdef usenc_mod
       use netcdf, only : NF90_FILL_FLOAT
+#else
+      use netcdf_m, only : NF90_FILL_FLOAT
 #endif
       use utils_m, only : assert, search_fgt
       use physparams

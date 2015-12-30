@@ -30,7 +30,7 @@ program cc2hist
 !  Modified by MJT to use MPI when reading parallel input files (pcc2hist).
 !  Further optimised by Paul Ryan and David Benn.
 
-#ifndef usempif
+#ifdef usempi_mod
    use mpi
 #endif
     
@@ -49,7 +49,7 @@ program cc2hist
 
    implicit none
 
-#ifdef usempif
+#ifndef usempi_mod
    include 'mpif.h'
 #endif
 
@@ -192,7 +192,7 @@ program cc2hist
    ! Read namelist - allows overwriting of command line options
    if ( myid==0 ) print *,"reading cc.nml"
    open(1,file='cc.nml')
-   read(1,NML=input)   
+   read(1,input)   
    
    if ( vextrap == vextrap_missing .and. int_default == int_normal ) then
       print*, "For missing option to work, must set interp to linear or nearest"
