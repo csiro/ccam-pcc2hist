@@ -911,16 +911,16 @@ contains
          write(*,'("rlong0",f8.2," rlat0",f8.2," schmidt",f6.3)') &
                rlong0, rlat0, schmidt
       end if
-      if ( nqg >= 8 ) then
+      !if ( nqg >= 8 ) then
          ksoil = ms
-      else
-         ksoil = 2
-      end if
-      if ( nqg >= 11 ) then
+      !else
+      !   ksoil = 2
+      !end if
+      !if ( nqg >= 11 ) then
          kice = ms
-      else
-         kice = 0
-      end if
+      !else
+      !   kice = 0
+      !end if
 
 
       if ( ilt > 1 ) then
@@ -943,12 +943,12 @@ contains
       end if
       call sig2ds(sig, dsig)
       ! Note that some initial condition files don't have zsoil
-      if ( cf_compliant ) then
+      !if ( cf_compliant ) then
          ierr = nf90_inq_varid (ncid, "zsoil", vid )
          call check_ncerr(ierr, "Error getting vid for zsoil")
          ierr = nf90_get_var ( ncid, vid, zsoil)
          call check_ncerr(ierr, "Error getting zsoil")
-      end if
+      !end if
 
 !     Set all the resolution parameters
       npanels = jl/il - 1

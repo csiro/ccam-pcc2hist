@@ -1084,16 +1084,16 @@ contains
             if ( present(hybrid_levels) ) then
                use_hyblevs = hybrid_levels
             end if
-            if ( soil_used ) then
-               ! Better to define a new local nsoil variable?
+            !if ( soil_used ) then
+            !   ! Better to define a new local nsoil variable?
+            !   call create_ncfile ( filename, nxhis, nyhis, size(sig), multilev,                   &
+            !        use_plevs, use_meters, use_hyblevs, basetime, coord_heights(1:ncoords), ncid,  &
+            !        dims, dimvars, source, extra_atts, calendar, nsoil, zsoil )
+            !else
                call create_ncfile ( filename, nxhis, nyhis, size(sig), multilev,                   &
                     use_plevs, use_meters, use_hyblevs, basetime, coord_heights(1:ncoords), ncid,  &
                     dims, dimvars, source, extra_atts, calendar, nsoil, zsoil )
-            else
-               call create_ncfile ( filename, nxhis, nyhis, size(sig), multilev,                   &
-                    use_plevs, use_meters, use_hyblevs, basetime, coord_heights(1:ncoords), ncid,  &
-                    dims, dimvars, source, extra_atts, calendar)
-            end if
+            !end if
             histid(ifile) = ncid
 
             do ifld=1,totflds
@@ -1171,20 +1171,24 @@ contains
                   call check_ncerr(ierr,"Error writing p0")
                end if
             end if
-            if ( soil_used .and. present(zsoil) ) then
+            !if ( soil_used .and. present(zsoil) ) then
+            if ( present(zsoil) ) then
                ierr = nf90_put_var ( ncid, dimvars%zsoil, zsoil )
                call check_ncerr(ierr,"Error writing depths")
-               ! Soil bounds
-               allocate(zsoil_bnds(2, nsoil))
-               zsoil_bnds(1,1) = 0.
-               zsoil_bnds(2,1) = 2.*zsoil(1)
-               do k=1,nsoil
-                  ! Levels are middle of layers
-                  zsoil_bnds(2,k) = zsoil_bnds(2,k-1) + 2*(zsoil(k)-zsoil_bnds(2,k-1))
-                  zsoil_bnds(1,k) = zsoil_bnds(2,k-1)
-               end do
-               ierr = nf90_put_var ( ncid, dimvars%zsoil_b, zsoil_bnds )
-               call check_ncerr(ierr,"Error writing depths")
+               if ( cf_compliant ) then
+                  ! Soil bounds
+                  allocate(zsoil_bnds(2, nsoil))
+                  zsoil_bnds(1,1) = 0.
+                  zsoil_bnds(2,1) = 2.*zsoil(1)
+                  do k=1,nsoil
+                     ! Levels are middle of layers
+                     zsoil_bnds(2,k) = zsoil_bnds(2,k-1) + 2*(zsoil(k)-zsoil_bnds(2,k-1))
+                     zsoil_bnds(1,k) = zsoil_bnds(2,k-1)
+                  end do
+                  ierr = nf90_put_var ( ncid, dimvars%zsoil_b, zsoil_bnds )
+                  call check_ncerr(ierr,"Error writing depths")
+                  deallocate(zsoil_bnds)
+               end if
             end if
 
             do kc=1,ncoords
