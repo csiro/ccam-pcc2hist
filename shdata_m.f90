@@ -15,10 +15,10 @@ contains
    subroutine allocshdata_r3(pdata, ssize, sshape, win)
       use, intrinsic :: iso_c_binding, only : c_ptr, c_f_pointer
       use mpidata_m
-#ifdef usempif
-      include 'mpif.h'
-#else
+#ifdef usempi_mod
       use mpi
+#else
+      include 'mpif.h'
 #endif
       real, pointer, dimension(:,:,:), intent(inout) :: pdata 
       integer(kind=MPI_ADDRESS_KIND), intent(in) :: ssize
@@ -39,10 +39,10 @@ contains
    subroutine allocshdata_i2(pdata, ssize, sshape, win)
       use, intrinsic :: iso_c_binding, only : c_ptr, c_f_pointer
       use mpidata_m
-#ifdef usempif
-      include 'mpif.h'
-#else
+#ifdef usempi_mod
       use mpi
+#else
+      include 'mpif.h'
 #endif
       integer, pointer, dimension(:,:), intent(inout) :: pdata 
       integer(kind=MPI_ADDRESS_KIND), intent(in) :: ssize
@@ -63,10 +63,10 @@ contains
    subroutine allocshdata_i3(pdata, ssize, sshape, win)
       use, intrinsic :: iso_c_binding, only : c_ptr, c_f_pointer
       use mpidata_m
-#ifdef usempif
-      include 'mpif.h'
-#else
+#ifdef usempi_mod
       use mpi
+#else
+      include 'mpif.h'
 #endif
       integer, pointer, dimension(:,:,:), intent(inout) :: pdata 
       integer(kind=MPI_ADDRESS_KIND), intent(in) :: ssize

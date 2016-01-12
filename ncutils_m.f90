@@ -21,10 +21,10 @@
     
 module ncutils_m
    ! Generally useful netcdf stuff
-#ifdef usenc3
-   use netcdf_m
-#else
+#ifdef usenc_mod
    use netcdf
+#else
+   use netcdf_m
 #endif
    implicit none
    private

@@ -22,10 +22,10 @@
 module work
 
    use mpidata_m
-#ifdef usenc3   
-   use netcdf_m
-#else
+#ifdef usenc_mod
    use netcdf
+#else
+   use netcdf_m
 #endif
    use ncutils_m, only : check_ncerr
    use gldata
@@ -103,6 +103,7 @@ contains
       allocate ( psl(pil,pjl*pnpan*lproc),   zs(pil,pjl*pnpan*lproc) )
       allocate ( soilt(pil,pjl*pnpan*lproc), u(pil,pjl*pnpan*lproc,kl), v(pil,pjl*pnpan*lproc,kl),  t(pil,pjl*pnpan*lproc,kl) )
       allocate ( q(pil,pjl*pnpan*lproc,kl),  ql(pil,pjl*pnpan*lproc,kl), qf(pil,pjl*pnpan*lproc,kl) )
+      allocate ( qs(pil,pjl*pnpan*lproc,kl), qg(pil,pjl*pnpan*lproc,kl) )
       allocate ( tgg(pil,pjl*pnpan*lproc,ksoil), wbice(pil,pjl*pnpan*lproc,kice) )
       allocate ( snowvar(pil,pjl*pnpan*lproc,3) )
       if ( needfld("zg") ) then
@@ -424,7 +425,7 @@ contains
                   ! possibly reorder temp, mixr, u and v in CCAM
                   call vread( "temp", t)
                   call vread( "mixr", q)
-		  q = max( q, 1.e-20 )
+                  q = max( q, 1.e-20 )
                   ! psl will not be used in height
                   call height( t, q, zs, psl, sig, hstd )
                   do k=1,size(hstd,dim=3)
@@ -441,19 +442,33 @@ contains
                if ( need3dfld("mixr")) then
                   if ( .not. use_meters ) then
                      call vread( "mixr", q )
-		     q = max( q, 1.e-20 )
+                     q = max( q, 1.e-20 )
                   end if
                   call vsavehist ( "mixr", q )
                end if
             case ( "qlg" )
                if ( need3dfld("qlg")) then
                   call vread( "qlg", ql )
+                  ql = max( ql, 0. )
                   call vsavehist ( "qlg", ql )
                end if
             case ( "qfg" )
                if ( need3dfld("qfg")) then
                   call vread( "qfg", qf )
+                  qf = max( qf, 0. )
                   call vsavehist ( "qfg", qf )
+               end if
+            case ( "qsng" )
+               if ( need3dfld("qsng")) then
+                  call vread( "qsng", qs )
+                  qs = max( qs, 0. )
+                  call vsavehist ( "qsng", qs )
+               end if
+            case ( "qgrg" )
+               if ( need3dfld("qgrg")) then
+                  call vread( "qgrg", qg )
+                  qg = max( qg, 0. )
+                  call vsavehist ( "qgrg", qg )
                end if
             ! Should to u, v as above with vector flag, but this will do for now
             case ( "u" )
@@ -657,6 +672,10 @@ contains
          needed = needfld("qlg") .or. needfld("rh")
       case ( "qfg" )
          needed = needfld("qfg") .or. needfld("rh")
+      case ( "qsng" )
+         needed = needfld("qsng")
+      case ( "qgrg" )
+         needed = needfld("qgrg")
       case default
          print*, "Error - unsupported argument for need3dfld", name
          stop
@@ -772,10 +791,10 @@ contains
                            kdate, ktime, ntracers, ksoil, kice, debug,        &
                            nqg )
 
-#ifdef usenc3
-      use netcdf_m
-#else
+#ifdef usenc_mod
       use netcdf
+#else
+      use netcdf_m
 #endif
       use newmpar_m
       use history
@@ -790,11 +809,11 @@ contains
 #ifdef parallel_int
       use, intrinsic :: iso_c_binding, only : c_ptr, c_f_pointer
       use mpidata_m
-      use shdata_m
-#ifdef usempif
-      include 'mpif.h'
-#else
+      use shdata_m      
+#ifdef usempi_mod
       use mpi
+#else
+      include 'mpif.h'
 #endif
 #endif
 
@@ -927,16 +946,16 @@ contains
          write(*,'("rlong0",f8.2," rlat0",f8.2," schmidt",f6.3)') &
                rlong0, rlat0, schmidt
       end if
-      if ( nqg >= 8 ) then
+      !if ( nqg >= 8 ) then
          ksoil = ms
-      else
-         ksoil = 2
-      end if
-      if ( nqg >= 11 ) then
+      !else
+      !   ksoil = 2
+      !end if
+      !if ( nqg >= 11 ) then
          kice = ms
-      else
-         kice = 0
-      end if
+      !else
+      !   kice = 0
+      !end if
 
 
       if ( ilt > 1 ) then
@@ -964,7 +983,7 @@ contains
       end if
       call sig2ds(sig, dsig)
       ! Note that some initial condition files don't have zsoil
-      if ( cf_compliant ) then
+      !if ( cf_compliant ) then
          if ( node2_myid.eq.0 ) then
             ierr = nf90_inq_varid (ncid, "zsoil", vid )
             call check_ncerr(ierr, "Error getting vid for zsoil")
@@ -974,7 +993,7 @@ contains
          if ( node2_nproc.gt.1 ) then
             call MPI_Bcast(zsoil,ksoil,MPI_REAL,0,node2_comm,ierr)
          end if
-      end if
+      !end if
 
 !     Set all the resolution parameters
       npanels = jl/il - 1
@@ -1091,7 +1110,7 @@ contains
 #ifdef parallel_int
       end if
 
-      if ( node_myid.eq.0 ) then
+      if ( node_myid == 0 ) then
          ssize=nxhis*nyhis
       else
          ssize=0
@@ -1160,10 +1179,10 @@ contains
       use parm_m, only : rlong0, rlat0
       use physparams, only : pi
       use logging_m      
-#ifdef usempif
-      include 'mpif.h'
-#else
+#ifdef usempi_mod
       use mpi
+#else
+      include 'mpif.h'
 #endif
       type(input_var), dimension(:) :: varlist
       integer, intent(in) :: nvars
@@ -2148,10 +2167,10 @@ contains
    subroutine fill_cc(b_io,value)
 !     routine fills in interior of an array which has undefined points
       use logging_m
-#ifdef usempif
-      include 'mpif.h'
-#else
+#ifdef usempi_mod
       use mpi
+#else
+      include 'mpif.h'
 #endif
       real, intent(inout) :: b_io(pil,pjl*pnpan*lproc)         ! input and output array
       real, intent(in)    :: value                             ! array value denoting undefined
@@ -2179,10 +2198,10 @@ contains
       use newmpar_m
       use indices_m
       use logging_m      
-#ifdef usempif
-      include 'mpif.h'
-#else
+#ifdef usempi_mod
       use mpi
+#else
+      include 'mpif.h'
 #endif
       real, dimension(pil,pjl*pnpan*lproc), intent(inout) :: b_io ! input and output array
       real, intent(in)    :: value                                ! array value denoting undefined
@@ -2296,7 +2315,7 @@ contains
 #ifdef parallel_int
       use, intrinsic :: iso_c_binding, only : c_ptr, c_f_pointer
 #endif
-#ifndef usempif
+#ifdef usempi_mod
       use mpi
 #endif
 #ifdef parallel_int
@@ -2305,7 +2324,7 @@ contains
 #endif
       use logging_m
       use parm_m, only : procformat, ioreaders
-#ifdef usempif
+#ifndef usempi_mod
       include 'mpif.h'
 #endif
   
@@ -2328,16 +2347,12 @@ contains
 
       call START_LOG(paraopen_begin)
 
-      if ( myid == 0 ) then      
+      if ( myid==0 ) then      
   
          ! parallel file input
          ip = 0
          write(pfile,"(a,'.',i6.6)") trim(ifile), ip
          ierr = nf90_open(pfile, nmode, ncid)
-         !if ( ierr /= nf90_noerr ) then
-         !   write(pfile,"(a,'.',i4.4)") trim(ifile), ip
-         !   ierr = nf90_open(pfile, nmode, ncid)
-         !end if
          call check_ncerr(ierr, "Error opening file")
       
          write(6,*) "Using parallel input files"
@@ -2354,7 +2369,20 @@ contains
 
          if ( mod(pnproc,nproc)/=0 ) then
             write(6,*) "ERROR: Number of processors is not a factor of the number of files"
-            write(6,*) "nproc,pnproc ",nproc,pnproc
+            write(6,*) "Number of processes ",nproc
+            write(6,*) "Number of files     ",pnproc
+            do n = nproc,1,-1
+               if ( mod(pnproc,n)==0 ) then
+                  write(6,*) "Try using pcc2hist with the following number of processes ",n
+                  exit
+               end if
+            end do
+            do n = nproc,pnproc
+               if ( mod(pnproc,n)==0 ) then
+                  write(6,*) "Try using pcc2hist with the following number of processes ",n
+                  exit
+               end if
+            end do
             call MPI_Abort(comm_world,-1,ierr)
          end if
 
@@ -2444,17 +2472,17 @@ contains
       end if
 
 #ifdef parallel_int
-      if ( node_myid == 0 ) then
-          ssize=pnproc*6*2
+      if ( node_myid==0 ) then
+          ssize = pnproc*6*2
       else
-          ssize=0
+          ssize = 0
       end if
       call allocshdata(ijoff,ssize,(/ pnproc, 6, 2 /),ijoff_win)
       ioff(0:pnproc-1,0:5) => ijoff(:,:,1)
       joff(0:pnproc-1,0:5) => ijoff(:,:,2)
 #endif
       
-      if ( myid /= 0 .and. node2_myid.eq.0 ) then
+      if ( myid/=0 .and. node2_myid.eq.0 ) then
       
          if ( procformat ) then
             lastrip=-1
@@ -2478,10 +2506,6 @@ contains
                   pid_max(ip_maxcnt)=node_ip(myid*lproc + ip)+1
                   write(pfile,"(a,'.',i6.6)") trim(ifile), rip
                   ier = nf90_open ( pfile, nmode, ncid_in(ip_maxcnt) )
-                  !if (ier /= nf90_noerr ) then
-                  !   write(pfile,"(a,'.',i4.4)") trim(ifile), rip
-                  !   ier = nf90_open ( pfile, nmode, ncid_in(ip) )
-                  !end if
                   if (ier /= nf90_noerr ) then
                      write(6,*) "ERROR: Cannot open ",trim(pfile)
                      call check_ncerr(ier, "open")
@@ -2493,10 +2517,6 @@ contains
             else
                write(pfile,"(a,'.',i6.6)") trim(ifile), rip
                ier = nf90_open ( pfile, nmode, ncid_in(ip) )
-               !if (ier /= nf90_noerr ) then
-               !   write(pfile,"(a,'.',i4.4)") trim(ifile), rip
-               !   ier = nf90_open ( pfile, nmode, ncid_in(ip) )
-               !end if
                if (ier /= nf90_noerr ) then
                   write(6,*) "ERROR: Cannot open ",trim(pfile)
                   call check_ncerr(ier, "open")
@@ -2530,10 +2550,6 @@ contains
                   pid_max(ip_maxcnt)=node_ip(myid*lproc + ip)+1
                   write(pfile,"(a,'.',i6.6)") trim(ifile), rip
                   ier = nf90_open ( pfile, nmode, ncid_in(ip_maxcnt) )
-                  !if ( ier /= nf90_noerr ) then
-                  !   write(pfile,"(a,'.',i4.4)") trim(ifile), rip
-                  !   ier = nf90_open ( pfile, nmode, ncid_in(ip) )
-                  !end if
                   if ( ier /= nf90_noerr ) then
                      write(6,*) "ERROR: Cannot open ",trim(pfile)
                      call check_ncerr(ier, "open")
@@ -2546,10 +2562,6 @@ contains
                rip = ip
                write(pfile,"(a,'.',i6.6)") trim(ifile), rip
                ier = nf90_open ( pfile, nmode, ncid_in(ip) )
-               !if ( ier /= nf90_noerr ) then
-               !   write(pfile,"(a,'.',i4.4)") trim(ifile), rip
-               !   ier = nf90_open ( pfile, nmode, ncid_in(ip) )
-               !end if
                if ( ier /= nf90_noerr ) then
                   write(6,*) "ERROR: Cannot open ",trim(pfile)
                   call check_ncerr(ier, "open")
@@ -2577,7 +2589,7 @@ contains
       call END_LOG(mpibcast_end)
       itest = MPI_MODE_NOPRECEDE + MPI_MODE_NOSTORE
       call MPI_Win_fence(itest,ijoff_win,ierr)
-      if ( node_myid == 0 ) then
+      if ( node_myid==0 ) then
 #endif
          select case(sdecomp)
             case ("uniform")

@@ -30,7 +30,7 @@ program cc2hist
 !  Modified by MJT to use MPI when reading parallel input files (pcc2hist).
 !  Further optimised by Paul Ryan and David Benn.
 
-#ifndef usempif
+#ifdef usempi_mod
    use mpi
 #endif
     
@@ -49,7 +49,7 @@ program cc2hist
 
    implicit none
 
-#ifdef usempif
+#ifndef usempi_mod
    include 'mpif.h'
 #endif
 
@@ -392,17 +392,19 @@ program cc2hist
             call openhist ( il, jl, nlev, plevs(1:nplevs), "_test", hlon, hlat,    &
                             basetime, year=1, nxout=nxhis, nyout=nyhis,            &
                             source=source, histfilename=ofile, pressure=use_plevs, &
-                            extra_atts=extra_atts, calendar=calendar )
+                            extra_atts=extra_atts, nsoil=ksoil, zsoil=zsoil,       &
+                            calendar=calendar )
          else if ( use_meters ) then
             call openhist ( il, jl, nlev, mlevs(1:nplevs), "_test", hlon, hlat,    &
                             basetime, year=1, nxout=nxhis, nyout=nyhis,            &
                             source=source, histfilename=ofile, height=use_meters,  &
-                            extra_atts=extra_atts, calendar=calendar )
+                            extra_atts=extra_atts, nsoil=ksoil, zsoil=zsoil,       &
+                            calendar=calendar )
          else
             call openhist ( il, jl, nlev, sig(minlev:maxlev), "_test", hlon, hlat,    &
                             basetime, year=1, nxout=nxhis, nyout=nyhis,               &
                             source=source, histfilename=ofile, extra_atts=extra_atts, &
-                            calendar=calendar )
+                            nsoil=ksoil, zsoil=zsoil, calendar=calendar )
          end if
       end if
    else
@@ -428,16 +430,17 @@ program cc2hist
             call openhist ( il, jl, nlev, plevs(1:nplevs), "_test", hlon, hlat,    &
                             basetime, year=1, nxout=nxhis, nyout=nyhis,            &
                             source=source, histfilename=ofile, pressure=use_plevs, &
-                            extra_atts=extra_atts )
+                            extra_atts=extra_atts, nsoil=ksoil, zsoil=zsoil )
          else if ( use_meters ) then
             call openhist ( il, jl, nlev, mlevs(1:nplevs), "_test", hlon, hlat,    &
                             basetime, year=1, nxout=nxhis, nyout=nyhis,            &
                             source=source, histfilename=ofile, height=use_meters,  &
-                            extra_atts=extra_atts )
+                            extra_atts=extra_atts, nsoil=ksoil, zsoil=zsoil )
          else
             call openhist ( il, jl, nlev, sig(minlev:maxlev), "_test", hlon, hlat,     &
                             basetime, year=1, nxout=nxhis, nyout=nyhis,                &
-                            source=source, histfilename=ofile, extra_atts=extra_atts )
+                            source=source, histfilename=ofile, extra_atts=extra_atts,  &
+                            nsoil=ksoil, zsoil=zsoil )
          end if
       end if  
    end if

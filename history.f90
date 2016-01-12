@@ -101,10 +101,10 @@
 
 module history
 
-#ifdef usenc3
-   use netcdf_m
-#else
+#ifdef usenc_mod
    use netcdf
+#else
+   use netcdf_m
 #endif
    use ncutils_m, only : check_ncerr
    use utils_m, only : fpequal
@@ -1169,16 +1169,16 @@ contains
             if ( present(hybrid_levels) ) then
                use_hyblevs = hybrid_levels
             end if
-            if ( soil_used ) then
-               ! Better to define a new local nsoil variable?
+            !if ( soil_used ) then
+            !   ! Better to define a new local nsoil variable?
+            !   call create_ncfile ( filename, nxhis, nyhis, size(sig), multilev,                   &
+            !        use_plevs, use_meters, use_hyblevs, basetime, coord_heights(1:ncoords), ncid,  &
+            !        dims, dimvars, source, extra_atts, calendar, nsoil, zsoil )
+            !else
                call create_ncfile ( filename, nxhis, nyhis, size(sig), multilev,                   &
                     use_plevs, use_meters, use_hyblevs, basetime, coord_heights(1:ncoords), ncid,  &
                     dims, dimvars, source, extra_atts, calendar, nsoil, zsoil )
-            else
-               call create_ncfile ( filename, nxhis, nyhis, size(sig), multilev,                   &
-                    use_plevs, use_meters, use_hyblevs, basetime, coord_heights(1:ncoords), ncid,  &
-                    dims, dimvars, source, extra_atts, calendar)
-            end if
+            !end if
             histid(ifile) = ncid
 
             do ifld=1,totflds
@@ -1256,20 +1256,24 @@ contains
                   call check_ncerr(ierr,"Error writing p0")
                end if
             end if
-            if ( soil_used .and. present(zsoil) ) then
+            !if ( soil_used .and. present(zsoil) ) then
+            if ( present(zsoil) ) then
                ierr = nf90_put_var ( ncid, dimvars%zsoil, zsoil )
                call check_ncerr(ierr,"Error writing depths")
-               ! Soil bounds
-               allocate(zsoil_bnds(2, nsoil))
-               zsoil_bnds(1,1) = 0.
-               zsoil_bnds(2,1) = 2.*zsoil(1)
-               do k=1,nsoil
-                  ! Levels are middle of layers
-                  zsoil_bnds(2,k) = zsoil_bnds(2,k-1) + 2*(zsoil(k)-zsoil_bnds(2,k-1))
-                  zsoil_bnds(1,k) = zsoil_bnds(2,k-1)
-               end do
-               ierr = nf90_put_var ( ncid, dimvars%zsoil_b, zsoil_bnds )
-               call check_ncerr(ierr,"Error writing depths")
+               if ( cf_compliant ) then
+                  ! Soil bounds
+                  allocate(zsoil_bnds(2, nsoil))
+                  zsoil_bnds(1,1) = 0.
+                  zsoil_bnds(2,1) = 2.*zsoil(1)
+                  do k=1,nsoil
+                     ! Levels are middle of layers
+                     zsoil_bnds(2,k) = zsoil_bnds(2,k-1) + 2*(zsoil(k)-zsoil_bnds(2,k-1))
+                     zsoil_bnds(1,k) = zsoil_bnds(2,k-1)
+                  end do
+                  ierr = nf90_put_var ( ncid, dimvars%zsoil_b, zsoil_bnds )
+                  call check_ncerr(ierr,"Error writing depths")
+                  deallocate(zsoil_bnds)
+               end if
             end if
 
             do kc=1,ncoords
@@ -2832,10 +2836,10 @@ contains
    subroutine gather_wrap(array_in,array_out)
       use mpidata_m, only : nproc, lproc, comm_world
       use logging_m
-#ifdef usempif
-      include 'mpif.h'
-#else
+#ifdef usempi_mod
       use mpi
+#else
+      include 'mpif.h'
 #endif   
       real, dimension(:,:,:), intent(in) :: array_in
       real, dimension(:,:,:,:), intent(out) :: array_out
@@ -2861,11 +2865,11 @@ contains
    subroutine gather_wrap(histarray,hist_a,slab,offset,maxcnt,k_indx)
       use mpidata_m, only : nproc, lproc, myid, pil, pjl, pnpan, comm_world
       use logging_m
-#ifdef usempif
-      include 'mpif.h'
-#else
+#ifdef usempi_mod
       use mpi
-#endif   
+#else
+      include 'mpif.h'
+#endif 
       integer, intent(in) :: slab, offset, maxcnt
       integer :: rrank, istart, iend, ip, k, n, ierr    
       integer, dimension(maxcnt), intent(in) :: k_indx
@@ -2877,7 +2881,7 @@ contains
    
       call START_LOG(gatherwrap_begin)
       do ip = 0,nproc-1
-         if ( (1+slab*(ip-offset)).gt.0 ) then
+         if ( (1+slab*(ip-offset)) > 0 ) then
             istart = 1+slab*(ip-offset)
             iend = slab*(ip-offset+1)
             iend = min( iend, maxcnt )
@@ -2886,9 +2890,9 @@ contains
             hist_a_tmp_remap(1:pil,1:pjl*pnpan*lproc,istart:iend,1:nproc) => &
               hist_a_tmp(1:pil*pjl*pnpan*lproc*(iend-istart+1)*nproc)
             call START_LOG(mpigather_begin)
-            call MPI_Gather(histarray_tmp,pil*pjl*pnpan*lproc*(iend-istart+1),    &
-                   MPI_REAL,hist_a_tmp_remap,pil*pjl*pnpan*lproc*(iend-istart+1), &
-                   MPI_REAL, rrank, comm_world,ierr)
+            call MPI_Gather(histarray_tmp, pil*pjl*pnpan*lproc*(iend-istart+1), MPI_REAL,    &
+                            hist_a_tmp_remap, pil*pjl*pnpan*lproc*(iend-istart+1), MPI_REAL, &
+                            rrank, comm_world, ierr)
             call END_LOG(mpigather_end)
          end if
       end do
@@ -2914,11 +2918,11 @@ contains
 
    subroutine sendrecv_wrap(htemp,cnt,slab,offset)
       use mpidata_m, only : nproc, lproc, myid, comm_world
-#ifdef usempif
-      include 'mpif.h'
-#else
+#ifdef usempi_mod
       use mpi
-#endif   
+#else
+      include 'mpif.h'
+#endif  
       real, dimension(:,:), intent(inout) :: htemp
       integer, intent(in) :: cnt, slab, offset
       integer :: rrank, nxhis, nyhis, ierr

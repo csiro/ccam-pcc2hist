@@ -21,14 +21,14 @@
     
 module logging_m
 
-#ifndef usempif
+#ifdef usempi_mod
 use mpi
 #endif
 use mpidata_m
 
 implicit none
 
-#ifdef usempif
+#ifndef usempi_mod
 include 'mpif.h'
 #endif
 

@@ -46,10 +46,10 @@ subroutine setxyz ( il, jl, kl, npanels, ifull, iquad, diag, id, jd,        &
    use indices_m
 !#ifdef parallel_int
 !   use, intrinsic :: iso_c_binding, only : c_ptr, c_f_pointer
-!#ifdef usempif
-!   include 'mpif.h'
-!#else
+!#ifdef usempi_mod
 !   use mpi
+!#else
+!   include 'mpif.h'
 !#endif
 !   use mpidata_m
 !   use shdata_m
