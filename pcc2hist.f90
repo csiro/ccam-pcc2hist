@@ -53,7 +53,7 @@ program cc2hist
    include 'mpif.h'
 #endif
 
-   character(len=MAX_ARGLEN) :: ifile, ofile
+   character(len=MAX_ARGLEN) :: ifile, ofile, cfile
 
    real :: hres = 0.
    real :: minlon = 0.0, maxlon=360.0, dlon=0.0, &
@@ -155,10 +155,13 @@ program cc2hist
    longopts(4) = loption ( "cordex", 0, 0 )
    ifile = ""
    ofile = ""
+   cfile = ""
    do
-      call getopt("d:hi:o:r:t:v",nopt,opt,optarg,longopts,longind)
+      call getopt("c:d:hi:o:r:t:v",nopt,opt,optarg,longopts,longind)
       if ( opt == -1 ) exit  ! End of options
       select case ( char(opt) )
+      case ( "c" ) 
+         cfile = optarg
       case ( "d" )
          debug = .true.
       case ( "h" ) 
@@ -222,8 +225,9 @@ program cc2hist
    end do
 
    ! Read namelist - allows overwriting of command line options
-   if ( myid==0 ) print *,"reading cc.nml"
-   open(1,file='cc.nml')
+   if ( trim(cfile) == "" ) cfile = "cc.nml"
+   if ( myid==0 ) print *,"reading ", trim(cfile)
+   open(1,file=trim(cfile))
    read(1,input)   
 
    if ( vextrap == vextrap_missing .and. int_default == int_normal ) then
