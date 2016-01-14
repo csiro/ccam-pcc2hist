@@ -986,9 +986,13 @@ contains
       !if ( cf_compliant ) then
          if ( node2_myid.eq.0 ) then
             ierr = nf90_inq_varid (ncid, "zsoil", vid )
-            call check_ncerr(ierr, "Error getting vid for zsoil")
-            ierr = nf90_get_var ( ncid, vid, zsoil)
-            call check_ncerr(ierr, "Error getting zsoil")
+            if ( ierr==nf90_noerr ) then
+               ierr = nf90_get_var ( ncid, vid, zsoil)
+               call check_ncerr(ierr, "Error getting zsoil")
+            else
+               ksoil = 0 ! missing value flag
+               zsoil(:) = 0. 
+            end if
          end if
          if ( node2_nproc.gt.1 ) then
             call MPI_Bcast(zsoil,ksoil,MPI_REAL,0,node2_comm,ierr)
