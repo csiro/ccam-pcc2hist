@@ -945,9 +945,13 @@ contains
       ! Note that some initial condition files don't have zsoil
       !if ( cf_compliant ) then
          ierr = nf90_inq_varid (ncid, "zsoil", vid )
-         call check_ncerr(ierr, "Error getting vid for zsoil")
-         ierr = nf90_get_var ( ncid, vid, zsoil)
-         call check_ncerr(ierr, "Error getting zsoil")
+         if ( ierr==nf90_noerr ) then
+            ierr = nf90_get_var ( ncid, vid, zsoil)
+            call check_ncerr(ierr, "Error getting zsoil")
+         else
+             ksoil = 0 ! missing value flag
+             zsoil(:) = 0. 
+         end if
       !end if
 
 !     Set all the resolution parameters

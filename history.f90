@@ -1172,22 +1172,24 @@ contains
                end if
             end if
             !if ( soil_used .and. present(zsoil) ) then
-            if ( present(zsoil) ) then
-               ierr = nf90_put_var ( ncid, dimvars%zsoil, zsoil )
-               call check_ncerr(ierr,"Error writing depths")
-               if ( cf_compliant ) then
-                  ! Soil bounds
-                  allocate(zsoil_bnds(2, nsoil))
-                  zsoil_bnds(1,1) = 0.
-                  zsoil_bnds(2,1) = 2.*zsoil(1)
-                  do k=1,nsoil
-                     ! Levels are middle of layers
-                     zsoil_bnds(2,k) = zsoil_bnds(2,k-1) + 2*(zsoil(k)-zsoil_bnds(2,k-1))
-                     zsoil_bnds(1,k) = zsoil_bnds(2,k-1)
-                  end do
-                  ierr = nf90_put_var ( ncid, dimvars%zsoil_b, zsoil_bnds )
+            if ( present(zsoil) .and. present(nsoil) ) then
+               if ( nsoil>0 ) then
+                  ierr = nf90_put_var ( ncid, dimvars%zsoil, zsoil )
                   call check_ncerr(ierr,"Error writing depths")
-                  deallocate(zsoil_bnds)
+                  if ( cf_compliant ) then
+                     ! Soil bounds
+                     allocate(zsoil_bnds(2, nsoil))
+                     zsoil_bnds(1,1) = 0.
+                     zsoil_bnds(2,1) = 2.*zsoil(1)
+                     do k=1,nsoil
+                        ! Levels are middle of layers
+                        zsoil_bnds(2,k) = zsoil_bnds(2,k-1) + 2*(zsoil(k)-zsoil_bnds(2,k-1))
+                        zsoil_bnds(1,k) = zsoil_bnds(2,k-1)
+                     end do
+                     ierr = nf90_put_var ( ncid, dimvars%zsoil_b, zsoil_bnds )
+                     call check_ncerr(ierr,"Error writing depths")
+                     deallocate(zsoil_bnds)
+                  end if
                end if
             end if
 
@@ -1673,18 +1675,20 @@ contains
             print*, "Error - missing zsoil argument"
             stop
          end if
-         ierr = nf90_def_var ( ncid, "depth", NF90_FLOAT, dims%zsoil, dimvars%zsoil)
-         call check_ncerr(ierr)
-         ierr = nf90_put_att ( ncid, dimvars%zsoil, "long_name", "depth of soil layers" )
-         ierr = nf90_put_att ( ncid, dimvars%zsoil, "standard_name", "depth" )
-         call check_ncerr(ierr)
-         ierr = nf90_put_att ( ncid, dimvars%zsoil, "units", "m" )
-         call check_ncerr(ierr)
-         if ( cf_compliant ) then
-            ierr = nf90_put_att ( ncid, dimvars%zsoil, "bounds", "depth_bnds" )
+         if ( nsoil>0 ) then
+            ierr = nf90_def_var ( ncid, "depth", NF90_FLOAT, dims%zsoil, dimvars%zsoil)
             call check_ncerr(ierr)
-            ierr = nf90_def_var ( ncid, "depth_bnds", NF90_FLOAT, (/dims%b, dims%zsoil/), dimvars%zsoil_b)
+            ierr = nf90_put_att ( ncid, dimvars%zsoil, "long_name", "depth of soil layers" )
+            ierr = nf90_put_att ( ncid, dimvars%zsoil, "standard_name", "depth" )
             call check_ncerr(ierr)
+            ierr = nf90_put_att ( ncid, dimvars%zsoil, "units", "m" )
+            call check_ncerr(ierr)
+            if ( cf_compliant ) then
+               ierr = nf90_put_att ( ncid, dimvars%zsoil, "bounds", "depth_bnds" )
+               call check_ncerr(ierr)
+               ierr = nf90_def_var ( ncid, "depth_bnds", NF90_FLOAT, (/dims%b, dims%zsoil/), dimvars%zsoil_b)
+               call check_ncerr(ierr)
+            end if
          end if
       end if
 
