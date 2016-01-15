@@ -2693,9 +2693,11 @@ contains
                call check_ncerr(ierr, "Error getting vid for "//name)
           
                if ( node2_nproc.gt.1 ) then
-                  ierr = nf90_get_var ( ncid_in(ip), vid, ginarray2(:,:,ip_min(ip):ip_max(ip)), start=(/ 1, 1, pid_min(ip), nrec /), count=(/ pil, pjl*pnpan, pid_max(ip)-pid_min(ip)+1, 1 /) )
+                  ierr = nf90_get_var ( ncid_in(ip), vid, ginarray2(:,:,ip_min(ip):ip_max(ip)),&
+                         start=(/ 1, 1, pid_min(ip), nrec /), count=(/ pil, pjl*pnpan, pid_max(ip)-pid_min(ip)+1, 1 /) )
                else
-                  ierr = nf90_get_var ( ncid_in(ip), vid, inarray2(:,:,ip_min(ip):ip_max(ip)), start=(/ 1, 1, pid_min(ip), nrec /), count=(/ pil, pjl*pnpan, pid_max(ip)-pid_min(ip)+1, 1 /) )
+                  ierr = nf90_get_var ( ncid_in(ip), vid, inarray2(:,:,ip_min(ip):ip_max(ip)),&
+                         start=(/ 1, 1, pid_min(ip), nrec /), count=(/ pil, pjl*pnpan, pid_max(ip)-pid_min(ip)+1, 1 /) )
                end if
                call check_ncerr(ierr, "Error getting var "//name)
             end do
@@ -2790,17 +2792,20 @@ contains
                call check_ncerr(ierr, "Error getting vid for "//name)
           
                if ( node2_nproc.gt.1 ) then
-                  ierr = nf90_get_var ( ncid_in(ip), vid, ginarray3(:,:,:,ip_min(ip):ip_max(ip)), start=(/ 1, 1, minlev, pid_min(ip), nrec /), &
+                  ierr = nf90_get_var ( ncid_in(ip), vid, ginarray3(:,:,:,ip_min(ip):ip_max(ip)),&
+                               start=(/ 1, 1, minlev, pid_min(ip), nrec /),&
                                count=(/ pil, pjl*pnpan, maxlev-minlev+1, pid_max(ip)-pid_min(ip)+1, 1 /) )
                else
-                  ierr = nf90_get_var ( ncid_in(ip), vid, inarray3(:,:,:,ip_min(ip):ip_max(ip)), start=(/ 1, 1, minlev, pid_min(ip), nrec /), &
+                  ierr = nf90_get_var ( ncid_in(ip), vid, inarray3(:,:,:,ip_min(ip):ip_max(ip)),&
+                               start=(/ 1, 1, minlev, pid_min(ip), nrec /),&
                                count=(/ pil, pjl*pnpan, maxlev-minlev+1, pid_max(ip)-pid_min(ip)+1, 1 /) )
                end if
                call check_ncerr(ierr, "Error getting var "//name)
             end do
          end if
          if ( node2_nproc.gt.1 ) then
-            call MPI_Scatter(ginarray3,pil*pjl*pnpan*(maxlev-minlev+1)*lproc,MPI_REAL,inarray3,pil*pjl*pnpan*(maxlev-minlev+1)*lproc,MPI_REAL,0,node2_comm,ierr)
+            call MPI_Scatter(ginarray3,pil*pjl*pnpan*(maxlev-minlev+1)*lproc,MPI_REAL,inarray3,&
+                             pil*pjl*pnpan*(maxlev-minlev+1)*lproc,MPI_REAL,0,node2_comm,ierr)
          end if
          if ( node2_myid.eq.0 ) then
              ierr = nf90_inq_varid ( ncid_in(0), name, vid )

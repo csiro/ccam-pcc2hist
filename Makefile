@@ -1,5 +1,5 @@
 FC = mpif90
-FFLAGS = -O -xHost -ftz -Dparallel_int -fp-model precise -align array32byte
+FFLAGS = -O -xHost -ftz -Dparallel_int -fp-model precise -align array32byte -D_usenc_mod -D_ncclib -D_usempi_mod
 INC = -I $(NETCDF_ROOT)/include
 LIBS = -L $(NETCDF_ROOT)/lib -lnetcdf -lnetcdff
 PPFLAG90 = -fpp
