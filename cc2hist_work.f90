@@ -810,11 +810,11 @@ contains
       use, intrinsic :: iso_c_binding, only : c_ptr, c_f_pointer
       use mpidata_m
       use shdata_m      
+#endif
 #ifdef usempi_mod
       use mpi
 #else
       include 'mpif.h'
-#endif
 #endif
 
       real, intent(inout)  :: hres
