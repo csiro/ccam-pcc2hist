@@ -996,7 +996,7 @@ contains
          end if
          if ( node2_nproc.gt.1 ) then
             call MPI_Bcast(ksoil,1,MPI_INTEGER,0,node2_comm,ierr)
-            call MPI_Bcast(zsoil,ksoil,MPI_REAL,0,node2_comm,ierr)
+            call MPI_Bcast(zsoil,size(zsoil),MPI_REAL,0,node2_comm,ierr)
          end if
       !end if
 
