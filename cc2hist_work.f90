@@ -2929,6 +2929,7 @@ contains
    end subroutine proc_setup
 
    subroutine proc_setup_uniform(il_g,jl_g,nproc,nin,il,jl,ioff,joff,npan)
+      use parm_m, only : procformat
       integer, intent(in) :: il_g, jl_g, nproc, nin
       integer, intent(out) :: il, jl, npan
       integer, dimension(0:) :: ioff, joff
@@ -2954,43 +2955,79 @@ contains
 
       ! Offsets
       do n = 0,nproc-1
-        select case(nin)
-           case(0)
-              joff(n) = (n/nxproc) * jl
-              ioff(n) = modulo(n,nxproc)*il
-              if (joff(n).ge.il_g/2) then
-                 ioff(n)=il_g-ioff(n)-il
-              end if
-           case(1)
-              joff(n) = (n/nxproc) * jl
-              ioff(n) = modulo(n,nxproc)*il
-           case(2)
-              joff(n) = (n/nxproc) * jl
-              ioff(n) = modulo(n,nxproc)*il
-              if (ioff(n).ge.il_g/2) then
-                 joff(n)=il_g-joff(n)-jl
-              end if
-           case(3)
-              joff(n) = modulo(n,nyproc)*jl
-              ioff(n) = (n/nyproc) * il
-              if (ioff(n).ge.il_g/2) then
-                 joff(n)=il_g-joff(n)-jl
-              end if
-           case(4)
-              joff(n) = modulo(n,nyproc)*jl
-              ioff(n) = (n/nyproc) * il
-           case(5)
-              joff(n) = modulo(n,nyproc)*jl
-              ioff(n) = (n/nyproc) * il
-              if (joff(n).ge.il_g/2) then
-                 ioff(n)=il_g-ioff(n)-il
-              end if        
-        end select
+        if ( procformat ) then
+           select case(nin)
+              case(0)
+                 joff(gproc_map(n)) = (n/nxproc) * jl
+                 ioff(gproc_map(n)) = modulo(n,nxproc)*il
+                 if (joff(gproc_map(n)).ge.il_g/2) then
+                    ioff(gproc_map(n))=il_g-ioff(gproc_map(n))-il
+                 end if
+              case(1)
+                 joff(gproc_map(n)) = (n/nxproc) * jl
+                 ioff(gproc_map(n)) = modulo(n,nxproc)*il
+              case(2)
+                 joff(gproc_map(n)) = (n/nxproc) * jl
+                 ioff(gproc_map(n)) = modulo(n,nxproc)*il
+                 if (ioff(gproc_map(n)).ge.il_g/2) then
+                    joff(gproc_map(n))=il_g-joff(gproc_map(n))-jl
+                 end if
+              case(3)
+                 joff(gproc_map(n)) = modulo(n,nyproc)*jl
+                 ioff(gproc_map(n)) = (n/nyproc) * il
+                 if (ioff(gproc_map(n)).ge.il_g/2) then
+                    joff(gproc_map(n))=il_g-joff(gproc_map(n))-jl
+                 end if
+              case(4)
+                 joff(gproc_map(n)) = modulo(n,nyproc)*jl
+                 ioff(gproc_map(n)) = (n/nyproc) * il
+              case(5)
+                 joff(gproc_map(n)) = modulo(n,nyproc)*jl
+                 ioff(gproc_map(n)) = (n/nyproc) * il
+                 if (joff(gproc_map(n)).ge.il_g/2) then
+                    ioff(gproc_map(n))=il_g-ioff(gproc_map(n))-il
+                 end if        
+           end select
+        else
+           select case(nin)
+              case(0)
+                 joff(n) = (n/nxproc) * jl
+                 ioff(n) = modulo(n,nxproc)*il
+                 if (joff(n).ge.il_g/2) then
+                    ioff(n)=il_g-ioff(n)-il
+                 end if
+              case(1)
+                 joff(n) = (n/nxproc) * jl
+                 ioff(n) = modulo(n,nxproc)*il
+              case(2)
+                 joff(n) = (n/nxproc) * jl
+                 ioff(n) = modulo(n,nxproc)*il
+                 if (ioff(n).ge.il_g/2) then
+                    joff(n)=il_g-joff(n)-jl
+                 end if
+              case(3)
+                 joff(n) = modulo(n,nyproc)*jl
+                 ioff(n) = (n/nyproc) * il
+                 if (ioff(n).ge.il_g/2) then
+                    joff(n)=il_g-joff(n)-jl
+                 end if
+              case(4)
+                 joff(n) = modulo(n,nyproc)*jl
+                 ioff(n) = (n/nyproc) * il
+              case(5)
+                 joff(n) = modulo(n,nyproc)*jl
+                 ioff(n) = (n/nyproc) * il
+                 if (joff(n).ge.il_g/2) then
+                    ioff(n)=il_g-ioff(n)-il
+                 end if        
+           end select
+        end if
       end do
 
    end subroutine proc_setup_uniform
 
    subroutine proc_setup_dix(il_g,jl_g,nproc,nin,il,jl,ioff,joff,npan)
+      use parm_m, only : procformat
       integer, intent(in) :: il_g, jl_g, nproc, nin
       integer, intent(out) :: il, jl, npan
       integer, dimension(0:) :: ioff, joff
@@ -3016,8 +3053,10 @@ contains
 
       ! Offsets
       do n = 0,nproc-1
-         joff(n) = (n/nxproc) * jl
-         ioff(n) = modulo(n,nxproc)*il
+         if ( procformat ) then
+            joff(gproc_map(n)) = (n/nxproc) * jl
+            ioff(gproc_map(n)) = modulo(n,nxproc)*il
+         end if
       end do
 
    end subroutine proc_setup_dix
