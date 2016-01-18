@@ -3056,6 +3056,9 @@ contains
          if ( procformat ) then
             joff(gproc_map(n)) = (n/nxproc) * jl
             ioff(gproc_map(n)) = modulo(n,nxproc)*il
+         else
+            joff(n) = (n/nxproc) * jl
+            ioff(n) = modulo(n,nxproc)*il
          end if
       end do
 
