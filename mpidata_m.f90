@@ -39,5 +39,6 @@ integer, save, public :: pil_g, pjl_g
 integer, save, public :: node_comm, node_myid, node_nproc
 integer, save, public :: ijoff_win
 #endif
+integer, save, public :: comm_world
 
 end module mpidata_m

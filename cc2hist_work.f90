@@ -1235,7 +1235,7 @@ contains
          end if 
 
          call START_LOG(mpiscatter_begin)
-         call MPI_Scatter(c_io,pil*pjl*pnpan*lproc,MPI_REAL,costh,pil*pjl*pnpan*lproc,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+         call MPI_Scatter(c_io,pil*pjl*pnpan*lproc,MPI_REAL,costh,pil*pjl*pnpan*lproc,MPI_REAL,0,comm_world,ierr)
 	 call END_LOG(mpiscatter_end)
 
 #ifdef parallel_int
@@ -1252,7 +1252,7 @@ contains
          end if
 
          call START_LOG(mpiscatter_begin)
-         call MPI_Scatter(c_io,pil*pjl*pnpan*lproc,MPI_REAL,sinth,pil*pjl*pnpan*lproc,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+         call MPI_Scatter(c_io,pil*pjl*pnpan*lproc,MPI_REAL,sinth,pil*pjl*pnpan*lproc,MPI_REAL,0,comm_world,ierr)
 	 call END_LOG(mpiscatter_end)
 
 #ifdef parallel_int
@@ -2059,10 +2059,10 @@ contains
       else
          lsize = pil*pjl*pnpan*lproc
 	 call START_LOG(mpigather_begin)
-         call MPI_Gather(b_io,lsize,MPI_REAL,c_io,lsize,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+         call MPI_Gather(b_io,lsize,MPI_REAL,c_io,lsize,MPI_REAL,0,comm_world,ierr)
 	 call END_LOG(mpigather_end)
 	 call START_LOG(mpiscatter_begin)
-         call MPI_Scatter(c_io,lsize,MPI_REAL,b_io,lsize,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+         call MPI_Scatter(c_io,lsize,MPI_REAL,b_io,lsize,MPI_REAL,0,comm_world,ierr)
 	 call END_LOG(mpiscatter_end)
       end if
       call END_LOG(fillcc_end)
@@ -2092,7 +2092,7 @@ contains
       call START_LOG(fillcc0_begin)
       lsize = pil*pjl*pnpan*lproc
       call START_LOG(mpigather_begin)
-      call MPI_Gather(b_io,lsize,MPI_REAL,c_io,lsize,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Gather(b_io,lsize,MPI_REAL,c_io,lsize,MPI_REAL,0,comm_world,ierr)
       call END_LOG(mpigather_end)
 
       do ip = 0,pnproc-1   
@@ -2180,7 +2180,7 @@ contains
       end do
       
       call START_LOG(mpiscatter_begin)
-      call MPI_Scatter(c_io,lsize,MPI_REAL,b_io,lsize,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Scatter(c_io,lsize,MPI_REAL,b_io,lsize,MPI_REAL,0,comm_world,ierr)
       call END_LOG(mpiscatter_end)
       call END_LOG(fillcc0_end)
       
@@ -2249,7 +2249,7 @@ contains
                   exit
                end if
             end do
-            call MPI_Abort(MPI_COMM_WORLD,-1,ierr)
+            call MPI_Abort(comm_world,-1,ierr)
          end if
 
 #ifndef parallel_int
@@ -2259,7 +2259,7 @@ contains
       end if
       
       call START_LOG(mpibcast_begin)
-      call MPI_Bcast(pnproc,1,MPI_INTEGER,0,MPI_COMM_WORLD,ier)
+      call MPI_Bcast(pnproc,1,MPI_INTEGER,0,comm_world,ier)
       call END_LOG(mpibcast_end)
       lproc = pnproc/nproc !number of files each mpi_proc will work on      
       allocate( ncid_in(0:lproc-1) )
@@ -2315,9 +2315,9 @@ contains
 #ifdef parallel_int
       end if
       call START_LOG(mpibcast_begin)
-      call MPI_Bcast(pil_g,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(pjl_g,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(sdecomp,8,MPI_CHAR,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(pil_g,1,MPI_INTEGER,0,comm_world,ierr)
+      call MPI_Bcast(pjl_g,1,MPI_INTEGER,0,comm_world,ierr)
+      call MPI_Bcast(sdecomp,8,MPI_CHAR,0,comm_world,ierr)
       call END_LOG(mpibcast_end)
       itest = MPI_MODE_NOPRECEDE + MPI_MODE_NOSTORE
       call MPI_Win_fence(itest,ijoff_win,ierr)
@@ -2357,7 +2357,7 @@ contains
 #endif
       
       call START_LOG(mpibcast_begin)
-      call MPI_Bcast(jdum(1:5),5,MPI_INTEGER,0,MPI_COMM_WORLD,ier)
+      call MPI_Bcast(jdum(1:5),5,MPI_INTEGER,0,comm_world,ier)
       call END_LOG(mpibcast_end)
       pil   = jdum(1)
       pjl   = jdum(2)

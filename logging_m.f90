@@ -229,11 +229,11 @@ contains
       real(kind=8), dimension(nevents) :: emean, emax, emin
       llen=nevents
       call MPI_Reduce(tot_time, emean, llen, MPI_DOUBLE_PRECISION, &
-                      MPI_SUM, 0_4, MPI_COMM_WORLD, ierr )
+                      MPI_SUM, 0_4, comm_world, ierr )
       call MPI_Reduce(tot_time, emax, llen, MPI_DOUBLE_PRECISION, &
-                      MPI_MAX, 0_4, MPI_COMM_WORLD, ierr )
+                      MPI_MAX, 0_4, comm_world, ierr )
       call MPI_Reduce(tot_time, emin, llen, MPI_DOUBLE_PRECISION, &
-                      MPI_MIN, 0_4, MPI_COMM_WORLD, ierr )
+                      MPI_MIN, 0_4, comm_world, ierr )
       if ( myid == 0 ) then
          write(6,*) "==============================================="
          write(6,*) "  Times over all processes"

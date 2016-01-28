@@ -99,11 +99,12 @@ program cc2hist
 #endif
 
    call MPI_Init(ierr)
-   call MPI_Comm_size(MPI_COMM_WORLD, nproc, ierr) ! Find number of processes
-   call MPI_Comm_rank(MPI_COMM_WORLD, myid, ierr)  ! Find local processor id
+   comm_world=comm_world
+   call MPI_Comm_size(comm_world, nproc, ierr) ! Find number of processes
+   call MPI_Comm_rank(comm_world, myid, ierr)  ! Find local processor id
 
 #ifdef parallel_int
-   call MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, node_comm, ierr) ! Per node communictor
+   call MPI_Comm_split_type(comm_world, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, node_comm, ierr) ! Per node communictor
    call MPI_Comm_size(node_comm, node_nproc, ierr) ! Find number of processes on node
    call MPI_Comm_rank(node_comm, node_myid, ierr)  ! Find local processor id on node
 #endif
@@ -157,7 +158,7 @@ program cc2hist
                optionstring = optionstring(:len_trim(optionstring)) // " --interp=none"
             case default
                print*, "Expected nearest, linear or none for interp option"
-               call MPI_ABORT(MPI_COMM_WORLD,-1,ierr)
+               call MPI_ABORT(comm_world,-1,ierr)
             end select
          case ( 2 )
             select case ( optarg )
@@ -171,7 +172,7 @@ program cc2hist
                optionstring = optionstring(:len_trim(optionstring)) // " --vextrap=missing"
             case default
                print*, "Expected linear, none or missing for vextrap option"
-               call MPI_ABORT(MPI_COMM_WORLD,-1,ierr)
+               call MPI_ABORT(comm_world,-1,ierr)
             end select
          case ( 3 )
             cf_compliant = .true.
@@ -179,7 +180,7 @@ program cc2hist
             cordex_compliant = .true.
          case default
             print*, "Unexpected result processing long options", longind
-            call MPI_ABORT(MPI_COMM_WORLD,-1,ierr)
+            call MPI_ABORT(comm_world,-1,ierr)
          end select
       case default
          if ( myid == 0 ) then
@@ -196,7 +197,7 @@ program cc2hist
    
    if ( vextrap == vextrap_missing .and. int_default == int_normal ) then
       print*, "For missing option to work, must set interp to linear or nearest"
-      call MPI_ABORT(MPI_COMM_WORLD,-1,ierr)
+      call MPI_ABORT(comm_world,-1,ierr)
    end if
 
 !  If filenames were not set as options look for them as arguments
@@ -214,12 +215,12 @@ program cc2hist
 
    if ( len_trim(ifile) == 0 .or. len_trim(ofile) == 0 ) then
       print*, "Error setting input/output filenames"
-      call MPI_ABORT(MPI_COMM_WORLD,-1,ierr)
+      call MPI_ABORT(comm_world,-1,ierr)
    end if
 
    if ( use_plevs .and. use_meters ) then
       print *,"Cannot both use_plevs and use_meters together"
-      call MPI_ABORT(MPI_COMM_WORLD,-1,ierr)
+      call MPI_ABORT(comm_world,-1,ierr)
    end if
 
 !  Check whether ndate and ntime have been set
