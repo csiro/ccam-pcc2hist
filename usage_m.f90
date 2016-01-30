@@ -35,8 +35,8 @@ module usage_m
 "Usage: mpirun -np nproc pcc2hist [-h] [-r res] [-v] [input_file] [output_file]", &
 "  pcc2hist -h for full list of options and more information."
    end if
-   call mpi_barrier(MPI_COMM_WORLD,ierr)
-   call mpi_abort(MPI_COMM_WORLD,-1,ierr)
+   call mpi_barrier(comm_world,ierr)
+   call mpi_abort(comm_world,-1,ierr)
    end subroutine usage
 
    subroutine help(version)
@@ -151,8 +151,8 @@ module usage_m
  
    end if
    
-   call mpi_barrier(MPI_COMM_WORLD,ierr)
-   call mpi_abort(MPI_COMM_WORLD,-1,ierr)
+   call mpi_barrier(comm_world,ierr)
+   call mpi_abort(comm_world,-1,ierr)
 
    end subroutine help
 end module usage_m

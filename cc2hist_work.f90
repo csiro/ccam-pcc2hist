@@ -1235,7 +1235,7 @@ contains
          end if 
 
          call START_LOG(mpiscatter_begin)
-         call MPI_Scatter(c_io,pil*pjl*pnpan*lproc,MPI_REAL,costh,pil*pjl*pnpan*lproc,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+         call MPI_Scatter(c_io,pil*pjl*pnpan*lproc,MPI_REAL,costh,pil*pjl*pnpan*lproc,MPI_REAL,0,comm_world,ierr)
 	 call END_LOG(mpiscatter_end)
 
 #ifdef parallel_int
@@ -1252,7 +1252,7 @@ contains
          end if
 
          call START_LOG(mpiscatter_begin)
-         call MPI_Scatter(c_io,pil*pjl*pnpan*lproc,MPI_REAL,sinth,pil*pjl*pnpan*lproc,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+         call MPI_Scatter(c_io,pil*pjl*pnpan*lproc,MPI_REAL,sinth,pil*pjl*pnpan*lproc,MPI_REAL,0,comm_world,ierr)
 	 call END_LOG(mpiscatter_end)
 
 #ifdef parallel_int
@@ -2059,10 +2059,10 @@ contains
       else
          lsize = pil*pjl*pnpan*lproc
 	 call START_LOG(mpigather_begin)
-         call MPI_Gather(b_io,lsize,MPI_REAL,c_io,lsize,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+         call MPI_Gather(b_io,lsize,MPI_REAL,c_io,lsize,MPI_REAL,0,comm_world,ierr)
 	 call END_LOG(mpigather_end)
 	 call START_LOG(mpiscatter_begin)
-         call MPI_Scatter(c_io,lsize,MPI_REAL,b_io,lsize,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+         call MPI_Scatter(c_io,lsize,MPI_REAL,b_io,lsize,MPI_REAL,0,comm_world,ierr)
 	 call END_LOG(mpiscatter_end)
       end if
       call END_LOG(fillcc_end)
@@ -2092,7 +2092,7 @@ contains
       call START_LOG(fillcc0_begin)
       lsize = pil*pjl*pnpan*lproc
       call START_LOG(mpigather_begin)
-      call MPI_Gather(b_io,lsize,MPI_REAL,c_io,lsize,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Gather(b_io,lsize,MPI_REAL,c_io,lsize,MPI_REAL,0,comm_world,ierr)
       call END_LOG(mpigather_end)
 
       do ip = 0,pnproc-1   
@@ -2180,7 +2180,7 @@ contains
       end do
       
       call START_LOG(mpiscatter_begin)
-      call MPI_Scatter(c_io,lsize,MPI_REAL,b_io,lsize,MPI_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Scatter(c_io,lsize,MPI_REAL,b_io,lsize,MPI_REAL,0,comm_world,ierr)
       call END_LOG(mpiscatter_end)
       call END_LOG(fillcc0_end)
       
@@ -2211,6 +2211,7 @@ contains
       character(len=*), intent(in) :: ifile
       character(len=266) :: pfile
       character(len=8) :: sdecomp
+      integer :: colour
 
 #ifdef parallel_int
       integer(kind=MPI_ADDRESS_KIND) :: ssize
@@ -2234,22 +2235,16 @@ contains
          call check_ncerr(ier, "nproc")
 
          if ( mod(pnproc,nproc)/=0 ) then
-            write(6,*) "ERROR: Number of processors is not a factor of the number of files"
-            write(6,*) "Number of processes ",nproc
-            write(6,*) "Number of files     ",pnproc
+            write(6,'(x,a,i0,a,i0,a)') "WARNING: Number of processors(",nproc,&
+                                     ") is not a factor of the number of files(",pnproc,")"
+            nproc_orig=nproc
             do n = nproc,1,-1
                if ( mod(pnproc,n)==0 ) then
-                  write(6,*) "Try using pcc2hist with the following number of processes ",n
+                  write(6,'(x,a,i0)') "WARNING: Using pcc2hist with the following number of processes: ",n
+                  nproc=n
                   exit
                end if
             end do
-            do n = nproc,pnproc
-               if ( mod(pnproc,n)==0 ) then
-                  write(6,*) "Try using pcc2hist with the following number of processes ",n
-                  exit
-               end if
-            end do
-            call MPI_Abort(MPI_COMM_WORLD,-1,ierr)
          end if
 
 #ifndef parallel_int
@@ -2259,8 +2254,37 @@ contains
       end if
       
       call START_LOG(mpibcast_begin)
-      call MPI_Bcast(pnproc,1,MPI_INTEGER,0,MPI_COMM_WORLD,ier)
+      call MPI_Bcast(pnproc,1,MPI_INTEGER,0,comm_world,ier)
+      call MPI_Bcast(nproc,1,MPI_INTEGER,0,comm_world,ier)
       call END_LOG(mpibcast_end)
+
+      if (myid.lt.nproc ) then
+         colour=0
+      else
+         colour=1
+      end if
+      call MPI_Comm_split(comm_world, colour, myid, comm_reduced, ierr)
+      call MPI_Comm_size(comm_reduced, nproc_reduced, ierr)
+      call MPI_Comm_rank(comm_reduced, myid_reduced, ierr)
+
+      !redefine comm_world & myid
+      comm_world=comm_reduced
+      myid=myid_reduced
+      nproc=nproc_reduced
+
+      !exit color=1 ranks
+      if ( colour.eq.1 ) then
+         call MPI_Finalize(ierr)
+         stop
+      end if
+
+#ifdef parallel_int
+      !redefine the per node communicator
+      call MPI_Comm_split_type(comm_world, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, node_comm, ierr) ! Per node communictor
+      call MPI_Comm_size(node_comm, node_nproc, ierr) ! Find number of processes on node
+      call MPI_Comm_rank(node_comm, node_myid, ierr)  ! Find local processor id on node
+#endif
+
       lproc = pnproc/nproc !number of files each mpi_proc will work on      
       allocate( ncid_in(0:lproc-1) )
 
@@ -2315,9 +2339,9 @@ contains
 #ifdef parallel_int
       end if
       call START_LOG(mpibcast_begin)
-      call MPI_Bcast(pil_g,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(pjl_g,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(sdecomp,8,MPI_CHAR,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(pil_g,1,MPI_INTEGER,0,comm_world,ierr)
+      call MPI_Bcast(pjl_g,1,MPI_INTEGER,0,comm_world,ierr)
+      call MPI_Bcast(sdecomp,8,MPI_CHAR,0,comm_world,ierr)
       call END_LOG(mpibcast_end)
       itest = MPI_MODE_NOPRECEDE + MPI_MODE_NOSTORE
       call MPI_Win_fence(itest,ijoff_win,ierr)
@@ -2357,7 +2381,7 @@ contains
 #endif
       
       call START_LOG(mpibcast_begin)
-      call MPI_Bcast(jdum(1:5),5,MPI_INTEGER,0,MPI_COMM_WORLD,ier)
+      call MPI_Bcast(jdum(1:5),5,MPI_INTEGER,0,comm_world,ier)
       call END_LOG(mpibcast_end)
       pil   = jdum(1)
       pjl   = jdum(2)

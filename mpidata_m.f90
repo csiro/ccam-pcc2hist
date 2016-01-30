@@ -32,12 +32,14 @@ integer, dimension(:,:,:), save, pointer, contiguous, public :: ijoff
 #else
 integer, dimension(:,:), save, allocatable, public :: ioff, joff
 #endif
-integer, save, public :: myid, nproc
+integer, save, public :: myid, nproc, nproc_orig
 integer, save, public :: pil, pjl, pnpan, pnproc, lproc
 integer, save, public :: pil_g, pjl_g
 #ifdef parallel_int
 integer, save, public :: node_comm, node_myid, node_nproc
 integer, save, public :: ijoff_win
 #endif
+integer, save, public :: comm_world, comm_reduced
+integer, save, public :: myid_reduced, nproc_reduced
 
 end module mpidata_m
