@@ -99,7 +99,7 @@ program cc2hist
 #endif
 
    call MPI_Init(ierr)
-   comm_world=comm_world
+   comm_world=MPI_COMM_WORLD
    call MPI_Comm_size(comm_world, nproc, ierr) ! Find number of processes
    call MPI_Comm_rank(comm_world, myid, ierr)  ! Find local processor id
 
