@@ -2234,10 +2234,10 @@ contains
          ier = nf90_get_att(ncid, nf90_global, "nproc", pnproc)
          call check_ncerr(ier, "nproc")
 
+         nproc_orig=nproc
          if ( mod(pnproc,nproc)/=0 ) then
             write(6,'(x,a,i0,a,i0,a)') "WARNING: Number of processors(",nproc,&
                                      ") is not a factor of the number of files(",pnproc,")"
-            nproc_orig=nproc
             do n = nproc,1,-1
                if ( mod(pnproc,n)==0 ) then
                   write(6,'(x,a,i0)') "WARNING: Using pcc2hist with the following number of processes: ",n
