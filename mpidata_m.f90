@@ -35,16 +35,17 @@ integer, dimension(:,:,:), save, pointer, contiguous, public :: ijoff
 #else
 integer, dimension(:,:), save, allocatable, public :: ioff, joff
 #endif
-integer, save, public :: myid, nproc
+integer, save, public :: myid, nproc, nproc_orig
 integer, save, public :: myid_leader, nproc_leader
 integer, save, public :: myid_reordered, nproc_reordered
+integer, save, public :: myid_reduced, nproc_reduced
 integer, save, public :: pil, pjl, pnpan, pnproc, lproc, inarray2size
 integer, save, public :: pil_g, pjl_g
 integer, save, public :: node_comm, node_myid, node_nproc
 #ifdef parallel_int
 integer, save, public :: ijoff_win
 #endif
-integer, save, public :: comm_world, comm_reordered, comm_leader
+integer, save, public :: comm_world, comm_reordered, comm_leader, comm_reduced
 integer, save, public :: node2_comm, node2_myid, node2_nproc
 integer, dimension(:), save, allocatable, public :: gprocessor, proc2file, gproc_map, node_ip
 

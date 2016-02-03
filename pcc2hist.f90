@@ -100,7 +100,6 @@ program cc2hist
 #endif
 
    call MPI_Init(ierr)
-
    comm_world=MPI_COMM_WORLD
    call MPI_Comm_size(comm_world, nproc, ierr) ! Find number of processes
    call MPI_Comm_rank(comm_world, myid, ierr)  ! Find local processor id
@@ -528,6 +527,12 @@ program cc2hist
             else
                write(*,"(a)") " - Saved"
             end if
+         end if
+
+         if ( myid.eq.0 .and. nproc_orig.ne.nproc ) then
+            write(6,'(x,a,i0,a,i0,a)') "WARNING: Number of processors(",nproc_orig,&
+                                       ") is not a factor of the number of files(",pnproc,")"
+            write(6,'(x,a,i0)') "WARNING: Using pcc2hist with the following number of processes: ",nproc
          end if
 
          if ( .not. skip ) then

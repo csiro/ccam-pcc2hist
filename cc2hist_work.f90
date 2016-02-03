@@ -2344,6 +2344,8 @@ contains
       character(len=8) :: sdecomp
       integer :: fac
       integer, dimension(:), allocatable :: proc_nodes
+      integer :: colour, llen
+      character*(MPI_MAX_PROCESSOR_NAME) :: node_name
 
 #ifdef parallel_int
       integer(kind=MPI_ADDRESS_KIND) :: ssize
@@ -2372,23 +2374,17 @@ contains
            procformat = .true.
          end if
 
+         nproc_orig=nproc
          if ( mod(pnproc,nproc)/=0 ) then
-            write(6,*) "ERROR: Number of processors is not a factor of the number of files"
-            write(6,*) "Number of processes ",nproc
-            write(6,*) "Number of files     ",pnproc
+            write(6,'(x,a,i0,a,i0,a)') "WARNING: Number of processors(",nproc,&
+                                     ") is not a factor of the number of files(",pnproc,")"
             do n = nproc,1,-1
                if ( mod(pnproc,n)==0 ) then
-                  write(6,*) "Try using pcc2hist with the following number of processes ",n
+                  write(6,'(x,a,i0)') "WARNING: Using pcc2hist with the following number of processes: ",n
+                  nproc=n
                   exit
                end if
             end do
-            do n = nproc,pnproc
-               if ( mod(pnproc,n)==0 ) then
-                  write(6,*) "Try using pcc2hist with the following number of processes ",n
-                  exit
-               end if
-            end do
-            call MPI_Abort(comm_world,-1,ierr)
          end if
 
          if ( procformat ) then
@@ -2436,7 +2432,64 @@ contains
       call START_LOG(mpibcast_begin)
       call MPI_Bcast(pnproc,1,MPI_INTEGER,0,comm_world,ier)
       call MPI_Bcast(procformat,1,MPI_LOGICAL,0,comm_world,ier)
+      call MPI_Bcast(nproc,1,MPI_INTEGER,0,comm_world,ier)
       call END_LOG(mpibcast_end)
+
+      if (myid.lt.nproc ) then
+         colour=0
+      else
+         colour=1
+      end if
+      call MPI_Comm_split(comm_world, colour, myid, comm_reduced, ierr)
+      call MPI_Comm_size(comm_reduced, nproc_reduced, ierr)
+      call MPI_Comm_rank(comm_reduced, myid_reduced, ierr)
+
+      !redefine comm_world & myid
+      comm_world=comm_reduced
+      myid=myid_reduced
+      nproc=nproc_reduced
+
+      !exit color=1 ranks
+      if ( colour.eq.1 ) then
+         call MPI_Finalize(ierr)
+         stop
+      end if
+
+#ifdef parallel_int
+      !redefine the per node communicator
+      call MPI_Comm_split_type(comm_world, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, node_comm, ierr) ! Per node communictor
+      call MPI_Comm_size(node_comm, node_nproc, ierr) ! Find number of processes on node
+      call MPI_Comm_rank(node_comm, node_myid, ierr)  ! Find local processor id on node
+#else
+      ! not perfect - assumes a node form of xxx000
+      call MPI_Get_processor_name(node_name, llen, ierr)
+      read(node_name(scan(node_name,"0123456789"):),*)colour
+      call MPI_Comm_split(comm_world, colour, myid, node_comm, ierr)
+      call MPI_Comm_size(node_comm, node_nproc, ierr) ! Find number of processes on node
+      call MPI_Comm_rank(node_comm, node_myid, ierr)  ! Find local processor id on node
+#endif
+
+      !split the per node communicator based on node_myid=0
+      if (node_myid.eq.0 ) then
+         colour=0
+      else
+         colour=1
+      end if
+      call MPI_Comm_split(comm_world, colour, myid, comm_leader, ierr)
+      call MPI_Comm_size(comm_leader, nproc_leader, ierr)
+      call MPI_Comm_rank(comm_leader, myid_leader, ierr)
+
+      !myid_leader is essentially a node sequence number - distribute this intra-node
+      call MPI_Bcast(myid_leader,1,MPI_INTEGER,0,node_comm,ierr)
+
+      !reorder the ranks based on the node sequence
+      call MPI_Comm_split(comm_world,0,myid_leader*nproc+node_myid,comm_reordered,ierr)
+      call MPI_Comm_rank(comm_reordered, myid_reordered, ierr)
+
+      !redefine comm_world & myid
+      comm_world=comm_reordered
+      myid=myid_reordered
+
       lproc = pnproc/nproc !number of files each mpi_proc will work on      
 
       if ( procformat ) then
