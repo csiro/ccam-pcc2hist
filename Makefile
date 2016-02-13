@@ -1,8 +1,11 @@
 FC = mpif90
+
+ifneq ($(CUSTOM),yes)
 FFLAGS = -O -xHost -ftz -Dparallel_int
 INC = -I $(NETCDF_ROOT)/include
 LIBS = -L $(NETCDF_ROOT)/lib -lnetcdf -lnetcdff
 PPFLAG90 = -fpp
+endif
 
 ifeq ($(GFORTRAN),yes)
 MPIFC = gfortran
