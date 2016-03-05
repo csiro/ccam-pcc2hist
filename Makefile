@@ -1,20 +1,29 @@
 FC = mpif90
 
+# Intel compilter options
 ifneq ($(CUSTOM),yes)
 FFLAGS = -O -xHost -ftz -Dparallel_int
 INC = -I $(NETCDF_ROOT)/include
 LIBS = -L $(NETCDF_ROOT)/lib -lnetcdf -lnetcdff
 PPFLAG90 = -fpp
+DEBUGFLAG = -check all -debug all -traceback -fpe0
 endif
 
+# Gfortran compiler options
 ifeq ($(GFORTRAN),yes)
 MPIFC = gfortran
 MPIF77 = gfortran
-FC = mpif90
 FFLAGS = -O2 -mtune=native -march=native
 PPFLAG90 = -x f95-cpp-input
+DEBUGFLAG = -g -Wall -Wextra -fbounds-check -fbacktrace
 endif
 
+# Cray compiler options
+ifeq ($(CRAY),yes)
+FFLAGS =
+PPFLAG90 = -eZ
+DEBUGFLAG =
+endif
 
 # Options for building with VAMPIRTrace
 ifeq ($(VT),yes)
@@ -23,6 +32,12 @@ FFLAGS += -Dvampir -DVTRACE
 else
 FFLAGS += -Dsimple_timer
 endif
+
+# Testing - I/O and fpmodel
+ifeq ($(TEST),yes)
+FFLAGS += $(DEBUGFLAG)
+endif
+
 
 OBJ = pcc2hist.o cc2hist_work.o gldata_m.o height_m.o indices_m.o ind_m.o \
 interp_m.o jimcc_m.o jimco_m.o jim_utils.o latltoij_m.o newmpar_m.o nfft_m.o \
