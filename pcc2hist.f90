@@ -489,7 +489,7 @@ program cc2hist
             end if
          end if
 
-         if ( myid.eq.0 .and. nproc_orig.ne.nproc ) then
+         if ( myid==0 .and. nproc_orig/=nproc ) then
             write(6,'(x,a,i0,a,i0,a)') "WARNING: Number of processors(",nproc_orig,&
                                        ") is not a factor of the number of files(",pnproc,")"
             write(6,'(x,a,i0)') "WARNING: Using pcc2hist with the following number of processes: ",nproc

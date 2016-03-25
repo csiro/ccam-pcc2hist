@@ -2790,10 +2790,10 @@ contains
       include 'mpif.h'
 #endif 
       integer, intent(in) :: slab, offset, maxcnt
-      integer :: istart, iend, ip, k, n, ierr 
-      integer :: nreq, myreq
+      integer :: istart, iend, ip, k, n, ierr
+      integer :: nreq, myreq, rcount, ndone
       integer, dimension(maxcnt), intent(in) :: k_indx
-      integer, dimension(nproc) :: rreq
+      integer, dimension(nproc) :: rreq, donelist
       real, dimension(:,:,:), intent(in) :: histarray
       real, dimension(size(histarray,1),size(histarray,2),slab,nproc) :: histarray_tmp
       real, dimension(:,:,:,:), pointer, contiguous, intent(out) :: hist_a
@@ -2819,28 +2819,37 @@ contains
             call END_LOG(mpigather_end)
          end if
       end do
-      
-      if ( 1+slab*(myid-offset) > 0 ) then  
-         call START_LOG(mpigather_begin)
-         call MPI_Wait(rreq(myreq), MPI_STATUS_IGNORE, ierr)        
-         call END_LOG(mpigather_end)
+
+      ! MJT notes - need to clear all MPI_IGathers as just Waiting for my rank's MPI_IGather
+      ! can cause a race condition (e.g., MS MPI)
+      rcount = nreq
+      do while ( rcount > 0 ) 
           
-         istart = 1 + slab*(myid-offset)
-         iend = slab*(myid-offset+1)
-         iend = min( iend, maxcnt )          
-         hist_a_remap(1:pil,1:pjl*pnpan*lproc,1:nproc,istart:iend) => hist_a
-         hist_a_tmp_remap(1:pil,1:pjl*pnpan*lproc,istart:iend,1:nproc) =>    &
-             hist_a_tmp(1:pil*pjl*pnpan*lproc*(iend-istart+1)*nproc)
-         do k = istart,iend
-            do n = 1,nproc
-               hist_a_remap(:,:,n,k) = hist_a_tmp_remap(:,:,k,n)
+         call START_LOG(mpigather_begin)
+         call MPI_Waitsome(nreq, rreq(1:nreq), ndone, donelist, MPI_STATUSES_IGNORE, ierr)        
+         call END_LOG(mpigather_end)
+         
+         rcount = rcount - ndone
+         if ( any(myreq==donelist(1:ndone)) ) then
+            istart = 1 + slab*(myid-offset)
+            iend = slab*(myid-offset+1)
+            iend = min( iend, maxcnt )          
+            hist_a_remap(1:pil,1:pjl*pnpan*lproc,1:nproc,istart:iend) => hist_a
+            hist_a_tmp_remap(1:pil,1:pjl*pnpan*lproc,istart:iend,1:nproc) =>    &
+                hist_a_tmp(1:pil*pjl*pnpan*lproc*(iend-istart+1)*nproc)
+            do k = istart,iend
+               do n = 1,nproc
+                  hist_a_remap(:,:,n,k) = hist_a_tmp_remap(:,:,k,n)
+               end do
             end do
-         end do
-      end if
-      
-      call START_LOG(mpigather_begin)
-      call MPI_Waitall(nreq, rreq(1:nreq), MPI_STATUSES_IGNORE, ierr)        
-      call END_LOG(mpigather_end)
+            ! Clean all remaining MPI_IGathers
+            call START_LOG(mpigather_begin)
+            call MPI_Waitall(nreq, rreq(1:nreq), MPI_STATUSES_IGNORE, ierr)        
+            call END_LOG(mpigather_end)
+            rcount = 0
+         end if
+         
+      end do
       
       call END_LOG(gatherwrap_end)
    

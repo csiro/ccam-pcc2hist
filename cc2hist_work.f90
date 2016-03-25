@@ -2304,6 +2304,8 @@ contains
 
       call START_LOG(paraopen_begin)
 
+      nproc_orig = nproc
+      
       if ( myid==0 ) then      
   
          ! parallel file input
@@ -2318,14 +2320,13 @@ contains
          ier = nf90_get_att(ncid, nf90_global, "nproc", pnproc)
          call check_ncerr(ier, "nproc")
 
-         nproc_orig = nproc
          if ( mod(pnproc,nproc)/=0 ) then
             write(6,'(x,a,i0,a,i0,a)') "WARNING: Number of processors(",nproc,&
                                      ") is not a factor of the number of files(",pnproc,")"
             do n = nproc,1,-1
-               if ( mod(pnproc,n)==0 ) then
+               if ( mod(pnproc,n) == 0 ) then
                   write(6,'(x,a,i0)') "WARNING: Using pcc2hist with the following number of processes: ",n
-                  nproc=n
+                  nproc = n
                   exit
                end if
             end do
@@ -2338,28 +2339,30 @@ contains
       end if
       
       call START_LOG(mpibcast_begin)
-      call MPI_Bcast(pnproc,1,MPI_INTEGER,0,comm_world,ier)
-      call MPI_Bcast(nproc,1,MPI_INTEGER,0,comm_world,ier)
+      call MPI_Bcast(pnproc, 1, MPI_INTEGER, 0, comm_world, ier)
+      call MPI_Bcast(nproc, 1, MPI_INTEGER, 0, comm_world, ier)
       call END_LOG(mpibcast_end)
 
-      if (myid.lt.nproc ) then
-         colour=0
-      else
-         colour=1
-      end if
-      call MPI_Comm_split(comm_world, colour, myid, comm_reduced, ierr)
-      call MPI_Comm_size(comm_reduced, nproc_reduced, ierr)
-      call MPI_Comm_rank(comm_reduced, myid_reduced, ierr)
+      if ( nproc < nproc_orig ) then
+         if (myid < nproc ) then
+            colour = 0
+         else
+            colour = 1
+         end if
+         call MPI_Comm_split(comm_world, colour, myid, comm_reduced, ierr)
+         call MPI_Comm_size(comm_reduced, nproc_reduced, ierr)
+         call MPI_Comm_rank(comm_reduced, myid_reduced, ierr)
 
-      !redefine comm_world & myid
-      comm_world=comm_reduced
-      myid=myid_reduced
-      nproc=nproc_reduced
+         !redefine comm_world & myid
+         comm_world = comm_reduced
+         myid = myid_reduced
+         nproc = nproc_reduced
 
-      !exit color=1 ranks
-      if ( colour.eq.1 ) then
-         call MPI_Finalize(ierr)
-         stop
+         !exit color=1 ranks
+         if ( colour == 1 ) then
+            call MPI_Finalize(ierr)
+            stop
+         end if
       end if
 
 #ifdef parallel_int
@@ -2373,7 +2376,7 @@ contains
       allocate( ncid_in(0:lproc-1) )
 
 #ifdef parallel_int
-      if ( node_myid==0 ) then
+      if ( node_myid == 0 ) then
           ssize = pnproc*6*2
       else
           ssize = 0
