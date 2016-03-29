@@ -130,6 +130,8 @@ contains
 !     Get record data from header
       integer, intent(out) :: kdate, ktime, ieof
       integer :: ik, jk, kk, ierr, vid
+      integer :: iposa, iposb, yyyy, mm, dd, hh, mt
+      character(len=80) :: datestring
 
       if ( nrec > maxrec ) then
          ieof = 1
@@ -137,15 +139,65 @@ contains
       end if
       call START_LOG(getdate_begin)      
       if ( node2_myid.eq.0 ) then
-         ! Get vid and then values for kdate, ktime, ktau
-         ierr = nf90_inq_varid (ncid, "kdate", vid )
-         call check_ncerr(ierr, "Error getting kdate id")
-         ierr = nf90_get_var ( ncid, vid, kdate, start=(/ nrec /) )
-         call check_ncerr(ierr, "Error getting kdate")
-         ierr = nf90_inq_varid (ncid, "ktime", vid )
-         call check_ncerr(ierr, "Error getting ktime id")
-         ierr = nf90_get_var ( ncid, vid, ktime, start=(/ nrec /) )
-         call check_ncerr(ierr, "Error getting ktime")
+         ierr = nf90_inq_varid (ncid, "time", vid )
+         ierr = nf90_get_att(ncid, vid, "units", datestring )
+         if ( datestring(1:7)/='minutes' ) then
+            write(6,*) "ERROR: Time units expected to be minutes"
+            write(6,*) "Found ",trim(datestring)
+            stop
+         end if
+         iposa = index(trim(datestring),'since')
+         iposa = iposa + 5 ! skip 'since'
+         iposb = index(trim(datestring(iposa:)),'-')
+         iposb = iposa + iposb - 2 ! remove '-'
+         read(datestring(iposa:iposb),FMT=*,iostat=ierr) yyyy
+         if ( ierr/=0 ) then
+           write(6,*) "ERROR reading time units.  Expecting year but found ",datestring(iposa:iposb)
+           stop
+         end if
+         iposa = iposb + 2 ! skip '-'
+         iposb = index(trim(datestring(iposa:)),'-')
+         iposb = iposa + iposb - 2 ! remove '-'
+         read(datestring(iposa:iposb),FMT=*,iostat=ierr) mm
+         if ( ierr/=0 ) then
+           write(6,*) "ERROR reading time units.  Expecting month but found ",datestring(iposa:iposb)
+           stop
+         end if
+         iposa = iposb + 2 ! skip '-'
+         iposb = index(trim(datestring(iposa:)),' ')
+         iposb = iposa + iposb - 2 ! remove ' '
+         read(datestring(iposa:iposb),FMT=*,iostat=ierr) dd
+         if ( ierr/=0 ) then
+           write(6,*) "ERROR reading time units.  Expecting day but found ",datestring(iposa:iposb)
+           stop
+         end if
+         iposa = iposb + 2 ! skip ' '
+         iposb = index(trim(datestring(iposa:)),':')
+         iposb = iposa + iposb - 2 ! remove ':'
+         read(datestring(iposa:iposb),FMT=*,iostat=ierr) hh
+         if ( ierr/=0 ) then
+           write(6,*) "ERROR reading time units.  Expecting hour but found ",datestring(iposa:iposb)
+           stop
+         end if
+         iposa = iposb + 2 ! skip ':'
+         iposb = index(trim(datestring(iposa:)),':')
+         iposb = iposa + iposb - 2 ! remove ':'
+         read(datestring(iposa:iposb),FMT=*,iostat=ierr) mt
+         if ( ierr/=0 ) then
+           write(6,*) "ERROR reading time units.  Expecting minutes but found ",datestring(iposa:iposb)
+           stop
+         end if
+         kdate = yyyy*10000 + mm*100 + dd
+         ktime = hh*100 + mt
+         !! Get vid and then values for kdate, ktime, ktau
+         !ierr = nf90_inq_varid (ncid, "kdate", vid )
+         !call check_ncerr(ierr, "Error getting kdate id")
+         !ierr = nf90_get_var ( ncid, vid, kdate, start=(/ nrec /) )
+         !call check_ncerr(ierr, "Error getting kdate")
+         !ierr = nf90_inq_varid (ncid, "ktime", vid )
+         !call check_ncerr(ierr, "Error getting ktime id")
+         !ierr = nf90_get_var ( ncid, vid, ktime, start=(/ nrec /) )
+         !call check_ncerr(ierr, "Error getting ktime")
          ! Get ktau from time. Really should be renamed
          ierr = nf90_inq_varid (ncid, "time", vid )
          call check_ncerr(ierr, "Error getting time id")
@@ -837,8 +889,9 @@ contains
       real :: difknbd, rhkuo, du, tanl, timer, timeg, dslocal
       integer, dimension(:), allocatable :: int_header
       real, dimension(:), allocatable :: real_header
-      integer :: hlen, ierr, vid, dimid, ieof
+      integer :: hlen, ierr, vid, dimid, ieof, ier
       real :: grlong, grlat, grlongu, grlatu, grlongv, grlatv, tmp
+      real :: rdt, lrlat0, lrlong0, lschmidt
 
 #ifdef parallel_int
       integer(kind=MPI_ADDRESS_KIND) :: ssize
@@ -854,75 +907,130 @@ contains
          call check_ncerr(ierr, "Error getting time dimension")
          ierr = nf90_inquire_dimension ( ncid, dimid, len=maxrec )
          call check_ncerr(ierr,"Error getting number of sets")
-         ! Get integer and real headers from attibutes. First check the 
-         ! lengths of these.
-         ierr = nf90_inquire_attribute(ncid, nf90_global, "int_header", len=hlen)
-         call check_ncerr(ierr, "Error getting int_header length")
-         if ( hlen < 43 ) then
-            print*, "Error - insufficient header information: int_header too short"
-            call MPI_Abort(comm_world,-1_4,ierr)
+         ierr = nf90_get_att(ncid, nf90_global, "dt", rdt )
+      end if
+      if ( node2_nproc.gt.1 ) then
+         call MPI_Bcast(maxrec,1,MPI_INTEGER,0,node2_comm,ier)
+         call MPI_Bcast(ierr,1,MPI_INTEGER,0,node2_comm,ier)
+      end if
+      if ( ierr==nf90_noerr ) then
+         if ( node2_nproc.gt.1 ) then
+            call MPI_Bcast(rdt,1,MPI_INTEGER,0,node2_comm,ierr)
          end if
+         if ( node2_myid.eq.0 ) then
+            ! newer attribute method
+            ndt = nint(rdt)
+            ierr = nf90_get_att(ncid, nf90_global, "il_g", il )
+            call check_ncerr(ierr, "Error getting jl_g attribute")
+            ierr = nf90_get_att(ncid, nf90_global, "jl_g", jl )
+            call check_ncerr(ierr, "Error getting jl_g attribute")
+            ierr = nf90_get_att(ncid, nf90_global, "ms", ms )
+            call check_ncerr(ierr, "Error getting ms attribute")
+            ierr = nf90_get_att(ncid, nf90_global, "ntrac", ntrac )
+            call check_ncerr(ierr, "Error getting ntrac attribute")
+            ierr = nf90_inq_dimid(ncid, "lev", dimid )
+            call check_ncerr(ierr, "Error getting lev dimension")
+            ierr = nf90_inquire_dimension ( ncid, dimid, len=kl )
+            call check_ncerr(ierr, "Error getting number of levels")
+         end if
+         if ( node2_nproc.gt.1 ) then
+            call MPI_Bcast(il,1,MPI_INTEGER,0,node2_comm,ierr)
+            call MPI_Bcast(jl,1,MPI_INTEGER,0,node2_comm,ierr)
+            call MPI_Bcast(ms,1,MPI_INTEGER,0,node2_comm,ierr)
+            call MPI_Bcast(ntrac,1,MPI_INTEGER,0,node2_comm,ierr)
+            call MPI_Bcast(kl,1,MPI_INTEGER,0,node2_comm,ierr)
+         end if
+      else
+         if ( node2_myid.eq.0 ) then
+            ! older int_header method
+            ! Get integer and real headers from attibutes. First check the 
+            ! lengths of these.
+            ierr = nf90_inquire_attribute(ncid, nf90_global, "int_header", len=hlen)
+            call check_ncerr(ierr, "Error getting int_header length")
+            if ( hlen < 43 ) then
+               print*, "Error - insufficient header information: int_header too short"
+               stop
+            end if
+         end if
+         if ( node2_nproc.gt.1 ) then
+            call MPI_Bcast(hlen,1,MPI_INTEGER,0,node2_comm,ierr)
+         end if
+         allocate (int_header(hlen))
+         if ( node2_myid.eq.0 ) then
+            ierr = nf90_get_att(ncid, nf90_global, "int_header", int_header)
+            call check_ncerr(ierr, "Error getting int_header")
+         end if
+         if ( node2_nproc.gt.1 ) then
+            call MPI_Bcast(int_header,hlen,MPI_INTEGER,0,node2_comm,ierr)
+         end if
+         ! Only a few values are used
+         il = int_header(1)
+         jl = int_header(2)
+         kl = int_header(3)
+         ndt = int_header(14)
+         ms = int_header(34)
+         ntrac = int_header(43)
       end if
-      if ( node2_nproc.gt.1 ) then
-         call MPI_Bcast(maxrec,1,MPI_INTEGER,0,node2_comm,ierr)
-         call MPI_Bcast(hlen,1,MPI_INTEGER,0,node2_comm,ierr)
-      end if
-      allocate (int_header(hlen))
-
-      if ( node2_myid.eq.0 ) then
-         ierr = nf90_get_att(ncid, nf90_global, "int_header", int_header)
-         call check_ncerr(ierr, "Error getting int_header")
-      end if
-      if ( node2_nproc.gt.1 ) then
-         call MPI_Bcast(int_header,hlen,MPI_INTEGER,0,node2_comm,ierr)
-      end if
-
-      ! Only a few values are used
-      il = int_header(1)
-      jl = int_header(2)
-      kl = int_header(3)
       ik = il  ! These are only set once
       jk = jl
       kk = kl
-!     kwt = int_header(19)  ! No longer used
-      nsd = int_header(5)
-      ndt = int_header(14)
-      ms = int_header(34)
-      nqg = int_header(23)
-      ilt = int_header(42)
-      ntrac = int_header(43)
+      nsd = 0
+      nqg = 0
+      ilt = il
 
       if ( node2_myid.eq.0 ) then
-         ierr = nf90_inquire_attribute(ncid, nf90_global, "real_header", len=hlen)
-         call check_ncerr(ierr, "Error getting real_header length")
+         ierr = nf90_get_att(ncid, nf90_global, "rlat0", lrlat0 )
       end if
       if ( node2_nproc.gt.1 ) then
-         call MPI_Bcast(hlen,1,MPI_INTEGER,0,node2_comm,ierr)
+         call MPI_Bcast(ierr,1,MPI_INTEGER,0,node2_comm,ier)
       end if
-
-      if ( hlen < 8 ) then
-         print*, "Error - insufficient header information: real_header too short"
-         stop
-      end if
-      allocate (real_header(hlen))
-
-      if ( node2_myid.eq.0 ) then
-         ierr = nf90_get_att(ncid, nf90_global, "real_header", real_header)
-         call check_ncerr(ierr, "Error getting real_header")
-      end if
-      if ( node2_nproc.gt.1 ) then
-         call MPI_Bcast(real_header,hlen,MPI_REAL,0,node2_comm,ierr)
-      end if
-
-      ! Only a few values are used
-      rlong0 = real_header(5)
-      rlat0 = real_header(6)
-      schmidt = real_header(7)
-      if(schmidt <= 0. .or. schmidt > 1.) then
-         !  Some old model initial conditions
-         rlong0 = real_header(6)
-         rlat0  = real_header(7)
-         schmidt = real_header(8)
+      if ( ierr==nf90_noerr ) then
+         if ( node2_myid.eq.0 ) then
+            ! newer attribute method
+            rlat0 = lrlat0
+            ierr = nf90_get_att(ncid, nf90_global, "rlong0", lrlong0 )
+            rlong0 = lrlong0
+            call check_ncerr(ierr, "Error getting rlong0 attribute")
+            ierr = nf90_get_att(ncid, nf90_global, "schmidt", lschmidt )
+            schmidt = lschmidt
+            call check_ncerr(ierr, "Error getting schmidt attribute")
+         end if
+         if ( node2_nproc.gt.1 ) then
+            call MPI_Bcast(rlat0,1,MPI_INTEGER,0,node2_comm,ier)
+            call MPI_Bcast(rlong0,1,MPI_INTEGER,0,node2_comm,ier)
+            call MPI_Bcast(schmidt,1,MPI_INTEGER,0,node2_comm,ier)
+         end if
+      else
+         if ( node2_myid.eq.0 ) then
+            ! older real_header method
+            ierr = nf90_inquire_attribute(ncid, nf90_global, "real_header", len=hlen)
+            call check_ncerr(ierr, "Error getting real_header length")
+         end if
+         if ( node2_nproc.gt.1 ) then
+            call MPI_Bcast(hlen,1,MPI_INTEGER,0,node2_comm,ier)
+         end if
+         if ( hlen < 8 ) then
+            print*, "Error - insufficient header information: real_header too short"
+            stop
+         end if
+         allocate (real_header(hlen))
+         if ( node2_myid.eq.0 ) then
+            ierr = nf90_get_att(ncid, nf90_global, "real_header", real_header)
+            call check_ncerr(ierr, "Error getting real_header")
+         end if
+         if ( node2_nproc.gt.1 ) then
+            call MPI_Bcast(real_header,hlen,MPI_REAL,0,node2_comm,ier)
+         end if
+         ! Only a few values are used
+         rlong0 = real_header(5)
+         rlat0 = real_header(6)
+         schmidt = real_header(7)
+         if(schmidt <= 0. .or. schmidt > 1.) then
+            !  Some old model initial conditions
+            rlong0 = real_header(6)
+            rlat0  = real_header(7)
+            schmidt = real_header(8)
+         endif
       endif
       ! Need date for setting time origin. Call getdate with nrec=1
       nrec = 1
@@ -1282,7 +1390,7 @@ contains
 
          call START_LOG(mpiscatter_begin)
          call MPI_Scatter(c_io,pil*pjl*pnpan*lproc,MPI_REAL,costh,pil*pjl*pnpan*lproc,MPI_REAL,0,comm_world,ierr)
-	 call END_LOG(mpiscatter_end)
+         call END_LOG(mpiscatter_end)
 
 #ifdef parallel_int
          if ( node_myid == 0 ) then
@@ -1299,7 +1407,7 @@ contains
 
          call START_LOG(mpiscatter_begin)
          call MPI_Scatter(c_io,pil*pjl*pnpan*lproc,MPI_REAL,sinth,pil*pjl*pnpan*lproc,MPI_REAL,0,comm_world,ierr)
-	 call END_LOG(mpiscatter_end)
+         call END_LOG(mpiscatter_end)
 
 #ifdef parallel_int
          if ( node_myid == 0 ) then
@@ -2187,12 +2295,12 @@ contains
          call fill_cc0(b_io,value)
       else
          lsize = pil*pjl*pnpan*lproc
-	 call START_LOG(mpigather_begin)
+         call START_LOG(mpigather_begin)
          call MPI_Gather(b_io,lsize,MPI_REAL,c_io,lsize,MPI_REAL,0,comm_world,ierr)
-	 call END_LOG(mpigather_end)
-	 call START_LOG(mpiscatter_begin)
+         call END_LOG(mpigather_end)
+         call START_LOG(mpiscatter_begin)
          call MPI_Scatter(c_io,lsize,MPI_REAL,b_io,lsize,MPI_REAL,0,comm_world,ierr)
-	 call END_LOG(mpiscatter_end)
+         call END_LOG(mpiscatter_end)
       end if
       call END_LOG(fillcc_end)
       
@@ -2374,7 +2482,7 @@ contains
            procformat = .true.
          end if
 
-         nproc_orig=nproc
+         nproc_orig = nproc
          if ( mod(pnproc,nproc)/=0 ) then
             write(6,'(x,a,i0,a,i0,a)') "WARNING: Number of processors(",nproc,&
                                      ") is not a factor of the number of files(",pnproc,")"
