@@ -139,11 +139,6 @@ contains
       call START_LOG(getdate_begin)      
       ierr = nf90_inq_varid (ncid, "time", vid )
       ierr = nf90_get_att(ncid, vid, "units", datestring )
-      if ( datestring(1:7)/='minutes' ) then
-         write(6,*) "ERROR: Time units expected to be minutes"
-         write(6,*) "Found ",trim(datestring)
-         stop
-      end if
       iposa = index(trim(datestring),'since')
       iposa = iposa + 5 ! skip 'since'
       iposb = index(trim(datestring(iposa:)),'-')
