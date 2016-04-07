@@ -2596,7 +2596,7 @@ contains
       lproc = pnproc/nproc !number of files each mpi_proc will work on      
 
       if ( procformat ) then
-         if ( myid != 0 ) then
+         if ( myid /= 0 ) then
             allocate( gprocessor(0:pnproc-1) )
             allocate( proc2file(0:pnproc-1) )
             allocate( gproc_map(0:pnproc-1) )

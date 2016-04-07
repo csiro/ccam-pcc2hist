@@ -32,7 +32,7 @@ module usage_m
    integer ierr
    if (myid==0) then
       write(*,"(a)") &
-"Usage: mpirun -np nproc pcc2hist [-h] [-r res] [-v] [input_file] [output_file]", &
+"Usage: mpirun -np nproc pcc2hist [-c config_file] [-h] [-r res] [-v] [input_file] [output_file]", &
 "  pcc2hist -h for full list of options and more information."
    end if
    call mpi_barrier(comm_world,ierr)
@@ -54,9 +54,12 @@ module usage_m
 "model history file to a regular lat-lon netcdf file suitable",  &
 "for processing by other programs.", &
 "", &
-"Usage: mpirun -np nproc pcc2hist [-h] [-r res] [-v] [input_file] [output_file]",&
+"Usage: mpirun -np nproc pcc2hist [-c control_file] [-h] [-r res] [-v] [input_file] [output_file]",&
 "", &
 "Command line options are", &
+"", &
+" -c control_file where control_file is the control namelist file", &
+"   (Default is cc.nml).", &
 "", &
 " -h for help (this message)", &
 "", &
@@ -78,7 +81,7 @@ module usage_m
    print*, "below surface with standard lapse rate and to use end values for"
    print*, "other fields."
    print*
-   print*, "The program reads a control namelist file called cc.nml. The namelist"
+   print*, "The program reads a control namelist file called cc.nml (by default). The namelist"
    print*, "is called 'input' and the variables are"
    print*, ""
    print*, " NAME        TYPE     DEFAULT   FUNCTION"
