@@ -118,7 +118,7 @@ program cc2hist
 #endif
 
    !split the per node communicator based on node_myid=0
-   if (node_myid.eq.0 ) then
+   if (node_myid == 0 ) then
       colour=0
    else
       colour=1
@@ -346,7 +346,7 @@ program cc2hist
    end if
 
 !     If the input is a netcdf file with a time:units attribute then copy that.
-   if ( node2_myid.eq.0 ) then
+   if ( node2_myid == 0 ) then
       ierr = nf90_inq_varid (ncid, "time", vid )
       call check_ncerr(ierr, "Error getting time id")
       basetime = ""
@@ -355,7 +355,7 @@ program cc2hist
       calendar = ""
       ierr = nf90_get_att(ncid, vid, "calendar", calendar)
    end if
-   if ( node2_nproc.gt.1 ) then
+   if ( node2_nproc > 1 ) then
       call MPI_Bcast(basetime,80,MPI_CHARACTER,0,node_comm,ierr)
       call MPI_Bcast(calendar,80,MPI_CHARACTER,0,node_comm,ierr)
    end if

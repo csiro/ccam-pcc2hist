@@ -138,7 +138,7 @@ contains
          return
       end if
       call START_LOG(getdate_begin)      
-      if ( node2_myid.eq.0 ) then
+      if ( node2_myid == 0 ) then
          ierr = nf90_inq_varid (ncid, "time", vid )
          ierr = nf90_get_att(ncid, vid, "units", datestring )
          iposa = index(trim(datestring),'since')
@@ -205,7 +205,7 @@ contains
                                               kdate,  ktime, ktau
          end if
       end if
-      if ( node2_nproc.gt.1 ) then
+      if ( node2_nproc > 1 ) then
          call MPI_Bcast(kdate,1,MPI_INTEGER,0,node2_comm,ierr)
          call MPI_Bcast(ktime,1,MPI_INTEGER,0,node2_comm,ierr)
          call MPI_Bcast(ktau,1,MPI_INTEGER,0,node2_comm,ierr)
@@ -896,7 +896,7 @@ contains
 !     alloc_indata minimises the total memory requirements
 
       nrec = 1
-      if ( node2_myid.eq.0 ) then
+      if ( node2_myid == 0 ) then
          ! Get the total number of timesteps
          ierr = nf90_inq_dimid ( ncid, "time", dimid )
          call check_ncerr(ierr, "Error getting time dimension")
@@ -904,15 +904,15 @@ contains
          call check_ncerr(ierr,"Error getting number of sets")
          ierr = nf90_get_att(ncid, nf90_global, "dt", rdt )
       end if
-      if ( node2_nproc.gt.1 ) then
+      if ( node2_nproc > 1 ) then
          call MPI_Bcast(maxrec,1,MPI_INTEGER,0,node2_comm,ier)
          call MPI_Bcast(ierr,1,MPI_INTEGER,0,node2_comm,ier)
       end if
       if ( ierr==nf90_noerr ) then
-         if ( node2_nproc.gt.1 ) then
+         if ( node2_nproc > 1 ) then
             call MPI_Bcast(rdt,1,MPI_INTEGER,0,node2_comm,ierr)
          end if
-         if ( node2_myid.eq.0 ) then
+         if ( node2_myid == 0 ) then
             ! newer attribute method
             ndt = nint(rdt)
             ierr = nf90_get_att(ncid, nf90_global, "il_g", il )
@@ -928,7 +928,7 @@ contains
             ierr = nf90_inquire_dimension ( ncid, dimid, len=kl )
             call check_ncerr(ierr, "Error getting number of levels")
          end if
-         if ( node2_nproc.gt.1 ) then
+         if ( node2_nproc > 1 ) then
             call MPI_Bcast(il,1,MPI_INTEGER,0,node2_comm,ierr)
             call MPI_Bcast(jl,1,MPI_INTEGER,0,node2_comm,ierr)
             call MPI_Bcast(ms,1,MPI_INTEGER,0,node2_comm,ierr)
@@ -936,7 +936,7 @@ contains
             call MPI_Bcast(kl,1,MPI_INTEGER,0,node2_comm,ierr)
          end if
       else
-         if ( node2_myid.eq.0 ) then
+         if ( node2_myid == 0 ) then
             ! older int_header method
             ! Get integer and real headers from attibutes. First check the 
             ! lengths of these.
@@ -947,15 +947,15 @@ contains
                stop
             end if
          end if
-         if ( node2_nproc.gt.1 ) then
+         if ( node2_nproc > 1 ) then
             call MPI_Bcast(hlen,1,MPI_INTEGER,0,node2_comm,ierr)
          end if
          allocate (int_header(hlen))
-         if ( node2_myid.eq.0 ) then
+         if ( node2_myid == 0 ) then
             ierr = nf90_get_att(ncid, nf90_global, "int_header", int_header)
             call check_ncerr(ierr, "Error getting int_header")
          end if
-         if ( node2_nproc.gt.1 ) then
+         if ( node2_nproc > 1 ) then
             call MPI_Bcast(int_header,hlen,MPI_INTEGER,0,node2_comm,ierr)
          end if
          ! Only a few values are used
@@ -973,14 +973,14 @@ contains
       nqg = 0
       ilt = il
 
-      if ( node2_myid.eq.0 ) then
+      if ( node2_myid == 0 ) then
          ierr = nf90_get_att(ncid, nf90_global, "rlat0", lrlat0 )
       end if
-      if ( node2_nproc.gt.1 ) then
+      if ( node2_nproc > 1 ) then
          call MPI_Bcast(ierr,1,MPI_INTEGER,0,node2_comm,ier)
       end if
       if ( ierr==nf90_noerr ) then
-         if ( node2_myid.eq.0 ) then
+         if ( node2_myid == 0 ) then
             ! newer attribute method
             rlat0 = lrlat0
             ierr = nf90_get_att(ncid, nf90_global, "rlong0", lrlong0 )
@@ -990,18 +990,18 @@ contains
             schmidt = lschmidt
             call check_ncerr(ierr, "Error getting schmidt attribute")
          end if
-         if ( node2_nproc.gt.1 ) then
+         if ( node2_nproc > 1 ) then
             call MPI_Bcast(rlat0,1,MPI_INTEGER,0,node2_comm,ier)
             call MPI_Bcast(rlong0,1,MPI_INTEGER,0,node2_comm,ier)
             call MPI_Bcast(schmidt,1,MPI_INTEGER,0,node2_comm,ier)
          end if
       else
-         if ( node2_myid.eq.0 ) then
+         if ( node2_myid == 0 ) then
             ! older real_header method
             ierr = nf90_inquire_attribute(ncid, nf90_global, "real_header", len=hlen)
             call check_ncerr(ierr, "Error getting real_header length")
          end if
-         if ( node2_nproc.gt.1 ) then
+         if ( node2_nproc > 1 ) then
             call MPI_Bcast(hlen,1,MPI_INTEGER,0,node2_comm,ier)
          end if
          if ( hlen < 8 ) then
@@ -1009,11 +1009,11 @@ contains
             stop
          end if
          allocate (real_header(hlen))
-         if ( node2_myid.eq.0 ) then
+         if ( node2_myid == 0 ) then
             ierr = nf90_get_att(ncid, nf90_global, "real_header", real_header)
             call check_ncerr(ierr, "Error getting real_header")
          end if
-         if ( node2_nproc.gt.1 ) then
+         if ( node2_nproc > 1 ) then
             call MPI_Bcast(real_header,hlen,MPI_REAL,0,node2_comm,ier)
          end if
          ! Only a few values are used
@@ -1072,13 +1072,13 @@ contains
 
       if ( kl > 1 ) then
             ! Get sigma levels from level variable
-            if ( node2_myid.eq.0 ) then
+            if ( node2_myid == 0 ) then
                ierr = nf90_inq_varid (ncid, "lev", vid )
                call check_ncerr(ierr, "Error getting vid for lev")
                ierr = nf90_get_var ( ncid, vid, sig)
                call check_ncerr(ierr, "Error getting levels")
             end if
-            if ( node2_nproc.gt.1 ) then
+            if ( node2_nproc > 1 ) then
                call MPI_Bcast(sig,kl,MPI_REAL,0,node2_comm,ierr)
             end if
       else
@@ -1087,7 +1087,7 @@ contains
       call sig2ds(sig, dsig)
       ! Note that some initial condition files don't have zsoil
       !if ( cf_compliant ) then
-         if ( node2_myid.eq.0 ) then
+         if ( node2_myid == 0 ) then
             ierr = nf90_inq_varid (ncid, "zsoil", vid )
             if ( ierr==nf90_noerr ) then
                ierr = nf90_get_var ( ncid, vid, zsoil)
@@ -1097,7 +1097,7 @@ contains
                zsoil(:) = 0. 
             end if
          end if
-         if ( node2_nproc.gt.1 ) then
+         if ( node2_nproc > 1 ) then
             call MPI_Bcast(ksoil,1,MPI_INTEGER,0,node2_comm,ierr)
             call MPI_Bcast(zsoil,size(zsoil),MPI_REAL,0,node2_comm,ierr)
          end if
@@ -1488,11 +1488,11 @@ contains
       integer :: MPI_INPUT_VAR
       integer(kind=MPI_ADDRESS_KIND), dimension(12) :: d
 
-      if ( node2_myid.eq.0 ) then
+      if ( node2_myid == 0 ) then
          ierr = nf90_inquire(ncid, ndimensions=ndimensions, nvariables=nvariables)
          call check_ncerr(ierr, "nf90_inquire error")
       end if
-      if ( node2_nproc.gt.1 ) then
+      if ( node2_nproc > 1 ) then
          call MPI_Bcast(ndimensions,1,MPI_INTEGER,0,node2_comm,ierr)
          call MPI_Bcast(nvariables,1,MPI_INTEGER,0,node2_comm,ierr)
       end if
@@ -1500,7 +1500,7 @@ contains
       ! in the netcdf file are processed.
       allocate ( varlist(nvariables) )
 
-      if ( node2_myid.eq.0 ) then
+      if ( node2_myid == 0 ) then
          ! Get the values of the dimension IDs
          ierr = nf90_inq_dimid(ncid, "longitude", londim)
          call check_ncerr(ierr,"Error getting lonid")
@@ -1937,7 +1937,7 @@ contains
          end if
       end if
 
-      if ( node2_nproc.gt.1 ) then
+      if ( node2_nproc > 1 ) then
          t(1)=MPI_CHARACTER
          t(2)=MPI_CHARACTER
          t(3)=MPI_CHARACTER
@@ -2104,7 +2104,7 @@ contains
       integer :: ierr, attlen
       character(len=1000) :: source
 
-      if ( node2_myid.eq.0 ) then
+      if ( node2_myid == 0 ) then
          ! Look for the source attribute
          source = ""
          ierr = nf90_inquire_attribute ( ncid, nf90_global, "source", len=attlen)
@@ -2576,7 +2576,7 @@ contains
 #endif
 
       !split the per node communicator based on node_myid=0
-      if (node_myid.eq.0 ) then
+      if (node_myid == 0 ) then
          colour=0
       else
          colour=1
@@ -2646,7 +2646,7 @@ contains
       joff(0:pnproc-1,0:5) => ijoff(:,:,2)
 #endif
       
-      if ( myid/=0 .and. node2_myid.eq.0 ) then
+      if ( myid/=0 .and. node2_myid==0 ) then
       
          if ( procformat ) then
             lastrip=-1
@@ -2689,7 +2689,7 @@ contains
          end do
          ncid = ncid_in(0) 
       
-      else if ( myid.eq.0 .and. node2_myid.eq.0 ) then
+      else if ( myid==0 .and. node2_myid==0 ) then
       
          ncid_in(0) = ncid
          if ( procformat ) then
@@ -2851,7 +2851,7 @@ contains
                ierr = nf90_inq_varid (ncid_in(ip), name, vid ) 
                call check_ncerr(ierr, "Error getting vid for "//name)
           
-               if ( node2_nproc.gt.1 ) then
+               if ( node2_nproc > 1 ) then
                   ierr = nf90_get_var ( ncid_in(ip), vid, ginarray2(:,:,ip_min(ip):ip_max(ip)),&
                          start=(/ 1, 1, pid_min(ip), nrec /), count=(/ pil, pjl*pnpan, pid_max(ip)-pid_min(ip)+1, 1 /) )
                else
@@ -2950,7 +2950,7 @@ contains
                ierr = nf90_inq_varid ( ncid_in(ip), name, vid )
                call check_ncerr(ierr, "Error getting vid for "//name)
           
-               if ( node2_nproc.gt.1 ) then
+               if ( node2_nproc > 1 ) then
                   ierr = nf90_get_var ( ncid_in(ip), vid, ginarray3(:,:,:,ip_min(ip):ip_max(ip)),&
                                start=(/ 1, 1, minlev, pid_min(ip), nrec /),&
                                count=(/ pil, pjl*pnpan, maxlev-minlev+1, pid_max(ip)-pid_min(ip)+1, 1 /) )
