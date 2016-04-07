@@ -84,5 +84,5 @@ module parm_m
    logical, public, save :: advect_only = .false.
 
    logical, public, save :: procformat = .false.
-   integer, public, save :: ioreaders = 999999
+   integer, public, save :: ioreaders = -1
 end module parm_m

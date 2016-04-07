@@ -229,6 +229,9 @@ program cc2hist
    open(1,file=trim(cfile))
    read(1,input)   
 
+   ! if ioreaders was not set, set it to nproc
+   if ( ioreaders == -1 ) ioreaders = nproc
+
    if ( vextrap == vextrap_missing .and. int_default == int_normal ) then
       print*, "For missing option to work, must set interp to linear or nearest"
       call MPI_ABORT(comm_world,-1,ierr)
