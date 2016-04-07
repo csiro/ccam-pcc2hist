@@ -2492,9 +2492,6 @@ contains
          end if
 
          if ( procformat ) then
-            ! opening all the per node files on rank 0 to get this info
-            ! prefer to gather this info from other ranks
-
             ier = nf90_get_att(ncid, nf90_global, "nnodes", nnodes)
             call check_ncerr(ier, "nnodes")
 
