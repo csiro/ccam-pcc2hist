@@ -2473,9 +2473,9 @@ contains
          ier = nf90_get_att(ncid, nf90_global, "nproc", pnproc)
          call check_ncerr(ier, "nproc")
 
-         ! number of processors in this file - assume the first file has maximum
+         ! number of processors in this file
          ierr = nf90_inq_dimid ( ncid, "processor", dimid )
-         if ( ierr.eq.nf90_noerr ) then
+         if ( ierr == nf90_noerr ) then
            procformat = .true.
          end if
 
@@ -2599,7 +2599,7 @@ contains
       lproc = pnproc/nproc !number of files each mpi_proc will work on      
 
       if ( procformat ) then
-         if ( myid.ne.0 ) then
+         if ( myid != 0 ) then
             allocate( gprocessor(0:pnproc-1) )
             allocate( proc2file(0:pnproc-1) )
             allocate( gproc_map(0:pnproc-1) )
@@ -2846,7 +2846,7 @@ contains
       call START_LOG(paravar2a_begin)
       
       if ( procformat ) then
-         if ( node2_myid.eq.0 ) then
+         if ( node2_myid == 0 ) then
             do ip = 0,ip_maxcnt
                ierr = nf90_inq_varid (ncid_in(ip), name, vid ) 
                call check_ncerr(ierr, "Error getting vid for "//name)
@@ -2861,10 +2861,10 @@ contains
                call check_ncerr(ierr, "Error getting var "//name)
             end do
          end if
-         if ( node2_nproc.gt.1 ) then
+         if ( node2_nproc > 1 ) then
             call MPI_Scatter(ginarray2,pil*pjl*pnpan*lproc,MPI_REAL,inarray2,pil*pjl*pnpan*lproc,MPI_REAL,0,node2_comm,ierr)
          end if
-         if ( node2_myid.eq.0 ) then
+         if ( node2_myid == 0 ) then
 !           Check the type of the variable
              ierr = nf90_inq_varid (ncid_in(0), name, vid ) 
              call check_ncerr(ierr, "Error getting vid for "//name)
@@ -2876,7 +2876,7 @@ contains
                 call check_ncerr (ierr,"Error getting scale_factor attribute")
              end if
          end if
-         if ( node2_nproc.gt.1 ) then
+         if ( node2_nproc > 1 ) then
             call MPI_Bcast(vartyp,1,MPI_INTEGER,0,node2_comm,ierr)
             call MPI_Bcast(addoff,1,MPI_INTEGER,0,node2_comm,ierr)
             call MPI_Bcast(sf,1,MPI_INTEGER,0,node2_comm,ierr)
@@ -2945,7 +2945,7 @@ contains
       call START_LOG(paravar3a_begin)
 
       if ( procformat ) then
-         if ( node2_myid.eq.0 ) then
+         if ( node2_myid == 0 ) then
             do ip = 0,ip_maxcnt
                ierr = nf90_inq_varid ( ncid_in(ip), name, vid )
                call check_ncerr(ierr, "Error getting vid for "//name)
@@ -2962,11 +2962,11 @@ contains
                call check_ncerr(ierr, "Error getting var "//name)
             end do
          end if
-         if ( node2_nproc.gt.1 ) then
+         if ( node2_nproc > 1 ) then
             call MPI_Scatter(ginarray3,pil*pjl*pnpan*(maxlev-minlev+1)*lproc,MPI_REAL,inarray3,&
                              pil*pjl*pnpan*(maxlev-minlev+1)*lproc,MPI_REAL,0,node2_comm,ierr)
          end if
-         if ( node2_myid.eq.0 ) then
+         if ( node2_myid == 0 ) then
              ierr = nf90_inq_varid ( ncid_in(0), name, vid )
              call check_ncerr(ierr, "Error getting vid for "//name)
              ierr = nf90_inquire_variable ( ncid_in(0), vid, xtype=vartyp )
@@ -2977,7 +2977,7 @@ contains
                call check_ncerr (ierr,"Error getting scale_factor attribute")                
              end if
          end if
-         if ( node2_nproc.gt.1 ) then
+         if ( node2_nproc > 1 ) then
             call MPI_Bcast(vartyp,1,MPI_INTEGER,0,node2_comm,ierr)
             call MPI_Bcast(addoff,1,MPI_INTEGER,0,node2_comm,ierr)
             call MPI_Bcast(sf,1,MPI_INTEGER,0,node2_comm,ierr)
