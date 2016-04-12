@@ -53,7 +53,7 @@ program cc2hist
    include 'mpif.h'
 #endif
 
-   character(len=MAX_ARGLEN) :: ifile, ofile
+   character(len=MAX_ARGLEN) :: ifile, ofile, cfile
 
    real :: hres = 0.
    real :: minlon = 0.0, maxlon=360.0, dlon=0.0, &
@@ -93,6 +93,12 @@ program cc2hist
    integer :: veg_int
    real :: time_prev = 0.
 
+   ! Start banner
+   write(6,*) "=================================================================================="
+   write(6,*) "CCAM: Starting pcc2hist"
+   write(6,*) "=================================================================================="
+
+   
 #ifndef stacklimit
    ! For linux only
    call setstacklimit(-1)
@@ -124,10 +130,13 @@ program cc2hist
    longopts(4) = loption ( "cordex", 0, 0 )
    ifile = ""
    ofile = ""
+   cfile = ""
    do
-      call getopt("d:hi:o:r:t:v",nopt,opt,optarg,longopts,longind)
+      call getopt("c:d:hi:o:r:t:v",nopt,opt,optarg,longopts,longind)
       if ( opt == -1 ) exit  ! End of options
       select case ( char(opt) )
+      case ( "c" )
+         cfile = optarg
       case ( "d" )
          debug = .true.
       case ( "h" ) 
@@ -158,6 +167,7 @@ program cc2hist
                optionstring = optionstring(:len_trim(optionstring)) // " --interp=none"
             case default
                print*, "Expected nearest, linear or none for interp option"
+               call finishbanner
                call MPI_ABORT(comm_world,-1,ierr)
             end select
          case ( 2 )
@@ -172,6 +182,7 @@ program cc2hist
                optionstring = optionstring(:len_trim(optionstring)) // " --vextrap=missing"
             case default
                print*, "Expected linear, none or missing for vextrap option"
+               call finishbanner
                call MPI_ABORT(comm_world,-1,ierr)
             end select
          case ( 3 )
@@ -180,6 +191,7 @@ program cc2hist
             cordex_compliant = .true.
          case default
             print*, "Unexpected result processing long options", longind
+            call finishbanner
             call MPI_ABORT(comm_world,-1,ierr)
          end select
       case default
@@ -191,12 +203,14 @@ program cc2hist
    end do
 
    ! Read namelist - allows overwriting of command line options
-   if ( myid==0 ) print *,"reading cc.nml"
-   open(1,file='cc.nml')
+   if ( trim(cfile) == "" ) cfile = "cc.nml"
+   if ( myid==0 ) print *,"reading ", trim(cfile)
+   open(1,file=trim(cfile))
    read(1,input)   
    
    if ( vextrap == vextrap_missing .and. int_default == int_normal ) then
       print*, "For missing option to work, must set interp to linear or nearest"
+      call finishbanner
       call MPI_ABORT(comm_world,-1,ierr)
    end if
 
@@ -215,11 +229,13 @@ program cc2hist
 
    if ( len_trim(ifile) == 0 .or. len_trim(ofile) == 0 ) then
       print*, "Error setting input/output filenames"
+      call finishbanner
       call MPI_ABORT(comm_world,-1,ierr)
    end if
 
    if ( use_plevs .and. use_meters ) then
       print *,"Cannot both use_plevs and use_meters together"
+      call finishbanner
       call MPI_ABORT(comm_world,-1,ierr)
    end if
 
@@ -549,4 +565,20 @@ program cc2hist
 
    call MPI_Finalize(ierr)
 
+   ! Complete
+   write(6,*) "CCAM: pcc2hist completed successfully"
+   call finishbanner
+   
 end program cc2hist
+    
+subroutine finishbanner
+
+implicit none
+
+! End banner
+write(6,*) "=================================================================================="
+write(6,*) "CCAM: Finished pcc2hist"
+write(6,*) "=================================================================================="
+
+return
+end    

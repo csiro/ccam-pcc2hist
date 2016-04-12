@@ -32,7 +32,7 @@ module usage_m
    integer ierr
    if (myid==0) then
       write(*,"(a)") &
-"Usage: mpirun -np nproc pcc2hist [-h] [-r res] [-v] [input_file] [output_file]", &
+"Usage: mpirun -np nproc pcc2hist [-c control_file] [-h] [-r res] [-v] [input_file] [output_file]", &
 "  pcc2hist -h for full list of options and more information."
    end if
    call mpi_barrier(comm_world,ierr)
@@ -57,6 +57,9 @@ module usage_m
 "Usage: mpirun -np nproc pcc2hist [-h] [-r res] [-v] [input_file] [output_file]",&
 "", &
 "Command line options are", &
+"", &
+" -c control_file where control_file is the control namelist file", &
+"   (Default is cc.nml).", &
 "", &
 " -h for help (this message)", &
 "", &
