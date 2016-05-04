@@ -2875,8 +2875,8 @@ contains
          end if
          if ( node2_nproc > 1 ) then
             call MPI_Bcast(vartyp,1,MPI_INTEGER,0,node2_comm,ierr)
-            call MPI_Bcast(addoff,1,MPI_INTEGER,0,node2_comm,ierr)
-            call MPI_Bcast(sf,1,MPI_INTEGER,0,node2_comm,ierr)
+            call MPI_Bcast(addoff,1,MPI_REAL,0,node2_comm,ierr)
+            call MPI_Bcast(sf,1,MPI_REAL,0,node2_comm,ierr)
          end if
          do ip = 0,lproc-1
             if ( vartyp == NF90_SHORT ) then
@@ -2976,8 +2976,8 @@ contains
          end if
          if ( node2_nproc > 1 ) then
             call MPI_Bcast(vartyp,1,MPI_INTEGER,0,node2_comm,ierr)
-            call MPI_Bcast(addoff,1,MPI_INTEGER,0,node2_comm,ierr)
-            call MPI_Bcast(sf,1,MPI_INTEGER,0,node2_comm,ierr)
+            call MPI_Bcast(addoff,1,MPI_REAL,0,node2_comm,ierr)
+            call MPI_Bcast(sf,1,MPI_REAL,0,node2_comm,ierr)
          end if
          do ip = 0,lproc-1
             if ( vartyp == NF90_SHORT ) then
