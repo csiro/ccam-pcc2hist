@@ -141,7 +141,7 @@ contains
            allocate ( parray(size(array,1), size(array,2), nplevs) )
          end if
          if ( vextrap == vextrap_default ) then
-            if ( name == "temp" ) then
+            if ( name == "temp" .or. name == "ta" ) then
                call sitop ( array, parray, sig, plevs(1:nplevs), psl, vextrap_t )
             else
                call sitop ( array, parray, sig, plevs(1:nplevs), psl, vextrap_none )
@@ -159,7 +159,7 @@ contains
            allocate ( parray(size(array,1), size(array,2), nplevs) )
          end if
          if ( vextrap == vextrap_default ) then
-            if (  name == "temp" ) then
+            if (  name == "temp" .or. name == "ta" ) then
                call mitop ( array, parray, vextrap_t )
             else
                call mitop ( array, parray, vextrap_none )

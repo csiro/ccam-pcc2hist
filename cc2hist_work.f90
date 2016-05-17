@@ -473,6 +473,29 @@ contains
             end select
          else
             select case ( varlist(ivar)%vname )
+            case ( "ta" )
+               ! temp should be the first of the 3D fields
+               if ( use_meters ) then
+                  minlev = 1
+                  maxlev = kk
+                  ! assume that 2D zs is previously loaded
+                  ! MJT notes - reading mixr skips ahead in the input file
+                  ! possibly reorder temp, mixr, u and v in CCAM
+                  call vread( "temp", t)
+                  call vread( "mixr", q)
+                  q = max( q, 1.e-20 )
+                  ! psl will not be used in height
+                  call height( t, q, zs, psl, sig, hstd )
+                  do k=1,size(hstd,dim=3)
+                     hstd(:,:,k) = hstd(:,:,k) - zs/grav
+                  end do
+                  call mitop_setup( sig, mlevs(1:nplevs), hstd, t, q, maxlev, minlev )
+               else if ( need3dfld("ta") ) then
+                  call vread( "temp", t)
+               end if
+               if ( need3dfld("ta") ) then
+                  call vsavehist ( "ta", t )
+               end if
             case ( "temp" )
                ! temp should be the first of the 3D fields
                if ( use_meters ) then
@@ -496,7 +519,15 @@ contains
                if ( need3dfld("temp") ) then
                   call vsavehist ( "temp", t )
                end if
-            case ( "mixr" )
+             case ( "hus" )
+               if ( need3dfld("hus")) then
+                  if ( .not. use_meters ) then
+                     call vread( "mixr", q )
+                     q = max( q, 1.e-20 )
+                  end if
+                  call vsavehist ( "hus", q )
+               end if
+             case ( "mixr" )
                if ( need3dfld("mixr")) then
                   if ( .not. use_meters ) then
                      call vread( "mixr", q )
@@ -530,11 +561,19 @@ contains
                end if
             ! Should to u, v as above with vector flag, but this will do for now
             case ( "u" )
-               if ( need3dfld("u")) then
+               if ( need3dfld("u") ) then
                   call vread( "u", u )
                end if
             case ( "v" )
-               if ( need3dfld("v")) then
+               if ( need3dfld("v") ) then
+                  call vread( "v", v )
+               end if
+            case ( "ua" )
+               if ( need3dfld("ua") ) then
+                  call vread( "u", u )
+               end if
+            case ( "va" )
+               if ( need3dfld("va") ) then
                   call vread( "v", v )
                end if
             case ( "tgg" )
@@ -567,27 +606,33 @@ contains
 
       call savehist( "tbot", t(:,:,1))
       call savehist( "qbot", q(:,:,1))
-
-      if ( cordex_compliant ) then
-         call savehist( "snw", sndw )
+      
+      if ( cordex_compliant  ) then
+        call savehist( "snw", sndw )
       end if
 
       if ( kk > 1) then
          if ( needfld("u") .or. needfld("v")           .or. &
+              needfld("ua") .or. needfld("va")         .or. &             
               needfld("vaveuq") .or. needfld("vavevq") .or. &
               needfld("vaveut") .or. needfld("vavevt") .or. &
               needfld("ubot")   .or. needfld("vbot")   .or. &
               needfld("uas")    .or. needfld("vas")    .or. &
               needfld("d10") ) then
             call fix_winds(u, v)
-            call vsavehist ( "u", u )
-            call vsavehist ( "v", v )
+            if ( cordex_compliant ) then
+               call vsavehist ( "ua", u )
+               call vsavehist ( "va", v )
+            else
+               call vsavehist ( "u", u )
+               call vsavehist ( "v", v )
+            end if
             call savehist ( "ubot", u(:,:,1) )
             call savehist ( "vbot", v(:,:,1) )
             if ( needfld("d10") ) then
                dtmp = atan2(-u(:,:,1),-v(:,:,1))*180./3.1415927
                where ( dtmp < 0. )
-                 dtmp = dtmp+360.
+                 dtmp = dtmp + 360.
                end where
                call savehist( "d10", dtmp )
              end if
@@ -595,18 +640,18 @@ contains
                 wind_norm(:,:) = sqrt(u(:,:,1)*u(:,:,1)+v(:,:,1)*v(:,:,1))
              end if
              if ( needfld("uas") ) then
-               where ( wind_norm > 0.0 )
+               where ( wind_norm > 0. )
                   dtmp = u(:,:,1)*uten/wind_norm
                elsewhere
-                  dtmp = 0.0
+                  dtmp = 0.
                end where
                call savehist ( "uas", dtmp )
              end if
              if ( needfld("vas") ) then
-               where ( wind_norm > 0.0 )
+               where ( wind_norm > 0. )
                   dtmp = v(:,:,1)*uten/wind_norm
                elsewhere
-                  dtmp = 0.0
+                  dtmp = 0.
                end where
                call savehist ( "vas", dtmp )
              end if
@@ -720,8 +765,16 @@ contains
          needed = needfld("temp") .or. needfld("zg") .or. needfld("rh") .or. &
                   needfld("tbot") .or. needfld("vaveut") .or.                &
                   needfld("vaveut") .or. needfld("theta")
+      case ( "ta" )
+         needed = needfld("ta") .or. needfld("zg") .or. needfld("rh") .or. &
+                  needfld("tbot") .or. needfld("vaveut") .or.              &
+                  needfld("vaveut") .or. needfld("theta")
       case ( "mixr" )
          needed = needfld("mixr") .or. needfld("zg") .or. needfld("rh") .or. &
+                  needfld("pwc") .or. needfld("qbot") .or. &
+                  needfld("vaveuq") .or. needfld("vaveuq")
+      case ( "hus" )
+         needed = needfld("hus") .or. needfld("zg") .or. needfld("rh") .or. &
                   needfld("pwc") .or. needfld("qbot") .or. &
                   needfld("vaveuq") .or. needfld("vaveuq")
       case ( "u", "v" )
@@ -730,7 +783,13 @@ contains
                   needfld("vavevt") .or. needfld("vbot") .or.                &
                   needfld("ubot") .or. needfld("d10") .or.                   &
                   needfld("uas") .or. needfld("vas")
-      case ( "qlg" )
+      case ( "ua", "va" )
+         needed = needfld("ua") .or. needfld("va") .or. needfld("vaveuq") .or. &
+                  needfld("vavevq") .or. needfld("vaveut") .or.                &
+                  needfld("vavevt") .or. needfld("vbot") .or.                  &
+                  needfld("ubot") .or. needfld("d10") .or.                     &
+                  needfld("uas") .or. needfld("vas")
+     case ( "qlg" )
          needed = needfld("qlg") .or. needfld("rh")
       case ( "qfg" )
          needed = needfld("qfg") .or. needfld("rh")
@@ -1702,8 +1761,16 @@ contains
                varlist(ivar)%vname = "clivi"
             else if ( varlist(ivar)%vname == "lwp_ave" ) then
                varlist(ivar)%vname = "clwvi"
+            else if ( varlist(ivar)%vname == "mixr" ) then
+               varlist(ivar)%vname = "hus"
             else if ( varlist(ivar)%vname == "pblh" ) then
                varlist(ivar)%vname = "zmla"
+            else if ( varlist(ivar)%vname == "qgscrn" ) then
+               varlist(ivar)%vname = "huss"
+               varlist(ivar)%units = "none"
+               varlist(ivar)%long_name = "2m specific humidity"
+               xmin = 0.
+               xmax = 0.06
             else if ( varlist(ivar)%vname == "rgdn_ave" ) then
                varlist(ivar)%vname = "rlds"
             else if ( varlist(ivar)%vname == "rhscrn" ) then
@@ -1752,18 +1819,22 @@ contains
                varlist(ivar)%vname = "tauu"
             else if ( varlist(ivar)%vname == "tauy" ) then
                varlist(ivar)%vname = "tauv"
+            else if ( varlist(ivar)%vname == "temp" ) then
+               varlist(ivar)%vname = "ta"
             else if ( varlist(ivar)%vname == "tmaxscr" ) then
                varlist(ivar)%vname = "tasmax"
             else if ( varlist(ivar)%vname == "tminscr" ) then
                varlist(ivar)%vname = "tasmin"
             else if ( varlist(ivar)%vname == "tscrn" ) then
                varlist(ivar)%vname = "tas"
-            else if ( varlist(ivar)%vname == "tscrn" ) then
-               varlist(ivar)%vname = "tas"
             else if ( varlist(ivar)%vname == "tsu" ) then
                varlist(ivar)%vname = "ts"
             else if ( varlist(ivar)%vname == "u10" ) then
                varlist(ivar)%vname = "sfcwind"
+            else if ( varlist(ivar)%vname == "u" ) then
+               varlist(ivar)%vname = "ua"
+            else if ( varlist(ivar)%vname == "v" ) then
+               varlist(ivar)%vname = "va"        
             else if ( varlist(ivar)%vname == "zs" ) then
                varlist(ivar)%vname = "orog"
             end if
@@ -1811,7 +1882,6 @@ contains
          call addfld ( "prw", "Precipitable water column", "kg/m2", 0.0, 100.0, 1, std_name="atmosphere_water_vapor_content")
          call addfld ( "sftlf", "Land-sea mask", "",  0.0, 1.0, 1, &
                         ave_type="fixed", int_type=int_nearest )
-         call addfld ( "huss", "2m specific humidity", "none", 0., 0.06, 1 )
          call addfld ( "rlus", "Upwelling Longwave radiation", "W/m2", -1000., 1000., 1 )
          call addfld ( "rsus", "Upwelling Shortwave radiation", "W/m2", -1000., 1000., 1 )
          call addfld ( "snw",  "Surface snow amount", "kg/m2", 0., 6.5, 1 )
