@@ -100,8 +100,7 @@ contains
 
       integer, intent(in) :: il, jl, kl, ksoil, kice
       
-      allocate ( psl(pil,pjl*pnpan*lproc),   zs(pil,pjl*pnpan*lproc), mapdata(pil,pjl*pnpan*lproc) )
-      allocate ( sndw(pil,pjl*pnpan*lproc) )
+      allocate ( psl(pil,pjl*pnpan*lproc),   zs(pil,pjl*pnpan*lproc) )
       allocate ( soilt(pil,pjl*pnpan*lproc), u(pil,pjl*pnpan*lproc,kl), v(pil,pjl*pnpan*lproc,kl),  t(pil,pjl*pnpan*lproc,kl) )
       allocate ( q(pil,pjl*pnpan*lproc,kl),  ql(pil,pjl*pnpan*lproc,kl), qf(pil,pjl*pnpan*lproc,kl) )
       allocate ( qs(pil,pjl*pnpan*lproc,kl), qg(pil,pjl*pnpan*lproc,kl) )
@@ -220,6 +219,8 @@ contains
       logical, intent(in)  :: skip
       integer :: k, ivar
       real, dimension(pil,pjl*pnpan*lproc) :: uten, dtmp, ctmp
+      real, dimension(pil,pjl*pnpan*lproc) :: sndw
+      real, dimension(pil,pjl*pnpan*lproc) :: tauxtmp, tauytmp
       real, dimension(pil,pjl*pnpan*lproc) :: rgn, rgd, sgn, sgd
       real, dimension(pil,pjl*pnpan*lproc) :: wind_norm
       character(len=10) :: name
@@ -271,10 +272,10 @@ contains
                      call savehist("sftlf", dtmp)
                   endif
                else if ( varlist(ivar)%vname == "map" ) then
-                  call vread( "map", mapdata )
-                  call savehist("map", mapdata)
+                  call vread( "map", dtmp )
+                  call savehist("map", dtmp )
                   if ( needfld("grid") ) then
-                    dtmp = 90.*112./(mapdata)
+                    dtmp = 90.*112./(real(pil_g)*dtmp)
                     call savehist("grid", dtmp)
                   end if
                else
@@ -320,13 +321,9 @@ contains
                dtmp = dtmp/1000.
                call savehist ( "evspsbl", dtmp )
             case ( "hfls" )
-               call vread( "eg_ave", dtmp )
-               dtmp = -dtmp
-               call savehist ( "hfls", dtmp )
+               call readsave2 (varlist(ivar)%vname, input_name="eg_ave")
             case ( "hfss" )
-               call vread( "fg_ave", dtmp )
-               dtmp = -dtmp
-               call savehist ( "hfss", dtmp )
+               call readsave2 (varlist(ivar)%vname, input_name="fg_ave")
             case ( "hurs" )
                call readsave2 (varlist(ivar)%vname, input_name="rhscrn")
             case ( "huss" )
@@ -374,9 +371,7 @@ contains
             case ( "rsdt" )
                call readsave2 (varlist(ivar)%vname, input_name="sint_ave")
             case ( "rsut" )
-               call vread( "sot_ave", dtmp )
-               dtmp = -dtmp
-               call savehist ( "rsut", dtmp )
+               call readsave2 (varlist(ivar)%vname, input_name="sot_ave") 
             case ( "sic" )
                call readsave2 (varlist(ivar)%vname, input_name="fracice")
             case ( "sfcwind" )
@@ -407,9 +402,25 @@ contains
             case ( "tasmin" )
                call readsave2 (varlist(ivar)%vname, input_name="tminscr")
             case ( "tauu" )
-               call readsave2 (varlist(ivar)%vname, input_name="taux")
+               call vread( "taux", tauxtmp ) 
+               if ( .not.needfld("tauv") ) then
+                 call vread( "tauy", tauytmp )  
+               end if  
             case ( "tauv" )
-               call readsave2 (varlist(ivar)%vname, input_name="tauy")
+               if ( .not.needfld("tauu") ) then
+                 call vread( "taux", tauxtmp )  
+               end if  
+               call vread( "tauy", tauytmp )  
+            case ( "taux" )
+               call vread( "taux", tauxtmp ) 
+               if ( .not.needfld("tauy") ) then
+                 call vread( "tauy", tauytmp )  
+               end if  
+            case ( "tauy" )
+               if ( .not.needfld("taux") ) then
+                 call vread( "taux", tauxtmp )  
+               end if  
+               call vread( "tauy", tauytmp )  
             case ( "ts" )
                call vread( "tsu", dtmp )
                ! Some (all?) initial conditions have tsu negative over ocean
@@ -608,9 +619,20 @@ contains
       call savehist( "qbot", q(:,:,1))
       
       if ( cordex_compliant  ) then
-        call savehist( "snw", sndw )
+         call savehist( "snw", sndw )
+         if ( needfld("tauu") .or. needfld("tauv") ) then
+            call fix_winds(tauxtmp, tauytmp)
+            call savehist( "tauu", tauxtmp ) 
+            call savehist( "tauv", tauytmp )
+         end if
+      else
+         if ( needfld("taux") .or. needfld("tauy") ) then
+            call fix_winds(tauxtmp, tauytmp)
+            call savehist( "taux", tauxtmp ) 
+            call savehist( "tauy", tauytmp )
+         end if
       end if
-
+      
       if ( kk > 1) then
          if ( needfld("u") .or. needfld("v")           .or. &
               needfld("ua") .or. needfld("va")         .or. &             
@@ -635,43 +657,45 @@ contains
                  dtmp = dtmp + 360.
                end where
                call savehist( "d10", dtmp )
-             end if
-             if ( needfld("uas") .or. needfld("vas") ) then
-                wind_norm(:,:) = sqrt(u(:,:,1)*u(:,:,1)+v(:,:,1)*v(:,:,1))
-             end if
-             if ( needfld("uas") ) then
+            end if
+            if ( needfld("uas") .or. needfld("vas") ) then
+               wind_norm(:,:) = sqrt(u(:,:,1)*u(:,:,1)+v(:,:,1)*v(:,:,1))
+            end if
+            if ( needfld("uas") ) then
                where ( wind_norm > 0. )
                   dtmp = u(:,:,1)*uten/wind_norm
                elsewhere
                   dtmp = 0.
                end where
                call savehist ( "uas", dtmp )
-             end if
-             if ( needfld("vas") ) then
+            end if
+            if ( needfld("vas") ) then
                where ( wind_norm > 0. )
                   dtmp = v(:,:,1)*uten/wind_norm
                elsewhere
                   dtmp = 0.
                end where
                call savehist ( "vas", dtmp )
-             end if
+            end if
          end if
-      end if
+      end if       
           
-      if ( needfld("pwc") ) then
-         dtmp = 0.0
-         do k=1,kk
-            dtmp = dtmp + dsig(k)*q(:,:,k)
-         end do
-         dtmp = 100.*psl/grav * dtmp
-         call savehist ( "pwc", dtmp )
-      else if ( needfld("prw") ) then
-         dtmp = 0.0
-         do k=1,kk
-            dtmp = dtmp + dsig(k)*q(:,:,k)
-         end do
-         dtmp = 100.*psl/grav * dtmp
-         call savehist ( "prw", dtmp )
+      if ( kk>1 ) then
+         if ( needfld("pwc") ) then
+            dtmp = 0.0
+            do k=1,kk
+               dtmp = dtmp + dsig(k)*q(:,:,k)
+            end do
+            dtmp = 100.*psl/grav * dtmp
+            call savehist ( "pwc", dtmp )
+         else if ( needfld("prw") ) then
+            dtmp = 0.0
+            do k=1,kk
+               dtmp = dtmp + dsig(k)*q(:,:,k)
+            end do
+            dtmp = 100.*psl/grav * dtmp
+            call savehist ( "prw", dtmp )
+         end if
       end if
 
       if ( needfld("zg") ) then
@@ -689,54 +713,62 @@ contains
          end if
       end if
 
-      if ( needfld("press") ) then
-         do k=1,kk
-            tmp3d(:,:,k) = psl*sig(k)
-         end do
-         call vsavehist ( "press", tmp3d )
+      if ( kk>1 ) then
+         if ( needfld("press") ) then
+            do k=1,kk
+               tmp3d(:,:,k) = psl*sig(k)
+            end do
+            call vsavehist ( "press", tmp3d )
+         end if
       end if
       
-      if ( needfld("rh") ) then
-         call calc_rh ( t, q, ql, qf, psl, sig, tmp3d )
-         call vsavehist ( "rh", tmp3d )
+      if ( kk>1 ) then
+         if ( needfld("rh") ) then
+            call calc_rh ( t, q, ql, qf, psl, sig, tmp3d )
+            call vsavehist ( "rh", tmp3d )
+         end if
       end if
 
-      if ( needfld("theta") ) then
-         do k=1,kk
-            tmp3d(:,:,k) = t(:,:,k)*(psl*sig(k)/1.e3)**(-rdry/cp)
-         end do
-         call vsavehist ( "theta", tmp3d )
+      if ( kk>1 ) then
+         if ( needfld("theta") ) then
+            do k=1,kk
+               tmp3d(:,:,k) = t(:,:,k)*(psl*sig(k)/1.e3)**(-rdry/cp)
+            end do
+            call vsavehist ( "theta", tmp3d )
+         end if
       end if
       
       ! Note that these are just vertical averages, not vertical integrals
       ! Use the winds that have been rotatated to the true directions
-      if ( needfld("vaveuq") ) then
-         dtmp = 0.0
-         do k = 1,kk
-            dtmp = dtmp + dsig(k)*u(:,:,k)*q(:,:,k)
-         end do
-         call savehist( "vaveuq", dtmp)
-      end if
-      if ( needfld("vavevq") ) then
-         dtmp = 0.0
-         do k = 1,kk
-            dtmp = dtmp + dsig(k)*v(:,:,k)*q(:,:,k)
-         end do
-         call savehist( "vavevq", dtmp)
-      end if
-      if ( needfld("vaveut") ) then
-         dtmp = 0.0
-         do k = 1,kk
-            dtmp = dtmp + dsig(k)*u(:,:,k)*t(:,:,k)
-         end do
-         call savehist( "vaveut", dtmp)
-      end if
-      if ( needfld("vavevt") ) then
-         dtmp = 0.0
-         do k = 1,kk
-            dtmp = dtmp + dsig(k)*v(:,:,k)*t(:,:,k)
-         end do
-         call savehist( "vavevt", dtmp)
+      if ( kk>1 ) then
+         if ( needfld("vaveuq") ) then
+            dtmp = 0.0
+            do k = 1,kk
+               dtmp = dtmp + dsig(k)*u(:,:,k)*q(:,:,k)
+            end do
+            call savehist( "vaveuq", dtmp)
+         end if
+         if ( needfld("vavevq") ) then
+            dtmp = 0.0
+            do k = 1,kk
+               dtmp = dtmp + dsig(k)*v(:,:,k)*q(:,:,k)
+            end do
+            call savehist( "vavevq", dtmp)
+         end if
+         if ( needfld("vaveut") ) then
+            dtmp = 0.0
+            do k = 1,kk
+               dtmp = dtmp + dsig(k)*u(:,:,k)*t(:,:,k)
+            end do
+            call savehist( "vaveut", dtmp)
+         end if
+         if ( needfld("vavevt") ) then
+            dtmp = 0.0
+            do k = 1,kk
+               dtmp = dtmp + dsig(k)*v(:,:,k)*t(:,:,k)
+            end do
+            call savehist( "vavevt", dtmp)
+         end if
       end if
       
       if ( needfld("rsus") ) then
