@@ -342,6 +342,10 @@ contains
                call vread( "rnc", dtmp )
                dtmp = dtmp/86400.
                call savehist ( "prc", dtmp )
+            case ( "prmax" )
+               call vread( "rndmax", dtmp )
+               dtmp = dtmp/86400.
+               call savehist ( "prmax", dtmp )
             case ( "prsn" )
                call vread( "sno", dtmp )
                dtmp = dtmp/86400.
@@ -1819,6 +1823,12 @@ contains
                varlist(ivar)%long_name = "Convective Precipitation"
                xmin = 0.
                xmax = 0.013
+            else if ( varlist(ivar)%vname == "rndmax" ) then
+               varlist(ivar)%vname = "prmax"
+               varlist(ivar)%units = "kg/m2/s"
+               varlist(ivar)%long_name = "Maximum precipitation"
+               xmin = 0.
+               xmax = 0.013
             else if ( varlist(ivar)%vname == "runoff" ) then
                varlist(ivar)%vname = "mrros"
                varlist(ivar)%units = "kg/m2/s"
@@ -1862,7 +1872,7 @@ contains
             else if ( varlist(ivar)%vname == "tsu" ) then
                varlist(ivar)%vname = "ts"
             else if ( varlist(ivar)%vname == "u10" ) then
-               varlist(ivar)%vname = "sfcwind"
+               varlist(ivar)%vname = "sfcWind"
             else if ( varlist(ivar)%vname == "u" ) then
                varlist(ivar)%vname = "ua"
             else if ( varlist(ivar)%vname == "v" ) then
