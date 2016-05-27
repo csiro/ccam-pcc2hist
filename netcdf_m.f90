@@ -568,11 +568,13 @@ integer (C_INT) function nc_def_var(ncid,name,xtype,ndims,dimids,varidp) bind(C,
   character, dimension(*) :: name
 end function nc_def_var
 
+#ifndef usenc3    
 integer (C_INT) function nc_def_var_deflate(ncid,varid,shuffle,deflate,deflate_level) bind(C, name='nc_def_var_deflate')
   use, intrinsic :: ISO_C_BINDING
   implicit none
   integer (C_INT), value :: ncid, varid, shuffle, deflate, deflate_level
 end function nc_def_var_deflate
+#endif    
     
 integer (C_INT) function nc_rename_dim(ncid,dimid,name) bind(C, name='nc_rename_dim')
   use, intrinsic :: ISO_C_BINDING
@@ -1204,7 +1206,11 @@ integer, parameter :: nf90_noerr = nf_noerr
 integer, parameter :: nf90_nowrite = nf_nowrite
 integer, parameter :: nf90_write = nf_write
 integer, parameter :: nf90_clobber = nf_clobber
+#ifdef usenc3
+integer, parameter :: nf90_netcdf4 = nf_64bit_offset
+#else
 integer, parameter :: nf90_netcdf4 = nf_netcdf4
+#endif
 integer, parameter :: nf90_64bit_offset = nf_64bit_offset
 integer, parameter :: nf90_nofill = nf_nofill
 integer, parameter :: nf90_unlimited = nf_unlimited
@@ -1645,9 +1651,11 @@ integer function nf90_def_var_dm(ncid,name,xtype,dimids,varid,deflate_level) res
   integer, dimension(:), intent(in) :: dimids
   character(len=*), intent(in) :: name
   ierr = nf_def_var(ncid,name,xtype,size(dimids),dimids,varid)
+#ifndef usenc3  
   if ( ierr==nf_noerr .and. present(deflate_level) ) then
     ierr = nf_def_var_deflate(ncid,varid,0,1,deflate_level)
   end if
+#endif
 end function nf90_def_var_dm
 
 integer function nf90_def_dim(ncid,name,len,dimid) result(ierr)
@@ -5355,7 +5363,11 @@ integer function nf_def_var_deflate(ncid,varid,shuffle,deflate,deflate_level) re
   c_shuffle = shuffle
   c_deflate = deflate
   c_deflate_level = deflate_level
+#ifdef usenc3
+  ierr = 0
+#else
   ierr = nc_def_var_deflate(c_ncid,c_varid,c_shuffle,c_deflate,c_deflate_level)
+#endif
 end function nf_def_var_deflate
 
 integer function nf_rename_dim(ncid,dimid,name) result(ierr)
