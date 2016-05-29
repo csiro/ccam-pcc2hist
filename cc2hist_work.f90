@@ -1823,7 +1823,7 @@ contains
                varlist(ivar)%long_name = "Convective Precipitation"
                xmin = 0.
                xmax = 0.013
-            else if ( varlist(ivar)%vname == "rndmax" ) then
+            else if ( varlist(ivar)%vname == "maxrnd" ) then
                varlist(ivar)%vname = "prmax"
                varlist(ivar)%units = "kg/m2/s"
                varlist(ivar)%long_name = "Maximum precipitation"
