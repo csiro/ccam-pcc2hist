@@ -181,7 +181,7 @@ program cc2hist
          read(optarg,*) hres
       case ("v")
          if ( myid == 0 ) then
-            print*, "pcc2hist ", cc2hist_revision
+            write(6,*) "pcc2hist ", cc2hist_revision
          end if
       case ( char(0) )
          ! Long options that don't have a short form
@@ -198,7 +198,7 @@ program cc2hist
                int_default = int_none
                optionstring = optionstring(:len_trim(optionstring)) // " --interp=none"
             case default
-               print*, "Expected nearest, linear or none for interp option"
+               write(6,*) "Expected nearest, linear or none for interp option"
                call finishbanner
                call MPI_ABORT(comm_world,-1,ierr)
             end select
@@ -236,7 +236,7 @@ program cc2hist
 
    ! Read namelist - allows overwriting of command line options
    if ( trim(cfile) == "" ) cfile = "cc.nml"
-   if ( myid==0 ) print *,"reading ", trim(cfile)
+   if ( myid==0 ) write(6,*) "reading ",trim(cfile)
    open(1,file=trim(cfile))
    read(1,input)   
 
