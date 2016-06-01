@@ -94,11 +94,6 @@ program cc2hist
    real :: time_prev = 0.
    character*(MPI_MAX_PROCESSOR_NAME) :: node_name
 
-   ! Start banner
-   write(6,*) "=================================================================================="
-   write(6,*) "CCAM: Starting pcc2hist"
-   write(6,*) "=================================================================================="
-
    
 #ifndef stacklimit
    ! For linux only
@@ -110,6 +105,13 @@ program cc2hist
    call MPI_Comm_size(comm_world, nproc, ierr) ! Find number of processes
    call MPI_Comm_rank(comm_world, myid, ierr)  ! Find local processor id
 
+   ! Start banner
+   if ( myid==0 ) then
+      write(6,*) "==============================================================================="
+      write(6,*) "CCAM: Starting pcc2hist"
+      write(6,*) "==============================================================================="
+   end if
+   
 #ifdef parallel_int
    call MPI_Comm_split_type(comm_world, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, node_comm, ierr) ! Per node communictor
    call MPI_Comm_size(node_comm, node_nproc, ierr) ! Find number of processes on node
@@ -602,12 +604,15 @@ program cc2hist
    call simple_timer_finalize
 #endif
 
+   ! Complete
+   if ( myid==0 ) then
+      write(6,*) "-------------------------------------------------------------------------------"
+      write(6,*) "CCAM: pcc2hist completed successfully"
+      call finishbanner
+   end if
+
    call MPI_Finalize(ierr)
 
-   ! Complete
-   write(6,*) "CCAM: pcc2hist completed successfully"
-   call finishbanner
-   
 end program cc2hist
     
 subroutine finishbanner
@@ -615,9 +620,9 @@ subroutine finishbanner
 implicit none
 
 ! End banner
-write(6,*) "=================================================================================="
+write(6,*) "==============================================================================="
 write(6,*) "CCAM: Finished pcc2hist"
-write(6,*) "=================================================================================="
+write(6,*) "==============================================================================="
 
 return
 end    
