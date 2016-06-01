@@ -352,7 +352,7 @@ contains
                dtmp = dtmp/86400.
                call savehist ( "prc", dtmp )
             case ( "prmax" )
-               call vread( "rndmax", dtmp )
+               call vread( "maxrnd", dtmp )
                dtmp = dtmp/86400.
                call savehist ( "prmax", dtmp )
             case ( "prsn" )
@@ -1928,6 +1928,7 @@ contains
                   varlist(ivar)%vname = "prmax"
                   varlist(ivar)%units = "kg/m2/s"
                   varlist(ivar)%long_name = "Maximum precipitation"
+	          varlist(ivar)%daily = .true.
                   xmin = 0.
                   xmax = 0.013
                else if ( varlist(ivar)%vname == "runoff" ) then
