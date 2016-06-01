@@ -100,7 +100,7 @@ contains
 
       integer, intent(in) :: il, jl, kl, ksoil, kice
       
-      allocate ( psl(pil,pjl*pnpan*lproc),   zs(pil,pjl*pnpan*lproc) )
+      allocate ( psl(pil,pjl*pnpan*lproc),   zs(pil,pjl*pnpan*lproc), mapdata(pil,pjl*pnpan*lproc) )
       allocate ( soilt(pil,pjl*pnpan*lproc), u(pil,pjl*pnpan*lproc,kl), v(pil,pjl*pnpan*lproc,kl),  t(pil,pjl*pnpan*lproc,kl) )
       allocate ( q(pil,pjl*pnpan*lproc,kl),  ql(pil,pjl*pnpan*lproc,kl), qf(pil,pjl*pnpan*lproc,kl) )
       allocate ( qs(pil,pjl*pnpan*lproc,kl), qg(pil,pjl*pnpan*lproc,kl) )
@@ -278,6 +278,13 @@ contains
                      end where
                      call savehist("sftlf", dtmp)
                   endif
+               else if ( varlist(ivar)%vname == "map" ) then
+                  call vread( "map", mapdata )
+                  call savehist("map", mapdata)
+                  if ( needfld("grid") ) then
+                    dtmp = 90.*112./(mapdata)
+                    call savehist("grid", dtmp)
+                  end if
                else
                   call readsave2 ( varlist(ivar)%vname )
                end if
@@ -328,6 +335,8 @@ contains
                call vread( "fg_ave", dtmp )
                dtmp = -dtmp
                call savehist ( "hfss", dtmp )
+            case ( "hurs" )
+               call readsave2 (varlist(ivar)%vname, input_name="rhscrn")
             case ( "huss" )
                call vread( "qgscrn", dtmp )
                dtmp = dtmp/(dtmp+1.)
@@ -344,6 +353,10 @@ contains
                call vread( "rnc", dtmp )
                dtmp = dtmp/86400.
                call savehist ( "prc", dtmp )
+            case ( "prsn" )
+               call vread( "sno", dtmp )
+               dtmp = dtmp/86400.
+               call savehist ( "prsn", dtmp )
             case ( "psl" )
                call readsave2 (varlist(ivar)%vname, input_name="pmsl")
             case ( "psf" )
@@ -372,6 +385,8 @@ contains
                call vread( "sot_ave", dtmp )
                dtmp = -dtmp
                call savehist ( "rsut", dtmp )
+            case ( "sic" )
+               call readsave2 (varlist(ivar)%vname, input_name="fracice")
             case ( "sfcwind" )
                call vread( "u10", uten )
                call savehist( "sfcwind", uten )
@@ -381,10 +396,14 @@ contains
             case ( "sgn_ave" )
                call vread( "sgn_ave", sgn )
                call savehist( "sgn_ave", sgn )
-            case ( "snw" )
-               call vread( "snd", dtmp )
-               dtmp = dtmp/1000.
-               call savehist ( "snw", dtmp )
+            case ( "snd" )
+               call vread( "snd", sndw )
+               if ( cordex_compliant ) then
+                 dtmp = sndw*10. ! change from equiv water to equiv snow               
+               else
+                 dtmp = sndw
+               end if
+               call savehist ( "snd", dtmp )
             case ( "sund" )
                call vread( "sunhours", dtmp )
                dtmp = dtmp*3600.
@@ -556,6 +575,7 @@ contains
 
       call savehist( "tbot", t(:,:,1))
       call savehist( "qbot", q(:,:,1))
+      call savehist( "snw", sndw )
 
       if ( kk > 1) then
          if ( needfld("u") .or. needfld("v")           .or. &
@@ -1773,6 +1793,8 @@ contains
                   xmax = 0.013
                else if ( varlist(ivar)%vname == "fg_ave" ) then
                   varlist(ivar)%vname = "hfss"
+               else if ( varlist(ivar)%vname == "fracice" ) then
+                  varlist(ivar)%vname = "sic"
                else if ( varlist(ivar)%vname == "iwp_ave" ) then
                   varlist(ivar)%vname = "clivi"
                else if ( varlist(ivar)%vname == "lwp_ave" ) then
@@ -1781,6 +1803,8 @@ contains
                   varlist(ivar)%vname = "zmla"
                else if ( varlist(ivar)%vname == "rgdn_ave" ) then
                   varlist(ivar)%vname = "rlds"
+               else if ( varlist(ivar)%vname == "rhscrn" ) then
+                  varlist(ivar)%vname = "hurs"
                else if ( varlist(ivar)%vname == "rnd" ) then
                   varlist(ivar)%vname = "pr"
                   varlist(ivar)%units = "kg/m2/s"
@@ -1801,14 +1825,18 @@ contains
                   xmax = 0.013
                else if ( varlist(ivar)%vname == "rtu_ave" ) then
                   varlist(ivar)%vname = "rlut"
+               else if ( varlist(ivar)%vname == "sgdn_ave" ) then
+                  varlist(ivar)%vname = "rsds"
                else if ( varlist(ivar)%vname == "sint_ave" ) then
                   varlist(ivar)%vname = "rsdt"
                else if ( varlist(ivar)%vname == "snd" ) then
-                  varlist(ivar)%vname = "snw"
-                  varlist(ivar)%units = "kg/m2"
-                  varlist(ivar)%long_name = "Snow Amount"
+                  varlist(ivar)%long_name = "Snow depth"
+               else if ( varlist(ivar)%vname == "sno" ) then
+                  varlist(ivar)%vname = "prsn"
+                  varlist(ivar)%units = "kg/m2/s"
+                  varlist(ivar)%long_name = "Snowfall"
                   xmin = 0.
-                  xmax = 6.5
+                  xmax = 0.013
                else if ( varlist(ivar)%vname == "sot_ave" ) then
                   varlist(ivar)%vname = "rsut"
                else if ( varlist(ivar)%vname == "sunhours" ) then
@@ -1875,6 +1903,7 @@ contains
                         std_name="surface_air_pressure" )
          call addfld ( "tsea", "Sea surface temperature", "K", 150., 350., 1, &
                         std_name="sea_surface_temperature" )
+         call addfld ( "grid", "Grid resolution", "km", 0., 1000., 1 )
          if ( cordex_compliant ) then
             call addfld ( "prw", "Precipitable water column", "kg/m2", 0.0, 100.0, 1, std_name="atmosphere_water_vapor_content")
             call addfld ( "sftlf", "Land-sea mask", "",  0.0, 1.0, 1, &
@@ -1882,6 +1911,7 @@ contains
             call addfld ( "huss", "2m specific humidity", "none", 0., 0.06, 1 )
             call addfld ( "rlus", "Upwelling Longwave radiation", "W/m2", -1000., 1000., 1 )
             call addfld ( "rsus", "Upwelling Shortwave radiation", "W/m2", -1000., 1000., 1 )
+            call addfld ( "snw",  "Surface snow amount", "kg/m2", 0., 6.5, 1 )
          else
             call addfld ( "pwc", "Precipitable water column", "kg/m2", 0.0, 100.0, 1, std_name="atmosphere_water_vapor_content")
             call addfld ( "land_mask", "Land-sea mask", "",  0.0, 1.0, 1, &
