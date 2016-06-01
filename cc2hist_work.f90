@@ -576,7 +576,10 @@ contains
 
       call savehist( "tbot", t(:,:,1))
       call savehist( "qbot", q(:,:,1))
-      call savehist( "snw", sndw )
+
+      if ( cordex_compliant ) then
+         call savehist( "snw", sndw )
+      end if
 
       if ( kk > 1) then
          if ( needfld("u") .or. needfld("v")           .or. &
