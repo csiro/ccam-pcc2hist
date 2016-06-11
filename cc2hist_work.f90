@@ -482,6 +482,34 @@ contains
                     dtmp = dtmp + 290. ! reference temperature
                   end where
                   call savehist(varlist(ivar)%vname,dtmp)
+               else if ( varlist(ivar)%vname(1:7)=='rooftgg' ) then
+                  ! Fix urban temperature offset
+                  call vread(varlist(ivar)%vname,dtmp)
+                  where ( dtmp<100. )
+                    dtmp = dtmp + 290. ! reference temperature
+                  end where
+                  call savehist(varlist(ivar)%vname,dtmp)
+               else if ( varlist(ivar)%vname(1:7)=='waletgg' ) then
+                  ! Fix urban temperature offset
+                  call vread(varlist(ivar)%vname,dtmp)
+                  where ( dtmp<100. )
+                    dtmp = dtmp + 290. ! reference temperature
+                  end where
+                  call savehist(varlist(ivar)%vname,dtmp)
+               else if ( varlist(ivar)%vname(1:7)=='walwtgg' ) then
+                  ! Fix urban temperature offset
+                  call vread(varlist(ivar)%vname,dtmp)
+                  where ( dtmp<100. )
+                    dtmp = dtmp + 290. ! reference temperature
+                  end where
+                  call savehist(varlist(ivar)%vname,dtmp)
+               else if ( varlist(ivar)%vname(1:7)=='roadtgg' ) then
+                  ! Fix urban temperature offset
+                  call vread(varlist(ivar)%vname,dtmp)
+                  where ( dtmp<100. )
+                    dtmp = dtmp + 290. ! reference temperature
+                  end where
+                  call savehist(varlist(ivar)%vname,dtmp)
                else
                   call readsave2 (varlist(ivar)%vname)
                end if
@@ -1646,7 +1674,7 @@ contains
       end do
 
       if ( cf_compliant ) then
-         nvars = nvars+1
+         nvars = nvars + 1
          varlist(nvars)%vname = "tgg"
          varlist(nvars)%fixed = .false.
          varlist(nvars)%ndims = 4
@@ -1827,7 +1855,7 @@ contains
                varlist(ivar)%vname = "prmax"
                varlist(ivar)%units = "kg/m2/s"
                varlist(ivar)%long_name = "Maximum precipitation"
-	       varlist(ivar)%daily = .true.
+               varlist(ivar)%daily = .true.
                xmin = 0.
                xmax = 0.013
             else if ( varlist(ivar)%vname == "runoff" ) then
