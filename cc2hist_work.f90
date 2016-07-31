@@ -1948,7 +1948,7 @@ contains
                      std_name="surface_air_pressure" )
       call addfld ( "tsea", "Sea surface temperature", "K", 150., 350., 1, &
                      std_name="sea_surface_temperature" )
-      call addfld ( "grid", "Grid resolution", "km", 0., 1000., 1 )
+      call addfld ( "grid", "Grid resolution", "km", 0., 1000., 1, ave_type="fixed" )
       if ( cordex_compliant ) then
          call addfld ( "prw", "Precipitable water column", "kg/m2", 0.0, 100.0, 1, std_name="atmosphere_water_vapor_content")
          call addfld ( "sftlf", "Land-sea mask", "",  0.0, 1.0, 1, &
