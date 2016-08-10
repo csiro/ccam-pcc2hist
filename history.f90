@@ -1515,7 +1515,11 @@ contains
       if ( hist_debug > 0 ) then
          print*, "Creating file ", filename
       end if
+#ifdef usenc3
+      ierr = nf90_create(filename, nf90_64bit_offset, ncid)
+#else
       ierr = nf90_create(filename, nf90_netcdf4, ncid)
+#endif
       call check_ncerr ( ierr, "Error in creating history file" )
                
 !     Create dimensions, lon, lat and rec
@@ -2333,7 +2337,7 @@ contains
          maxcnt=cnt
          interp_nproc=ceiling(1.0d0*maxcnt/slab)
          offset=nproc-interp_nproc
-         if ( myid.ge.offset ) then
+         if ( myid>=offset ) then
            allocate( hist_a(pil,pjl*pnpan,pnproc,1+slab*(myid-offset):slab*(myid-offset+1)) )
            allocate( hist_g(nx_g,ny_g) )
          end if
@@ -2791,66 +2795,43 @@ contains
 #endif 
       integer, intent(in) :: slab, offset, maxcnt
       integer :: istart, iend, ip, k, n, ierr
-      integer :: nreq, myreq, rcount, ndone
       integer, dimension(maxcnt), intent(in) :: k_indx
-      integer, dimension(nproc) :: rreq, donelist
       real, dimension(:,:,:), intent(in) :: histarray
-      real, dimension(size(histarray,1),size(histarray,2),slab,nproc) :: histarray_tmp
+      real, dimension(size(histarray,1),size(histarray,2),slab) :: histarray_tmp
       real, dimension(:,:,:,:), pointer, contiguous, intent(out) :: hist_a
       real, dimension(pil*pjl*pnpan*lproc*slab*nproc), target :: hist_a_tmp
       real, dimension(:,:,:,:), pointer, contiguous :: hist_a_remap, hist_a_tmp_remap
    
       call START_LOG(gatherwrap_begin)
       
-      nreq = 0
-      myreq = -1
       do ip = 0,nproc-1
          if ( 1+slab*(ip-offset) > 0 ) then
             istart = 1 + slab*(ip-offset)
-            iend = slab*(ip-offset+1)
+            iend = istart + slab - 1
             iend = min( iend, maxcnt )
-            nreq = nreq + 1
-            if ( ip == myid ) myreq = nreq
-            histarray_tmp(:,:,1:iend-istart+1,ip+1) = histarray(:,:,(/k_indx(istart:iend)/))
+            histarray_tmp(:,:,1:iend-istart+1) = histarray(:,:,(/k_indx(istart:iend)/))
             call START_LOG(mpigather_begin)
-            call MPI_IGather(histarray_tmp(:,:,:,ip+1), pil*pjl*pnpan*lproc*(iend-istart+1), MPI_REAL,    &
+            call MPI_Gather(histarray_tmp(:,:,:), pil*pjl*pnpan*lproc*(iend-istart+1), MPI_REAL,    &
                             hist_a_tmp, pil*pjl*pnpan*lproc*(iend-istart+1), MPI_REAL,                    &
-                            ip, comm_world, rreq(nreq), ierr)
+                            ip, comm_world, ierr)
             call END_LOG(mpigather_end)
          end if
-      end do
-
-      ! MJT notes - need to clear all MPI_IGathers as just Waiting for my rank's MPI_IGather
-      ! can cause a race condition (e.g., MS MPI)
-      rcount = nreq
-      do while ( rcount > 0 ) 
-          
-         call START_LOG(mpigather_begin)
-         call MPI_Waitsome(nreq, rreq(1:nreq), ndone, donelist, MPI_STATUSES_IGNORE, ierr)        
-         call END_LOG(mpigather_end)
-         
-         rcount = rcount - ndone
-         if ( any(myreq==donelist(1:ndone)) ) then
-            istart = 1 + slab*(myid-offset)
-            iend = slab*(myid-offset+1)
-            iend = min( iend, maxcnt )          
-            hist_a_remap(1:pil,1:pjl*pnpan*lproc,1:nproc,istart:iend) => hist_a
-            hist_a_tmp_remap(1:pil,1:pjl*pnpan*lproc,istart:iend,1:nproc) =>    &
-                hist_a_tmp(1:pil*pjl*pnpan*lproc*(iend-istart+1)*nproc)
-            do k = istart,iend
-               do n = 1,nproc
-                  hist_a_remap(:,:,n,k) = hist_a_tmp_remap(:,:,k,n)
-               end do
-            end do
-            ! Clean all remaining MPI_IGathers
-            call START_LOG(mpigather_begin)
-            call MPI_Waitall(nreq, rreq(1:nreq), MPI_STATUSES_IGNORE, ierr)        
-            call END_LOG(mpigather_end)
-            rcount = 0
-         end if
-         
       end do
       
+      if ( 1+slab*(myid-offset) > 0 ) then
+         istart = 1 + slab*(myid-offset)
+         iend = slab*(myid-offset+1)
+         iend = min( iend, maxcnt )          
+         hist_a_remap(1:pil,1:pjl*pnpan*lproc,1:nproc,istart:iend) => hist_a
+         hist_a_tmp_remap(1:pil,1:pjl*pnpan*lproc,istart:iend,1:nproc) =>    &
+             hist_a_tmp(1:pil*pjl*pnpan*lproc*(iend-istart+1)*nproc)
+         do k = istart,iend
+            do n = 1,nproc
+               hist_a_remap(:,:,n,k) = hist_a_tmp_remap(:,:,k,n)
+            end do
+         end do
+      end if          
+     
       call END_LOG(gatherwrap_end)
    
    end subroutine gather_wrap
@@ -2867,9 +2848,9 @@ contains
       integer, intent(in) :: cnt, slab, offset
       integer :: rrank, nxhis, nyhis, ierr
    
-      nxhis = size(htemp,1)
-      nyhis = size(htemp,2)
-      rrank = ceiling(1.0d0*cnt/slab)-1+offset
+      nxhis = size(htemp, 1)
+      nyhis = size(htemp, 2)
+      rrank = ceiling(1.0d0*cnt/slab) - 1 + offset
       if ( rrank /= 0 ) then
          if ( myid == 0 ) then
             call MPI_Recv(htemp,nxhis*nyhis,MPI_REAL,rrank,1,comm_world,MPI_STATUS_IGNORE,ierr)

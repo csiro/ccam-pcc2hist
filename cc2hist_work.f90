@@ -1,6 +1,6 @@
 ! Conformal Cubic Atmospheric Model
     
-! Copyright 2015 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+! Copyright 2015-2016 Commonwealth Scientific Industrial Research Organisation (CSIRO)
     
 ! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
 !
@@ -34,6 +34,9 @@ module work
 
    integer, parameter :: un_in = 10 ! Input unit number
    logical, private, save :: first_in = .true.
+   
+   integer, private, save :: resprocmode
+   logical, private, save :: resprocformat
 
 !  Passed between infile and main, previously in common infil
    integer :: ik, jk, kk
@@ -1548,8 +1551,9 @@ contains
       type(input_var), dimension(:), pointer :: varlist
       integer, intent(out) :: nvars
       integer :: ierr, ndimensions, nvariables, ndims, ivar, int_type, xtype
-      integer :: londim, latdim, levdim, timedim, vid, ihr, ind
+      integer :: londim, latdim, levdim, procdim, timedim, vid, ihr, ind
       integer, dimension(nf90_max_var_dims) :: dimids
+      logical :: procformat
       character(len=10) :: vname, substr
       character(len=100) :: long_name, tmpname, valid_att, std_name, cell_methods
       ! Perhaps should read these from the input?
@@ -1571,6 +1575,8 @@ contains
       call check_ncerr(ierr,"Error getting latid")
       ierr = nf90_inq_dimid(ncid, "lev", levdim)
       call check_ncerr(ierr,"Error getting levid")
+      ierr = nf90_inq_dimid(ncid, "processor", procdim) ! only for procformat      
+      procformat = (ierr==nf90_noerr)
       ierr = nf90_inq_dimid(ncid, "time", timedim)
       call check_ncerr(ierr,"Error getting timeid")
 
@@ -1600,7 +1606,18 @@ contains
             !end if
          !end if
 !         print*, ivar, vname, ndims, dimids(1:ndims)
-         if ( ndims == 4 ) then
+         if ( ndims == 5 .and. procformat ) then   
+            ! Should be lon, lat, lev, proc, time
+            call check_ncerr(ierr,"Error getting processorid")
+            if ( match ( dimids(1:ndims), (/ londim, latdim, levdim, procdim, timedim /) ) ) then
+               nvars = nvars + 1
+               varlist(nvars)%fixed = .false.
+               varlist(nvars)%ndims = 3  ! Space only
+            else
+               print*, "Error, unexpected dimensions in input variable", vname
+               stop
+            end if
+         else if ( ndims == 4 .and. .not.procformat ) then
             ! Should be lon, lat, lev, time
             if ( match ( dimids(1:ndims), (/ londim, latdim, levdim, timedim /) ) ) then
                nvars = nvars + 1
@@ -1610,13 +1627,26 @@ contains
                print*, "Error, unexpected dimensions in input variable", vname
                stop
             end if
-         else if ( ndims == 3 ) then
-
+         else if ( ndims == 4 .and. procformat ) then
             ! Check for soil variables
             if ( cf_compliant .and. is_soil_var(vname) ) then
                cycle
             end if
-
+            if ( match( dimids(1:ndims), (/ londim, latdim, procdim, timedim /) ) ) then
+               nvars = nvars + 1
+               varlist(nvars)%fixed = .false.
+               varlist(nvars)%ndims = 2  ! Space only
+            else
+               ! 3D variables fixed in time aren't supported at the moment
+               ! though there's no reason why they couldn't be
+               print*, "Error, unexpected dimensions in input variable", vname
+               stop
+            end if
+         else if ( ndims == 3 .and. .not.procformat ) then
+            ! Check for soil variables
+            if ( cf_compliant .and. is_soil_var(vname) ) then
+               cycle
+            end if
             if ( match( dimids(1:ndims), (/ londim, latdim, timedim /) ) ) then
                nvars = nvars + 1
                varlist(nvars)%fixed = .false.
@@ -1627,6 +1657,17 @@ contains
                print*, "Error, unexpected dimensions in input variable", vname
                stop
             end if
+         else if ( ndims == 3 .and. procformat ) then
+            if ( match( dimids(1:ndims), (/ londim, latdim, procdim /) ) ) then
+               nvars = nvars + 1
+               varlist(nvars)%fixed = .true.
+               varlist(nvars)%ndims = 2  ! Space only
+            else
+               print*, "Error, unexpected dimensions in input variable", vname
+               stop
+            end if
+         else if ( ndims == 2 .and. procformat ) then
+            cycle
          else if ( ndims == 2 ) then
             if ( match( dimids(1:ndims), (/ londim, latdim /) ) ) then
                nvars = nvars + 1
@@ -2459,13 +2500,15 @@ contains
   
       integer, intent(in) :: nmode
       integer, intent(out) :: ncid
-      integer ier, ip, n, rip, ierr
       integer, dimension(5) :: jdum
       integer, dimension(54) :: int_header
+      integer :: ier, ip, n, rip, ierr
+      integer :: colour, vid
+      integer, dimension(:), allocatable, save :: resprocmap_inv
+      integer, dimension(:), allocatable, save :: procfileowner
       character(len=*), intent(in) :: ifile
       character(len=266) :: pfile
       character(len=8) :: sdecomp
-      integer :: colour
 
 #ifdef parallel_int
       integer(kind=MPI_ADDRESS_KIND) :: ssize
@@ -2489,17 +2532,17 @@ contains
          ! parallel metadata
          ier = nf90_get_att(ncid, nf90_global, "nproc", pnproc)
          call check_ncerr(ier, "nproc")
+         ier = nf90_get_att(ncid, nf90_global, "procmode", resprocmode)
+         if ( ier==nf90_noerr ) then
+            resprocformat = .true.  
+         end if
 
-         if ( mod(pnproc,nproc)/=0 ) then
-            write(6,'(x,a,i0,a,i0,a)') "WARNING: Number of processors(",nproc,&
-                                     ") is not a factor of the number of files(",pnproc,")"
-            do n = nproc,1,-1
-               if ( mod(pnproc,n) == 0 ) then
-                  write(6,'(x,a,i0)') "WARNING: Using pcc2hist with the following number of processes: ",n
-                  nproc = n
-                  exit
-               end if
-            end do
+         if ( resprocformat ) then
+            allocate( resprocmap_inv(0:pnproc-1) )
+            ierr = nf90_inq_varid (ncid, 'gprocessor', vid ) 
+            call check_ncerr(ierr, "Error getting vid for gprocessor")
+            ierr = nf90_get_var ( ncid, vid, resprocmap_inv, start=(/ 1 /), count=(/ pnproc /) )
+            call check_ncerr(ierr, "Error getting var gprocessor")
          end if
 
 #ifndef parallel_int
@@ -2509,11 +2552,43 @@ contains
       end if
       
       call START_LOG(mpibcast_begin)
-      call MPI_Bcast(pnproc, 1, MPI_INTEGER, 0, comm_world, ier)
-      call MPI_Bcast(nproc, 1, MPI_INTEGER, 0, comm_world, ier)
+      if ( myid==0 ) then
+        jdum(1) = pnproc
+        if ( resprocformat ) then
+          jdum(2) = 1
+          jdum(3) = resprocmode
+        else
+          jdum(2) = 0
+          jdum(3) = 0
+        end if
+      end if
+      call MPI_Bcast(jdum(1:3), 3, MPI_INTEGER, 0, comm_world, ier)
+      pnproc = jdum(1)
+      resprocformat = (jdum(2)==1)
+      if ( resprocformat ) then
+         resprocmode = jdum(3)
+      end if
       call END_LOG(mpibcast_end)
 
-      if ( nproc < nproc_orig ) then
+      
+      if ( mod(pnproc,nproc) /= 0 ) then
+          
+         if ( myid == 0 ) then
+            write(6,'(x,a,i0,a,i0,a)') "WARNING: Number of processors(",nproc,&
+                                     ") is not a factor of the number of files(",pnproc,")"
+         end if
+         
+         do n = nproc,1,-1
+            if ( mod(pnproc,n) == 0 ) then
+               nproc = n
+               exit
+            end if
+         end do
+         
+         if ( myid == 0 ) then
+            write(6,'(x,a,i0)') "WARNING: Using pcc2hist with the following number of processes: ",nproc
+         end if
+
          if (myid < nproc ) then
             colour = 0
          else
@@ -2533,6 +2608,7 @@ contains
             call MPI_Finalize(ierr)
             stop
          end if
+         
       end if
 
 #ifdef parallel_int
@@ -2544,7 +2620,9 @@ contains
 
       lproc = pnproc/nproc !number of files each mpi_proc will work on      
       allocate( ncid_in(0:lproc-1) )
-
+      allocate( fown_in(0:lproc-1) )      
+      fown_in(:) = .false.
+       
 #ifdef parallel_int
       if ( node_myid == 0 ) then
           ssize = pnproc*6*2
@@ -2555,32 +2633,94 @@ contains
       ioff(0:pnproc-1,0:5) => ijoff(:,:,1)
       joff(0:pnproc-1,0:5) => ijoff(:,:,2)
 #endif
-      
-      if ( myid/=0 ) then
-      
+
+      if ( resprocformat ) then
+         allocate( prid_in(0:lproc-1) )
+         allocate( procfileowner(0:pnproc-1) )
+         procfileowner(:) = -1
+         if ( .not.allocated(resprocmap_inv) ) then
+            allocate( resprocmap_inv(0:pnproc-1) )
+         end if
+         call MPI_Bcast(resprocmap_inv, pnproc, MPI_INTEGER, 0, comm_world, ier)
          do ip = 0,lproc-1
             rip = myid*lproc + ip
-            write(pfile,"(a,'.',i6.6)") trim(ifile), rip
-            ier = nf90_open ( pfile, nmode, ncid_in(ip) )
-            if (ier /= nf90_noerr ) then
-               write(6,*) "ERROR: Cannot open ",trim(pfile)
-               call check_ncerr(ier, "open")
-            end if
+            rip = resprocmap_inv(rip)
+            prid_in(ip) = mod(rip, resprocmode) + 1
          end do
+      end if
+
+      if ( myid /= 0 ) then
+ 
+         if ( resprocformat ) then
+            do ip = 0,lproc-1
+               rip = myid*lproc + ip
+               rip = resprocmap_inv(rip)
+               rip = rip/resprocmode
+               if ( procfileowner(rip) == -1 ) then
+                  fown_in(ip) = .true.
+                  procfileowner(rip) = ip
+                  write(pfile,"(a,'.',i6.6)") trim(ifile), rip
+                  ier = nf90_open ( pfile, nmode, ncid_in(ip) )
+                  if (ier /= nf90_noerr ) then
+                     write(6,*) "ERROR: Cannot open ",trim(pfile)
+                     call check_ncerr(ier, "open")
+                  end if
+               else
+                  ncid_in(ip) = ncid_in(procfileowner(rip))
+               end if
+            end do
+            deallocate(procfileowner)
+            deallocate(resprocmap_inv)
+         else
+            do ip = 0,lproc-1
+               rip = myid*lproc + ip
+               fown_in(ip) = .true.
+               write(pfile,"(a,'.',i6.6)") trim(ifile), rip
+               ier = nf90_open ( pfile, nmode, ncid_in(ip) )
+               if (ier /= nf90_noerr ) then
+                  write(6,*) "ERROR: Cannot open ",trim(pfile)
+                  call check_ncerr(ier, "open")
+               end if
+            end do
+         end if
          ncid = ncid_in(0) 
       
       else
       
          ncid_in(0) = ncid
-         do ip = 1,lproc-1
-            rip = ip
-            write(pfile,"(a,'.',i6.6)") trim(ifile), rip
-            ier = nf90_open ( pfile, nmode, ncid_in(ip) )
-            if ( ier /= nf90_noerr ) then
-               write(6,*) "ERROR: Cannot open ",trim(pfile)
-               call check_ncerr(ier, "open")
-            end if
-         end do
+         fown_in(0) = .true.
+         if ( resprocformat ) then
+            procfileowner(0) = 0
+            do ip = 1,lproc-1
+               rip = resprocmap_inv(ip)
+               rip = rip/resprocmode
+               if ( procfileowner(rip) == -1 ) then
+                  fown_in(ip) = .true.
+                  procfileowner(rip) = ip
+                  write(pfile,"(a,'.',i6.6)") trim(ifile), rip
+                  ier = nf90_open ( pfile, nmode, ncid_in(ip) )
+                  if ( ier /= nf90_noerr ) then
+                     write(6,*) "ERROR: Cannot open ",trim(pfile)
+                     call check_ncerr(ier, "open")
+                  end if
+               else
+                  ncid_in(ip) = ncid_in(procfileowner(rip)) 
+               end if
+            end do
+            deallocate(procfileowner)
+            deallocate(resprocmap_inv)
+         else
+            do ip = 1,lproc-1
+               rip = ip
+               fown_in(ip) = .true.
+               write(pfile,"(a,'.',i6.6)") trim(ifile), rip
+               ier = nf90_open ( pfile, nmode, ncid_in(ip) )
+               if ( ier /= nf90_noerr ) then
+                  write(6,*) "ERROR: Cannot open ",trim(pfile)
+                  call check_ncerr(ier, "open")
+               end if
+            end do
+         end if
       
          !  Get dimensions from int_header
          ier = nf90_get_att(ncid_in(0), nf90_global, "int_header", int_header)
@@ -2655,9 +2795,15 @@ contains
       integer ip, ierr
       
       call START_LOG(paraclose_begin)
+      if ( allocated(prid_in) ) then
+         deallocate(prid_in)
+      end if
       do ip = 0,lproc-1
-         ierr = nf90_close(ncid_in(ip))
+         if ( fown_in(ip) ) then
+            ierr = nf90_close(ncid_in(ip))
+         end if
       end do
+      deallocate(fown_in)
       deallocate(ncid_in)
       call END_LOG(paraclose_end)
    
@@ -2688,9 +2834,14 @@ contains
          
          ierr = nf90_inq_varid (ncid_in(ip), name, vid ) 
          call check_ncerr(ierr, "Error getting vid for "//name)
-          
-         ierr = nf90_get_var ( ncid_in(ip), vid, inarray2(:,:), start=(/ 1, 1, nrec /), count=(/ pil, pjl*pnpan, 1 /) )
-         call check_ncerr(ierr, "Error getting var "//name)
+      
+         if ( resprocformat ) then
+            ierr = nf90_get_var ( ncid_in(ip), vid, inarray2(:,:), start=(/ 1, 1, prid_in(ip), nrec /), count=(/ pil, pjl*pnpan, 1, 1 /) )
+            call check_ncerr(ierr, "Error getting var "//name)
+         else
+            ierr = nf90_get_var ( ncid_in(ip), vid, inarray2(:,:), start=(/ 1, 1, nrec /), count=(/ pil, pjl*pnpan, 1 /) )
+            call check_ncerr(ierr, "Error getting var "//name)
+         end if
 
 !        Check the type of the variable
          ierr = nf90_inquire_variable ( ncid_in(ip), vid, xtype=vartyp)
@@ -2730,9 +2881,14 @@ contains
 
          ierr = nf90_inq_varid ( ncid_in(ip), name, vid )
          call check_ncerr(ierr, "Error getting vid for "//name)
-          
-         ierr = nf90_get_var ( ncid_in(ip), vid, inarray3(:,:,minlev:maxlev), start=(/ 1, 1, minlev, nrec /), &
-                               count=(/ pil, pjl*pnpan, maxlev-minlev+1, 1 /) )
+
+         if ( resprocformat ) then
+            ierr = nf90_get_var ( ncid_in(ip), vid, inarray3(:,:,minlev:maxlev), start=(/ 1, 1, minlev, prid_in(ip), nrec /), &
+                                  count=(/ pil, pjl*pnpan, maxlev-minlev+1, 1, 1 /) )
+         else
+            ierr = nf90_get_var ( ncid_in(ip), vid, inarray3(:,:,minlev:maxlev), start=(/ 1, 1, minlev, nrec /), &
+                                  count=(/ pil, pjl*pnpan, maxlev-minlev+1, 1 /) )
+         end if
          call check_ncerr(ierr, "Error getting var "//name)
       
          ierr = nf90_inquire_variable ( ncid_in(ip), vid, xtype=vartyp )

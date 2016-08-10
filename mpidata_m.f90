@@ -26,6 +26,8 @@ implicit none
 private
 
 integer, dimension(:), save, allocatable, public :: ncid_in
+integer, dimension(:), save, allocatable, public :: prid_in
+logical, dimension(:), save, allocatable, public :: fown_in
 #ifdef parallel_int
 integer, dimension(:,:), save, pointer, contiguous, public :: ioff, joff
 integer, dimension(:,:,:), save, pointer, contiguous, public :: ijoff
