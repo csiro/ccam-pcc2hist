@@ -1,1 +1,1 @@
-   character(len=*), parameter :: cc2hist_revision='SVN-r3117M'
+   character(len=*), parameter :: cc2hist_revision='SVN-r3122M'

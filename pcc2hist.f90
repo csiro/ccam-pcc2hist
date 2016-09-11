@@ -438,6 +438,11 @@ program cc2hist
       ktc = 1
    end if
 
+   if ( ktc == 0 ) then
+      write(6,*) "ERROR: ktc must not be zero"
+      stop
+   end if
+
    call log_on()
    call START_LOG(timeloop_begin)
    timeloop: do kt=kta,ktb,ktc
