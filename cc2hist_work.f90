@@ -2836,7 +2836,8 @@ contains
          call check_ncerr(ierr, "Error getting vid for "//name)
       
          if ( resprocformat ) then
-            ierr = nf90_get_var ( ncid_in(ip), vid, inarray2(:,:), start=(/ 1, 1, prid_in(ip), nrec /), count=(/ pil, pjl*pnpan, 1, 1 /) )
+            ierr = nf90_get_var ( ncid_in(ip), vid, inarray2(:,:), start=(/ 1, 1, prid_in(ip), nrec /), &
+                                  count=(/ pil, pjl*pnpan, 1, 1 /) )
             call check_ncerr(ierr, "Error getting var "//name)
          else
             ierr = nf90_get_var ( ncid_in(ip), vid, inarray2(:,:), start=(/ 1, 1, nrec /), count=(/ pil, pjl*pnpan, 1 /) )
