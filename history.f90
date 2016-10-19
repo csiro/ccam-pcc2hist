@@ -1,6 +1,6 @@
 ! Conformal Cubic Atmospheric Model
     
-! Copyright 2015 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+! Copyright 2015-2016 Commonwealth Scientific Industrial Research Organisation (CSIRO)
     
 ! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
 !
@@ -123,7 +123,7 @@ module history
 !  structure may be changed without affecting user programs.
    public :: set_htype,  set_hfreq, set_hnames, set_hbytes
 
-   public :: set_missval
+   !public :: set_missval
 
 !  Private internal routines
    private :: bindex_hname, initval, sortlist, create_ncvar,            &
@@ -528,10 +528,10 @@ contains
       hfreq(j) = freq
    end subroutine set_hfreq
 
-   subroutine set_missval ( missval )
-      real, intent(in) :: missval
-      missing_value = missval
-   end subroutine set_missval
+   !subroutine set_missval ( missval )
+   !   real, intent(in) :: missval
+   !   missing_value = missval
+   !end subroutine set_missval
    
 !-------------------------------------------------------------------
    subroutine inithist ( nl, mstep )
@@ -1458,15 +1458,15 @@ contains
          
       if ( vtype == NF90_INT2 ) then
          ! Ugly work around to ensure attributes have the correct type on SX6
-!         ierr = nf_put_att_int ( ncid, vid, "_FillValue", NF_INT2, 1, int(NF90_FILL_SHORT) )
-         ierr = nf90_put_att ( ncid, vid, "_FillValue", NF90_FILL_SHORT )
-         call check_ncerr(ierr,"Error with fill value attribute")
-!         ierr = nf_put_att_int ( ncid, vid, "missing_value", NF_INT2, 1, int(NF90_FILL_SHORT) )
-         ierr = nf90_put_att ( ncid, vid, "missing_value", NF90_FILL_SHORT )
-         call check_ncerr(ierr,"Error with missing value attribute")
+         if ( vinfo%ave_type(ifile) /= hist_fixed ) then
+            ierr = nf90_put_att ( ncid, vid, "_FillValue", NF90_FILL_SHORT )
+            call check_ncerr(ierr,"Error with INT2 fill value attribute")
+            ierr = nf90_put_att ( ncid, vid, "missing_value", NF90_FILL_SHORT )
+            call check_ncerr(ierr,"Error with missing value attribute")
+         end if
       else
          ierr = nf90_put_att ( ncid, vid, "_FillValue", missing_value )
-         call check_ncerr(ierr,"Error with fill value attribute")
+         call check_ncerr(ierr,"Error with FLOAT/DOUBLE fill value attribute")
          ierr = nf90_put_att ( ncid, vid, "missing_value", missing_value )
          call check_ncerr(ierr,"Error with missing value attribute")
       end if
@@ -1479,7 +1479,7 @@ contains
             write(coord_name, "(a,i2.2)") "height", nint(vinfo%coord_height)
          end if
          ierr = nf90_put_att ( ncid, vid, "coordinates", coord_name )
-         call check_ncerr(ierr,"Error with fill value attribute")
+         call check_ncerr(ierr,"Error with coordinates attribute")
       end if
 
    end subroutine create_ncvar
@@ -2423,20 +2423,6 @@ contains
                      else
                         htemp = hist_g(:,:)
                      end if
-
-                     if ( hbytes(ifile) == 2 ) then
-                        addoff = histinfo(ifld)%addoff(ifile)
-                        sf = histinfo(ifld)%scalef(ifile)
-                        umin = sf * vmin + addoff
-                        umax = sf * vmax + addoff
-                        where ( fpequal(htemp, missing_value) )
-                           htemp = NF90_FILL_SHORT
-                        elsewhere
-!                       Put the scaled array back in the original and let
-!                       netcdf take care of conversion to int2
-                           htemp = nint((max(umin,min(umax,htemp))-addoff)/sf)
-                        endwhere
-                     end if
                   
                   end if
 
@@ -2445,6 +2431,20 @@ contains
                call sendrecv_wrap(htemp,cnt,slab,offset)
                if ( myid == 0 ) then
 
+                  if ( count /= 0 .and. hbytes(ifile) == 2 ) then
+                     addoff = histinfo(ifld)%addoff(ifile)
+                     sf = histinfo(ifld)%scalef(ifile)
+                     umin = sf * vmin + addoff
+                     umax = sf * vmax + addoff
+                     where ( fpequal(htemp, missing_value) )
+                        htemp = NF90_FILL_SHORT
+                     elsewhere
+!                    Put the scaled array back in the original and let
+!                    netcdf take care of conversion to int2
+                        htemp = nint((max(umin,min(umax,htemp))-addoff)/sf)
+                     endwhere
+                  end if
+                   
                   if ( nlev > 1 .or. histinfo(ifld)%multilev ) then
                      start3D = (/ 1, 1, k+1-istart, histset(ifile) /)
                      ierr = nf90_put_var ( ncid, vid, htemp, start=start3D, count=count3D )
@@ -2464,7 +2464,7 @@ contains
 
          end do ! Loop over fields
 
-         if ( myid.ge.offset ) then
+         if ( myid >= offset ) then
             deallocate(hist_a, hist_g)
          end if
          deallocate(k_indx)

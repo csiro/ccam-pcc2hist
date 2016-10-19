@@ -1405,10 +1405,11 @@ contains
       end do
 
       if ( need_rotate .or. needfld("u") .or. needfld("v") .or.   &
-           needfld("taux") .or. needfld("tauy") .or.          &
-           needfld("u10max") .or. needfld("v10max") .or.      &
-           needfld("uas") .or.  needfld("vas") .or.           &
-           needfld("d10") ) then
+           needfld("taux") .or. needfld("tauy") .or.              &
+           needfld("u10max") .or. needfld("v10max") .or.          &
+           needfld("uas") .or. needfld("vas") .or.                &
+           needfld("d10") .or. needfld("ubot")  .or.              &
+           needfld("vbot") ) then
 
          allocate ( costh(pil,pjl*pnpan*lproc), sinth(pil,pjl*pnpan*lproc) )
          
@@ -2524,6 +2525,7 @@ contains
          ! parallel file input
          ip = 0
          write(pfile,"(a,'.',i6.6)") trim(ifile), ip
+         write(6,*) "Opening ",trim(pfile)
          ierr = nf90_open(pfile, nmode, ncid)
          call check_ncerr(ierr, "Error opening file")
       
