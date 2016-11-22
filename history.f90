@@ -1393,6 +1393,10 @@ contains
       end if
       call check_ncerr(ierr,"Error creating variable "// vinfo%name)
       vinfo%vid(ifile) = vid
+      
+      if ( cordex_compliant ) then
+        ierr = nf90_def_var_deflate( ncid, vid, 1, 1, 2 ) ! shuffle=1, deflate=1, deflate_level=2  
+      end if
 
       if ( len_trim(vinfo%long_name) /= 0 ) then
          ierr = nf90_put_att ( ncid, vid, "long_name", vinfo%long_name )

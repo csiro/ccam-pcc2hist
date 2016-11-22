@@ -354,10 +354,18 @@ contains
                dtmp = dtmp/86400.
                call savehist ( "prsn", dtmp )
             case ( "psl" )
-               call readsave2 (varlist(ivar)%vname, input_name="pmsl")
+               call vread( "pmsl", dtmp )
+               if ( cordex_compliant ) then
+                  dtmp = dtmp*100.
+               end if
+               call savehist ( "psl", dtmp )
             case ( "psf" )
                call vread( "psf", psl )
-               psl = 1.0e3 * exp(psl)   ! hPa
+               if ( cordex_compliant ) then
+                  psl = 1.0e5 * exp(psl)   ! Pa  
+               else    
+                  psl = 1.0e3 * exp(psl)   ! hPa
+               end if
                call savehist ( "ps", psl )
                ! This relies on surface pressure coming before the 3D variables
                if ( use_plevs ) call sitop_setup(sig, plevs(1:nplevs), psl, maxlev, minlev)
@@ -370,9 +378,7 @@ contains
             case ( "rlds" )
                call readsave2 (varlist(ivar)%vname, input_name="rgdn_ave")
             case ( "rlut" )
-               call vread( "rtu_ave", dtmp )
-               dtmp = -dtmp
-               call savehist ( "rlut", dtmp )
+               call readsave2( varlist(ivar)%vname, input_name="rtu_ave" )
             case ( "rsds" )
                call readsave2 (varlist(ivar)%vname, input_name="sgdn_ave")
             case ( "rsdt" )
@@ -1839,6 +1845,11 @@ contains
          end if
          if ( varlist(ivar)%vname == "pmsl" ) then
             varlist(ivar)%vname = "psl"
+            if ( cordex_compliant ) then
+               varlist(ivar)%units = "Pa"
+               xmin = 0.
+               xmax = 120000.
+            end if
          else if ( varlist(ivar)%vname == "psf" ) then
             cycle  ! Skip this one to avoid messages about it never being set
          else if ( varlist(ivar)%vname == "zht" ) then
@@ -1986,8 +1997,13 @@ contains
       end do
 
       ! Extra fields are handled explicitly
-      call addfld ( "ps", "Surface pressure", "hPa", 0., 1200., 1, &
-                     std_name="surface_air_pressure" )
+      if ( cordex_compliant ) then
+        call addfld ( "ps", "Surface pressure", "Pa", 0., 120000., 1, &
+                       std_name="surface_air_pressure" )
+      else
+        call addfld ( "ps", "Surface pressure", "hPa", 0., 1200., 1, &
+                       std_name="surface_air_pressure" )
+      end if
       call addfld ( "tsea", "Sea surface temperature", "K", 150., 350., 1, &
                      std_name="sea_surface_temperature" )
       call addfld ( "grid", "Grid resolution", "km", 0., 1000., 1, ave_type="fixed" )
