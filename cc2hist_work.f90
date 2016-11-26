@@ -1855,6 +1855,21 @@ contains
          if ( cordex_compliant ) then
             if ( varlist(ivar)%vname == "cld" ) then
                varlist(ivar)%vname = "clt"
+               varlist(ivar)%units = "%"
+               xmin = 0.
+               xmax = 100.
+            else if ( varlist(ivar)%vname == "clh" ) then   
+               varlist(ivar)%units = "%"
+               xmin = 0.
+               xmax = 100.
+            else if ( varlist(ivar)%vname == "cll" ) then
+               varlist(ivar)%units = "%"
+               xmin = 0.
+               xmax = 100.
+            else if ( varlist(ivar)%vname == "clm" ) then    
+               varlist(ivar)%units = "%"
+               xmin = 0.
+               xmax = 100.
             else if ( varlist(ivar)%vname == "eg_ave" ) then
                varlist(ivar)%vname = "hfls"
             else if ( varlist(ivar)%vname == "evap" ) then
