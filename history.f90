@@ -2761,7 +2761,7 @@ contains
 
 #ifndef parallel_int
    subroutine gather_wrap(array_in,array_out)
-      use mpidata_m, only : nproc, lproc, comm_world
+      use mpidata_m, only : nproc, lproc, comm_world, myid
       use logging_m
 #ifdef usempi_mod
       use mpi
@@ -2778,13 +2778,15 @@ contains
       call START_LOG(mpigather_begin)
       call MPI_Gather(array_in,lsize,MPI_REAL,array_temp,lsize,MPI_REAL,0,comm_world,ierr)
       call END_LOG(mpigather_end)
-      do np = 0,nproc-1
-         do k = 1,size(array_in,3)
-            do lp = 0,lproc-1
-               array_out(:,:,k,lp+np*lproc+1) = array_temp(:,:,lp+1,k,np+1)
+      if ( myid == 0 ) then
+         do np = 0,nproc-1
+            do k = 1,size(array_in,3)
+               do lp = 0,lproc-1
+                  array_out(:,:,k,lp+np*lproc+1) = array_temp(:,:,lp+1,k,np+1)
+               end do
             end do
          end do
-      end do
+      end if
       call END_LOG(gatherwrap_end)
       
    end subroutine gather_wrap
