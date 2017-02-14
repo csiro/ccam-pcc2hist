@@ -222,7 +222,7 @@ contains
       logical, intent(in)  :: skip
       integer :: k, ivar
       real, dimension(pil,pjl*pnpan*lproc) :: uten, dtmp, ctmp
-      real, dimension(pil,pjl*pnpan*lproc) :: sndw
+      real, dimension(pil,pjl*pnpan*lproc) :: sndw, egave
       real, dimension(pil,pjl*pnpan*lproc) :: tauxtmp, tauytmp
       real, dimension(pil,pjl*pnpan*lproc) :: rgn, rgd, sgn, sgd
       real, dimension(pil,pjl*pnpan*lproc) :: wind_norm
@@ -319,12 +319,13 @@ contains
                call savehist ( "clt", dtmp )
             case ( "clwvi" )
                call readsave2 (varlist(ivar)%vname, input_name="lwp_ave")
-            case ( "evspsbl" )
-               call vread( "evap", dtmp )
-               dtmp = dtmp/1000.
-               call savehist ( "evspsbl", dtmp )
+            case ( "evspsblpot" )
+               call vread( "epot_ave", dtmp )
+               dtmp = dtmp/2.501e6 ! Latent heat of vaporisation (J kg^-1)
+               call savehist ( "evspsblpot", dtmp )
             case ( "hfls" )
-               call readsave2 (varlist(ivar)%vname, input_name="eg_ave")
+               call vread( "eg_ave", egave )
+               call savehist( "hfls", egave )
             case ( "hfss" )
                call readsave2 (varlist(ivar)%vname, input_name="fg_ave")
             case ( "hurs" )
@@ -333,10 +334,10 @@ contains
                call vread( "qgscrn", dtmp )
                dtmp = dtmp/(dtmp+1.)
                call savehist ( "huss", dtmp )
-            case ( "mrros" )
+            case ( "mrro" )
                call vread( "runoff", dtmp )
                dtmp = dtmp/86400.
-               call savehist ( "mrros", dtmp )
+               call savehist ( "mrro", dtmp )
             case ( "pr" )
                call vread( "rnd", dtmp )
                dtmp = dtmp/86400.
@@ -382,7 +383,9 @@ contains
             case ( "rsut" )
                call readsave2 (varlist(ivar)%vname, input_name="sot_ave") 
             case ( "sic" )
-               call readsave2 (varlist(ivar)%vname, input_name="fracice")
+               call vread2( "fracice", dtmp )
+               dtmp = dtmp*100.
+               call savehist( "sic", dtmp )
             case ( "sgdn_ave", "rsds" )
                call vread( "sgdn_ave", sgd )
                call savehist( varlist(ivar)%vname, sgd )
@@ -653,6 +656,14 @@ contains
       call savehist( "qbot", q(:,:,1))
       
       if ( cordex_compliant  ) then
+         dtmp = egave/2.501e6 ! Latent heat of vaporisation (J kg^-1)
+         call savehist( "evspsbl", dtmp )
+         where ( sndw>0. )
+           dtmp = 100.
+         elsewhere
+           dtmp = 0.  
+         end where
+         call savehist( "snc", dtmp )
          call savehist( "snw", sndw )
          if ( needfld("tauu") .or. needfld("tauv") ) then
             call fix_winds(tauxtmp, tauytmp)
@@ -1872,16 +1883,20 @@ contains
                xmax = 100.
             else if ( varlist(ivar)%vname == "eg_ave" ) then
                varlist(ivar)%vname = "hfls"
-            else if ( varlist(ivar)%vname == "evap" ) then
-               varlist(ivar)%vname = "evspsbl"
+            else if ( varlist(ivar)%vname == "epot_ave" ) then
+               varlist(ivar)%vname = "evspsblpot"
                varlist(ivar)%units = "kg/m2/s"
-               varlist(ivar)%long_name = "Surface Evaporation"
+               varlist(ivar)%long_name = "Potential Surface Evaporation"
                xmin = 0.
-               xmax = 0.013
+               xmax = 0.001
             else if ( varlist(ivar)%vname == "fg_ave" ) then
                varlist(ivar)%vname = "hfss"
             else if ( varlist(ivar)%vname == "fracice" ) then
                varlist(ivar)%vname = "sic"
+               varlist(ivar)%units = "%"
+               varlist(ivar)%long_name = "Sea Ice Area Fraction"
+               xmin = 0.
+               xmax = 100.
             else if ( varlist(ivar)%vname == "iwp_ave" ) then
                varlist(ivar)%vname = "clivi"
             else if ( varlist(ivar)%vname == "lwp_ave" ) then
@@ -1920,7 +1935,7 @@ contains
                xmin = 0.
                xmax = 0.013
             else if ( varlist(ivar)%vname == "runoff" ) then
-               varlist(ivar)%vname = "mrros"
+               varlist(ivar)%vname = "mrro"
                varlist(ivar)%units = "kg/m2/s"
                varlist(ivar)%long_name = "Total Runoff"
                xmin = 0.
@@ -2016,16 +2031,18 @@ contains
                      std_name="sea_surface_temperature" )
       call addfld ( "grid", "Grid resolution", "km", 0., 1000., 1, ave_type="fixed" )
       if ( cordex_compliant ) then
+         call addfld ( "evspsbl", "Evaporation", "kg/m2/s", 0., 0.001, 1, std_name="water_evaporation_flux" )          
          call addfld ( "prw", "Precipitable water column", "kg/m2", 0.0, 100.0, 1, std_name="atmosphere_water_vapor_content")
          if ( int_type /= int_none ) then
-            call addfld ( "sftlf", "Land-sea mask", "",  0.0, 1.0, 1, &
+            call addfld ( "sftlf", "Land-sea mask", "%",  0.0, 100.0, 1, &
                            ave_type="fixed", int_type=int_nearest )
          else
-            call addfld ( "sftlf", "Land-sea mask", "",  0.0, 1.0, 1, &
+            call addfld ( "sftlf", "Land-sea mask", "%",  0.0, 100.0, 1, &
                            ave_type="fixed", int_type=int_none )
          end if
          call addfld ( "rlus", "Upwelling Longwave radiation", "W/m2", -1000., 1000., 1 )
          call addfld ( "rsus", "Upwelling Shortwave radiation", "W/m2", -1000., 1000., 1 )
+         call addfld ( "snc",  "Snow area fraction", "%", 0., 6.5, 1 )
          call addfld ( "snw",  "Surface snow amount", "kg/m2", 0., 6.5, 1 )
       else
          call addfld ( "pwc", "Precipitable water column", "kg/m2", 0.0, 100.0, 1, std_name="atmosphere_water_vapor_content")
@@ -2561,7 +2578,7 @@ contains
          write(pfile,"(a,'.',i6.6)") trim(ifile), ip
          write(6,*) "Opening ",trim(pfile)
          ierr = nf90_open(pfile, nmode, ncid)
-         call check_ncerr(ierr, "Error opening file")
+         call check_ncerr(ierr, "Error opening file "//trim(pfile))
       
          write(6,*) "Using parallel input files"
       

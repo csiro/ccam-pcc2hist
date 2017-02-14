@@ -2,7 +2,11 @@ FC = mpif90
 
 # Intel compilter options
 ifneq ($(CUSTOM),yes)
-FFLAGS = -O -xHost -ftz -Dparallel_int
+FHOST = -xHost
+ifeq ($(BROADWELL),yes)
+FHOST = -xCORE-AVX2
+endif
+FFLAGS = -O $(FHOST) -ftz -Dparallel_int
 INC = -I $(NETCDF_ROOT)/include
 LIBS = -L $(NETCDF_ROOT)/lib -lnetcdf -lnetcdff
 PPFLAG90 = -fpp
