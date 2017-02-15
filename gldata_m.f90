@@ -25,8 +25,8 @@ module gldata
 !  can't be handled by readsave
    real, dimension(:,:),   allocatable, save :: psl, zs, soilt
    real, dimension(:,:,:), allocatable, save :: u, v, t, q, rh, ql, qf, qs, qg
-   real, dimension(:),     allocatable, save :: sig, dsig, zsoil
-   real, dimension(:,:,:), allocatable, save :: tgg, wbice, snowvar
+   real, dimension(:),     allocatable, save :: sig, dsig, zsoil, zse
+   real, dimension(:,:,:), allocatable, save :: tgg
    real, allocatable, dimension(:,:,:) :: zstd
    real, allocatable, dimension(:,:,:) :: hstd
    real, allocatable, dimension(:,:,:) :: tmp3d

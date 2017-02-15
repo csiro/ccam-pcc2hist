@@ -107,8 +107,7 @@ contains
       allocate ( soilt(pil,pjl*pnpan*lproc), u(pil,pjl*pnpan*lproc,kl), v(pil,pjl*pnpan*lproc,kl),  t(pil,pjl*pnpan*lproc,kl) )
       allocate ( q(pil,pjl*pnpan*lproc,kl),  ql(pil,pjl*pnpan*lproc,kl), qf(pil,pjl*pnpan*lproc,kl) )
       allocate ( qs(pil,pjl*pnpan*lproc,kl), qg(pil,pjl*pnpan*lproc,kl) )
-      allocate ( tgg(pil,pjl*pnpan*lproc,ksoil), wbice(pil,pjl*pnpan*lproc,kice) )
-      allocate ( snowvar(pil,pjl*pnpan*lproc,3) )
+      allocate ( tgg(pil,pjl*pnpan*lproc,ksoil) )
       if ( needfld("zg") ) then
          if ( use_plevs .or. use_meters ) then
             allocate ( zstd(pil,pjl*pnpan*lproc,nplevs) )
@@ -658,6 +657,14 @@ contains
       if ( cordex_compliant  ) then
          dtmp = egave/2.501e6 ! Latent heat of vaporisation (J kg^-1)
          call savehist( "evspsbl", dtmp )
+         ! Arkward fix for total soil moisture
+         dtmp = 0. 
+         do k = 1,size(zse)
+            write(name,'(a,i1.1,a)') 'wb', k,'_ave'
+            call vread( name, ctmp )
+            dtmp = dtmp + ctmp*zse(k)*1000. 
+         end do
+         call savehist( "mrso", dtmp )
          where ( sndw>0. )
            dtmp = 100.
          elsewhere
@@ -1025,7 +1032,7 @@ contains
       real(kind=rx), parameter :: schm13 = 0.1
 
       integer, parameter :: ntang=2, idiag=0
-      integer :: i, j
+      integer :: i, j, k
       character(len=10) :: rundate*10
       integer :: m, meso, nx1, nps, mex, mup, nem, nx2, nmi,           &
                  npsav, nhor, nkuo, khdif, nx3, nx4, nvad,                  &
@@ -1169,7 +1176,7 @@ contains
       end if
 
 !     Have to read sig here because it's required for openhist.
-      allocate ( sig(kl), dsig(kl), zsoil(ksoil) )
+      allocate ( sig(kl), dsig(kl), zsoil(ksoil), zse(ksoil) )
 
       if ( kl > 1 ) then
             ! Get sigma levels from level variable
@@ -1192,6 +1199,13 @@ contains
              zsoil(:) = 0. 
          end if
       !end if
+         
+      ! calculate soil thickness   
+      zse(1) = 2.*zsoil(1)
+      zse(2) = 2.*(zsoil(2)-zse(1))
+      do k = 3,ksoil
+        zse(k) = 2.*(zsoil(k)-sum(zse(1:k-1)))  
+      end do
 
 !     Set all the resolution parameters
       npanels = jl/il - 1
@@ -2032,6 +2046,7 @@ contains
       call addfld ( "grid", "Grid resolution", "km", 0., 1000., 1, ave_type="fixed" )
       if ( cordex_compliant ) then
          call addfld ( "evspsbl", "Evaporation", "kg/m2/s", 0., 0.001, 1, std_name="water_evaporation_flux" )          
+         call addfld ( "mrso", "Total soil moisture content", "kg/m2", 0., 100.0, 1, std_name="soil_moisture_content" )          
          call addfld ( "prw", "Precipitable water column", "kg/m2", 0.0, 100.0, 1, std_name="atmosphere_water_vapor_content")
          if ( int_type /= int_none ) then
             call addfld ( "sftlf", "Land-sea mask", "%",  0.0, 100.0, 1, &
