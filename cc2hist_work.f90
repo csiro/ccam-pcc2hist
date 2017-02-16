@@ -116,7 +116,7 @@ contains
             allocate ( zstd(pil,pjl*pnpan*lproc,kl) )
          end if
       end if
-      if ( needfld("press") .or. needfld("theta") .or. needfld("rh") ) then
+      if ( needfld("press") .or. needfld("theta") .or. needfld("rh") .or. needfld("w") ) then
         allocate( tmp3d(pil,pjl*pnpan*lproc,kl) )
       end if
       if ( use_meters ) then
