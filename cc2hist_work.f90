@@ -804,7 +804,7 @@ contains
       if ( kk>1 ) then
          if ( needfld("w") ) then
             do k = 1,kk
-               tmp3d(:,:,k) = -(rdry/grav)*t(:,:,k)/(sig(k)*psl) * &
+               tmp3d(:,:,k) = -(rdry/grav)*t(:,:,k)/(sig(k)*100.*psl) * &
                               ( omega(:,:,k) - sig(k)*dpsdt/864. ) ! Convert dpsdt to Pa/s
             end do
             call vsavehist ( "w", tmp3d )
