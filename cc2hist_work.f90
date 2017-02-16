@@ -106,7 +106,7 @@ contains
       allocate ( psl(pil,pjl*pnpan*lproc),   zs(pil,pjl*pnpan*lproc) )
       allocate ( soilt(pil,pjl*pnpan*lproc), u(pil,pjl*pnpan*lproc,kl), v(pil,pjl*pnpan*lproc,kl),  t(pil,pjl*pnpan*lproc,kl) )
       allocate ( q(pil,pjl*pnpan*lproc,kl),  ql(pil,pjl*pnpan*lproc,kl), qf(pil,pjl*pnpan*lproc,kl) )
-      allocate ( qs(pil,pjl*pnpan*lproc,kl), qg(pil,pjl*pnpan*lproc,kl) )
+      allocate ( qs(pil,pjl*pnpan*lproc,kl), qg(pil,pjl*pnpan*lproc,kl), omega(pil,pjl*pnpan*lproc,kl) )
       allocate ( tgg(pil,pjl*pnpan*lproc,ksoil) )
       if ( needfld("zg") ) then
          if ( use_plevs .or. use_meters ) then
@@ -221,7 +221,7 @@ contains
       logical, intent(in)  :: skip
       integer :: k, ivar
       real, dimension(pil,pjl*pnpan*lproc) :: uten, dtmp, ctmp
-      real, dimension(pil,pjl*pnpan*lproc) :: sndw, egave
+      real, dimension(pil,pjl*pnpan*lproc) :: sndw, egave, dpsdt
       real, dimension(pil,pjl*pnpan*lproc) :: tauxtmp, tauytmp
       real, dimension(pil,pjl*pnpan*lproc) :: rgn, rgd, sgn, sgd
       real, dimension(pil,pjl*pnpan*lproc) :: wind_norm
@@ -318,6 +318,9 @@ contains
                call savehist ( "clt", dtmp )
             case ( "clwvi" )
                call readsave2 (varlist(ivar)%vname, input_name="lwp_ave")
+            case ( "dpsdt" )
+                call vread( "dpsdt", dpsdt )
+                call savehist ( "dpsdt", dpsdt )
             case ( "evspsblpot" )
                call vread( "epot_ave", dtmp )
                dtmp = dtmp/2.501e6 ! Latent heat of vaporisation (J kg^-1)
@@ -361,12 +364,13 @@ contains
                call savehist ( "psl", dtmp )
             case ( "psf" )
                call vread( "psf", psl )
+               psl = 1.0e3 * exp(psl) ! hPa
                if ( cordex_compliant ) then
-                  psl = 1.0e5 * exp(psl)   ! Pa  
+                  dtmp = 100. * psl   ! Pa  
                else    
-                  psl = 1.0e3 * exp(psl)   ! hPa
+                  dtmp = psl          ! hPa
                end if
-               call savehist ( "ps", psl )
+               call savehist ( "ps", dtmp )
                ! This relies on surface pressure coming before the 3D variables
                if ( use_plevs ) call sitop_setup(sig, plevs(1:nplevs), psl, maxlev, minlev)
             case ( "rgdn_ave", "rlds" )
@@ -537,10 +541,11 @@ contains
                      hstd(:,:,k) = hstd(:,:,k) - zs/grav
                   end do
                   call mitop_setup( sig, mlevs(1:nplevs), hstd, t, q, maxlev, minlev )
+                  if ( need3dfld("ta") ) then
+                     call vsavehist ( "ta", t )
+                  end if
                else if ( need3dfld("ta") ) then
                   call vread( "temp", t)
-               end if
-               if ( need3dfld("ta") ) then
                   call vsavehist ( "ta", t )
                end if
             case ( "temp" )
@@ -556,14 +561,15 @@ contains
                   q = max( q, 1.e-20 )
                   ! psl will not be used in height
                   call height( t, q, zs, psl, sig, hstd )
-                  do k=1,size(hstd,dim=3)
+                  do k = 1,size(hstd,dim=3)
                      hstd(:,:,k) = hstd(:,:,k) - zs/grav
                   end do
                   call mitop_setup( sig, mlevs(1:nplevs), hstd, t, q, maxlev, minlev )
+                  if ( need3dfld("temp") ) then
+                     call vsavehist ( "temp", t )
+                  end if
                else if ( need3dfld("temp") ) then
                   call vread( "temp", t)
-               end if
-               if ( need3dfld("temp") ) then
                   call vsavehist ( "temp", t )
                end if
              case ( "hus" )
@@ -622,6 +628,11 @@ contains
             case ( "va" )
                if ( need3dfld("va") ) then
                   call vread( "v", v )
+               end if
+            case ( "omega" )
+               if ( need3dfld("omega") ) then
+                  call vread( "omega", omega )
+                  call vsavehist( "omega", omega )
                end if
             case ( "tgg" )
                ! Only in cf_compliant mode
@@ -735,14 +746,14 @@ contains
       if ( kk>1 ) then
          if ( needfld("pwc") ) then
             dtmp = 0.0
-            do k=1,kk
+            do k = 1,kk
                dtmp = dtmp + dsig(k)*q(:,:,k)
             end do
             dtmp = 100.*psl/grav * dtmp
             call savehist ( "pwc", dtmp )
          else if ( needfld("prw") ) then
             dtmp = 0.0
-            do k=1,kk
+            do k = 1,kk
                dtmp = dtmp + dsig(k)*q(:,:,k)
             end do
             dtmp = 100.*psl/grav * dtmp
@@ -767,7 +778,7 @@ contains
 
       if ( kk>1 ) then
          if ( needfld("press") ) then
-            do k=1,kk
+            do k = 1,kk
                tmp3d(:,:,k) = psl*sig(k)
             end do
             call vsavehist ( "press", tmp3d )
@@ -783,10 +794,20 @@ contains
 
       if ( kk>1 ) then
          if ( needfld("theta") ) then
-            do k=1,kk
+            do k = 1,kk
                tmp3d(:,:,k) = t(:,:,k)*(psl*sig(k)/1.e3)**(-rdry/cp)
             end do
             call vsavehist ( "theta", tmp3d )
+         end if
+      end if
+      
+      if ( kk>1 ) then
+         if ( needfld("w") ) then
+            do k = 1,kk
+               tmp3d(:,:,k) = -(rdry/grav)*t(:,:,k)/(sig(k)*psl) * &
+                              ( omega(:,:,k) - sig(k)*dpsdt/864. ) ! Convert dpsdt to Pa/s
+            end do
+            call vsavehist ( "w", tmp3d )
          end if
       end if
       
@@ -848,14 +869,14 @@ contains
       case ( "temp" )
          needed = needfld("temp") .or. needfld("zg") .or. needfld("rh") .or. &
                   needfld("tbot") .or. needfld("vaveut") .or.                &
-                  needfld("vaveut") .or. needfld("theta")
+                  needfld("vaveut") .or. needfld("theta") .or. needfld("w")
       case ( "ta" )
-         needed = needfld("ta") .or. needfld("zg") .or. needfld("rh") .or. &
-                  needfld("tbot") .or. needfld("vaveut") .or.              &
-                  needfld("vaveut") .or. needfld("theta")
+         needed = needfld("ta") .or. needfld("zg") .or. needfld("rh") .or.  &
+                  needfld("tbot") .or. needfld("vaveut") .or.               &
+                  needfld("vaveut") .or. needfld("theta") .or. needfld("w")
       case ( "mixr" )
          needed = needfld("mixr") .or. needfld("zg") .or. needfld("rh") .or. &
-                  needfld("pwc") .or. needfld("qbot") .or. &
+                  needfld("pwc") .or. needfld("qbot") .or.                   &
                   needfld("vaveuq") .or. needfld("vaveuq")
       case ( "hus" )
          needed = needfld("hus") .or. needfld("zg") .or. needfld("rh") .or. &
@@ -881,6 +902,8 @@ contains
          needed = needfld("qsng")
       case ( "qgrg" )
          needed = needfld("qgrg")
+      case ( "omega" )
+         needed = needfld("omega") .or. needfld("w")
       case default
          print*, "Error - unsupported argument for need3dfld", name
          stop
@@ -2034,20 +2057,17 @@ contains
       end do
 
       ! Extra fields are handled explicitly
-      if ( cordex_compliant ) then
-        call addfld ( "ps", "Surface pressure", "Pa", 0., 120000., 1, &
-                       std_name="surface_air_pressure" )
-      else
-        call addfld ( "ps", "Surface pressure", "hPa", 0., 1200., 1, &
-                       std_name="surface_air_pressure" )
-      end if
+      call addfld ( "grid", "Grid resolution", "km", 0., 1000., 1, ave_type="fixed" )
       call addfld ( "tsea", "Sea surface temperature", "K", 150., 350., 1, &
                      std_name="sea_surface_temperature" )
-      call addfld ( "grid", "Grid resolution", "km", 0., 1000., 1, ave_type="fixed" )
       if ( cordex_compliant ) then
          call addfld ( "evspsbl", "Evaporation", "kg/m2/s", 0., 0.001, 1, std_name="water_evaporation_flux" )          
          call addfld ( "mrso", "Total soil moisture content", "kg/m2", 0., 100.0, 1, std_name="soil_moisture_content" )          
          call addfld ( "prw", "Precipitable water column", "kg/m2", 0.0, 100.0, 1, std_name="atmosphere_water_vapor_content")
+         call addfld ( "ps", "Surface pressure", "Pa", 0., 120000., 1, &
+                        std_name="surface_air_pressure" )
+         call addfld ( "rlus", "Upwelling Longwave radiation", "W/m2", -1000., 1000., 1 )
+         call addfld ( "rsus", "Upwelling Shortwave radiation", "W/m2", -1000., 1000., 1 )
          if ( int_type /= int_none ) then
             call addfld ( "sftlf", "Land-sea mask", "%",  0.0, 100.0, 1, &
                            ave_type="fixed", int_type=int_nearest )
@@ -2055,12 +2075,10 @@ contains
             call addfld ( "sftlf", "Land-sea mask", "%",  0.0, 100.0, 1, &
                            ave_type="fixed", int_type=int_none )
          end if
-         call addfld ( "rlus", "Upwelling Longwave radiation", "W/m2", -1000., 1000., 1 )
-         call addfld ( "rsus", "Upwelling Shortwave radiation", "W/m2", -1000., 1000., 1 )
          call addfld ( "snc",  "Snow area fraction", "%", 0., 6.5, 1 )
          call addfld ( "snw",  "Surface snow amount", "kg/m2", 0., 6.5, 1 )
       else
-         call addfld ( "pwc", "Precipitable water column", "kg/m2", 0.0, 100.0, 1, std_name="atmosphere_water_vapor_content")
+         call addfld ( "d10", "10m wind direction", "deg", 0.0, 360.0, 1 )          
          if ( int_type /= int_none ) then
             call addfld ( "land_mask", "Land-sea mask", "",  0.0, 1.0, 1, &
                            ave_type="fixed", int_type=int_nearest )
@@ -2068,7 +2086,9 @@ contains
             call addfld ( "land_mask", "Land-sea mask", "",  0.0, 1.0, 1, &
                            ave_type="fixed", int_type=int_none )
          end if
-         call addfld ( "d10", "10m wind direction", "deg", 0.0, 360.0, 1 )
+         call addfld ( "ps", "Surface pressure", "hPa", 0., 1200., 1, &
+                        std_name="surface_air_pressure" )
+         call addfld ( "pwc", "Precipitable water column", "kg/m2", 0.0, 100.0, 1, std_name="atmosphere_water_vapor_content")
       end if
       if ( kk > 1 ) then
          call addfld ( "uas", "x-component 10m wind", "m/s", -100.0, 100.0, 1 )
@@ -2094,6 +2114,9 @@ contains
                      multilev=.true., std_name="geopotential_height" )
       call addfld ( "press", "Air pressure", "hPa", 0., 1500., nlev,       &
                      multilev=.true., std_name="air_pressure" )
+      call addfld ( "rh", "Relative humidity", "%", 0., 110., nlev,  multilev=.true., std_name="relative_humidity" )
+      call addfld ( "theta", "Potential temperature", "K", 150., 1200., nlev, multilev=.true., std_name="potential_temperature" )
+      call addfld ( "w", "Vertical velocity", "m/s", -1., 1., nlev, multilev=.true., std_name="vertical_velocity" )
       
       ! If the output uses pressure levels save the lowest sigma level of
       ! the basic fields.
@@ -2107,8 +2130,6 @@ contains
       call addfld ( "vavevq", "Vertical average of meridional humidity flux", "m/s kg/kg", -0.5, 0.5, 1, std_name=std_name )
       call addfld ( "vaveut", "Vertical average of zonal temperature flux", "m/s K", -1e4, 1e4, 1, std_name=std_name )
       call addfld ( "vavevt", "Vertical average of meridional temperature flux", "m/s K", -1e4, 2e4, 1, std_name=std_name )
-      call addfld ( "rh", "Relative humidity", "%", 0., 110., nlev,  multilev=.true., std_name="relative_humidity" )
-      call addfld ( "theta", "Potential temperature", "K", 150., 1200., nlev, multilev=.true., std_name="potential_temperature" )
 
       if ( cf_compliant ) then
          ! Define as an extra field for now
