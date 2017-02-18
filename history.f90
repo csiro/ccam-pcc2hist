@@ -1395,7 +1395,7 @@ contains
       vinfo%vid(ifile) = vid
       
       if ( cordex_compliant ) then
-        ierr = nf90_def_var_deflate( ncid, vid, 1, 1, 2 ) ! shuffle=1, deflate=1, deflate_level=2  
+        ierr = nf90_def_var_deflate( ncid, vid, 1, 1, 1 ) ! shuffle=1, deflate=1, deflate_level=1
       end if
 
       if ( len_trim(vinfo%long_name) /= 0 ) then
