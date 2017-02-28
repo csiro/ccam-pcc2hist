@@ -6,20 +6,20 @@ FHOST = -xHost
 ifeq ($(BROADWELL),yes)
 FHOST = -xCORE-AVX2
 endif
-FFLAGS = -O $(FHOST) -ftz -Dparallel_int
+FFLAGS = -O $(FHOST) -ftz -traceback -Dparallel_int
 INC = -I $(NETCDF_ROOT)/include
 LIBS = -L $(NETCDF_ROOT)/lib -lnetcdf -lnetcdff
 PPFLAG90 = -fpp
-DEBUGFLAG = -check all -debug all -traceback -fpe0
+DEBUGFLAG = -check all -debug all -fpe0
 endif
 
 # Gfortran compiler options
 ifeq ($(GFORTRAN),yes)
 MPIFC = gfortran
 MPIF77 = gfortran
-FFLAGS = -O2 -mtune=native -march=native
+FFLAGS = -O2 -mtune=native -march=native -fbacktrace
 PPFLAG90 = -x f95-cpp-input
-DEBUGFLAG = -g -Wall -Wextra -fbounds-check -fbacktrace
+DEBUGFLAG = -g -Wall -Wextra -fbounds-check
 endif
 
 # Cray compiler options
