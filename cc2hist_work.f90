@@ -219,7 +219,7 @@ contains
       type(input_var), dimension(:) :: varlist
       integer, intent(in) :: nvars
       logical, intent(in)  :: skip
-      integer :: k, ivar
+      integer :: k, ivar, ierr
       real, dimension(pil,pjl*pnpan*lproc) :: uten, dtmp, ctmp
       real, dimension(pil,pjl*pnpan*lproc) :: sndw, egave, dpsdt
       real, dimension(pil,pjl*pnpan*lproc) :: tauxtmp, tauytmp
@@ -340,6 +340,10 @@ contains
                call vread( "runoff", dtmp )
                dtmp = dtmp/86400.
                call savehist ( "mrro", dtmp )
+            case ( "mrros" )
+               call vread( "mrros", dtmp )
+               dtmp = dtmp/86400.
+               call savehist ( "mrros", dtmp )
             case ( "pr" )
                call vread( "rnd", dtmp )
                dtmp = dtmp/86400.
@@ -403,6 +407,10 @@ contains
                  dtmp = sndw
                end if
                call savehist ( "snd", dtmp )
+            case ( "snm" )
+               call vread( "snm", dtmp )
+               dtmp = dtmp/86400.
+               call savehist ( "snm", dtmp )
             case ( "sund" )
                call vread( "sunhours", dtmp )
                dtmp = dtmp*3600.
@@ -666,22 +674,43 @@ contains
       call savehist( "qbot", q(:,:,1))
       
       if ( cordex_compliant  ) then
-         dtmp = egave/2.501e6 ! Latent heat of vaporisation (J kg^-1)
-         call savehist( "evspsbl", dtmp )
-         ! Arkward fix for total soil moisture
-         dtmp = 0. 
-         do k = 1,size(zse)
-            write(name,'(a,i1.1,a)') 'wb', k,'_ave'
-            call vread( name, ctmp )
-            dtmp = dtmp + ctmp*zse(k)*1000. 
-         end do
-         call savehist( "mrso", dtmp )
-         where ( sndw>0. )
-           dtmp = 100.
-         elsewhere
-           dtmp = 0.  
-         end where
-         call savehist( "snc", dtmp )
+         if ( needfld("evspsbl") ) then
+            dtmp = egave/2.501e6 ! Latent heat of vaporisation (J kg^-1)
+            call savehist( "evspsbl", dtmp )
+         end if
+         if ( needfld("mrso") ) then
+            ! Arkward fix for total soil moisture
+            dtmp = 0. 
+            do k = 1,size(zse)
+               write(name,'(a,i1.1,a)') 'wb', k,'_ave'
+               call vread( name, ctmp )
+               dtmp = dtmp + ctmp*zse(k)*1000. 
+            end do
+            call savehist( "mrso", dtmp )
+         end if
+         if ( needfld("mrfso") ) then
+            ierr = nf90_inq_varid (ncid, "wbice1_ave", ivar )
+            if ( ierr==nf90_noerr ) then
+               dtmp = 0. 
+               do k = 1,size(zse)
+                  write(name,'(a,i1.1,a)') 'wbice', k,'_ave'
+                  call vread( name, ctmp )
+                  dtmp = dtmp + ctmp*zse(k)*1000. 
+               end do
+               call savehist( "mrfso", dtmp )
+            else
+               dtmp = NF90_FILL_FLOAT  
+               call savehist( "mrfso", dtmp )  
+            end if
+         end if
+         if ( needfld("snc") ) then
+            where ( sndw>0. )
+               dtmp = 100.
+            elsewhere
+               dtmp = 0.  
+            end where
+            call savehist( "snc", dtmp )
+         end if
          call savehist( "snw", sndw )
          if ( needfld("tauu") .or. needfld("tauv") ) then
             call fix_winds(tauxtmp, tauytmp)
@@ -1893,6 +1922,8 @@ contains
             end if
          else if ( varlist(ivar)%vname == "psf" ) then
             cycle  ! Skip this one to avoid messages about it never being set
+         else if ( varlist(ivar)%vname(1:5) == "wbice" ) then
+            cycle  ! Skip this one to avoid messages about it never being set
          else if ( varlist(ivar)%vname == "zht" ) then
             varlist(ivar)%vname = "zs"
             varlist(ivar)%units = "m"
@@ -1940,6 +1971,11 @@ contains
                varlist(ivar)%vname = "clwvi"
             else if ( varlist(ivar)%vname == "mixr" ) then
                varlist(ivar)%vname = "hus"
+            else if ( varlist(ivar)%vname == "mrros" ) then
+               varlist(ivar)%units = "kg/m2/s"
+               varlist(ivar)%long_name = "Surface runoff"
+               xmin = 0.
+               xmax = 0.013
             else if ( varlist(ivar)%vname == "pblh" ) then
                varlist(ivar)%vname = "zmla"
             else if ( varlist(ivar)%vname == "qgscrn" ) then
@@ -1985,6 +2021,11 @@ contains
                varlist(ivar)%vname = "rsdt"
             else if ( varlist(ivar)%vname == "snd" ) then
                varlist(ivar)%long_name = "Snow depth"
+            else if ( varlist(ivar)%vname == "snm" ) then
+               varlist(ivar)%units = "kg/m2/s"
+               varlist(ivar)%long_name = "Snowmelt"
+               xmin = 0.
+               xmax = 0.013
             else if ( varlist(ivar)%vname == "sno" ) then
                varlist(ivar)%vname = "prsn"
                varlist(ivar)%units = "kg/m2/s"
@@ -2063,6 +2104,7 @@ contains
       if ( cordex_compliant ) then
          call addfld ( "evspsbl", "Evaporation", "kg/m2/s", 0., 0.001, 1, std_name="water_evaporation_flux" )          
          call addfld ( "mrso", "Total soil moisture content", "kg/m2", 0., 100.0, 1, std_name="soil_moisture_content" )          
+         call addfld ( "mrfso", "Soil frozen water content", "kg/m2", 0., 100.0, 1, std_name="soil_frozen_water_content" )   
          call addfld ( "prw", "Precipitable water column", "kg/m2", 0.0, 100.0, 1, std_name="atmosphere_water_vapor_content")
          call addfld ( "ps", "Surface pressure", "Pa", 0., 120000., 1, &
                         std_name="surface_air_pressure" )
