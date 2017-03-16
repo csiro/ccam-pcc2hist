@@ -2203,7 +2203,7 @@ contains
       ! Allows ? as single character wildcard
       character(len=*), intent(in) :: str
       character(len=*), dimension(:), intent(in) :: strarray
-      integer :: i, j, len, start
+      integer :: i, j, len, start, jtest
       logical :: tmpmatch
 
       matchc = .false.
@@ -2221,8 +2221,9 @@ contains
             do 
                ! Look for next ?
                ! j is index into whole string
-               j = j + index(strarray(i)(j+1:len),"?")
-               if ( j == 0 ) then
+               jtest = index(strarray(i)(j+1:len),"?")
+               j = j + jtest
+               if ( jtest == 0 ) then
                   ! No more wildcards so match right to end
                   j = len+1
                end if
