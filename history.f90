@@ -1347,6 +1347,8 @@ contains
 
       character(len=80) :: cell_methods, coord_name
       integer :: ierr, vtype, vid, zdim
+      
+      integer(kind=2), parameter :: fill_short = NF90_FILL_SHORT
 
       if ( myid /=0 ) return
 
@@ -1463,9 +1465,9 @@ contains
       if ( vtype == NF90_INT2 ) then
          ! Ugly work around to ensure attributes have the correct type on SX6
          if ( vinfo%ave_type(ifile) /= hist_fixed ) then
-            ierr = nf90_put_att ( ncid, vid, "_FillValue", NF90_FILL_SHORT )
+            ierr = nf90_put_att ( ncid, vid, "_FillValue", fill_short )
             call check_ncerr(ierr,"Error with INT2 fill value attribute")
-            ierr = nf90_put_att ( ncid, vid, "missing_value", NF90_FILL_SHORT )
+            ierr = nf90_put_att ( ncid, vid, "missing_value", fill_short )
             call check_ncerr(ierr,"Error with missing value attribute")
          end if
       else
