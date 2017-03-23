@@ -1,6 +1,6 @@
 ! Conformal Cubic Atmospheric Model
     
-! Copyright 2015-2016 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+! Copyright 2015-2017 Commonwealth Scientific Industrial Research Organisation (CSIRO)
     
 ! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
 !
@@ -546,7 +546,7 @@ contains
                   ! psl will not be used in height
                   call height( t, q, zs, psl, sig, hstd )
                   do k=1,size(hstd,dim=3)
-                     hstd(:,:,k) = hstd(:,:,k) - zs/grav
+                     hstd(:,:,k) = hstd(:,:,k) - zs
                   end do
                   call mitop_setup( sig, mlevs(1:nplevs), hstd, t, q, maxlev, minlev )
                   if ( need3dfld("ta") ) then
@@ -570,7 +570,7 @@ contains
                   ! psl will not be used in height
                   call height( t, q, zs, psl, sig, hstd )
                   do k = 1,size(hstd,dim=3)
-                     hstd(:,:,k) = hstd(:,:,k) - zs/grav
+                     hstd(:,:,k) = hstd(:,:,k) - zs
                   end do
                   call mitop_setup( sig, mlevs(1:nplevs), hstd, t, q, maxlev, minlev )
                   if ( need3dfld("temp") ) then
@@ -796,7 +796,7 @@ contains
             call savehist ( "zg", zstd )
          else if ( use_meters ) then
             do k = 1,nplevs
-               zstd(:,:,k) = mlevs(k)
+               zstd(:,:,k) = mlevs(k) + zs
             end do
             call savehist ( "zg", zstd )
          else
