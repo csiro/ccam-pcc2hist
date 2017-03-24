@@ -104,7 +104,8 @@ contains
       integer, intent(in) :: il, jl, kl, ksoil, kice
       
       allocate ( psl(pil,pjl*pnpan*lproc),   zs(pil,pjl*pnpan*lproc) )
-      allocate ( soilt(pil,pjl*pnpan*lproc), u(pil,pjl*pnpan*lproc,kl), v(pil,pjl*pnpan*lproc,kl),  t(pil,pjl*pnpan*lproc,kl) )
+      allocate ( soilt(pil,pjl*pnpan*lproc), u(pil,pjl*pnpan*lproc,kl),  v(pil,pjl*pnpan*lproc,kl) )
+      allocate ( t(pil,pjl*pnpan*lproc,kl) )
       allocate ( q(pil,pjl*pnpan*lproc,kl),  ql(pil,pjl*pnpan*lproc,kl), qf(pil,pjl*pnpan*lproc,kl) )
       allocate ( qs(pil,pjl*pnpan*lproc,kl), qg(pil,pjl*pnpan*lproc,kl), omega(pil,pjl*pnpan*lproc,kl) )
       allocate ( tgg(pil,pjl*pnpan*lproc,ksoil) )
@@ -545,10 +546,10 @@ contains
                   q = max( q, 1.e-20 )
                   ! psl will not be used in height
                   call height( t, q, zs, psl, sig, hstd )
-                  do k=1,size(hstd,dim=3)
-                     hstd(:,:,k) = hstd(:,:,k) - zs
+                  do k = 1,size(hstd,dim=3)
+                     hstd(:,:,k) = mlevs(nplevs)*(hstd(:,:,k) - zs)/(mlevs(nplevs)-zs)
                   end do
-                  call mitop_setup( sig, mlevs(1:nplevs), hstd, t, q, maxlev, minlev )
+                  call mitop_setup( sig, mlevs(1:nplevs), hstd, zs, t, q, maxlev, minlev )
                   if ( need3dfld("ta") ) then
                      call vsavehist ( "ta", t )
                   end if
@@ -570,9 +571,9 @@ contains
                   ! psl will not be used in height
                   call height( t, q, zs, psl, sig, hstd )
                   do k = 1,size(hstd,dim=3)
-                     hstd(:,:,k) = hstd(:,:,k) - zs
+                     hstd(:,:,k) = mlevs(nplevs)*(hstd(:,:,k) - zs)/(mlevs(nplevs)-zs)
                   end do
-                  call mitop_setup( sig, mlevs(1:nplevs), hstd, t, q, maxlev, minlev )
+                  call mitop_setup( sig, mlevs(1:nplevs), hstd, zs, t, q, maxlev, minlev )
                   if ( need3dfld("temp") ) then
                      call vsavehist ( "temp", t )
                   end if
@@ -796,7 +797,7 @@ contains
             call savehist ( "zg", zstd )
          else if ( use_meters ) then
             do k = 1,nplevs
-               zstd(:,:,k) = mlevs(k) + zs
+               zstd(:,:,k) = mlevs(k)/mlevs(nplevs)*(mlevs(nplevs)-zs) + zs
             end do
             call savehist ( "zg", zstd )
          else
@@ -1045,6 +1046,7 @@ contains
    end subroutine readsave3
    
    subroutine initialise ( hres, minlon, maxlon, dlon, minlat, maxlat, dlat,  &
+                           dx, dy, lx, ly,                                    &
                            kdate, ktime, ntracers, ksoil, kice, debug,        &
                            nqg )
 
@@ -1076,6 +1078,8 @@ contains
 
       real, intent(inout)  :: hres
       real, intent(inout)  :: minlon, maxlon, dlon, minlat, maxlat, dlat
+      real, intent(in)     :: dx, dy
+      integer, intent(in)  :: lx, ly
       integer, intent(out) :: kdate, ktime, ntracers, ksoil, kice
       logical, intent(in)  :: debug
       integer, intent(out) :: nqg
@@ -1095,8 +1099,10 @@ contains
       integer, dimension(:), allocatable :: int_header
       real, dimension(:), allocatable :: real_header
       integer :: hlen, ierr, vid, dimid, ieof
+      integer :: ic, jc
       real :: grlong, grlat, grlongu, grlatu, grlongv, grlatv, tmp
       real :: rdt, lrlat0, lrlong0, lschmidt
+      real :: hlon_tmp, hlat_tmp, hlon_dx, hlat_dy
 
 #ifdef parallel_int
       integer(kind=MPI_ADDRESS_KIND) :: ssize
@@ -1324,6 +1330,9 @@ contains
       if ( int_default == int_none ) then
          nxhis = il
          nyhis = jl
+      else if ( int_default == int_tapm ) then
+         nxhis = lx
+         nyhis = ly
       else
 !        If hres has been set use that, otherwise calculate a value
 !        appropriate to the resolution. 360/(4*il) is the approx resolution
@@ -1397,22 +1406,45 @@ contains
          if ( int_default == int_none ) then
             hlat = (/ ( real(j), j=1,nyhis ) /)
             hlon = (/ ( real(i), i=1,nxhis ) /)
+         else if ( int_default == int_tapm ) then
+            jc = 0.5*real(ly+1) 
+            ic = 0.5*real(lx+1)
+            hlat = (/ ( (real(j)-jc)*dy, j=1,nyhis ) /) ! Y coordinate (not latitude)
+            hlon = (/ ( (real(i)-ic)*dx, i=1,nxhis ) /) ! X coordinate (not longitude)
+            hlat_dy = 1./(6.37e6*3.1415927/180.)
+            hlon_dx = hlat_dy/cos(rlat0*3.1415927/180.)
+            do j = 1,nyhis
+               do i = 1,nxhis
+                  hlon_tmp = rlong0 + hlon(i)*hlon_dx
+                  hlat_tmp = rlat0 + hlat(j)*hlat_dy
+                  if ( hlat_tmp>90. ) then
+                     hlat_tmp = 180. - hlat_tmp
+                     hlon_tmp = hlon_tmp + 180.
+                  end if
+                  if ( hlat_tmp<-90. ) then
+                     hlat_tmp = -180. + hlat_tmp
+                     hlon_tmp = hlon_tmp + 180.
+                  end if
+                  call latltoij ( hlon_tmp, hlat_tmp, xg(i,j), yg(i,j), nface(i,j),&
+                                  rlong0, rlat0, schmidt, schm13 )
+               enddo
+            enddo 
          else
             !     Set lats and longs
-            do j=1,nyhis
+            do j = 1,nyhis
                hlat(j) = minlat + (j-1)*(maxlat-minlat)/(nyhis-1)
             end do
             if ( maxlon - minlon == 360.0 ) then
-               do i=1,nxhis
+               do i = 1,nxhis
                   hlon(i) = minlon + (i-1)*(maxlon-minlon)/nxhis
                end do
             else
-               do i=1,nxhis
+               do i = 1,nxhis
                   hlon(i) = minlon + (i-1)*(maxlon-minlon)/(nxhis-1)
                end do
             end if
-            do j=1,nyhis
-               do i=1,nxhis
+            do j = 1,nyhis
+               do i = 1,nxhis
                   call latltoij ( hlon(i), hlat(j), xg(i,j), yg(i,j), nface(i,j),&
                                   rlong0, rlat0, schmidt, schm13 )
                enddo

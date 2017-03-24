@@ -1,6 +1,6 @@
 ! Conformal Cubic Atmospheric Model
     
-! Copyright 2015 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+! Copyright 2015-2017 Commonwealth Scientific Industrial Research Organisation (CSIRO)
     
 ! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
 !
@@ -58,6 +58,8 @@ program cc2hist
    real :: hres = 0.
    real :: minlon = 0.0, maxlon=360.0, dlon=0.0, &
            minlat=-90.0, maxlat=90.0,  dlat=0.0
+   real :: dx=0., dy=0.  ! for TAPM
+   integer :: lx=0, ly=0 ! for TAPM
 
    character(len=MAX_ARGLEN) :: optarg
    integer :: opt, nopt
@@ -71,6 +73,7 @@ program cc2hist
 
    namelist /input/ kta, ktb, ktc, ndate, ntime,                      &
                     minlon, maxlon, dlon, minlat, maxlat, dlat,       &
+                    dx, dy, lx, ly,                                   &
                     minlev, maxlev, minsig, maxsig, use_plevs, plevs, &
                     use_meters, mlevs, sdate, edate, stime, etime,    &
                     hres, debug, ifile, ofile, int_default, vextrap,  &
@@ -167,6 +170,9 @@ program cc2hist
             case ( "none" )
                int_default = int_none
                optionstring = optionstring(:len_trim(optionstring)) // " --interp=none"
+            case ( "tapm" )
+               int_default = int_tapm
+               optionstring = optionstring(:len_trim(optionstring)) // " --interp=tapm"
             case default
                write(6,*) "Expected nearest, linear or none for interp option"
                call finishbanner
@@ -211,7 +217,7 @@ program cc2hist
    read(1,input)   
    
    if ( vextrap == vextrap_missing .and. int_default == int_normal ) then
-      print*, "For missing option to work, must set interp to linear or nearest"
+      print*, "For vextrap=missing option to work, must set interp to linear or nearest"
       call finishbanner
       call MPI_ABORT(comm_world,-1,ierr)
    end if
@@ -276,6 +282,7 @@ program cc2hist
 
    call initialise ( hres,                                               &
                      minlon, maxlon, dlon, minlat, maxlat, dlat,         &
+                     dx, dy, lx, ly,                                     &
                      kdate, ktime, ntracers, ksoil, kice, debug,         &
                      nqg )
    call set_hbytes ( 4 )
@@ -439,10 +446,10 @@ program cc2hist
    end if
 
    if ( ktc == 0 ) then
-      write(6,*) "ERROR: ktc must not be zero"
+      write(6,*) "ERROR: ktc must not equal zero"
       stop
    end if
-
+   
    call log_on()
    call START_LOG(timeloop_begin)
    timeloop: do kt=kta,ktb,ktc
@@ -534,7 +541,7 @@ program cc2hist
 
 !     Time in hours
       if  ( use_steps ) then
-         time=real(ktau)
+         time = real(ktau)
       else
          iyr = kdate/10000
          imon = modulo(kdate,10000) / 100

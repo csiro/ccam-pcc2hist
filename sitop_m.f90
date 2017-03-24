@@ -1,6 +1,6 @@
 ! Conformal Cubic Atmospheric Model
     
-! Copyright 2015 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+! Copyright 2015-2017 Commonwealth Scientific Industrial Research Organisation (CSIRO)
     
 ! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
 !
@@ -373,7 +373,7 @@ contains
    end subroutine sitop
 
    
-   subroutine mitop_setup ( sigr, mtrlvs, height, tg, qg, maxlev, minlev )
+   subroutine mitop_setup ( sigr, mtrlvs, height, zs, tg, qg, maxlev, minlev )
 
       ! Setup for mitop. Calculate things that don't depend on the field
       ! being interpolated.
@@ -389,6 +389,7 @@ contains
       real, dimension(:,:,:), intent(in)   :: height    ! Output levels
       real, dimension(:,:,:), intent(in)   :: tg        ! Temperature
       real, dimension(:,:,:), intent(in)   :: qg        ! Water vapor
+      real, dimension(:,:), intent(in)     :: zs        ! surface height
       real, dimension(size(tg,dim=1),size(tg,dim=3)) :: tv
       real, parameter :: cmu1=0.5, clmdam=0.5
 
@@ -397,6 +398,7 @@ contains
       integer :: j, j1, jj 
       integer :: maxlev_g, minlev_g, ierr
       real :: v1, w1, v2, w2, h1, h2, h3, z
+      real :: mtrphys
 
 !----------------------------------------------------------------------
 !
@@ -430,26 +432,28 @@ contains
       end if
 
 !     Reverse data and heights.
-      z=grav/stdlapse
+      z = grav/stdlapse
       do j = 1,iy
          tv = tg(:,j,:) * (epsil+qg(:,j,:))/(epsil*(1.+qg(:,j,:)))    
          do i = 1,ix
             ii = 1
             do k = 1,nprlvs
-               if ( mtrlvs(k)<height(i,j,1) ) then
-                  sig(i,nprlvs+1-k,j) = (grav*mtrlvs(k)/(tv(i,1)*z)+1.)**(-z/rdry)
+               if ( mtrlvs(k) < height(i,j,1) ) then
+                  mtrphys = mtrlvs(k)/mtrlvs(nprlvs)*(mtrlvs(nprlvs)-zs(i,j)) + zs(i,j) 
+                  sig(i,nprlvs+1-k,j) = (grav*mtrphys/(tv(i,1)*z)+1.)**(-z/rdry)
                else
                   do while ( height(i,j,ii+1)<mtrlvs(k) .and. ii<nsgm1 )
-                     ii = ii+1
+                     ii = ii + 1
                   end do
+                  mtrphys = (mtrlvs(k)-height(i,j,ii))/mtrlvs(nprlvs)*(mtrlvs(nprlvs)-zs(i,j))
                   sig(i,nprlvs+1-k,j) = siglvs(nsglvs-ii+1) &
-                      *exp(-2.*grav/rdry*(mtrlvs(k)-height(i,j,ii))/(tv(i,ii)+tv(i,ii+1)))
+                      *exp(-2.*grav/rdry*mtrphys/(tv(i,ii)+tv(i,ii+1)))
                end if
             end do
          end do
       end do
 
-      do j=1,iy
+      do j = 1,iy
 !
 !     mexup1, mexup2    mexdn1,mexdn2    min1,min2 set
 !     the upper and lower limits on upward and downward
@@ -457,45 +461,45 @@ contains
 !     if there are no levels in a given class,the limits are
 !     set to zero.
 !
-         do i=1,ix
-            mexup1(i,j)=0
-            mexup2(i,j)=0
-            do ii=1,nprlvs
-               if(sig(i,ii,j).lt.siglvs(1)) mexup2(i,j)=ii
+         do i = 1,ix
+            mexup1(i,j) = 0
+            mexup2(i,j) = 0
+            do ii = 1,nprlvs
+               if ( sig(i,ii,j) < siglvs(1) ) mexup2(i,j) = ii
             end do
-            if(mexup2(i,j).gt.0) mexup1(i,j)=1
-            mexdn1(i,j)=0
-            mexdn2(i,j)=0
-            do ii=1,nprlvs
-               iii=nprlvs+1-ii
-               if(sig(i,iii,j).gt.siglvs(nsglvs)) mexdn1(i,j)=iii
+            if ( mexup2(i,j) > 0 ) mexup1(i,j) = 1
+            mexdn1(i,j) = 0
+            mexdn2(i,j) = 0
+            do ii = 1,nprlvs
+               iii = nprlvs + 1 - ii
+               if ( sig(i,iii,j) > siglvs(nsglvs) ) mexdn1(i,j) = iii
             end do
-            if(mexdn1(i,j).gt.0) mexdn2(i,j)=nprlvs
+            if ( mexdn1(i,j) > 0 ) mexdn2(i,j) = nprlvs
 
-            if (mexup2(i,j).eq.0) then
+            if ( mexup2(i,j) == 0 ) then
                !             no upward extrapolation
-               if(mexdn1(i,j).eq.0) then
-                  min1(i,j)=1
-                  min2(i,j)=nprlvs
+               if ( mexdn1(i,j) == 0) then
+                  min1(i,j) = 1
+                  min2(i,j) = nprlvs
                else
-                  min1(i,j)=1
-                  min2(i,j)=mexdn1(i,j)-1
-                  if(mexdn1(i,j).eq.1) min1(i,j)=0
+                  min1(i,j) = 1
+                  min2(i,j) = mexdn1(i,j) - 1
+                  if ( mexdn1(i,j) == 1 ) min1(i,j) = 0
                end if
             else 
 !
 !         upward extrapolation
 !
-               if (mexdn1(i,j).eq.0) then
-                  min1(i,j)=mexup2(i,j)+1
-                  min2(i,j)=nprlvs
-                  if(mexup2(i,j).ge.nprlvs) min1(i,j)=0
-                  if(mexup2(i,j).ge.nprlvs) min2(i,j)=0
+               if ( mexdn1(i,j) == 0 ) then
+                  min1(i,j) = mexup2(i,j) + 1
+                  min2(i,j) = nprlvs
+                  if ( mexup2(i,j) >= nprlvs ) min1(i,j) = 0
+                  if ( mexup2(i,j) >= nprlvs ) min2(i,j) = 0
                else
-                  min1(i,j)=mexup2(i,j)+1
-                  min2(i,j)=mexdn1(i,j)-1
-                  if(mexdn1(i,j).eq.(mexup2(i,j)+1)) min1(i,j)=0
-                  if(mexdn1(i,j).eq.(mexup2(i,j)+1)) min2(i,j)=0
+                  min1(i,j) = mexup2(i,j) + 1
+                  min2(i,j) = mexdn1(i,j) - 1
+                  if ( mexdn1(i,j) == (mexup2(i,j)+1) ) min1(i,j) = 0
+                  if ( mexdn1(i,j) == (mexup2(i,j)+1) ) min2(i,j) = 0
                end if
             end if
          end do
@@ -600,7 +604,7 @@ contains
 !
 !     calculate spline derivatives at orginal points
 !
-         gd(:,1)=-c(1)
+         gd(:,1) = -c(1)
          do ns = 2,nsglvs
             x3 = 1.0 / (1.0+a(ns)*gd(:,ns-1))
             gd(:,ns) = -c(ns)*x3
@@ -708,7 +712,7 @@ contains
          end select
 
          do ii = 1,nprlvs
-            gridp(:,j,nprlvs+1-ii)=gp(:,ii)
+            gridp(:,j,nprlvs+1-ii) = gp(:,ii)
          end do
 
       end do

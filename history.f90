@@ -1,6 +1,6 @@
 ! Conformal Cubic Atmospheric Model
     
-! Copyright 2015-2016 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+! Copyright 2015-2017 Commonwealth Scientific Industrial Research Organisation (CSIRO)
     
 ! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
 !
@@ -920,7 +920,7 @@ contains
          end do
 
 !        Apply the exclusion list
-         do ivar=1,totflds
+         do ivar = 1,totflds
 !           Go until the end of the variable list
             if ( len_trim(xnames(ivar,ifile)) == 0 ) then
                exit

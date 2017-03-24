@@ -1,6 +1,6 @@
 ! Conformal Cubic Atmospheric Model
     
-! Copyright 2015 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+! Copyright 2015-2017 Commonwealth Scientific Industrial Research Organisation (CSIRO)
     
 ! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
 !
@@ -68,8 +68,10 @@ module usage_m
 
    print*, "There are also several options controlling the horizontal interpolation"
    print*, "and extrapolation to pressure levels below the surface"
-   print*, " --interp=linear  Use bi-linear horizonal interpolation rather than standard bicubic"
+   print*, " --interp=linear   Use bi-linear horizonal interpolation rather than standard bicubic"
    print*, " --interp=nearest  Use nearest value rather than interpolation"
+   print*, " --interp=none     No interpolation.  Output on cubic grid"
+   print*, " --interp=tapm     Interpolation to TAPM grid"
    print*, " --vextrap=linear Linear extrapolation below surface"
    print*, " --vextrap=none  Use end values rather than extrapolation"
    print*, " --vextrap=missing  Set values below surface as missing"
@@ -101,6 +103,12 @@ module usage_m
    print*, " maxlon      real     360"
    print*, " minlat      real     -90"
    print*, " maxlat      real      90"
+   print*, ""
+   print*, "       The boundary for the TAPM output region is"
+   print*, " lx          int        >0"
+   print*, " ly          int        >0"
+   print*, " dx          real       >0"
+   print*, " dy          real       >0"
    print*, ""
    print*, "       Output levels are the intersection of the following "
    print*, " minlev      int       1"
@@ -141,7 +149,7 @@ module usage_m
    print*, "ifile            = input_file"
    print*, "ofile            = output_file"
    print*, "hres             = res"
-   print*, "int_default      = 0 (bicubic), 1 (nearest), 2 (bilinear), 5 (none)"
+   print*, "int_default      = 0 (bicubic), 1 (nearest), 2 (bilinear), 5 (none), 9 (tapm)"
    print*, "vextrap          = 0 (default), 1 (linear), 2 (none), 3 (missing),"
    print*, "                   4 (lapse rate)"
    print*, "cf_compliant     = true or false"
