@@ -2886,12 +2886,18 @@ contains
             end do
          end if
       
-         !  Get dimensions from int_header
-         ier = nf90_get_att(ncid_in(0), nf90_global, "int_header", int_header)
-         call check_ncerr(ier, "int_header")
-         ! Only a few values are used
-         pil_g = int_header(1)
-         pjl_g = int_header(2)
+         ier = nf90_get_att(ncid, nf90_global, "il_g", pil_g )
+         if ( ier==nf90_noerr ) then
+            ierr = nf90_get_att(ncid, nf90_global, "jl_g", pjl_g )
+            call check_ncerr(ierr, "Error getting jl_g attribute")
+         else
+            !  Get dimensions from int_header
+            ier = nf90_get_att(ncid_in(0), nf90_global, "int_header", int_header)
+            call check_ncerr(ier, "int_header")
+            ! Only a few values are used
+            pil_g = int_header(1)
+            pjl_g = int_header(2)
+         end if
 
          !  Calculate il, jl from these
          sdecomp = ''
