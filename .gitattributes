@@ -38,3 +38,4 @@
 /utils_m.f90 -text
 /vertutils_m.f90 -text
 /xyzinfo_m.f90 -text
+/zenith.f90 -text

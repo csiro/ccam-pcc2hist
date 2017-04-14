@@ -44,7 +44,6 @@ module work
    integer :: ndt, ktau, nqg, nsd
    integer :: ksoil, kice
    integer :: ntrac, ilt ! Extra flag controlling tracers in file. Still needed?
-   real, private :: rlong0, rlat0, schmidt
 
 !  Flag for presence of extra surface flux fields (epot_ave etc).
    logical :: extra_surfflux
@@ -209,23 +208,58 @@ contains
 
    end subroutine getdate
 
-   subroutine infile ( varlist, nvars, skip )
+   subroutine convert_date( mins, kdate, ktime, kt, basetime )
+   
+      integer, intent(out) :: mins
+      integer, intent(in) :: kdate, ktime, kt
+      integer :: jyear, jmonth, jday, jhour, jmin
+      integer :: newdate, newtime, mtimer
+      integer, dimension(12), parameter :: cdays=(/0,31,59,90,120,151,181,212,243,273,304,334/)
+      character(len=*), intent(in) :: basetime
+      
+      jyear = kdate/10000
+      newdate = kdate - jyear*10000
+      jmonth = newdate/100
+      newdate = newdate - jmonth*100
+      jday = newdate
+      jhour = ktime/100
+      newtime = ktime - jhour*100
+      jmin = newtime
+         
+      if ( basetime(1:13) == "minutes since" ) then
+         mtimer = kt
+      else if ( basetime(1:13) == "seconds since" ) then
+         mtimer = kt/60 
+      else
+         write(6,*) "ERROR: Unknown time unit in input file"
+         stop
+      end if
+      mins = (cdays(jmonth)+jday)*1440 + jhour*24 + jmin + mtimer
+
+   end subroutine convert_date
+   
+   subroutine infile ( varlist, nvars, skip, mins )
       ! For netcdf input
       use history, only : savehist, needfld, cordex_compliant
-      use physparams, only : grav, rdry, cp
+      use physparams, only : grav, rdry, cp, pi
       use s2p_m
       use height_m
       use sitop_m
       use logging_m
+      use parm_m, only : rlong0, rlat0
+      use zenith_m
       type(input_var), dimension(:) :: varlist
-      integer, intent(in) :: nvars
+      integer, intent(in) :: nvars, mins
       logical, intent(in)  :: skip
       integer :: k, ivar, ierr
+      integer :: rad_day
       real, dimension(pil,pjl*pnpan*lproc) :: uten, dtmp, ctmp
       real, dimension(pil,pjl*pnpan*lproc) :: sndw, egave, dpsdt
       real, dimension(pil,pjl*pnpan*lproc) :: tauxtmp, tauytmp
       real, dimension(pil,pjl*pnpan*lproc) :: rgn, rgd, sgn, sgd
       real, dimension(pil,pjl*pnpan*lproc) :: wind_norm
+      real, dimension(1) :: rlong_a, rlat_a, cos_zen, frac
+      real :: fjd, bpyear, r1, dlt, alp, slag, dhr
       character(len=10) :: name
       real, parameter :: spval   = 999.
       real, parameter :: tfreeze = 271.38
@@ -371,7 +405,7 @@ contains
                call vread( "psf", psl )
                psl = 1.0e3 * exp(psl) ! hPa
                if ( cordex_compliant ) then
-                  dtmp = 100. * psl   ! Pa  
+                  dtmp = 100.*psl     ! Pa  
                else    
                   dtmp = psl          ! hPa
                end if
@@ -884,6 +918,20 @@ contains
          call savehist( "rlus", dtmp )
       end if
 
+      if ( needfld("cos_zen") ) then
+         ! calculate zenith angle - only for TAPM output
+         dhr = 1./3600.
+         fjd = float(mod(mins, 525600))/1440. ! restrict to 365 day calendar
+         ierr = nf90_get_att(ncid, nf90_global, "bpyear", bpyear )
+         if ( ierr/=nf90_noerr ) bpyear = 0.
+         call solargh(fjd,bpyear,r1,dlt,alp,slag)
+         rlat_a(1) = rlat0
+         rlong_a(1) = rlong0
+         call zenith(fjd,r1,dlt,slag,rlat_a,rlong_a,dhr,1,cos_zen,frac)
+         dtmp(:,:) = cos_zen(1)
+         call savehist( "cos_zen", dtmp )
+      end if
+      
       first_in = .false.
       nrec = nrec + 1
 
@@ -1331,6 +1379,10 @@ contains
          nxhis = il
          nyhis = jl
       else if ( int_default == int_tapm ) then
+         if ( lx==0 .or. ly==0 ) then
+            print *,"Error, lx, ly, dx, dy need to be specified for TAPM output"
+            stop
+         end if
          nxhis = lx
          nyhis = ly
       else
@@ -1654,7 +1706,7 @@ contains
    subroutine get_var_list(varlist, nvars)
       ! Get a list of the variables in the input file
       use history, only : addfld, int_default, cf_compliant, cordex_compliant
-      use interp_m, only : int_nearest, int_none
+      use interp_m, only : int_nearest, int_none, int_tapm
       use physparams, only : grav, rdry
       use s2p_m, only: use_plevs, plevs, use_meters, mlevs
       type(input_var), dimension(:), pointer :: varlist
@@ -2211,6 +2263,10 @@ contains
          ! Should have std_name = volume_fraction_of_water_in_soil, units=1
          ! Mentioned in Gregory email 2005-12-01. In official list?
          !call addfld('wb','Soil moisture','frac',0.,1.,ksoil,soil=.true.)
+      end if
+      
+      if ( int_default == int_tapm ) then
+         call addfld('cos_zen', 'Cosine of solar zenith angle', 'none', -1., 1., 1 )
       end if
 
    end subroutine get_var_list

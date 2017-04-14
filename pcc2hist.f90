@@ -80,6 +80,7 @@ program cc2hist
                     cf_compliant, cordex_compliant
 
    integer :: kt, kdate, ktime, ierr, ieof, ntracers
+   integer :: mins
    logical :: debug=.false.
    logical :: use_date, use_steps
    include 'revision.h'
@@ -345,7 +346,11 @@ program cc2hist
    if ( cf_compliant .and. basetime(1:13) == "minutes since" ) then
       basetime = "days" // basetime(8:len_trim(basetime))
    end if
+   if ( cf_compliant .and. basetime(1:13) == "seconds since" ) then
+      basetime = "days" // basetime(8:len_trim(basetime))
+   end if
 
+   
    allocate ( extra_atts(5) )
 
    extra_atts(1:5) = (/ hist_att("il", NF90_INT, 0., il, ""),             &
@@ -509,7 +514,10 @@ program cc2hist
            end if
          end if
 
-         call infile(varlist, nvars, skip)
+         ! calculate mins since start of the year
+         call convert_date(mins, kdate, ktime, kt, basetime )
+         
+         call infile(varlist, nvars, skip, mins)
 
          if ( myid == 0 ) then
             if ( skip ) then
