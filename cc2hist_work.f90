@@ -253,7 +253,7 @@ contains
       logical, intent(in)  :: skip
       integer :: k, ivar, ierr
       integer :: rad_day
-      real, dimension(pil,pjl*pnpan*lproc) :: uten, dtmp, ctmp
+      real, dimension(pil,pjl*pnpan*lproc) :: uten, udir, dtmp, ctmp
       real, dimension(pil,pjl*pnpan*lproc) :: sndw, egave, dpsdt
       real, dimension(pil,pjl*pnpan*lproc) :: tauxtmp, tauytmp
       real, dimension(pil,pjl*pnpan*lproc) :: rgn, rgd, sgn, sgd
@@ -779,11 +779,11 @@ contains
             call savehist ( "ubot", u(:,:,1) )
             call savehist ( "vbot", v(:,:,1) )
             if ( needfld("d10") ) then
-               dtmp = atan2(-u(:,:,1),-v(:,:,1))*180./3.1415927
-               where ( dtmp < 0. )
-                 dtmp = dtmp + 360.
+               udir = atan2(-u(:,:,1),-v(:,:,1))*180./3.1415927
+               where ( udir < 0. )
+                 udir = udir + 360.
                end where
-               call savehist( "d10", dtmp )
+               call savehist( "d10", udir )
             end if
             if ( needfld("uas") .or. needfld("vas") ) then
                wind_norm(:,:) = sqrt(u(:,:,1)*u(:,:,1)+v(:,:,1)*v(:,:,1))
@@ -803,6 +803,22 @@ contains
                   dtmp = 0.
                end where
                call savehist ( "vas", dtmp )
+            end if
+         end if
+      else
+         if ( needfld("d10") .or. needfld("u10") ) then
+            call vread("uas", ctmp) 
+            call vread("vas", dtmp)
+            if ( needfld("u10") ) then
+               uten = sqrt( ctmp*ctmp + dtmp*dtmp )
+               call savehist( "u10", uten )
+            end if
+            if ( needfld("d10") ) then
+               udir = atan2(-ctmp,-dtmp)*180./3.1415927
+               where ( udir < 0. )
+                  udir = udir + 360.
+               end where
+               call savehist( "d10", udir )
             end if
          end if
       end if       
