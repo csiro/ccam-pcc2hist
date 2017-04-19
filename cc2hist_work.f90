@@ -2240,6 +2240,8 @@ contains
       if ( kk > 1 ) then
          call addfld ( "uas", "x-component 10m wind", "m/s", -100.0, 100.0, 1 )
          call addfld ( "vas", "y-component 10m wind", "m/s", -100.0, 100.0, 1 )
+      else
+         call addfld ( "u10", "10m wind speed", "m/s", 0., 100.0, 1 ) 
       end if
       ! Packing is not going to work well in this case
       ! For height, estimate the height of the top level and use that
