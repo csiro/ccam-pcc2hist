@@ -253,7 +253,7 @@ contains
       logical, intent(in)  :: skip
       integer :: k, ivar, ierr
       integer :: rad_day
-      real, dimension(pil,pjl*pnpan*lproc) :: uten, udir, dtmp, ctmp
+      real, dimension(pil,pjl*pnpan*lproc) :: uten, udir, dtmp, ctmp, uastmp, vastmp
       real, dimension(pil,pjl*pnpan*lproc) :: sndw, egave, dpsdt
       real, dimension(pil,pjl*pnpan*lproc) :: tauxtmp, tauytmp
       real, dimension(pil,pjl*pnpan*lproc) :: rgn, rgd, sgn, sgd
@@ -509,6 +509,10 @@ contains
             case ( "u10", "sfcWind" )
                call vread( "u10", uten )
                call savehist( varlist(ivar)%vname, uten )
+            case ( "uas" )
+                call vread( "uas", uastmp )
+            case ( "vas" )
+                call vread( "vas", vastmp )
             case ( "zmla" )
                call readsave2 (varlist(ivar)%vname, input_name="pblh")
             case default
@@ -806,15 +810,16 @@ contains
             end if
          end if
       else
-         if ( needfld("d10") .or. needfld("u10") ) then
-            call vread("uas", ctmp) 
-            call vread("vas", dtmp)
+         if ( needfld("u10") .or. needfld("d10") .or. needfld("uas") .or. needfld("vas") ) then
+            call fix_winds( uastmp, vastmp )
+            call savehist( "uas", uastmp )
+            call savehist( "vas", vastmp )
             if ( needfld("u10") ) then
-               uten = sqrt( ctmp*ctmp + dtmp*dtmp )
+               uten = sqrt( uastmp*uastmp + vastmp*vastmp )
                call savehist( "u10", uten )
             end if
             if ( needfld("d10") ) then
-               udir = atan2(-ctmp,-dtmp)*180./3.1415927
+               udir = atan2(-uastmp,-vastmp)*180./3.1415927
                where ( udir < 0. )
                   udir = udir + 360.
                end where
