@@ -914,7 +914,7 @@ contains
 !            end do
 !            istart = 2
 !         else
-!            istart = 1
+            istart = 1
 !         end if ! ihtype(1) == hist_oave
 
 !        The rest of the history files are much simpler with multilevel variables
