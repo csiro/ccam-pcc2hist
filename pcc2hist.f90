@@ -357,7 +357,7 @@ program cc2hist
    call check_ncerr(ierr, "Error getting number of global attributes")
    allocate( extra_temp(natts) )
    catts = 0
-   do i = 0,natts-1
+   do i = 1,natts
       ierr = nf90_inq_attname(ncid, nf90_global, i, attname )
       call check_ncerr(ierr, "Error getting attribute name")
       if ( attname/="il_g"       .and. attname/="jl_g"        .and. &
