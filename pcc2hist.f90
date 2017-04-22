@@ -93,9 +93,12 @@ program cc2hist
    logical :: skip
    type(input_var), dimension(:), pointer :: varlist
    integer :: nvars
-   type(hist_att), dimension(:), allocatable :: extra_atts
+   type(hist_att), dimension(:), allocatable :: extra_atts, extra_temp
    integer :: veg_int
    real :: time_prev = 0.
+   integer :: natts, catts, ival, xtype, attlen, i
+   real :: rval
+   character(len=80) :: cval, attname
 
    
 #ifndef stacklimit
@@ -104,7 +107,7 @@ program cc2hist
 #endif
 
    call MPI_Init(ierr)
-   comm_world=MPI_COMM_WORLD
+   comm_world = MPI_COMM_WORLD
    call MPI_Comm_size(comm_world, nproc, ierr) ! Find number of processes
    call MPI_Comm_rank(comm_world, myid, ierr)  ! Find local processor id
 
@@ -350,15 +353,45 @@ program cc2hist
       basetime = "days" // basetime(8:len_trim(basetime))
    end if
 
+   ierr = nf90_inquire(ncid, nAttributes=natts )
+   call check_ncerr(ierr, "Error getting number of global attributes")
+   allocate( extra_temp(natts) )
+   catts = 0
+   do i = 0,natts-1
+      ierr = nf90_inq_attname(ncid, nf90_global, i, attname )
+      call check_ncerr(ierr, "Error getting attribute name")
+      if ( attname/="il_g"       .and. attname/="jl_g"        .and. &
+           attname/="il"         .and. attname/="kl" ) then
+         ierr = nf90_inquire_attribute(ncid, nf90_global, attname, xtype=xtype, len=attlen )
+         call check_ncerr(ierr, "Error getting attribute type and len")
+         select case (xtype)
+            case( nf90_int )
+               if ( attlen<=1 ) then             
+                  catts = catts + 1  
+                  ierr = nf90_get_att(ncid, nf90_global, attname, ival )
+                  extra_temp(catts) = hist_att(attname, NF90_INT, 0., ival, "")
+               end if
+            case ( nf90_real )
+               if ( attlen<=1 ) then                
+                  catts = catts + 1                     
+                  ierr = nf90_get_att(ncid, nf90_global, attname, rval )
+                  extra_temp(catts) = hist_att(attname, NF90_REAL, rval, 0, "")
+               end if
+            case ( nf90_char )
+               catts = catts + 1                     
+               ierr = nf90_get_att(ncid, nf90_global, attname, cval )
+               extra_temp(catts) = hist_att(attname, NF90_CHAR, 0., 0, cval)
+         end select
+      end if
+   end do
+   catts = catts + 2
+   allocate ( extra_atts(catts) )
+   extra_atts(1) = hist_att("il", NF90_INT, 0., il, "")
+   extra_atts(2) = hist_att("kl", NF90_INT, 0., kl, "")
+   extra_atts(3:catts) = extra_temp(1:catts-2)
+   deallocate ( extra_temp )
    
-   allocate ( extra_atts(5) )
-
-   extra_atts(1:5) = (/ hist_att("il", NF90_INT, 0., il, ""),             &
-                        hist_att("kl", NF90_INT, 0., kl, ""),             &
-                        hist_att("rlong0", NF90_REAL, rlong0, 0, ""),     &
-                        hist_att("rlat0", NF90_REAL, rlat0, 0, ""),       &
-                        hist_att("schmidt", NF90_REAL, schmidt, 0, "") /)
-
+   
    if ( calendar /= "" ) then
       if ( cf_compliant ) then
          if ( use_plevs ) then

@@ -116,7 +116,7 @@ module history
 
 !  Only these routine names need to be public
    public :: savehist, openhist, closehist, writehist, addfld, &
-             inithist, histnamelist, needfld, clearhist, hstring
+             histnamelist, needfld, clearhist, hstring
 
 !  Routine that provide access to the namelist control variables.
 !  Access is only possible through a routine so that the underlying data
@@ -127,9 +127,10 @@ module history
 
 !  Private internal routines
    private :: bindex_hname, initval, sortlist, create_ncvar,            &
-              create_ncfile, create_oldfile, oldwrite, savehist2D,      &
+              create_ncfile, oldwrite, savehist2D,                      &
               savehist3D, hashkey, qindex_hname, savehist_work,         &
               gsavehist2D, gsavehist3D
+   !private :: create_oldfile
 
    character(len=50), public, parameter :: &
         history_revision = "$Revision: 7.10 $"
@@ -280,7 +281,7 @@ module history
 !  which don't change but are still useful to have in a history file.
 
    integer, parameter :: hist_ave=1, hist_max=2, hist_min=3, hist_inst=4, &
-                         hist_fixed=5, hist_oave=6
+                         hist_fixed=5 !, hist_oave=6
 
 !  Valid range for 16 bit values
    integer, parameter :: vmin=-32500, vmax=32500
@@ -404,8 +405,8 @@ contains
          select case (htype(j))
          case ("ave")
             ihtype(j) = hist_ave
-         case ("oave")
-            ihtype(j) = hist_oave
+         !case ("oave")
+         !   ihtype(j) = hist_oave
          case ("max")
             ihtype(j) = hist_max
          case ("min")
@@ -451,8 +452,8 @@ contains
       select case (htype)
       case ("ave")
          ihtype(j) = hist_ave
-      case ("oave")
-         ihtype(j) = hist_oave
+      !case ("oave")
+      !   ihtype(j) = hist_oave
       case ("max")
          ihtype(j) = hist_max
       case ("min")
@@ -528,118 +529,6 @@ contains
       hfreq(j) = freq
    end subroutine set_hfreq
 
-   !subroutine set_missval ( missval )
-   !   real, intent(in) :: missval
-   !   missing_value = missval
-   !end subroutine set_missval
-   
-!-------------------------------------------------------------------
-   subroutine inithist ( nl, mstep )
-      integer, intent(in) :: nl    ! Number of levels
-      integer, intent(in) :: mstep ! Time step (minutes)
-!
-!     Initialise the standard list of history variables used in the Mark 3
-!     model. This routine is just a convenience for this model and is not
-!     required generally.
-!
-!     3D fields
-      call addfld ( "t", "Air temperature", "K", 100., 400., nl, &
-                     amip_name="ta", multilev=.true. )
-      call addfld ( "u", "Eastward wind", "m/s", -100., 100.,nl, &
-                     amip_name="ua", multilev=.true.  ) 
-      call addfld ( "v", "Northward wind", "m/s", -100., 100.,nl, &
-                     amip_name="va", multilev=.true.  )
-      call addfld ( "q", "Specific humidity", "kg/kg", 0., 0.1,nl, multilev=.true.  )
-      call addfld('als','surface albedo',' ', 0., 1.,1, std=.true.)
-      call addfld('cld','total cloud', ' ', 0., 1.,1, std=.true.)
-      call addfld('clh','high cloud',' ', 0., 1.,1, std=.true.)
-      call addfld('cll','low cloud',' ', 0., 1.,1, std=.true.)
-      call addfld('clm','middle cloud',' ', 0., 1.,1, std=.true.)
-      call addfld('evp','evaporation','mm/day',0.,25.,1, std=.true., &
-                  output_scale=1440./mstep)
-      call addfld('rnd','precipitation','mm/day',0.,100.,1, std=.true., &
-                  output_scale=1440./mstep)
-      call addfld('hfl','sensible heat flux','W/m2',-200.,1000.,1, std=.true.)
-      call addfld('tsu','surface temperature','K',100.,350.,1, std=.true.)
-      call addfld('tsc','screen temperature','K',100.,350.,1, std=.true.)
-      call addfld('wfg','soil moisture upper',' ',0.,1.,1, std=.true.)
-      call addfld('wfb','soil moisture lower',' ',0.,1.,1, std=.true.)
-      call addfld('snd','snow depth','cm', 0., 1000.,1, std=.true.)
-      call addfld('sid','sea-ice depth', 'm', 0., 10.,1, std=.true.)
-      call addfld('tb2','soil temp level 2','K', 100., 350.,1, std=.true.)
-      call addfld('tb3','soil temp level 3','K', 100., 350.,1, std=.true.)
-      call addfld('vmo','surface wind speed','m/s', 0., 50.,1, std=.true.)
-      call addfld('tax','surface stress east','N/m2',-10.,10.,1, std=.true.)
-      call addfld('tay','surface stress nth','N/m2',-10.,10.,1, std=.true.)
-      call addfld('rnc','convective rainfall','mm/day',0.,100.,1, std=.true., &
-                  output_scale=1440./mstep)
-      call addfld('run','runoff','mm/day', 0., 25.,1, std=.true., &
-                  output_scale=1440./mstep)
-      call addfld('inr','canopy interception','mm/day', 0., 25.,1, std=.true.,&
-                  output_scale=1440./mstep)
-      call addfld('tgg','bare ground temp','K', 100., 350.,1 )
-      call addfld('tgf','veg ground temp','K', 100., 350.,1 )
-      call addfld('pev','potential evap','mm/day', 0., 250.,1, &
-                  output_scale=1440./mstep)
-      call addfld('sev','scaling evap','mm/day', 0., 50.,1, &
-                  output_scale=1440./mstep)
-!     Should this have additional scale factor too??
-      call addfld('per','Soil percolation','mm/day', 0., 10.,1)
-      call addfld('ico','ice concentration',' ', 0., 1.,1)
-      call addfld('itf','ice-ocean heat flux','W/m2',-100.,100.,1)
-      call addfld('isf','ice-ocean salt flux','m',-0.01,0.01,1)
-      call addfld('psl','mean sea-level pressure', 'hPa', 925., 1075.,1, std=.true.)
-      call addfld('psf','surface pressure', 'hPa', 0., 1200.,1 )
-      call addfld('thd','mean daily max temp', 'K', 100., 350.,1)
-      call addfld('tld','mean daily min temp', 'K', 100., 350.,1)
-      call addfld('thg','bare ground Tmax', 'K', 100., 350.,1)
-      call addfld('tlg','bare ground Tmin', 'K', 100., 350.,1)
-      call addfld('thf','Veg ground Tmax', 'K', 100., 350.,1)
-      call addfld('tlf','Veg ground Tmin', 'K', 100., 350.,1)
-      call addfld('thm','extreme max temp','K', 100., 350.,1)
-      call addfld('tlm','extreme min temp', 'K', 100., 350.,1)
-      call addfld('icu','ice zonal velocity', 'm/s', -5., 5.,1)
-      call addfld('icv','ice merid velocity','m/s', -5., 5.,1)
-      call addfld('sno','Snowfall','mm/day', 0., 25.,1)
-      call addfld('rev','Rain evaporation', 'mm/day', 0., 100.,1)
-      call addfld('ssb','Snow sublimation', 'mm/day', 0., 50.,1)
-      call addfld('clc','convective cloud', ' ', 0., 1.,1)
-      call addfld('lwp','liquid water path', 'kg/m3', 0., 3.,1)
-      call addfld('pwc','precipitable water', 'mm', 0., 200.,1)
-      call addfld('ref','Effective radius for liquid clouds', 'um', 0., 20.,1)
-      call addfld('cli','Liquid cloud fraction', ' ', 0., 1.,1)
-      call addfld('dtm','Tmlo error','K', -10., 10.,1)
-      call addfld('gro','Monthly ice growth', 'm', -10., 10.,1)
-      call addfld('ire','Ice redistribution', 'm', -1., 1.,1)
-      call addfld('ich','Ice advection', 'm', -1., 1.,1)
-      call addfld('acd','Average drag', 'm', -10., 10.,1)
-      call addfld("rhs", "Screen level relative humidity","percent",0., 100.,1)
-      call addfld("v10m","10m windspeed","m/s",0.,100.,1)
-
-!     SW radiation
-      call addfld("sit","SW insolation at TOA","W/m^2",0.,1400.,1)
-      call addfld('sot','SW out at top','W/m2', 0., 1000.,1, std=.true.)
-      call addfld('soc','SW out clear sky','W/m2',0.,1000.,1, std=.true.)
-      call addfld('sgn','Net SW at ground','W/m2',0.,1000.,1, std=.true.)
-      call addfld('sgc','Net SW ground clear','W/m2',0.,1000.,1, std=.true.)
-      call addfld('sgd','Downward SW ground','W/m2',0.,1000.,1, std=.true.)
-!     LW radiation
-      call addfld('rtu','LW out at top','W/m2', 0., 1000.,1, std=.true.)
-      call addfld('rtc','LW out clear sky','W/m2',0.,1000.,1, std=.true.)
-      call addfld('rgn','Net LW at ground','W/m2',-200.,500.,1, std=.true.)
-      call addfld('rgc','Net LW ground clear','W/m2',-200.,500.,1, std=.true.)
-      call addfld('rgd','Downward LW ground','W/m2',0.,1000.,1, std=.true.)
-
-!     Ice scheme
-      call addfld("wls","ice residual divergence","/s",0.,100.,1,std=.true.)
-      call addfld("wdf","ice divergence removed by rheology","/s",-100.,100.,&
-                   1, std=.true.)
-
-!     Other useful fields to have
-      call addfld('omega','Vertical velocity', 'Pa/s', -10., 10.,nl)
-
-   end subroutine inithist
-   
 !---------------------------------------------------------------------------
    subroutine addfld(name, long_name, units, valid_min, valid_max,    &
                      nlevels, amip_name, ave_type, std, output_scale, &
@@ -682,8 +571,8 @@ contains
          select case (adjustl(ave_type))
          case ("ave")
             atype = hist_ave
-         case ("oave")
-            atype = hist_oave
+         !case ("oave")
+         !   atype = hist_oave
          case ("max")
             atype = hist_max
          case ("min")
@@ -968,65 +857,65 @@ contains
 
       if ( myid == 0 ) then
 
-!        First file may be old average format. If this is the case it has
-!        to be handled differently
-         if ( ihtype(1) == hist_oave ) then
-
-            ifile = 1
-            if ( present(histfilename) ) then
-               ! Use histfile as a path in this case
-               oldprefix = trim(histfilename) // "/s"
-            else
-               oldprefix = "s"
-            end if
-
-            do ifld = 1, totflds
-
-               if ( .not. histinfo(ifld)%used(ifile) ) then
-                  cycle
-               end if
-
-!              lookup again to get long name and units
-               vname = histinfo(ifld)%name
-               longname = histinfo(ifld)%long_name
-               units = histinfo(ifld)%units
-
-               do ilev=1,histinfo(ifld)%nlevels
-                  if ( histinfo(ifld)%nlevels == 1 ) then
-                     vname = histinfo(ifld)%name
-                  else
-                     write(vname,"(a,i2.2)") trim(histinfo(ifld)%name), ilev
-                  end if
-                  write(filename,"(a,a,a,a)" ) trim(oldprefix), trim(vname), &
-                                               trim(suffix), ".nc"
-!                 Check if this file exists. If it does there's no more to
-!                 do, if not go on to create it.
-                  inquire(file=filename, exist=used)
-                  if ( used ) then
-                     if ( hist_debug > 0 ) then
-                        print*, "Using existing file ", filename
-                     end if
-                     cycle
-                  else
-
-                     if ( .not. present(year) ) then
-                        print*, " Year argument to openhist is required for old format files"
-                        stop
-                     end if
-                     call create_oldfile ( filename, nxhis, nyhis, hbytes(ifile),&
-                                           vname, longname, units, &
-                                           histinfo(ifld)%valid_min, &
-                                           histinfo(ifld)%valid_max, &
-                                           hlat, hlon, year )
-
-                  end if
-
-               end do
-            end do
-            istart = 2
-         else
-            istart = 1
-         end if ! ihtype(1) == hist_oave
+!!        First file may be old average format. If this is the case it has
+!!        to be handled differently
+!         if ( ihtype(1) == hist_oave ) then
+!
+!            ifile = 1
+!            if ( present(histfilename) ) then
+!               ! Use histfile as a path in this case
+!               oldprefix = trim(histfilename) // "/s"
+!            else
+!               oldprefix = "s"
+!            end if
+!
+!            do ifld = 1, totflds
+!
+!               if ( .not. histinfo(ifld)%used(ifile) ) then
+!                  cycle
+!               end if
+!
+!!              lookup again to get long name and units
+!               vname = histinfo(ifld)%name
+!               longname = histinfo(ifld)%long_name
+!               units = histinfo(ifld)%units
+!
+!               do ilev=1,histinfo(ifld)%nlevels
+!                  if ( histinfo(ifld)%nlevels == 1 ) then
+!                     vname = histinfo(ifld)%name
+!                  else
+!                     write(vname,"(a,i2.2)") trim(histinfo(ifld)%name), ilev
+!                  end if
+!                  write(filename,"(a,a,a,a)" ) trim(oldprefix), trim(vname), &
+!                                               trim(suffix), ".nc"
+!!                 Check if this file exists. If it does there's no more to
+!!                 do, if not go on to create it.
+!                  inquire(file=filename, exist=used)
+!                  if ( used ) then
+!                     if ( hist_debug > 0 ) then
+!                        print*, "Using existing file ", filename
+!                     end if
+!                     cycle
+!                  else
+!
+!                     if ( .not. present(year) ) then
+!                        print*, " Year argument to openhist is required for old format files"
+!                        stop
+!                     end if
+!                     call create_oldfile ( filename, nxhis, nyhis, hbytes(ifile),&
+!                                           vname, longname, units, &
+!                                           histinfo(ifld)%valid_min, &
+!                                           histinfo(ifld)%valid_max, &
+!                                           hlat, hlon, year )
+!
+!                  end if
+!
+!               end do
+!            end do
+!            istart = 2
+!         else
+!            istart = 1
+!         end if ! ihtype(1) == hist_oave
 
 !        The rest of the history files are much simpler with multilevel variables
          do ifile = istart, nhfiles
@@ -1434,7 +1323,8 @@ contains
       ! Possibly time:point should just be left out
 
       select case (vinfo%ave_type(ifile))
-      case (hist_ave, hist_oave)
+      !case (hist_ave, hist_oave)
+      case (hist_ave )    
          cell_methods = "time: mean"
       case (hist_max)
          cell_methods = "time: maximum"
@@ -1762,137 +1652,137 @@ contains
    end subroutine create_ncfile
    
 !---------------------------------------------------------------------------
-   subroutine create_oldfile ( filename, nxhis, nyhis, hbytes,        &
-                               vname, longname, units, xmin, xmax,    &
-                               ylat, xlon, year )
-
-      use mpidata_m
-      character(len=*), intent(in) :: filename
-      integer, intent(in) :: nxhis, nyhis
-      integer, intent(in) :: hbytes 
-      character(len=*), intent(in) :: vname
-      character(len=*), intent(in) :: longname
-      character(len=*), intent(in) :: units
-      real, intent(in) :: xmin, xmax
-      real, dimension(:), intent(in) :: ylat
-      real, dimension(:), intent(in) :: xlon
-      integer, intent(in) :: year
-
-      integer  ncid, lonid, latid, monid, yrid, vid, old_mode
-      integer :: ierr
-      integer :: londim, latdim, mondim, yrdim
-      integer :: m
-      real :: scalef, addoff
-
-      if ( myid /=0 ) return
-
-      if ( hist_debug > 0 ) then
-         print*, "Creating file ", filename, xmin, xmax
-      end if
-      !ierr = nf90_create(filename, NF90_CLOBBER, ncid)
-      ierr = nf90_create(filename, NF90_64BIT_OFFSET, ncid)
-      call check_ncerr ( ierr, "Error in creating history file" )
-               
-!     Create dimensions, lon, lat, month and year
-      ierr = nf90_def_dim ( ncid, "longitude", nxhis, londim )
-      call check_ncerr(ierr,"Error creating lon dimension")
-      ierr = nf90_def_dim ( ncid, "latitude", nyhis, latdim )
-      call check_ncerr(ierr,"Error creating lat dimension")
-      ierr = nf90_def_dim ( ncid, "month", 12, mondim )
-      call check_ncerr(ierr,"Error creating month dimension")
-      ierr = nf90_def_dim ( ncid, "year", NF90_UNLIMITED, yrdim )
-      call check_ncerr(ierr,"Error creating time dimension")
-      
-!     Define attributes for the dimensions
-      ierr = nf90_def_var ( ncid, "longitude", NF90_FLOAT, londim, lonid)
-      call check_ncerr(ierr)
-      ierr = nf90_put_att ( ncid, lonid, "units", "degrees_east" )
-      call check_ncerr(ierr)
-
-      ierr = nf90_def_var ( ncid, "latitude", NF90_FLOAT, latdim, latid )
-      call check_ncerr(ierr)
-      ierr = nf90_put_att ( ncid, latid, "units", "degrees_north" )
-      call check_ncerr(ierr)
-
-      ierr = nf90_def_var ( ncid, "month", NF90_INT, mondim, monid )
-      call check_ncerr(ierr)
-      ierr = nf90_put_att ( ncid, monid, "units", "months" )
-      call check_ncerr(ierr)
-
-      ierr = nf90_def_var ( ncid, "year", NF90_INT, yrdim, yrid )
-      call check_ncerr(ierr)
-      ierr = nf90_put_att ( ncid, yrid, "units", "years" )
-      call check_ncerr(ierr)
-      ierr = nf90_put_att ( ncid, yrid, "valid_min", year )
-      call check_ncerr(ierr,"Error setting valid min for year")
-
-      if ( hbytes == 2 ) then
-         ierr = nf90_def_var ( ncid, vname, NF90_INT2,  &
-                             (/ lonid, latid, monid, yrid /), vid )
-         call check_ncerr(ierr,"Error creating variable "// vname)
-!     In the case of specific humidity we need to cheat and use a 
-!     vertically varying scale factor.
-!            qmax = 0.05 * sig(k)**2
-
-         ierr = nf90_put_att ( ncid, vid, "valid_min",  vmin )
-         call check_ncerr(ierr,"Error setting valid min attribute")
-         ierr = nf90_put_att ( ncid, vid, "valid_max", vmax )
-         call check_ncerr(ierr,"Error setting valid max attribute")
-
-!        Use 1.01 factor to ensure that xmax and xmin fit within range despite
-!        any roundoff.
-
-         scalef = 1.01 * (xmax - xmin) / float(vmax - vmin)
-         addoff = 0.5*(xmin+xmax)
-         ierr  = nf90_put_att ( ncid, vid, "add_offset", addoff )
-         call check_ncerr(ierr)
-         ierr  = nf90_put_att ( ncid, vid, "scale_factor", scalef)
-         call check_ncerr(ierr)
-
-      else if ( hbytes == 4 ) then
-         ierr = nf90_def_var ( ncid, vname, NF90_FLOAT, &
-                             (/ lonid, latid, monid, yrid /), vid )
-         call check_ncerr(ierr,"Error creating variable "// vname)
-      else
-         print*, " Error, impossible value for hbytes "
-         stop
-      end if
-
-      ierr = nf90_put_att ( ncid, vid, "long_name", longname )
-      call check_ncerr(ierr)
-      if ( len_trim(units) /= 0 ) then
-         ierr = nf90_put_att ( ncid, vid, "units", units )
-         call check_ncerr(ierr)
-      end if
-
-      if ( hbytes == 2 ) then
-         ierr = nf90_put_att ( ncid, vid, "missing_value", NF90_FILL_SHORT )
-         call check_ncerr(ierr,"Error with missing value attribute")
-      else
-         ierr = nf90_put_att ( ncid, vid, "missing_value", missing_value )
-         call check_ncerr(ierr,"Error with missing value attribute")
-      end if
-
-!     Leave define mode
-      ierr = nf90_enddef ( ncid )
-      call check_ncerr(ierr)
-
-!     Turn off the data filling to save time.
-      ierr = nf90_set_fill ( ncid, NF90_NOFILL, old_mode)
-      call check_ncerr(ierr)
-
-!     Write the months
-      ierr = nf90_put_var ( ncid, monid, (/ (m,m=1,12) /) )
-      call check_ncerr(ierr,"Error writing months")
-      ierr = nf90_put_var ( ncid, latid, ylat )
-      call check_ncerr(ierr,"Error writing latitudes")
-      ierr = nf90_put_var ( ncid, lonid, xlon )
-      call check_ncerr(ierr,"Error writing longitudes")
-
-      ierr = nf90_close ( ncid )
-      call check_ncerr(ierr)
-
-   end subroutine create_oldfile
+!   subroutine create_oldfile ( filename, nxhis, nyhis, hbytes,        &
+!                               vname, longname, units, xmin, xmax,    &
+!                               ylat, xlon, year )
+!
+!      use mpidata_m
+!      character(len=*), intent(in) :: filename
+!      integer, intent(in) :: nxhis, nyhis
+!      integer, intent(in) :: hbytes 
+!      character(len=*), intent(in) :: vname
+!      character(len=*), intent(in) :: longname
+!      character(len=*), intent(in) :: units
+!      real, intent(in) :: xmin, xmax
+!      real, dimension(:), intent(in) :: ylat
+!      real, dimension(:), intent(in) :: xlon
+!      integer, intent(in) :: year
+!
+!      integer  ncid, lonid, latid, monid, yrid, vid, old_mode
+!      integer :: ierr
+!      integer :: londim, latdim, mondim, yrdim
+!      integer :: m
+!      real :: scalef, addoff
+!
+!      if ( myid /=0 ) return
+!
+!      if ( hist_debug > 0 ) then
+!         print*, "Creating file ", filename, xmin, xmax
+!      end if
+!      !ierr = nf90_create(filename, NF90_CLOBBER, ncid)
+!      ierr = nf90_create(filename, NF90_64BIT_OFFSET, ncid)
+!      call check_ncerr ( ierr, "Error in creating history file" )
+!               
+!!     Create dimensions, lon, lat, month and year
+!      ierr = nf90_def_dim ( ncid, "longitude", nxhis, londim )
+!      call check_ncerr(ierr,"Error creating lon dimension")
+!      ierr = nf90_def_dim ( ncid, "latitude", nyhis, latdim )
+!      call check_ncerr(ierr,"Error creating lat dimension")
+!      ierr = nf90_def_dim ( ncid, "month", 12, mondim )
+!      call check_ncerr(ierr,"Error creating month dimension")
+!      ierr = nf90_def_dim ( ncid, "year", NF90_UNLIMITED, yrdim )
+!      call check_ncerr(ierr,"Error creating time dimension")
+!      
+!!     Define attributes for the dimensions
+!      ierr = nf90_def_var ( ncid, "longitude", NF90_FLOAT, londim, lonid)
+!      call check_ncerr(ierr)
+!      ierr = nf90_put_att ( ncid, lonid, "units", "degrees_east" )
+!      call check_ncerr(ierr)
+!
+!      ierr = nf90_def_var ( ncid, "latitude", NF90_FLOAT, latdim, latid )
+!      call check_ncerr(ierr)
+!      ierr = nf90_put_att ( ncid, latid, "units", "degrees_north" )
+!      call check_ncerr(ierr)
+!
+!      ierr = nf90_def_var ( ncid, "month", NF90_INT, mondim, monid )
+!      call check_ncerr(ierr)
+!      ierr = nf90_put_att ( ncid, monid, "units", "months" )
+!      call check_ncerr(ierr)
+!
+!      ierr = nf90_def_var ( ncid, "year", NF90_INT, yrdim, yrid )
+!      call check_ncerr(ierr)
+!      ierr = nf90_put_att ( ncid, yrid, "units", "years" )
+!      call check_ncerr(ierr)
+!      ierr = nf90_put_att ( ncid, yrid, "valid_min", year )
+!      call check_ncerr(ierr,"Error setting valid min for year")
+!
+!      if ( hbytes == 2 ) then
+!         ierr = nf90_def_var ( ncid, vname, NF90_INT2,  &
+!                             (/ lonid, latid, monid, yrid /), vid )
+!         call check_ncerr(ierr,"Error creating variable "// vname)
+!!     In the case of specific humidity we need to cheat and use a 
+!!     vertically varying scale factor.
+!!            qmax = 0.05 * sig(k)**2
+!
+!         ierr = nf90_put_att ( ncid, vid, "valid_min",  vmin )
+!         call check_ncerr(ierr,"Error setting valid min attribute")
+!         ierr = nf90_put_att ( ncid, vid, "valid_max", vmax )
+!         call check_ncerr(ierr,"Error setting valid max attribute")
+!
+!!        Use 1.01 factor to ensure that xmax and xmin fit within range despite
+!!        any roundoff.
+!
+!         scalef = 1.01 * (xmax - xmin) / float(vmax - vmin)
+!         addoff = 0.5*(xmin+xmax)
+!         ierr  = nf90_put_att ( ncid, vid, "add_offset", addoff )
+!         call check_ncerr(ierr)
+!         ierr  = nf90_put_att ( ncid, vid, "scale_factor", scalef)
+!         call check_ncerr(ierr)
+!
+!      else if ( hbytes == 4 ) then
+!         ierr = nf90_def_var ( ncid, vname, NF90_FLOAT, &
+!                             (/ lonid, latid, monid, yrid /), vid )
+!         call check_ncerr(ierr,"Error creating variable "// vname)
+!      else
+!         print*, " Error, impossible value for hbytes "
+!         stop
+!      end if
+!
+!      ierr = nf90_put_att ( ncid, vid, "long_name", longname )
+!      call check_ncerr(ierr)
+!      if ( len_trim(units) /= 0 ) then
+!         ierr = nf90_put_att ( ncid, vid, "units", units )
+!         call check_ncerr(ierr)
+!      end if
+!
+!      if ( hbytes == 2 ) then
+!         ierr = nf90_put_att ( ncid, vid, "missing_value", NF90_FILL_SHORT )
+!         call check_ncerr(ierr,"Error with missing value attribute")
+!      else
+!         ierr = nf90_put_att ( ncid, vid, "missing_value", missing_value )
+!         call check_ncerr(ierr,"Error with missing value attribute")
+!      end if
+!
+!!     Leave define mode
+!      ierr = nf90_enddef ( ncid )
+!      call check_ncerr(ierr)
+!
+!!     Turn off the data filling to save time.
+!      ierr = nf90_set_fill ( ncid, NF90_NOFILL, old_mode)
+!      call check_ncerr(ierr)
+!
+!!     Write the months
+!      ierr = nf90_put_var ( ncid, monid, (/ (m,m=1,12) /) )
+!      call check_ncerr(ierr,"Error writing months")
+!      ierr = nf90_put_var ( ncid, latid, ylat )
+!      call check_ncerr(ierr,"Error writing latitudes")
+!      ierr = nf90_put_var ( ncid, lonid, xlon )
+!      call check_ncerr(ierr,"Error writing longitudes")
+!
+!      ierr = nf90_close ( ncid )
+!      call check_ncerr(ierr)
+!
+!   end subroutine create_oldfile
 
 !-----------------------------------------------------------------------------
    subroutine closehist
@@ -1905,10 +1795,10 @@ contains
       
       do ifile = 1,nhfiles
 !        The hist_oave files are closed individually in writehist.
-         if ( ihtype(ifile) /= hist_oave ) then
+         !if ( ihtype(ifile) /= hist_oave ) then
             ierr = nf90_close ( histid(ifile) )
             call check_ncerr(ierr,"Error closing history file")
-         end if
+         !end if
       end do
       
       call END_LOG(closehist_end)
@@ -2075,7 +1965,8 @@ contains
             jn = nyhis+1-jlat1
             nx = size(histarray,1)
             select case ( histinfo(ifld)%ave_type(ifile))
-            case ( hist_ave, hist_oave ) 
+            !case ( hist_ave, hist_oave ) 
+            case ( hist_ave )     
                histarray(:,jn,istart:iend) = &
                     histarray(:,jn,istart:iend) + array(1:nx,1,:)
                histarray(:,js,istart:iend) = &
@@ -2100,7 +1991,8 @@ contains
             end select
          else
             select case ( histinfo(ifld)%ave_type(ifile))
-            case ( hist_ave, hist_oave ) 
+            !case ( hist_ave, hist_oave ) 
+            case ( hist_ave )    
                histarray(:,jlat1:jlat2,istart:iend) =  &
                     histarray(:,jlat1:jlat2,istart:iend) + array
             case ( hist_max ) 
@@ -2249,16 +2141,16 @@ contains
 
          if ( myid == 0 ) then
 
-            if ( ifile == 1 .and. ihtype(ifile) == hist_oave ) then
-               if ( .not. ( present(year) .and. present(month) ) ) then
-                  print*, "Error year and month arguments to writehist are "
-                  print*, "required for old format files"
-                  stop
-               end if
-!              Add a check. Interpolation not supported with old format.
-               call oldwrite(nxhis,nyhis,year,month)
-               cycle
-            end if
+            !if ( ifile == 1 .and. ihtype(ifile) == hist_oave ) then
+            !   if ( .not. ( present(year) .and. present(month) ) ) then
+            !      print*, "Error year and month arguments to writehist are "
+            !      print*, "required for old format files"
+            !      stop
+            !   end if
+!           !   Add a check. Interpolation not supported with old format.
+            !   call oldwrite(nxhis,nyhis,year,month)
+            !   cycle
+            !end if
 
             ncid = histid(ifile)
 
@@ -2313,7 +2205,8 @@ contains
 
             istart = histinfo(ifld)%ptr(ifile)
             iend = istart+nlev-1
-            if ( ave_type == hist_ave .or. ave_type == hist_oave ) then
+            !if ( ave_type == hist_ave .or. ave_type == hist_oave ) then
+            if ( ave_type == hist_ave ) then    
                if ( hist_debug >= 4 ) then
                   print*, "Raw history at point ", histinfo(ifld)%name,&
                     histarray(ihdb,jhdb,istart+khdb-1), count
@@ -2491,7 +2384,8 @@ contains
 
             istart = histinfo(ifld)%ptr(ifile)
             iend = istart+nlev-1
-            if ( ave_type == hist_ave .or. ave_type == hist_oave ) then
+            !if ( ave_type == hist_ave .or. ave_type == hist_oave ) then
+            if ( ave_type == hist_ave ) then    
                if ( hist_debug >= 4 ) then
                   print*, "Raw history at point ", histinfo(ifld)%name,&
                     histarray(ihdb,jhdb,istart+khdb-1), count
@@ -2645,7 +2539,8 @@ contains
 
             istart = histinfo(ifld)%ptr(ifile) + ilev-1
 
-            if ( ave_type == hist_ave .or. ave_type == hist_oave ) then
+            !if ( ave_type == hist_ave .or. ave_type == hist_oave ) then
+            if ( ave_type == hist_ave ) then    
                histarray(:,:,istart) = histarray(:,:,istart) / count
             end if
             if ( histinfo(ifld)%output_scale /= 0 ) then
@@ -2714,7 +2609,8 @@ contains
       select case ( ave_type)
       case ( hist_inst, hist_fixed )
          val = NF90_FILL_FLOAT
-      case ( hist_ave, hist_oave )
+      !case ( hist_ave, hist_oave )
+      case ( hist_ave )    
          val = 0.0
       case (hist_max)
          val = -huge(1.0)
