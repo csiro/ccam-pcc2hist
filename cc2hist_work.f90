@@ -406,6 +406,12 @@ contains
                   dtmp = dtmp*100.
                end if
                call savehist ( "psl", dtmp )
+            case ( "psl_ave" )
+               call vread( "pmsl_ave", dtmp )
+               if ( cordex_compliant ) then
+                  dtmp = dtmp*100.
+               end if
+               call savehist ( "psl_ave", dtmp )
             case ( "psf" )
                call vread( "psf", psl )
                psl = 1.0e3 * exp(psl) ! hPa
