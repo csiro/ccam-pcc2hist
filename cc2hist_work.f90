@@ -728,8 +728,6 @@ contains
          call savehist( "mrso", mrso )
       end if
 
-      call savehist( "qbot", q(:,:,1))
-
       if ( needfld("rlus") ) then
          dtmp = rgn - rgd
          call savehist( "rlus", dtmp )
@@ -766,9 +764,11 @@ contains
          end if
       end if
 
-      call savehist( "tbot", t(:,:,1))
-
       if ( kk>1 ) then
+          
+         call savehist( "qbot", q(:,:,1))
+         
+         call savehist( "tbot", t(:,:,1))
           
          if ( needfld("press") ) then
             do k = 1,kk
