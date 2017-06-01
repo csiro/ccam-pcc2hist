@@ -1766,6 +1766,8 @@ integer function nf90_def_var_deflate(ncid,varid,shuffle,deflate,deflate_level) 
   integer, intent(in) :: ncid, varid, shuffle, deflate, deflate_level
 #ifndef usenc3
   ierr = nf_def_var_deflate(ncid,varid,shuffle,deflate,deflate_level)
+#else
+  ierr = 0
 #endif
 end function nf90_def_var_deflate
 

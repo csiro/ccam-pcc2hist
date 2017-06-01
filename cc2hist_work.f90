@@ -2758,7 +2758,7 @@ contains
       integer, dimension(:), allocatable, save :: resprocmap_inv
       integer, dimension(:), allocatable, save :: procfileowner
       character(len=*), intent(in) :: ifile
-      character(len=266) :: pfile
+      character(len=266) :: pfile, old_pfile
       character(len=8) :: sdecomp
 
 #ifdef parallel_int
@@ -2775,10 +2775,15 @@ contains
          ! parallel file input
          ip = 0
          write(pfile,"(a,'.',i6.6)") trim(ifile), ip
-         write(6,*) "Opening ",trim(pfile)
          ierr = nf90_open(pfile, nmode, ncid)
-         call check_ncerr(ierr, "Error opening file "//trim(pfile))
-      
+         if ( ierr /= nf90_noerr ) then
+            old_pfile = pfile  
+            write(pfile,"(a,'.',i4.4)") trim(ifile), ip
+            ierr = nf90_open(pfile, nmode, ncid)
+            call check_ncerr(ierr, "Error opening file "//trim(old_pfile)//" or "//trim(pfile))
+         end if  
+         
+         write(6,*) "Opening ",trim(pfile)
          write(6,*) "Using parallel input files"
       
          ! parallel metadata
@@ -2913,9 +2918,14 @@ contains
                   procfileowner(rip) = ip
                   write(pfile,"(a,'.',i6.6)") trim(ifile), rip
                   ier = nf90_open ( pfile, nmode, ncid_in(ip) )
-                  if (ier /= nf90_noerr ) then
-                     write(6,*) "ERROR: Cannot open ",trim(pfile)
-                     call check_ncerr(ier, "open")
+                  if ( ier /= nf90_noerr ) then
+                     old_pfile = pfile
+                     write(pfile,"(a,'.',i4.4)") trim(ifile), rip 
+                     ier = nf90_open ( pfile, nmode, ncid_in(ip) )
+                     if (ier /= nf90_noerr ) then
+                        write(6,*) "ERROR: Cannot open ",trim(old_pfile)," or ",trim(pfile)
+                        call check_ncerr(ier, "open")
+                     end if                     
                   end if
                else
                   ncid_in(ip) = ncid_in(procfileowner(rip))
@@ -2930,8 +2940,13 @@ contains
                write(pfile,"(a,'.',i6.6)") trim(ifile), rip
                ier = nf90_open ( pfile, nmode, ncid_in(ip) )
                if (ier /= nf90_noerr ) then
-                  write(6,*) "ERROR: Cannot open ",trim(pfile)
-                  call check_ncerr(ier, "open")
+                  old_pfile = pfile
+                  write(pfile,"(a,'.',i4.4)") trim(ifile), rip
+                  ier = nf90_open ( pfile, nmode, ncid_in(ip) )
+                  if (ier /= nf90_noerr ) then
+                     write(6,*) "ERROR: Cannot open ",trim(old_pfile)," or ",trim(pfile)
+                     call check_ncerr(ier, "open")
+                  end if   
                end if
             end do
          end if
@@ -2952,8 +2967,13 @@ contains
                   write(pfile,"(a,'.',i6.6)") trim(ifile), rip
                   ier = nf90_open ( pfile, nmode, ncid_in(ip) )
                   if ( ier /= nf90_noerr ) then
-                     write(6,*) "ERROR: Cannot open ",trim(pfile)
-                     call check_ncerr(ier, "open")
+                     old_pfile = pfile
+                     write(pfile,"(a,'.',i4.4)") trim(ifile), rip
+                     ier = nf90_open ( pfile, nmode, ncid_in(ip) )
+                     if ( ier /= nf90_noerr ) then
+                        write(6,*) "ERROR: Cannot open ",trim(old_pfile)," or ",trim(pfile)
+                        call check_ncerr(ier, "open")
+                     end if   
                   end if
                else
                   ncid_in(ip) = ncid_in(procfileowner(rip)) 
@@ -2968,8 +2988,13 @@ contains
                write(pfile,"(a,'.',i6.6)") trim(ifile), rip
                ier = nf90_open ( pfile, nmode, ncid_in(ip) )
                if ( ier /= nf90_noerr ) then
-                  write(6,*) "ERROR: Cannot open ",trim(pfile)
-                  call check_ncerr(ier, "open")
+                  old_pfile = pfile
+                  write(pfile,"(a,'.',i4.4)") trim(ifile), rip
+                  ier = nf90_open ( pfile, nmode, ncid_in(ip) )
+                  if ( ier /= nf90_noerr ) then
+                     write(6,*) "ERROR: Cannot open ",trim(old_pfile)," or ",trim(pfile)
+                     call check_ncerr(ier, "open")
+                  end if   
                end if
             end do
          end if
