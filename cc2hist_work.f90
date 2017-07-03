@@ -76,7 +76,7 @@ module work
    end interface
 
    type input_var
-      character(len=10) :: vname   ! Name used in input
+      character(len=20) :: vname   ! Name used in input
       ! Initialise these so they don't end up with trailing nulls.
       character(len=100) :: long_name=""
       character(len=20) :: units=""
