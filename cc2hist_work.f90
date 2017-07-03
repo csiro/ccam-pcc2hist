@@ -1729,7 +1729,8 @@ contains
       integer :: londim, latdim, levdim, procdim, timedim, vid, ihr, ind
       integer, dimension(nf90_max_var_dims) :: dimids
       logical :: procformat
-      character(len=10) :: vname, substr
+      character(len=10) :: substr
+      character(len=20) :: vname
       character(len=100) :: long_name, tmpname, valid_att, std_name, cell_methods
       ! Perhaps should read these from the input?
       integer, parameter :: vmin=-32500, vmax=32500
