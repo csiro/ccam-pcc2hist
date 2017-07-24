@@ -1,5 +1,4 @@
 * text=auto !eol
-/Makefile -text
 /cc2hist_work.f90 -text
 /checkver_m.f90 -text
 /getopt_m.f90 -text
@@ -16,6 +15,7 @@
 /kinds_m.f90 -text
 /latltoij_m.f90 -text
 /logging_m.f90 -text
+/makefile -text
 /moistfuncs.f90 -text
 /mpidata_m.f90 -text
 /ncutils_m.f90 -text
