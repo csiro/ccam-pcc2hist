@@ -969,11 +969,13 @@ contains
       case ( "mixr" )
          needed = needfld("mixr") .or. needfld("zg") .or. needfld("rh") .or. &
                   needfld("pwc") .or. needfld("qbot") .or.                   &
-                  needfld("vaveuq") .or. needfld("vaveuq")
+                  needfld("vaveuq") .or. needfld("vaveuq") .or.              &
+                  needfld("prw")
       case ( "hus" )
          needed = needfld("hus") .or. needfld("zg") .or. needfld("rh") .or. &
-                  needfld("pwc") .or. needfld("qbot") .or. &
-                  needfld("vaveuq") .or. needfld("vaveuq")
+                  needfld("pwc") .or. needfld("qbot") .or.                  &
+                  needfld("vaveuq") .or. needfld("vaveuq") .or.             &
+                  needfld("prw")
       case ( "u", "v" )
          needed = needfld("u") .or. needfld("v") .or. needfld("vaveuq") .or. &
                   needfld("vavevq") .or. needfld("vaveut") .or.              &
