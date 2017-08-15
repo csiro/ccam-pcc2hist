@@ -6,7 +6,7 @@ FHOST = -xHost
 ifeq ($(BROADWELL),yes)
 FHOST = -xCORE-AVX2
 endif
-FFLAGS = -O $(FHOST) -ftz -traceback -Dparallel_int
+FFLAGS = -O $(FHOST) -ftz -fp-model precise -traceback -Dusempi3
 INC = -I $(NETCDF_ROOT)/include
 LIBS = -L $(NETCDF_ROOT)/lib -lnetcdf -lnetcdff
 PPFLAG90 = -fpp

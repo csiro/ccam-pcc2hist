@@ -304,7 +304,7 @@ module history
    logical, public :: cordex_compliant = .false.
 
 !  MPI working arrays
-#ifdef parallel_int
+#ifdef usempi3
    real, dimension(:,:,:,:), pointer, contiguous :: hist_a
    integer, dimension(:), allocatable, save, private :: k_indx
    real, dimension(:,:), allocatable, save, private :: hist_g
@@ -1143,7 +1143,7 @@ contains
                  pil*pjl*pnpan*lproc*hsize, "words"
             stop
          end if
-#ifdef parallel_int
+#ifdef usempi3
          nx_g = nx
          ny_g = ny
 #else
@@ -2069,7 +2069,7 @@ contains
 !     Temporary for interpolated output
       real, dimension ( nxhis, nyhis ) :: htemp
       logical :: doinc
-#ifdef parallel_int
+#ifdef usempi3
       integer :: cnt,maxcnt,interp_nproc
       integer :: slab,offset
 #endif
@@ -2186,7 +2186,7 @@ contains
          
          end if
 
-#ifdef parallel_int
+#ifdef usempi3
          cnt=0
 !        first pass
 !        find total number of levels to store
@@ -2657,7 +2657,7 @@ contains
 
    end subroutine clearhist
 
-#ifndef parallel_int
+#ifndef usempi3
    subroutine gather_wrap(array_in,array_out)
       use mpidata_m, only : nproc, lproc, comm_world, myid
       use logging_m

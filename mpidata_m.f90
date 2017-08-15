@@ -1,6 +1,6 @@
 ! Conformal Cubic Atmospheric Model
     
-! Copyright 2015 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+! Copyright 2015-2016 Commonwealth Scientific Industrial Research Organisation (CSIRO)
     
 ! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
 !
@@ -28,7 +28,7 @@ private
 integer, dimension(:), save, allocatable, public :: ncid_in
 integer, dimension(:), save, allocatable, public :: prid_in
 logical, dimension(:), save, allocatable, public :: fown_in
-#ifdef parallel_int
+#ifdef usempi3
 integer, dimension(:,:), save, pointer, contiguous, public :: ioff, joff
 integer, dimension(:,:,:), save, pointer, contiguous, public :: ijoff
 #else
@@ -37,7 +37,7 @@ integer, dimension(:,:), save, allocatable, public :: ioff, joff
 integer, save, public :: myid, nproc, nproc_orig
 integer, save, public :: pil, pjl, pnpan, pnproc, lproc
 integer, save, public :: pil_g, pjl_g
-#ifdef parallel_int
+#ifdef usempi3
 integer, save, public :: node_comm, node_myid, node_nproc
 integer, save, public :: ijoff_win
 #endif

@@ -35,13 +35,13 @@ module xyzinfo_m
    real(kind=rx), public, dimension(:,:), allocatable :: xx4, yy4
 
 !  map
-   real(kind=rx), public, dimension(:), pointer :: emu, emv
+   real(kind=rx), public, dimension(:), pointer, contiguous :: emu, emv
    real(kind=rx), public, dimension(:), allocatable :: em,                   &
                                                       f, fu, fv,             &
                                                       dmdx, dmdy, dmdxv, dmdyu 
 
 !  vecsuv
-   real(kind=rx), public, dimension(:), pointer :: ax, ay, az, bx, by, bz
+   real(kind=rx), public, dimension(:), pointer, contiguous :: ax, ay, az, bx, by, bz
 
 !  vecsuva
    real(kind=rx), public, dimension(:), allocatable :: axu, bxv, ayu, byv,   &

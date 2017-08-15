@@ -91,7 +91,7 @@ program cc2hist
    real :: time
    real, dimension(2) :: time_bnds
    logical :: skip
-   type(input_var), dimension(:), pointer :: varlist
+   type(input_var), dimension(:), pointer, contiguous :: varlist
    integer :: nvars
    type(hist_att), dimension(:), allocatable :: extra_atts, extra_temp
    integer :: veg_int
@@ -118,7 +118,7 @@ program cc2hist
       write(6,*) "=============================================================================="
    end if
    
-#ifdef parallel_int
+#ifdef usempi3
    call MPI_Comm_split_type(comm_world, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, node_comm, ierr) ! Per node communictor
    call MPI_Comm_size(node_comm, node_nproc, ierr) ! Find number of processes on node
    call MPI_Comm_rank(node_comm, node_myid, ierr)  ! Find local processor id on node
@@ -560,11 +560,11 @@ program cc2hist
             end if
          end if
 
-         if ( myid==0 .and. nproc_orig/=nproc ) then
-            write(6,'(x,a,i0,a,i0,a)') "WARNING: Number of processors(",nproc_orig,&
-                                       ") is not a factor of the number of files(",pnproc,")"
-            write(6,'(x,a,i0)') "WARNING: Using pcc2hist with the following number of processes: ",nproc
-         end if
+         !if ( myid==0 .and. nproc_orig/=nproc ) then
+         !   write(6,'(x,a,i0,a,i0,a)') "WARNING: Number of processors(",nproc_orig,&
+         !                              ") is not a factor of the number of files(",pnproc,")"
+         !   write(6,'(x,a,i0)') "WARNING: Using pcc2hist with the following number of processes: ",nproc
+         !end if
 
          if ( .not. skip ) then
             exit

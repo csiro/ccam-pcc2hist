@@ -23,7 +23,7 @@ module interp_m
 
    implicit none
 
-#ifdef parallel_int
+#ifdef usempi3
    real, pointer, contiguous, dimension(:,:), public :: xg, yg
    integer, pointer, contiguous, dimension(:,:), public :: nface
    real, pointer, contiguous, dimension(:,:,:), public :: xyg

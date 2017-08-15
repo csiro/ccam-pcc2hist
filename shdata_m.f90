@@ -1,4 +1,4 @@
-#ifdef parallel_int
+#ifdef usempi3
 module shdata_m
    implicit none
 

@@ -1129,7 +1129,7 @@ contains
       use parm_m, only : rlong0, rlat0, schmidt ! Share with final_init
       use physparams, only : erad
       use vertutils_m, only : sig2ds
-#ifdef parallel_int
+#ifdef usempi3
       use, intrinsic :: iso_c_binding, only : c_ptr, c_f_pointer
       use mpidata_m
       use shdata_m      
@@ -1168,7 +1168,7 @@ contains
       real :: rdt, lrlat0, lrlong0, lschmidt
       real :: hlon_tmp, hlat_tmp, hlon_dx, hlat_dy
 
-#ifdef parallel_int
+#ifdef usempi3
       integer(kind=MPI_ADDRESS_KIND) :: ssize
       integer :: itest
 #endif
@@ -1336,7 +1336,7 @@ contains
       ijk=il*jl*kl
       iquad=1+il*((8*npanels)/(npanels+4))
 
-#ifdef parallel_int
+#ifdef usempi3
       if ( node_myid == 0 ) then
 #else
       if ( myid == 0 ) then
@@ -1345,7 +1345,7 @@ contains
           call setxyz ( il, jl, kl, npanels, ifull, iquad, idiag, id, jd,        &
                     rlong0, rlat0, schmidt, schm13, ntang, erad )
                     
-!#ifdef parallel_int
+!#ifdef usempi3
 !      else
 !          if ( node_myid == 0 ) then
 !              ssize=ifull*10
@@ -1439,7 +1439,7 @@ contains
       end if
 
 
-#ifdef parallel_int
+#ifdef usempi3
       if ( node_myid == 0 ) then
 #else
       if ( myid == 0 ) then
@@ -1448,7 +1448,7 @@ contains
 !        To save memory de-allocate a number of arrays defined by setxyz
 !        that aren't needed by cc2hist.
          deallocate ( f, fu, fv, dmdx, dmdy, dmdxv, dmdyu )
-#ifdef parallel_int
+#ifdef usempi3
       end if
 
       if ( node_myid == 0 ) then
@@ -1525,7 +1525,7 @@ contains
 
       end if   
 
-#ifdef parallel_int
+#ifdef usempi3
       call MPI_Win_fence(MPI_MODE_NOSUCCEED,xyg_win,ierr)
       call MPI_Win_fence(MPI_MODE_NOSUCCEED,nface_win,ierr)
 #endif
@@ -1560,7 +1560,7 @@ contains
       logical :: need_rotate
       
       call START_LOG(finalinit_begin)
-#ifdef parallel_int
+#ifdef usempi3
       if ( node_myid == 0 ) then
 #else
       if ( myid == 0 ) then
@@ -1589,7 +1589,7 @@ contains
 
          allocate ( costh(pil,pjl*pnpan*lproc), sinth(pil,pjl*pnpan*lproc) )
          
-#ifdef parallel_int
+#ifdef usempi3
          if ( node_myid == 0 ) then
 #else
          if ( myid == 0 ) then
@@ -1644,7 +1644,7 @@ contains
          call MPI_Scatter(c_io,pil*pjl*pnpan*lproc,MPI_REAL,costh,pil*pjl*pnpan*lproc,MPI_REAL,0,comm_world,ierr)
          call END_LOG(mpiscatter_end)
 
-#ifdef parallel_int
+#ifdef usempi3
          if ( node_myid == 0 ) then
 #else
          if ( myid == 0 ) then
@@ -1661,7 +1661,7 @@ contains
          call MPI_Scatter(c_io,pil*pjl*pnpan*lproc,MPI_REAL,sinth,pil*pjl*pnpan*lproc,MPI_REAL,0,comm_world,ierr)
          call END_LOG(mpiscatter_end)
 
-#ifdef parallel_int
+#ifdef usempi3
          if ( node_myid == 0 ) then
 #else
          if ( myid == 0 ) then
@@ -1672,7 +1672,7 @@ contains
 
       end if
       
-#ifdef parallel_int
+#ifdef usempi3
       if ( node_myid == 0 ) then
 #else
       if ( myid == 0 ) then
@@ -1725,7 +1725,7 @@ contains
       use interp_m, only : int_nearest, int_none, int_tapm
       use physparams, only : grav, rdry
       use s2p_m, only: use_plevs, plevs, use_meters, mlevs
-      type(input_var), dimension(:), pointer :: varlist
+      type(input_var), dimension(:), pointer, contiguous :: varlist
       integer, intent(out) :: nvars
       integer :: ierr, ndimensions, nvariables, ndims, ivar, int_type, xtype
       integer :: londim, latdim, levdim, procdim, timedim, vid, ihr, ind
@@ -2265,13 +2265,16 @@ contains
          topheight = -rdry*300./grav * log(topsig)
          ! Round to next highest 1000 m
          topheight = 1000*(floor(0.001*topheight)+1)
-         call addfld ( "zg", "Geopotential height", "m", 0., topheight, nlev, &
+         call addfld ( "zg", "Geopotential height", "m", 0., topheight, nlev,    &
                         multilev=.true., std_name="geopotential_height" )
-         call addfld ( "press", "Air pressure", "hPa", 0., 1500., nlev,       &
+         call addfld ( "press", "Air pressure", "hPa", 0., 1500., nlev,          &
                         multilev=.true., std_name="air_pressure" )
-         call addfld ( "rh", "Relative humidity", "%", 0., 110., nlev,  multilev=.true., std_name="relative_humidity" )
-         call addfld ( "theta", "Potential temperature", "K", 150., 1200., nlev, multilev=.true., std_name="potential_temperature" )
-         call addfld ( "w", "Vertical velocity", "m/s", -1., 1., nlev, multilev=.true., std_name="vertical_velocity" )
+         call addfld ( "rh", "Relative humidity", "%", 0., 110., nlev,           &
+                        multilev=.true., std_name="relative_humidity" )
+         call addfld ( "theta", "Potential temperature", "K", 150., 1200., nlev, &
+                        multilev=.true., std_name="potential_temperature" )
+         call addfld ( "w", "Vertical velocity", "m/s", -1., 1., nlev,           &
+                        multilev=.true., std_name="vertical_velocity" )
       
          ! If the output uses pressure levels save the lowest sigma level of
          ! the basic fields.
@@ -2737,13 +2740,13 @@ contains
    
    subroutine paraopen(ifile,nmode,ncid)
   
-#ifdef parallel_int
+#ifdef usempi3
       use, intrinsic :: iso_c_binding, only : c_ptr, c_f_pointer
 #endif
 #ifdef usempi_mod
       use mpi
 #endif
-#ifdef parallel_int
+#ifdef usempi3
       use mpidata_m
       use shdata_m
 #endif
@@ -2764,7 +2767,7 @@ contains
       character(len=266) :: pfile, old_pfile
       character(len=8) :: sdecomp
 
-#ifdef parallel_int
+#ifdef usempi3
       integer(kind=MPI_ADDRESS_KIND) :: ssize
       integer :: itest
 #endif
@@ -2805,7 +2808,7 @@ contains
             call check_ncerr(ierr, "Error getting var gprocessor")
          end if
 
-#ifndef parallel_int
+#ifndef usempi3
          allocate( ioff(0:pnproc-1,0:5), joff(0:pnproc-1,0:5) )
 #endif
       
@@ -2871,7 +2874,7 @@ contains
          
       end if
 
-#ifdef parallel_int
+#ifdef usempi3
       !redefine the per node communicator
       call MPI_Comm_split_type(comm_world, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, node_comm, ierr) ! Per node communictor
       call MPI_Comm_size(node_comm, node_nproc, ierr) ! Find number of processes on node
@@ -2883,7 +2886,7 @@ contains
       allocate( fown_in(0:lproc-1) )      
       fown_in(:) = .false.
        
-#ifdef parallel_int
+#ifdef usempi3
       if ( node_myid == 0 ) then
           ssize = pnproc*6*2
       else
@@ -3019,7 +3022,7 @@ contains
          sdecomp = ''
          ier = nf90_get_att(ncid_in(0), nf90_global, "decomp", sdecomp)
          call check_ncerr(ier, "decomp")
-#ifdef parallel_int
+#ifdef usempi3
       end if
       call START_LOG(mpibcast_begin)
       call MPI_Bcast(pil_g,1,MPI_INTEGER,0,comm_world,ierr)
@@ -3059,7 +3062,7 @@ contains
          jdum(5) = pjl_g
       
       end if
-#ifdef parallel_int
+#ifdef usempi3
       call MPI_Win_fence(MPI_MODE_NOSUCCEED,ijoff_win,ierr)
 #endif
       

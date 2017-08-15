@@ -42,7 +42,7 @@ contains
 
       real, dimension(:), allocatable :: u, v
       real, dimension(:), allocatable, target :: ave, diff
-      real, dimension(:), pointer :: ua, va, ud, vd
+      real, dimension(:), pointer, contiguous :: ua, va, ud, vd
       integer :: i, j
 
       allocate ( u(1:2*ifull), v(-ifull+1:ifull) )
@@ -111,7 +111,7 @@ contains
 
       real, dimension(:), allocatable :: u, v
       real, dimension(:), allocatable, target :: ave, diff
-      real, dimension(:), pointer :: ua, va, ud, vd
+      real, dimension(:), pointer, contiguous :: ua, va, ud, vd
       integer :: i, j
 
       allocate ( u(1:2*ifull), v(-ifull+1:ifull) )
