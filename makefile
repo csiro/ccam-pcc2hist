@@ -24,7 +24,8 @@ endif
 
 # Cray compiler options
 ifeq ($(CRAY),yes)
-FFLAGS =
+FC = ftn
+FFLAGS = -h noomp -Dusenc_mod
 PPFLAG90 = -eZ
 DEBUGFLAG =
 endif

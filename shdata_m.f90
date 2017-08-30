@@ -3,7 +3,7 @@ module shdata_m
    implicit none
 
    private
-   public :: allocshdata
+   public :: allocshdata, freeshdata
    private :: allocshdata_r3,allocshdata_i2,allocshdata_i3
 
    interface allocshdata
@@ -83,6 +83,19 @@ contains
       call c_f_pointer(baseptr, pdata, sshape)
 
    end subroutine allocshdata_i3
+   
+   subroutine freeshdata(win)
+#ifdef usempi_mod
+      use mpi
+#else
+      include 'mpif.h'
+#endif
+      integer, intent(in) :: win
+      integer :: ierr
+
+      call MPI_Win_Free(win, ierr) 
+
+   end subroutine freeshdata
 
 end module shdata_m
 #endif

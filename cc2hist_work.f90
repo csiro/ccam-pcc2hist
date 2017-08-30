@@ -61,7 +61,7 @@ module work
    real, dimension(:,:), allocatable, private :: costh, sinth
 
    public :: initialise, fix_winds, final_init, check_cc2histfile
-   public :: paraopen, paraclose
+   public :: paraopen, paraclose, cc2hist_work_close
    private :: need3dfld, fill_cc
    interface fix_winds
       module procedure fix_winds2, fix_winds3
@@ -3353,4 +3353,26 @@ contains
 
    end subroutine proc_setup_dix
 
+   subroutine cc2hist_work_close
+   
+   use interp_m
+#ifdef usempi3   
+   use shdata_m 
+#endif
+
+#ifdef usempi3
+      call freeshdata(xyg_win)
+      call freeshdata(nface_win)
+      call freeshdata(ijoff_win)
+      nullify(xyg)
+      nullify(ijoff)
+#else
+      deallocate(xg,yg)
+      deallocate(nface)
+#endif
+      nullify(xg,yg)
+      nullify(nface)
+   
+   end subroutine cc2hist_work_close
+   
 end module work
