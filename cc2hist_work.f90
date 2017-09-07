@@ -194,8 +194,8 @@ contains
       !ierr = nf90_get_var ( ncid, vid, ktime, start=(/ nrec /) )
       !call check_ncerr(ierr, "Error getting ktime")
       ! Get ktau from time. Really should be renamed
-      ierr = nf90_inq_varid (ncid, "time", vid )
-      call check_ncerr(ierr, "Error getting time id")
+      !ierr = nf90_inq_varid (ncid, "time", vid )
+      !call check_ncerr(ierr, "Error getting time id")
       ierr = nf90_get_var ( ncid, vid, ktau, start=(/ nrec /) )
       call check_ncerr(ierr, "Error getting time")
       ieof = 0
@@ -207,6 +207,26 @@ contains
       call END_LOG(getdate_end)
 
    end subroutine getdate
+   
+   subroutine getstep(ktc)
+   
+      integer, intent(out) :: ktc
+      integer :: vid, ierr, ktau0, ktau1
+   
+      ierr = nf90_inq_varid (ncid, "time", vid )
+      call check_ncerr(ierr, "Error getting time id")
+      
+      ierr = nf90_get_var( ncid, vid, ktau0, start=(/ 1 /) )
+      call check_ncerr(ierr, "Error getting time")
+      ierr = nf90_get_var( ncid, vid, ktau1, start=(/ 2 /) )
+      if ( ierr == nf90_noerr ) then
+         ktc = max( ktau1 - ktau0, 1 )
+      else
+         print *,"WARN: Cannot locate second time-step in input file" 
+         ktc = 1 
+      end if    
+   
+   end subroutine getstep
 
    subroutine convert_date( mins, kdate, ktime, kt, basetime )
    
@@ -1260,6 +1280,9 @@ contains
       ! Need date for setting time origin. Call getdate with nrec=1
       nrec = 1
       call getdate(kdate, ktime, ieof)
+      if ( myid == 0 ) then
+         print *,"- Initialise"
+      end if   
       if ( ieof /= 0 ) then
          print*, "Error in initialisation, empty netcdf file"
          stop
@@ -1688,12 +1711,14 @@ contains
    
    subroutine fix_winds2 ( u, v )
 !     Convert winds from grid directions to standard zonal and meridional.
-      use staguv_m
+      use history, only : int_default
+      use interp_m, only : int_none
       use newmpar_m
-      use xyzinfo_m
       real, dimension(:,:), intent(inout) :: u, v
       real, dimension(pil,pjl*pnpan*lproc) :: uzon, vmer
 
+      if ( int_default == int_none ) return      
+      
       uzon = costh*u - sinth*v
       vmer = sinth*u + costh*v
 !        Now save these back to the original arrays.
@@ -1703,19 +1728,12 @@ contains
 
    subroutine fix_winds3 ( u, v )
 !     Convert winds from grid directions to standard zonal and meridional.
-      use staguv_m
       use newmpar_m
-      use xyzinfo_m
       real, dimension(:,:,:), intent(inout) :: u, v
-      real, dimension(pil,pjl*pnpan*lproc) :: uzon, vmer
       integer :: k
 
       do k=1,kl
-         uzon(:,:) = costh*u(:,:,k) - sinth*v(:,:,k)
-         vmer(:,:) = sinth*u(:,:,k) + costh*v(:,:,k)
-!           Now save these back to the original arrays.
-            u(:,:,k) = uzon
-            v(:,:,k) = vmer
+         call fix_winds2( u(:,:,k), v(:,:,k) ) 
       enddo
    end subroutine fix_winds3
 

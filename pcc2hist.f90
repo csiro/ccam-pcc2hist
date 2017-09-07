@@ -480,7 +480,7 @@ program cc2hist
 
 !  If ktc is still -1 and ndate and ntime aren't set then process all fields
    if ( ktc == -1 ) then
-      ktc = 1
+      call getstep(ktc)
    end if
 
    if ( ktc == 0 ) then
@@ -512,6 +512,9 @@ program cc2hist
                   print*, " Saving (ktau=kt) "
                end if
                skip = .false.
+            else
+               print *,"WARN: Incorrect time-step ktc" 
+               skip = .false. 
             end if
 
 !        Check for matching date and time
@@ -541,8 +544,8 @@ program cc2hist
             end if
          end if
 
-         if ( myid == 0 ) then
-           if ( kt < ktau ) then
+         if ( kt < ktau ) then
+           if ( myid == 0 ) then             
               print*, "WARNING: Searching for step", kt
            end if
          end if
