@@ -2784,6 +2784,7 @@ contains
       character(len=*), intent(in) :: ifile
       character(len=266) :: pfile, old_pfile
       character(len=8) :: sdecomp
+      logical :: singlefile
 
 #ifdef usempi3
       integer(kind=MPI_ADDRESS_KIND) :: ssize
@@ -2798,25 +2799,40 @@ contains
   
          ! parallel file input
          ip = 0
+         singlefile = .false.
          write(pfile,"(a,'.',i6.6)") trim(ifile), ip
          ierr = nf90_open(pfile, nmode, ncid)
          if ( ierr /= nf90_noerr ) then
             old_pfile = pfile  
             write(pfile,"(a,'.',i4.4)") trim(ifile), ip
             ierr = nf90_open(pfile, nmode, ncid)
-            call check_ncerr(ierr, "Error opening file "//trim(old_pfile)//" or "//trim(pfile))
          end if  
+         if ( ierr /= nf90_noerr ) then
+            pfile = ifile
+            singlefile = .true.
+            ierr = nf90_open(ifile, nmode, ncid)
+            call check_ncerr(ierr, "Error opening file "//trim(old_pfile)//" or "//trim(pfile))
+         end if    
+         
          
          write(6,*) "Opening ",trim(pfile)
-         write(6,*) "Using parallel input files"
+         if ( .not.singlefile ) then
+            write(6,*) "Using parallel input files"
+         end if   
       
          ! parallel metadata
-         ier = nf90_get_att(ncid, nf90_global, "nproc", pnproc)
-         call check_ncerr(ier, "nproc")
-         ier = nf90_get_att(ncid, nf90_global, "procmode", resprocmode)
-         if ( ier==nf90_noerr ) then
-            resprocformat = .true.  
-         end if
+         if ( .not.singlefile ) then
+            ier = nf90_get_att(ncid, nf90_global, "nproc", pnproc)
+            call check_ncerr(ier, "nproc")
+            ier = nf90_get_att(ncid, nf90_global, "procmode", resprocmode)
+            if ( ier==nf90_noerr ) then
+               resprocformat = .true.  
+            end if
+         else
+            pnproc = 1 
+            resprocmode = 0
+            resprocformat = .false. 
+         end if    
 
          if ( resprocformat ) then
             allocate( resprocmap_inv(0:pnproc-1) )
@@ -2836,10 +2852,10 @@ contains
       if ( myid==0 ) then
         jdum(1) = pnproc
         if ( resprocformat ) then
-          jdum(2) = 1
+          jdum(2) = 1 ! indicates true for resprocformat
           jdum(3) = resprocmode
         else
-          jdum(2) = 0
+          jdum(2) = 0 ! indicates false for resprocformat
           jdum(3) = 0
         end if
       end if
@@ -3028,6 +3044,7 @@ contains
             ierr = nf90_get_att(ncid, nf90_global, "jl_g", pjl_g )
             call check_ncerr(ierr, "Error getting jl_g attribute")
          else
+            ! backwards compatibility option -------- 
             !  Get dimensions from int_header
             ier = nf90_get_att(ncid_in(0), nf90_global, "int_header", int_header)
             call check_ncerr(ier, "int_header")
