@@ -2810,7 +2810,7 @@ contains
          if ( ierr /= nf90_noerr ) then
             pfile = ifile
             singlefile = .true.
-            ierr = nf90_open(ifile, nmode, ncid)
+            ierr = nf90_open(pfile, nmode, ncid)
             call check_ncerr(ierr, "Error opening file "//trim(old_pfile)//" or "//trim(pfile))
          end if    
          
@@ -3054,9 +3054,13 @@ contains
          end if
 
          !  Calculate il, jl from these
-         sdecomp = ''
-         ier = nf90_get_att(ncid_in(0), nf90_global, "decomp", sdecomp)
-         call check_ncerr(ier, "decomp")
+         if ( .not.singlefile ) then
+            sdecomp = ''
+            ier = nf90_get_att(ncid_in(0), nf90_global, "decomp", sdecomp)
+            call check_ncerr(ier, "decomp")
+         else
+            sdecomp = 'face'
+         end if
 #ifdef usempi3
       end if
       call START_LOG(mpibcast_begin)
@@ -3072,12 +3076,12 @@ contains
             case ("uniform")
                do n = 0,5
                   call proc_setup_uniform(pil_g, pjl_g, pnproc, n, pil, pjl, ioff(:,n), &
-	                                  joff(:,n), pnpan)
+                                          joff(:,n), pnpan)
                end do
             case ("uniform1")
                do n = 0,5
                   call proc_setup_dix(pil_g, pjl_g, pnproc, n, pil, pjl, ioff(:,n), &
-	                                  joff(:,n), pnpan)
+                                          joff(:,n), pnpan)
                end do
             case ("face")
                call proc_setup(pil_g, pjl_g, pnproc, 0, pil, pjl, ioff(:,0), joff(:,0), pnpan)
