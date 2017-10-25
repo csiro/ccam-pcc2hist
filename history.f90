@@ -1966,21 +1966,51 @@ contains
             nx = size(histarray,1)
             select case ( histinfo(ifld)%ave_type(ifile))
             !case ( hist_ave, hist_oave ) 
-            case ( hist_ave )     
-               histarray(:,jn,istart:iend) = &
-                    histarray(:,jn,istart:iend) + array(1:nx,1,:)
-               histarray(:,js,istart:iend) = &
-                    histarray(:,js,istart:iend) + array(nx+1:,1,:)
-            case ( hist_max ) 
-               histarray(:,jn,istart:iend) = &
-                  max ( histarray(:,jn,istart:iend), array(1:nx,1,:) )
-               histarray(:,js,istart:iend) = &
-                  max ( histarray(:,js,istart:iend), array(nx+1:,1,:) )
+            case ( hist_ave )
+               where ( array(1:nx,1,:)/=NF90_FILL_FLOAT .AND.         &
+                       histarray(:,jn,istart:iend)/=NF90_FILL_FLOAT )
+                  histarray(:,jn,istart:iend) = &
+                       histarray(:,jn,istart:iend) + array(1:nx,1,:)
+               elsewhere
+                  histarray(:,jn,istart:iend) = NF90_FILL_FLOAT
+               end where   
+               where ( array(1:nx,1,:)/=NF90_FILL_FLOAT .AND.         &
+                       histarray(:,js,istart:iend)/=NF90_FILL_FLOAT )
+                  histarray(:,js,istart:iend) = &
+                       histarray(:,js,istart:iend) + array(nx+1:,1,:)
+               elsewhere
+                  histarray(:,js,istart:iend) = NF90_FILL_FLOAT 
+               end where                           
+            case ( hist_max )
+               where ( array(1:nx,1,:)/=NF90_FILL_FLOAT .AND.         &
+                       histarray(:,jn,istart:iend)/=NF90_FILL_FLOAT )
+                  histarray(:,jn,istart:iend) = &
+                     max ( histarray(:,jn,istart:iend), array(1:nx,1,:) )
+               elsewhere
+                  histarray(:,jn,istart:iend) = NF90_FILL_FLOAT
+               end where
+               where ( array(1:nx,1,:)/=NF90_FILL_FLOAT .AND.         &
+                       histarray(:,js,istart:iend)/=NF90_FILL_FLOAT )
+                  histarray(:,js,istart:iend) = &
+                     max ( histarray(:,js,istart:iend), array(nx+1:,1,:) )
+               elsewhere
+                  histarray(:,js,istart:iend) = NF90_FILL_FLOAT 
+               end where
             case ( hist_min ) 
-               histarray(:,jn,istart:iend) = &
-                  min ( histarray(:,jn,istart:iend), array(1:nx,1,:) )
-               histarray(:,js,istart:iend) = &
-                  min ( histarray(:,js,istart:iend), array(nx+1:,1,:) )
+               where ( array(1:nx,1,:)/=NF90_FILL_FLOAT .AND.         &
+                       histarray(:,jn,istart:iend)/=NF90_FILL_FLOAT )                           
+                  histarray(:,jn,istart:iend) = &
+                     min ( histarray(:,jn,istart:iend), array(1:nx,1,:) )
+               elsewhere
+                  histarray(:,jn,istart:iend) = NF90_FILL_FLOAT
+               end where
+               where ( array(1:nx,1,:)/=NF90_FILL_FLOAT .AND.         &
+                       histarray(:,js,istart:iend)/=NF90_FILL_FLOAT )
+                  histarray(:,js,istart:iend) = &
+                     min ( histarray(:,js,istart:iend), array(nx+1:,1,:) )
+               elsewhere
+                  histarray(:,js,istart:iend) = NF90_FILL_FLOAT 
+               end where
             case ( hist_inst, hist_fixed ) 
                histarray(:,jn,istart:iend) = array(1:nx,1,:)
                histarray(:,js,istart:iend) = array(nx+1:,1,:)
@@ -1992,15 +2022,30 @@ contains
          else
             select case ( histinfo(ifld)%ave_type(ifile))
             !case ( hist_ave, hist_oave ) 
-            case ( hist_ave )    
-               histarray(:,jlat1:jlat2,istart:iend) =  &
-                    histarray(:,jlat1:jlat2,istart:iend) + array
+            case ( hist_ave )
+               where ( array/=NF90_FILL_FLOAT .AND.                            &
+                       histarray(:,jlat1:jlat2,istart:iend)/=NF90_FILL_FLOAT )
+                  histarray(:,jlat1:jlat2,istart:iend) =  &
+                       histarray(:,jlat1:jlat2,istart:iend) + array
+               elsewhere
+                  histarray(:,jlat1:jlat2,istart:iend) = NF90_FILL_FLOAT         
+               end where   
             case ( hist_max ) 
-               histarray(:,jlat1:jlat2,istart:iend) =  &
-                    max ( histarray(:,jlat1:jlat2,istart:iend), array )
-            case ( hist_min ) 
-               histarray(:,jlat1:jlat2,istart:iend) =  &
-                    min ( histarray(:,jlat1:jlat2,istart:iend), array )
+               where ( array/=NF90_FILL_FLOAT .AND.                            &
+                       histarray(:,jlat1:jlat2,istart:iend)/=NF90_FILL_FLOAT ) 
+                  histarray(:,jlat1:jlat2,istart:iend) =  &
+                       max ( histarray(:,jlat1:jlat2,istart:iend), array )
+               elsewhere
+                  histarray(:,jlat1:jlat2,istart:iend) = NF90_FILL_FLOAT         
+               end where 
+            case ( hist_min )
+               where ( array/=NF90_FILL_FLOAT .AND.                            &
+                       histarray(:,jlat1:jlat2,istart:iend)/=NF90_FILL_FLOAT )
+                  histarray(:,jlat1:jlat2,istart:iend) =  &
+                       min ( histarray(:,jlat1:jlat2,istart:iend), array )
+               elsewhere
+                  histarray(:,jlat1:jlat2,istart:iend) = NF90_FILL_FLOAT         
+               end where 
             case ( hist_inst, hist_fixed ) 
                histarray(:,jlat1:jlat2,istart:iend) =  array
             case default
@@ -2211,8 +2256,10 @@ contains
                   print*, "Raw history at point ", histinfo(ifld)%name,&
                     histarray(ihdb,jhdb,istart+khdb-1), count
                end if
-               histarray(:,:,istart:iend) =   &
-                 histarray(:,:,istart:iend) / max( count, 1 )
+               where ( histarray(:,:,istart:iend) /= NF90_FILL_FLOAT )
+                  histarray(:,:,istart:iend) =   &
+                    histarray(:,:,istart:iend) / max( count, 1 )
+                end where  
             end if
             if ( histinfo(ifld)%output_scale /= 0 ) then
                histarray(:,:,istart:iend) = histarray(:,:,istart:iend) * &
@@ -2390,8 +2437,10 @@ contains
                   print*, "Raw history at point ", histinfo(ifld)%name,&
                     histarray(ihdb,jhdb,istart+khdb-1), count
                end if
-               histarray(:,:,istart:iend) =   &
-                 histarray(:,:,istart:iend) / max( count, 1 )
+               where ( histarray(:,:,istart:iend) /= NF90_FILL_FLOAT )
+                  histarray(:,:,istart:iend) =   &
+                    histarray(:,:,istart:iend) / max( count, 1 )
+                end where  
             end if
             if ( histinfo(ifld)%output_scale /= 0 ) then
                histarray(:,:,istart:iend) = histarray(:,:,istart:iend) * &
@@ -2540,8 +2589,10 @@ contains
             istart = histinfo(ifld)%ptr(ifile) + ilev-1
 
             !if ( ave_type == hist_ave .or. ave_type == hist_oave ) then
-            if ( ave_type == hist_ave ) then    
-               histarray(:,:,istart) = histarray(:,:,istart) / count
+            if ( ave_type == hist_ave ) then
+               where( histarray(:,:,istart) /= NF90_FILL_FLOAT ) 
+                  histarray(:,:,istart) = histarray(:,:,istart) / count
+               end where   
             end if
             if ( histinfo(ifld)%output_scale /= 0 ) then
                histarray(:,:,istart) = histarray(:,:,istart) * &
