@@ -1965,52 +1965,21 @@ contains
             jn = nyhis+1-jlat1
             nx = size(histarray,1)
             select case ( histinfo(ifld)%ave_type(ifile))
-            !case ( hist_ave, hist_oave ) 
             case ( hist_ave )
-               where ( array(1:nx,1,:)/=NF90_FILL_FLOAT .AND.         &
-                       histarray(:,jn,istart:iend)/=NF90_FILL_FLOAT )
-                  histarray(:,jn,istart:iend) = &
-                       histarray(:,jn,istart:iend) + array(1:nx,1,:)
-               elsewhere
-                  histarray(:,jn,istart:iend) = NF90_FILL_FLOAT
-               end where   
-               where ( array(1:nx,1,:)/=NF90_FILL_FLOAT .AND.         &
-                       histarray(:,js,istart:iend)/=NF90_FILL_FLOAT )
-                  histarray(:,js,istart:iend) = &
-                       histarray(:,js,istart:iend) + array(nx+1:,1,:)
-               elsewhere
-                  histarray(:,js,istart:iend) = NF90_FILL_FLOAT 
-               end where                           
+               histarray(:,jn,istart:iend) = &
+                    histarray(:,jn,istart:iend) + array(1:nx,1,:)
+               histarray(:,js,istart:iend) = &
+                    histarray(:,js,istart:iend) + array(nx+1:,1,:)
             case ( hist_max )
-               where ( array(1:nx,1,:)/=NF90_FILL_FLOAT .AND.         &
-                       histarray(:,jn,istart:iend)/=NF90_FILL_FLOAT )
-                  histarray(:,jn,istart:iend) = &
-                     max ( histarray(:,jn,istart:iend), array(1:nx,1,:) )
-               elsewhere
-                  histarray(:,jn,istart:iend) = NF90_FILL_FLOAT
-               end where
-               where ( array(1:nx,1,:)/=NF90_FILL_FLOAT .AND.         &
-                       histarray(:,js,istart:iend)/=NF90_FILL_FLOAT )
-                  histarray(:,js,istart:iend) = &
-                     max ( histarray(:,js,istart:iend), array(nx+1:,1,:) )
-               elsewhere
-                  histarray(:,js,istart:iend) = NF90_FILL_FLOAT 
-               end where
+               histarray(:,jn,istart:iend) = &
+                  max ( histarray(:,jn,istart:iend), array(1:nx,1,:) )
+               histarray(:,js,istart:iend) = &
+                  max ( histarray(:,js,istart:iend), array(nx+1:,1,:) )
             case ( hist_min ) 
-               where ( array(1:nx,1,:)/=NF90_FILL_FLOAT .AND.         &
-                       histarray(:,jn,istart:iend)/=NF90_FILL_FLOAT )                           
-                  histarray(:,jn,istart:iend) = &
-                     min ( histarray(:,jn,istart:iend), array(1:nx,1,:) )
-               elsewhere
-                  histarray(:,jn,istart:iend) = NF90_FILL_FLOAT
-               end where
-               where ( array(1:nx,1,:)/=NF90_FILL_FLOAT .AND.         &
-                       histarray(:,js,istart:iend)/=NF90_FILL_FLOAT )
-                  histarray(:,js,istart:iend) = &
-                     min ( histarray(:,js,istart:iend), array(nx+1:,1,:) )
-               elsewhere
-                  histarray(:,js,istart:iend) = NF90_FILL_FLOAT 
-               end where
+               histarray(:,jn,istart:iend) = &
+                  min ( histarray(:,jn,istart:iend), array(1:nx,1,:) )
+               histarray(:,js,istart:iend) = &
+                  min ( histarray(:,js,istart:iend), array(nx+1:,1,:) )
             case ( hist_inst, hist_fixed ) 
                histarray(:,jn,istart:iend) = array(1:nx,1,:)
                histarray(:,js,istart:iend) = array(nx+1:,1,:)
@@ -2021,31 +1990,15 @@ contains
             end select
          else
             select case ( histinfo(ifld)%ave_type(ifile))
-            !case ( hist_ave, hist_oave ) 
             case ( hist_ave )
-               where ( array/=NF90_FILL_FLOAT .AND.                            &
-                       histarray(:,jlat1:jlat2,istart:iend)/=NF90_FILL_FLOAT )
-                  histarray(:,jlat1:jlat2,istart:iend) =  &
-                       histarray(:,jlat1:jlat2,istart:iend) + array
-               elsewhere
-                  histarray(:,jlat1:jlat2,istart:iend) = NF90_FILL_FLOAT         
-               end where   
+               histarray(:,jlat1:jlat2,istart:iend) =  &
+                    histarray(:,jlat1:jlat2,istart:iend) + array
             case ( hist_max ) 
-               where ( array/=NF90_FILL_FLOAT .AND.                            &
-                       histarray(:,jlat1:jlat2,istart:iend)/=NF90_FILL_FLOAT ) 
-                  histarray(:,jlat1:jlat2,istart:iend) =  &
-                       max ( histarray(:,jlat1:jlat2,istart:iend), array )
-               elsewhere
-                  histarray(:,jlat1:jlat2,istart:iend) = NF90_FILL_FLOAT         
-               end where 
+               histarray(:,jlat1:jlat2,istart:iend) =  &
+                    max ( histarray(:,jlat1:jlat2,istart:iend), array )
             case ( hist_min )
-               where ( array/=NF90_FILL_FLOAT .AND.                            &
-                       histarray(:,jlat1:jlat2,istart:iend)/=NF90_FILL_FLOAT )
-                  histarray(:,jlat1:jlat2,istart:iend) =  &
-                       min ( histarray(:,jlat1:jlat2,istart:iend), array )
-               elsewhere
-                  histarray(:,jlat1:jlat2,istart:iend) = NF90_FILL_FLOAT         
-               end where 
+               histarray(:,jlat1:jlat2,istart:iend) =  &
+                    min ( histarray(:,jlat1:jlat2,istart:iend), array )
             case ( hist_inst, hist_fixed ) 
                histarray(:,jlat1:jlat2,istart:iend) =  array
             case default
@@ -2232,7 +2185,7 @@ contains
          end if
 
 #ifdef usempi3
-         cnt=0
+         cnt = 0
 !        first pass
 !        find total number of levels to store
          do ifld = 1,totflds
@@ -2249,7 +2202,7 @@ contains
             end if
 
             istart = histinfo(ifld)%ptr(ifile)
-            iend = istart+nlev-1
+            iend = istart + nlev - 1
             !if ( ave_type == hist_ave .or. ave_type == hist_oave ) then
             if ( ave_type == hist_ave ) then    
                if ( hist_debug >= 4 ) then
@@ -2271,9 +2224,9 @@ contains
             end if
 
 !           Even multilevel variables are written one level at a time
-            do k=istart, iend
+            do k = istart,iend
                if ( count /= 0 ) then
-                  cnt=cnt+1
+                  cnt = cnt + 1
                end if
             end do   ! k loop
                
@@ -2289,7 +2242,7 @@ contains
          end if
          allocate( k_indx(maxcnt) )
 
-         cnt=0
+         cnt = 0
 !        second pass
 !        create the array used to index histarray
          do ifld = 1,totflds
@@ -2309,11 +2262,11 @@ contains
             iend = istart+nlev-1
 
 !           Even multilevel variables are written one level at a time
-            do k=istart, iend
+            do k = istart,iend
 
                if ( count /= 0 ) then
-                  cnt=cnt+1
-                  k_indx(cnt)=k
+                  cnt = cnt + 1
+                  k_indx(cnt) = k
                end if
 
             end do   ! k loop
@@ -2323,7 +2276,7 @@ contains
 !        now do the gather wrap
          call gather_wrap(histarray,hist_a,slab,offset,maxcnt,k_indx)
 
-         cnt=0
+         cnt = 0
 !        third pass
 !        perform the interpolation and write the data
          do ifld = 1,totflds
@@ -2341,10 +2294,10 @@ contains
             end if
 
             istart = histinfo(ifld)%ptr(ifile)
-            iend = istart+nlev-1
+            iend = istart + nlev - 1
 
 !           Even multilevel variables are written one level at a time
-            do k=istart, iend
+            do k = istart, iend
 
                if ( count == 0 ) then
                   if ( hbytes(ifile) == 2 ) then
@@ -2354,8 +2307,8 @@ contains
                   end if
                else
 
-                  cnt=cnt+1
-                  if ( (cnt.ge.(1+slab*(myid-offset))).and.(cnt.le.(slab*(myid-offset+1))) ) then
+                  cnt = cnt + 1
+                  if ( (cnt>=(1+slab*(myid-offset))).and.(cnt<=(slab*(myid-offset+1))) ) then
 
                      do ip = 0,pnproc-1
                         do n = 0,pnpan-1
@@ -2430,7 +2383,7 @@ contains
             end if
 
             istart = histinfo(ifld)%ptr(ifile)
-            iend = istart+nlev-1
+            iend = istart + nlev - 1
             !if ( ave_type == hist_ave .or. ave_type == hist_oave ) then
             if ( ave_type == hist_ave ) then    
                if ( hist_debug >= 4 ) then
@@ -2569,7 +2522,7 @@ contains
                     " has never been set, skipping"
             cycle
          end if
-         do ilev=1,nlev
+         do ilev = 1,nlev
             if ( nlev == 1 ) then
                vname = histinfo(ifld)%name
             else
@@ -2586,9 +2539,8 @@ contains
             ierr = nf90_inq_varid (ncid, vname, vid )
             call check_ncerr(ierr, "Error getting variable name "//vname)
 
-            istart = histinfo(ifld)%ptr(ifile) + ilev-1
+            istart = histinfo(ifld)%ptr(ifile) + ilev - 1
 
-            !if ( ave_type == hist_ave .or. ave_type == hist_oave ) then
             if ( ave_type == hist_ave ) then
                where( histarray(:,:,istart) /= NF90_FILL_FLOAT ) 
                   histarray(:,:,istart) = histarray(:,:,istart) / count
