@@ -17,7 +17,7 @@ endif
 ifeq ($(GFORTRAN),yes)
 MPIFC = gfortran
 MPIF77 = gfortran
-FFLAGS = -O2 -mtune=native -march=native -fbacktrace
+FFLAGS = -O2 -mtune=native -march=native -fbacktrace -Dusempi3
 PPFLAG90 = -x f95-cpp-input
 DEBUGFLAG = -g -Wall -Wextra -fbounds-check
 endif

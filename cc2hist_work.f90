@@ -3405,12 +3405,12 @@ contains
       call freeshdata(ijoff_win)
       nullify(xyg)
       nullify(ijoff)
+      nullify(xg,yg)
+      nullify(nface)
 #else
       deallocate(xg,yg)
       deallocate(nface)
 #endif
-      nullify(xg,yg)
-      nullify(nface)
    
    end subroutine cc2hist_work_close
    
