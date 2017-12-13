@@ -794,7 +794,7 @@ contains
             do k = 1,kk
                tmp3d(:,:,k) = psl*sig(k)
             end do
-            call vsavehist ( "press", tmp3d )
+            call vsavehist( "press", tmp3d )
          end if
 
          if ( needfld("prw") ) then
@@ -3058,9 +3058,9 @@ contains
             sdecomp = ''
             ier = nf90_get_att(ncid_in(0), nf90_global, "decomp", sdecomp)
             call check_ncerr(ier, "decomp")
-         else
+         else   
             sdecomp = 'face'
-         end if
+         end if    
 #ifdef usempi3
       end if
       call START_LOG(mpibcast_begin)
@@ -3076,12 +3076,12 @@ contains
             case ("uniform")
                do n = 0,5
                   call proc_setup_uniform(pil_g, pjl_g, pnproc, n, pil, pjl, ioff(:,n), &
-                                          joff(:,n), pnpan)
+	                                  joff(:,n), pnpan)
                end do
             case ("uniform1")
                do n = 0,5
                   call proc_setup_dix(pil_g, pjl_g, pnproc, n, pil, pjl, ioff(:,n), &
-                                          joff(:,n), pnpan)
+	                                  joff(:,n), pnpan)
                end do
             case ("face")
                call proc_setup(pil_g, pjl_g, pnproc, 0, pil, pjl, ioff(:,0), joff(:,0), pnpan)
@@ -3212,11 +3212,11 @@ contains
          call check_ncerr(ierr, "Error getting vid for "//name)
 
          if ( resprocformat ) then
-            ierr = nf90_get_var ( ncid_in(ip), vid, inarray3(:,:,minlev:maxlev), start=(/ 1, 1, minlev, prid_in(ip), nrec /), &
-                                  count=(/ pil, pjl*pnpan, maxlev-minlev+1, 1, 1 /) )
+            ierr = nf90_get_var ( ncid_in(ip), vid, inarray3, start=(/ 1, 1, 1, prid_in(ip), nrec /), &
+                                  count=(/ pil, pjl*pnpan, pkl, 1, 1 /) )
          else
-            ierr = nf90_get_var ( ncid_in(ip), vid, inarray3(:,:,minlev:maxlev), start=(/ 1, 1, minlev, nrec /), &
-                                  count=(/ pil, pjl*pnpan, maxlev-minlev+1, 1 /) )
+            ierr = nf90_get_var ( ncid_in(ip), vid, inarray3, start=(/ 1, 1, 1, nrec /), &
+                                  count=(/ pil, pjl*pnpan, pkl, 1 /) )
          end if
          call check_ncerr(ierr, "Error getting var "//name)
       
@@ -3233,7 +3233,7 @@ contains
             end if
          end if
       
-         var(:,1+ip*pjl*pnpan:(ip+1)*pjl*pnpan,minlev:maxlev) = inarray3(:,:,minlev:maxlev)
+         var(:,1+ip*pjl*pnpan:(ip+1)*pjl*pnpan,:) = inarray3(:,:,:)
          
       end do
       
