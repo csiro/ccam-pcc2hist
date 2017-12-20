@@ -357,24 +357,32 @@ contains
             case ( "clh" )
                call vread( "clh", dtmp )
                if ( cordex_compliant ) then
-                  dtmp = dtmp*100.
+                  where ( dtmp /= nf90_fill_float )
+                     dtmp = dtmp*100.
+                  end where  
                end if
                call savehist ( "clh", dtmp )
             case ( "cll" )
                call vread( "cll", dtmp )
                if ( cordex_compliant ) then
-                  dtmp = dtmp*100.
+                  where ( dtmp /= nf90_fill_float ) 
+                     dtmp = dtmp*100.
+                  end where
                end if
                call savehist ( "cll", dtmp )
             case ( "clm" )
                call vread( "clm", dtmp )
                if ( cordex_compliant ) then
-                  dtmp = dtmp*100.
+                  where ( dtmp /= nf90_fill_float ) 
+                     dtmp = dtmp*100.
+                  end where   
                end if
                call savehist ( "clm", dtmp )
             case ( "clt" )
                call vread( "cld", dtmp )
-               dtmp = dtmp*100.
+               where ( dtmp /= nf90_fill_float )
+                  dtmp = dtmp*100.
+               end where   
                call savehist ( "clt", dtmp )
             case ( "clwvi" )
                call readsave2 (varlist(ivar)%vname, input_name="lwp_ave")
@@ -383,7 +391,9 @@ contains
                 call savehist ( "dpsdt", dpsdt )
             case ( "evspsblpot" )
                call vread( "epot_ave", dtmp )
-               dtmp = dtmp/2.501e6 ! Latent heat of vaporisation (J kg^-1)
+               where ( dtmp /= nf90_fill_float )
+                  dtmp = dtmp/2.501e6 ! Latent heat of vaporisation (J kg^-1)
+               end where   
                call savehist ( "evspsblpot", dtmp )
             case ( "hfls" )
                call vread( "eg_ave", egave )
@@ -394,15 +404,21 @@ contains
                call readsave2 (varlist(ivar)%vname, input_name="rhscrn")
             case ( "huss" )
                call vread( "qgscrn", dtmp )
-               dtmp = dtmp/(dtmp+1.)
+               where ( dtmp /= nf90_fill_float )
+                  dtmp = dtmp/(dtmp+1.)
+               end where  
                call savehist ( "huss", dtmp )
             case ( "mrro" )
                call vread( "runoff", dtmp )
-               dtmp = dtmp/86400.
+               where ( dtmp /= nf90_fill_float )
+                  dtmp = dtmp/86400.
+               end where   
                call savehist ( "mrro", dtmp )
             case ( "mrros" )
                call vread( "mrros", dtmp )
-               dtmp = dtmp/86400.
+               where ( dtmp /= nf90_fill_float )
+                  dtmp = dtmp/86400.
+               end where   
                call savehist ( "mrros", dtmp )
             case ( "pr" )
                call vread( "rnd", dtmp )
@@ -410,33 +426,47 @@ contains
                call savehist ( "pr", dtmp )
             case ( "prc" )
                call vread( "rnc", dtmp )
-               dtmp = dtmp/86400.
+               where ( dtmp /= nf90_fill_float )
+                  dtmp = dtmp/86400.
+               end where   
                call savehist ( "prc", dtmp )
             case ( "prmax" )
                call vread( "maxrnd", dtmp )
-               dtmp = dtmp/86400.
+               where ( dtmp /= nf90_fill_float )
+                  dtmp = dtmp/86400.
+               end where   
                call savehist ( "prmax", dtmp )
             case ( "prsn" )
                call vread( "sno", dtmp )
-               dtmp = dtmp/86400.
+               where ( dtmp /= nf90_fill_float )
+                  dtmp = dtmp/86400.
+               end where   
                call savehist ( "prsn", dtmp )
             case ( "psl" )
                call vread( "pmsl", dtmp )
                if ( cordex_compliant ) then
-                  dtmp = dtmp*100.
+                  where ( dtmp /= nf90_fill_float ) 
+                     dtmp = dtmp*100.
+                  end where   
                end if
                call savehist ( "psl", dtmp )
             case ( "psl_ave" )
                call vread( "pmsl_ave", dtmp )
                if ( cordex_compliant ) then
-                  dtmp = dtmp*100.
+                  where ( dtmp /= nf90_fill_float ) 
+                     dtmp = dtmp*100.
+                  end where   
                end if
                call savehist ( "psl_ave", dtmp )
             case ( "psf" )
                call vread( "psf", psl )
-               psl = 1.0e3 * exp(psl) ! hPa
+               where ( psl /= nf90_fill_float )
+                  psl = 1.0e3 * exp(psl) ! hPa
+               end where   
                if ( cordex_compliant ) then
-                  dtmp = 100.*psl     ! Pa  
+                  where ( dtmp /= nf90_fill_float ) 
+                     dtmp = 100.*psl     ! Pa
+                  end where   
                else    
                   dtmp = psl          ! hPa
                end if
@@ -457,7 +487,9 @@ contains
                call readsave2 (varlist(ivar)%vname, input_name="sot_ave") 
             case ( "sic" )
                call vread2( "fracice", dtmp )
-               dtmp = dtmp*100.
+               where ( dtmp /= nf90_fill_float )
+                  dtmp = dtmp*100.
+               end where   
                call savehist( "sic", dtmp )
             case ( "sgdn_ave", "rsds" )
                call vread( "sgdn_ave", sgd )
@@ -468,18 +500,24 @@ contains
             case ( "snd" )
                call vread( "snd", sndw )
                if ( cordex_compliant ) then
-                 dtmp = sndw*10. ! change from equiv water to equiv snow               
+                 where ( dtmp /= nf90_fill_float )  
+                    dtmp = sndw*10. ! change from equiv water to equiv snow
+                 end where   
                else
                  dtmp = sndw
                end if
                call savehist ( "snd", dtmp )
             case ( "snm" )
                call vread( "snm", dtmp )
-               dtmp = dtmp/86400.
+               where ( dtmp /= nf90_fill_float )
+                  dtmp = dtmp/86400.
+               end where   
                call savehist ( "snm", dtmp )
             case ( "sund" )
                call vread( "sunhours", dtmp )
-               dtmp = dtmp*3600.
+               where ( dtmp /= nf90_fill_float )
+                  dtmp = dtmp*3600.
+               end where   
                call savehist ( "sund", dtmp )
             case ( "tas" )
                call readsave2 (varlist(ivar)%vname, input_name="tscrn")
@@ -510,29 +548,41 @@ contains
             case ( "ts" )
                call vread( "tsu", dtmp )
                ! Some (all?) initial conditions have tsu negative over ocean
-               call savehist("ts", abs(dtmp))
+               where ( dtmp /= nf90_fill_float )
+                  dtmp = abs(dtmp)
+               end where   
+               call savehist("ts", dtmp)
+               where ( dtmp /= nf90_fill_float )
+                  dtmp = max(tfreeze, abs(dtmp))
+               end where
                if ( needfld("tsea") ) then
                   ! Use soilt as a land-sea mask (integer but read as float)
                   where ( soilt > 0.5 )
                      ctmp = spval
                   elsewhere
                      ! Use the maxval to ignore ice points.
-                     ctmp = max(tfreeze, abs(dtmp))
+                     ctmp = dtmp
                   end where
                   call fill_cc(ctmp, spval)
                   call savehist ( "tsea", ctmp )
                end if
             case ( "tsu" )
                call vread( "tsu", dtmp )
+               where ( dtmp /= nf90_fill_float )
+                  dtmp = abs(dtmp)
+               end where   
                ! Some (all?) initial conditions have tsu negative over ocean
-               call savehist("tsu", abs(dtmp))
+               call savehist("tsu", dtmp)
+               where ( dtmp /= nf90_fill_float )
+                  dtmp = max(tfreeze, abs(dtmp))
+               end where
                if ( needfld("tsea") ) then
                   ! Use soilt as a land-sea mask (integer but read as float)
                   where ( soilt > 0.5 )
                      ctmp = spval
                   elsewhere
                      ! Use the maxval to ignore ice points.
-                     ctmp = max(tfreeze, abs(dtmp))
+                     ctmp = dtmp
                   end where
                   call fill_cc(ctmp, spval)
                   call savehist ( "tsea", ctmp )
@@ -568,7 +618,7 @@ contains
                          varlist(ivar)%vname(1:7)=='roadtgg' ) then
                   ! Fix soil, ocean or urban temperature offset
                   call vread(varlist(ivar)%vname,dtmp)
-                  where ( dtmp<100. )
+                  where ( dtmp<100. .and. dtmp/=nf90_fill_float )
                     dtmp = dtmp + 290. ! reference temperature
                   end where
                   call savehist(varlist(ivar)%vname,dtmp)
