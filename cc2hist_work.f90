@@ -1,6 +1,6 @@
 ! Conformal Cubic Atmospheric Model
     
-! Copyright 2015-2017 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+! Copyright 2015-2018 Commonwealth Scientific Industrial Research Organisation (CSIRO)
     
 ! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
 !
@@ -2862,6 +2862,12 @@ contains
             singlefile = .true.
             ierr = nf90_open(pfile, nmode, ncid)
             call check_ncerr(ierr, "Error opening file "//trim(old_pfile)//" or "//trim(pfile))
+            ier = nf90_get_att(ncid, nf90_global, "nproc", pnproc)
+            if ( ierr==nf90_noerr ) then
+               write(6,*) "ERROR: Parallel file format found in ifile = ",trim(ifile)
+               write(6,*) "       Try removing .000000 from ifile in the namelist"
+               stop
+            end if
          end if    
          
          
