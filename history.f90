@@ -1,6 +1,6 @@
 ! Conformal Cubic Atmospheric Model
     
-! Copyright 2015-2017 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+! Copyright 2015-2018 Commonwealth Scientific Industrial Research Organisation (CSIRO)
     
 ! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
 !
@@ -281,7 +281,7 @@ module history
 !  which don't change but are still useful to have in a history file.
 
    integer, parameter :: hist_ave=1, hist_max=2, hist_min=3, hist_inst=4, &
-                         hist_fixed=5 !, hist_oave=6
+                         hist_fixed=5
 
 !  Valid range for 16 bit values
    integer, parameter :: vmin=-32500, vmax=32500
@@ -302,6 +302,9 @@ module history
    logical, public :: cf_compliant = .false.
    
    logical, public :: cordex_compliant = .false.
+   
+! Save CCAM parameters
+   logical, public :: save_ccam_parameters = .true.
 
 !  MPI working arrays
 #ifdef usempi3
@@ -1466,7 +1469,7 @@ contains
       histstr = "" 
       !call hstring(histstr)
       ierr = nf90_put_att ( ncid, NF90_GLOBAL, "history", histstr )
-      if ( present(extra_atts)) then
+      if ( present(extra_atts) .and. save_ccam_parameters ) then
          do i=1,size(extra_atts)
             select case(extra_atts(i)%type)
             case ( NF90_FLOAT )
@@ -1651,139 +1654,6 @@ contains
 
    end subroutine create_ncfile
    
-!---------------------------------------------------------------------------
-!   subroutine create_oldfile ( filename, nxhis, nyhis, hbytes,        &
-!                               vname, longname, units, xmin, xmax,    &
-!                               ylat, xlon, year )
-!
-!      use mpidata_m
-!      character(len=*), intent(in) :: filename
-!      integer, intent(in) :: nxhis, nyhis
-!      integer, intent(in) :: hbytes 
-!      character(len=*), intent(in) :: vname
-!      character(len=*), intent(in) :: longname
-!      character(len=*), intent(in) :: units
-!      real, intent(in) :: xmin, xmax
-!      real, dimension(:), intent(in) :: ylat
-!      real, dimension(:), intent(in) :: xlon
-!      integer, intent(in) :: year
-!
-!      integer  ncid, lonid, latid, monid, yrid, vid, old_mode
-!      integer :: ierr
-!      integer :: londim, latdim, mondim, yrdim
-!      integer :: m
-!      real :: scalef, addoff
-!
-!      if ( myid /=0 ) return
-!
-!      if ( hist_debug > 0 ) then
-!         print*, "Creating file ", filename, xmin, xmax
-!      end if
-!      !ierr = nf90_create(filename, NF90_CLOBBER, ncid)
-!      ierr = nf90_create(filename, NF90_64BIT_OFFSET, ncid)
-!      call check_ncerr ( ierr, "Error in creating history file" )
-!               
-!!     Create dimensions, lon, lat, month and year
-!      ierr = nf90_def_dim ( ncid, "longitude", nxhis, londim )
-!      call check_ncerr(ierr,"Error creating lon dimension")
-!      ierr = nf90_def_dim ( ncid, "latitude", nyhis, latdim )
-!      call check_ncerr(ierr,"Error creating lat dimension")
-!      ierr = nf90_def_dim ( ncid, "month", 12, mondim )
-!      call check_ncerr(ierr,"Error creating month dimension")
-!      ierr = nf90_def_dim ( ncid, "year", NF90_UNLIMITED, yrdim )
-!      call check_ncerr(ierr,"Error creating time dimension")
-!      
-!!     Define attributes for the dimensions
-!      ierr = nf90_def_var ( ncid, "longitude", NF90_FLOAT, londim, lonid)
-!      call check_ncerr(ierr)
-!      ierr = nf90_put_att ( ncid, lonid, "units", "degrees_east" )
-!      call check_ncerr(ierr)
-!
-!      ierr = nf90_def_var ( ncid, "latitude", NF90_FLOAT, latdim, latid )
-!      call check_ncerr(ierr)
-!      ierr = nf90_put_att ( ncid, latid, "units", "degrees_north" )
-!      call check_ncerr(ierr)
-!
-!      ierr = nf90_def_var ( ncid, "month", NF90_INT, mondim, monid )
-!      call check_ncerr(ierr)
-!      ierr = nf90_put_att ( ncid, monid, "units", "months" )
-!      call check_ncerr(ierr)
-!
-!      ierr = nf90_def_var ( ncid, "year", NF90_INT, yrdim, yrid )
-!      call check_ncerr(ierr)
-!      ierr = nf90_put_att ( ncid, yrid, "units", "years" )
-!      call check_ncerr(ierr)
-!      ierr = nf90_put_att ( ncid, yrid, "valid_min", year )
-!      call check_ncerr(ierr,"Error setting valid min for year")
-!
-!      if ( hbytes == 2 ) then
-!         ierr = nf90_def_var ( ncid, vname, NF90_INT2,  &
-!                             (/ lonid, latid, monid, yrid /), vid )
-!         call check_ncerr(ierr,"Error creating variable "// vname)
-!!     In the case of specific humidity we need to cheat and use a 
-!!     vertically varying scale factor.
-!!            qmax = 0.05 * sig(k)**2
-!
-!         ierr = nf90_put_att ( ncid, vid, "valid_min",  vmin )
-!         call check_ncerr(ierr,"Error setting valid min attribute")
-!         ierr = nf90_put_att ( ncid, vid, "valid_max", vmax )
-!         call check_ncerr(ierr,"Error setting valid max attribute")
-!
-!!        Use 1.01 factor to ensure that xmax and xmin fit within range despite
-!!        any roundoff.
-!
-!         scalef = 1.01 * (xmax - xmin) / float(vmax - vmin)
-!         addoff = 0.5*(xmin+xmax)
-!         ierr  = nf90_put_att ( ncid, vid, "add_offset", addoff )
-!         call check_ncerr(ierr)
-!         ierr  = nf90_put_att ( ncid, vid, "scale_factor", scalef)
-!         call check_ncerr(ierr)
-!
-!      else if ( hbytes == 4 ) then
-!         ierr = nf90_def_var ( ncid, vname, NF90_FLOAT, &
-!                             (/ lonid, latid, monid, yrid /), vid )
-!         call check_ncerr(ierr,"Error creating variable "// vname)
-!      else
-!         print*, " Error, impossible value for hbytes "
-!         stop
-!      end if
-!
-!      ierr = nf90_put_att ( ncid, vid, "long_name", longname )
-!      call check_ncerr(ierr)
-!      if ( len_trim(units) /= 0 ) then
-!         ierr = nf90_put_att ( ncid, vid, "units", units )
-!         call check_ncerr(ierr)
-!      end if
-!
-!      if ( hbytes == 2 ) then
-!         ierr = nf90_put_att ( ncid, vid, "missing_value", NF90_FILL_SHORT )
-!         call check_ncerr(ierr,"Error with missing value attribute")
-!      else
-!         ierr = nf90_put_att ( ncid, vid, "missing_value", missing_value )
-!         call check_ncerr(ierr,"Error with missing value attribute")
-!      end if
-!
-!!     Leave define mode
-!      ierr = nf90_enddef ( ncid )
-!      call check_ncerr(ierr)
-!
-!!     Turn off the data filling to save time.
-!      ierr = nf90_set_fill ( ncid, NF90_NOFILL, old_mode)
-!      call check_ncerr(ierr)
-!
-!!     Write the months
-!      ierr = nf90_put_var ( ncid, monid, (/ (m,m=1,12) /) )
-!      call check_ncerr(ierr,"Error writing months")
-!      ierr = nf90_put_var ( ncid, latid, ylat )
-!      call check_ncerr(ierr,"Error writing latitudes")
-!      ierr = nf90_put_var ( ncid, lonid, xlon )
-!      call check_ncerr(ierr,"Error writing longitudes")
-!
-!      ierr = nf90_close ( ncid )
-!      call check_ncerr(ierr)
-!
-!   end subroutine create_oldfile
-
 !-----------------------------------------------------------------------------
    subroutine closehist
       
@@ -2232,13 +2102,13 @@ contains
                
          end do ! Loop over fields
 
-         slab=ceiling(1.0d0*cnt/nproc)
-         maxcnt=cnt
-         interp_nproc=ceiling(1.0d0*maxcnt/slab)
-         offset=nproc-interp_nproc
-         if ( myid>=offset ) then
-           allocate( hist_a(pil,pjl*pnpan,pnproc,1+slab*(myid-offset):slab*(myid-offset+1)) )
-           allocate( hist_g(nx_g,ny_g) )
+         slab = ceiling(1.0d0*cnt/nproc)
+         maxcnt = cnt
+         interp_nproc = ceiling(1.0d0*maxcnt/slab)
+         offset = nproc - interp_nproc
+         if ( myid >= offset ) then
+            allocate( hist_a(pil,pjl*pnpan,pnproc,1+slab*(myid-offset):slab*(myid-offset+1)) )
+            allocate( hist_g(nx_g,ny_g) )
          end if
          allocate( k_indx(maxcnt) )
 

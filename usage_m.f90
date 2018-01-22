@@ -1,6 +1,6 @@
 ! Conformal Cubic Atmospheric Model
     
-! Copyright 2015-2017 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+! Copyright 2015-2018 Commonwealth Scientific Industrial Research Organisation (CSIRO)
     
 ! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
 !
@@ -72,9 +72,10 @@ module usage_m
    print*, " --interp=nearest  Use nearest value rather than interpolation"
    print*, " --interp=none     No interpolation.  Output on cubic grid"
    print*, " --interp=tapm     Interpolation to TAPM grid"
-   print*, " --vextrap=linear Linear extrapolation below surface"
-   print*, " --vextrap=none  Use end values rather than extrapolation"
-   print*, " --vextrap=missing  Set values below surface as missing"
+   print*, " --vextrap=linear  Linear extrapolation below surface"
+   print*, " --vextrap=none    Use end values rather than extrapolation"
+   print*, " --vextrap=missing Set values below surface as missing"
+   print *," --cordex          Format output for CORDEX"
    print*, "Note that the missing option only works with linear or nearest "
    print*, "horizontal interpolation. Default is to extrapolate temperature"
    print*, "below surface with standard lapse rate and to use end values for"
@@ -146,14 +147,15 @@ module usage_m
    print*, "for normal use."
    print*, ""
    print*, "Command line options can be replaced with the following namelist options"
-   print*, "ifile            = input_file"
-   print*, "ofile            = output_file"
-   print*, "hres             = res"
-   print*, "int_default      = 0 (bicubic), 1 (nearest), 2 (bilinear), 5 (none), 9 (tapm)"
-   print*, "vextrap          = 0 (default), 1 (linear), 2 (none), 3 (missing),"
-   print*, "                   4 (lapse rate)"
-   print*, "cf_compliant     = true or false"
-   print*, "cordex_compliant = true or false"
+   print*, "ifile                = input_file"
+   print*, "ofile                = output_file"
+   print*, "hres                 = res"
+   print*, "int_default          = 0 (bicubic), 1 (nearest), 2 (bilinear), 5 (none), 9 (tapm)"
+   print*, "vextrap              = 0 (default), 1 (linear), 2 (none), 3 (missing),"
+   print*, "                       4 (lapse rate)"
+   print*, "cf_compliant         = true or false"
+   print*, "cordex_compliant     = true or false"
+   print*, "save_ccam_parameters = true or false"
    print*, ""
    print*, "cc2hist version ", trim(version)
  

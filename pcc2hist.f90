@@ -1,6 +1,6 @@
 ! Conformal Cubic Atmospheric Model
     
-! Copyright 2015-2017 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+! Copyright 2015-2018 Commonwealth Scientific Industrial Research Organisation (CSIRO)
     
 ! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
 !
@@ -77,7 +77,8 @@ program cc2hist
                     minlev, maxlev, minsig, maxsig, use_plevs, plevs, &
                     use_meters, mlevs, sdate, edate, stime, etime,    &
                     hres, debug, ifile, ofile, int_default, vextrap,  &
-                    cf_compliant, cordex_compliant
+                    cf_compliant, cordex_compliant,                   &
+                    save_ccam_parameters
 
    integer :: kt, kdate, ktime, ierr, ieof, ntracers
    integer :: mins
