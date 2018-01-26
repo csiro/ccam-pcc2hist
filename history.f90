@@ -226,6 +226,8 @@ module history
       logical                        :: multilev
 !     For multilevel land surface variables
       logical                        :: soil
+!     For multilevel ocean variables
+      logical                        :: water
       ! For CF coordinate attribute
       real                           :: coord_height
       ! cell_methods appropriate for variable before any history processing is done
@@ -248,6 +250,7 @@ module history
       integer :: x = -1
       integer :: y = -1
       integer :: z = -1
+      integer :: oz = -1
       integer :: t = -1
       integer :: zsoil = -1
       ! For bounds 
@@ -535,7 +538,8 @@ contains
 !---------------------------------------------------------------------------
    subroutine addfld(name, long_name, units, valid_min, valid_max,    &
                      nlevels, amip_name, ave_type, std, output_scale, &
-                     int_type, multilev, std_name, soil, coord_height, cell_methods )
+                     int_type, multilev, std_name, soil, water,       &
+                     coord_height, cell_methods )
 !
 !     Add a field to the master list of fields that may be saved.
 !
@@ -553,6 +557,7 @@ contains
       logical, intent(in), optional   :: multilev
       character(len=*), intent(in), optional :: std_name
       logical, intent(in), optional   :: soil
+      logical, intent(in), optional   :: water
       real, intent(in), optional :: coord_height
       character(len=*), intent(in), optional :: cell_methods
 
@@ -647,6 +652,11 @@ contains
       else
          histinfo(totflds)%multilev = .false.
       end if
+      if ( present(water) ) then
+         histinfo(totflds)%water = water
+      else
+         histinfo(totflds)%water = .false.
+      end if
       if ( present(soil) ) then
          histinfo(totflds)%soil = soil
       else
@@ -666,9 +676,9 @@ contains
    end subroutine addfld
    
 !-------------------------------------------------------------------
-   subroutine openhist ( nx, ny, nl, sig, suffix, hlon, hlat, basetime,       &
-                         doublerow, year, nxout, nyout, source, histfilename, &
-                         pressure, height, extra_atts, hybrid_levels, anf,    &
+   subroutine openhist ( nx, ny, nl, sig, ol, gosig, suffix, hlon, hlat, basetime, &
+                         doublerow, year, nxout, nyout, source, histfilename,      &
+                         pressure, height, extra_atts, hybrid_levels, anf,         &
                          bnf, p0, calendar, nsoil, zsoil )
 !
 !     Create netCDF history files using information in histinfo array.
@@ -676,8 +686,9 @@ contains
       use mpidata_m
       use logging_m
 
-      integer, intent(in) :: nx, ny, nl
+      integer, intent(in) :: nx, ny, nl, ol
       real, intent(in), dimension(:) :: sig
+      real, intent(in), dimension(:) :: gosig
       character(len=*), intent(in)   :: suffix  ! Filename suffix
 !     Longitudes and latitudes of the output history
       real, intent(in), dimension(:) :: hlon
@@ -712,7 +723,7 @@ contains
       logical :: used, multilev, use_plevs, use_hyblevs, use_meters
       integer, dimension(totflds) :: coord_heights
       integer :: kc, ncoords, k, pkl
-      logical :: soil_used
+      logical :: soil_used, water_used
       real :: dx, dy
       
       call START_LOG(openhist_begin)
@@ -924,6 +935,7 @@ contains
          do ifile = istart, nhfiles
 
             soil_used = .false.
+            water_used = .false.
             if ( present(histfilename) .and. nhfiles == 1 ) then
                filename = histfilename
             else
@@ -948,6 +960,9 @@ contains
                ! Check if the file has any soil variables
                soil_used = soil_used .or. histinfo(ifld)%soil
 
+               ! Check if the file has any water variables
+               water_used = water_used .or. histinfo(ifld)%water
+               
                ! Get a list of the coordinate heights if any
                if ( histinfo(ifld)%coord_height > -huge(1.) ) then
                   ! Check if it's already in list
@@ -978,11 +993,11 @@ contains
             end if
             !if ( soil_used ) then
             !   ! Better to define a new local nsoil variable?
-            !   call create_ncfile ( filename, nxhis, nyhis, size(sig), multilev,                   &
+            !   call create_ncfile ( filename, nxhis, nyhis, size(sig), ol, multilev,               &
             !        use_plevs, use_meters, use_hyblevs, basetime, coord_heights(1:ncoords), ncid,  &
             !        dims, dimvars, source, extra_atts, calendar, nsoil, zsoil )
             !else
-               call create_ncfile ( filename, nxhis, nyhis, size(sig), multilev,                   &
+               call create_ncfile ( filename, nxhis, nyhis, size(sig), ol, multilev,               &
                     use_plevs, use_meters, use_hyblevs, basetime, coord_heights(1:ncoords), ncid,  &
                     dims, dimvars, source, extra_atts, calendar, nsoil, zsoil )
             !end if
@@ -1062,6 +1077,10 @@ contains
                   ierr = nf90_put_var(ncid, vid, p0)
                   call check_ncerr(ierr,"Error writing p0")
                end if
+            end if
+            if ( ol > 0 ) then
+               ierr = nf90_put_var ( ncid, dimvars%oz, gosig )
+               call check_ncerr(ierr,"Error writing olev")
             end if
             !if ( soil_used .and. present(zsoil) ) then
             if ( present(zsoil) .and. present(nsoil) ) then
@@ -1263,6 +1282,8 @@ contains
       if ( vinfo%nlevels > 1 .or. vinfo%multilev ) then
          if (vinfo%soil) then
             zdim = dims%zsoil
+         else if ( vinfo%water ) then
+            zdim = dims%oz
          else
             zdim = dims%z
          end if
@@ -1384,13 +1405,13 @@ contains
    end subroutine create_ncvar
   
 !---------------------------------------------------------------------------
-   subroutine create_ncfile ( filename, nxhis, nyhis, nlev, multilev,                &
+   subroutine create_ncfile ( filename, nxhis, nyhis, nlev, ol, multilev,            &
                  use_plevs, use_meters, use_hyblevs, basetime, coord_heights, ncid,  &
                  dims, dimvars, source, extra_atts, calendar, nsoil, zsoil )
 
       use mpidata_m
       character(len=*), intent(in) :: filename
-      integer, intent(in) :: nxhis, nyhis, nlev
+      integer, intent(in) :: nxhis, nyhis, nlev, ol
       logical, intent(in) :: multilev, use_plevs, use_meters, use_hyblevs
       character(len=*), intent(in) :: basetime
       integer, dimension(:), intent(in) :: coord_heights
@@ -1444,6 +1465,11 @@ contains
          end if
          call check_ncerr(ierr,"Error creating lev dimension")
          if ( hist_debug > 5 ) print*, "Created lev dimension, id",  dims%z
+      end if
+      if ( ol > 0 ) then
+         ierr = nf90_def_dim ( ncid, "olev", ol, dims%oz )
+         call check_ncerr(ierr,"Error creating olev dimension")
+         if ( hist_debug > 5 ) print*, "Created olev dimension, id", dims%oz
       end if
       if ( present(nsoil) ) then
          if ( nsoil > 1 ) then
@@ -1570,6 +1596,17 @@ contains
             call check_ncerr(ierr)
          end if
          ierr = nf90_put_att ( ncid, dimvars%z, "axis", "Z" )
+         call check_ncerr(ierr)
+      end if
+      
+      if ( ol > 0 ) then
+         ierr = nf90_def_var ( ncid, "olev", NF90_FLOAT, dims%oz, dimvars%oz )
+         call check_ncerr(ierr)
+         ierr = nf90_put_att ( ncid, dimvars%oz, "long_name", "ocean sigma_level" )
+         call check_ncerr(ierr)
+         ierr = nf90_put_att ( ncid, dimvars%oz, "units", "sigma_level" )
+         call check_ncerr(ierr)
+         ierr = nf90_put_att ( ncid, dimvars%oz, "positive", "down" )
          call check_ncerr(ierr)
       end if
 
@@ -2133,12 +2170,10 @@ contains
 
 !           Even multilevel variables are written one level at a time
             do k = istart,iend
-
                if ( count /= 0 ) then
                   cnt = cnt + 1
                   k_indx(cnt) = k
                end if
-
             end do   ! k loop
 
          end do ! Loop over fields

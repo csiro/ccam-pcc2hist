@@ -88,19 +88,20 @@ module work
       logical :: daily ! Is it only valid once per day?
       logical :: vector ! Is it a vector component?
       logical :: xcmpnt ! Is it x-component of a vector?
+      logical :: water  ! Is it a multi-level ocean variable
       integer :: othercmpnt ! Index of matching x or y component
    end type input_var
 
 contains
 
-   subroutine alloc_indata ( il, jl, kl, ksoil, kice )
+   subroutine alloc_indata ( il, jl, kl, ol, ksoil, kice )
 
 !     Allocates arrays for the variables that have to be stored rather than
 !     being immediately processed.
       use history, only : needfld
       use s2p_m
 
-      integer, intent(in) :: il, jl, kl, ksoil, kice
+      integer, intent(in) :: il, jl, kl, ol, ksoil, kice
       
       allocate ( psl(pil,pjl*pnpan*lproc),   zs(pil,pjl*pnpan*lproc) )
       allocate ( soilt(pil,pjl*pnpan*lproc), u(pil,pjl*pnpan*lproc,kl),  v(pil,pjl*pnpan*lproc,kl) )
@@ -121,6 +122,9 @@ contains
       end if
       if ( use_meters ) then
          allocate( hstd(pil,pjl*pnpan*lproc,kl) )
+      end if
+      if ( ol > 0 ) then
+         allocate( uo_tmp(pil,pjl*pnpan*lproc,ol), vo_tmp(pil,pjl*pnpan*lproc,ol) ) 
       end if
 
    end subroutine alloc_indata
@@ -264,6 +268,7 @@ contains
       use physparams, only : grav, rdry, cp, pi
       use s2p_m
       use height_m
+      use newmpar_m, only : ol
       use sitop_m
       use logging_m
       use parm_m, only : rlong0, rlat0
@@ -294,7 +299,7 @@ contains
 
       call START_LOG(infile_begin)
       if ( first_in ) then
-         call alloc_indata ( ik, jk, kk, ksoil, kice )
+         call alloc_indata ( ik, jk, kk, ol, ksoil, kice )
       end if
       
       mrso = 0.  ! total soil moisture
@@ -775,7 +780,28 @@ contains
                end do
                call savehist("wetfrac", tgg)
             case default
-               call readsave3 (varlist(ivar)%vname)
+               if ( varlist(ivar)%water ) then
+                  if ( varlist(ivar)%vector ) then
+                     if ( varlist(ivar)%xcmpnt ) then
+                        name = varlist(varlist(ivar)%othercmpnt)%vname
+                        if ( needfld(varlist(ivar)%vname) .or. needfld(name) ) then
+                           call vread( varlist(ivar)%vname, uo_tmp)
+                           call vread( name, vo_tmp)
+                           call fix_winds(uo_tmp, vo_tmp)
+                           call savehist ( varlist(ivar)%vname, uo_tmp )
+                           call savehist ( name, vo_tmp )
+                        end if         
+                     end if 
+                  else
+                     ! readsave3 allocates kk levels, so we need to use the array with ol levels 
+                     if ( needfld(varlist(ivar)%vname) ) then  
+                        call vread( varlist(ivar)%vname, uo_tmp )
+                        call savehist( varlist(ivar)%vname, uo_tmp )
+                     end if  
+                  end if
+               else
+                  call readsave3 (varlist(ivar)%vname)
+               end if   
             end select
          end if
 
@@ -1267,6 +1293,10 @@ contains
          call check_ncerr(ierr, "Error getting lev dimension")
          ierr = nf90_inquire_dimension ( ncid, dimid, len=kl )
          call check_ncerr(ierr, "Error getting number of levels")
+         ierr = nf90_inq_dimid(ncid, "olev", dimid )
+         call check_ncerr(ierr, "Error getting olev dimension")
+         ierr = nf90_inquire_dimension ( ncid, dimid, len=ol )
+         call check_ncerr(ierr, "Error getting number of ocean levels")
       else
          ! older int_header method
          ! Get integer and real headers from attibutes. First check the 
@@ -1284,6 +1314,7 @@ contains
          il = int_header(1)
          jl = int_header(2)
          kl = int_header(3)
+         ol = 0
          ndt = int_header(14)
          ms = int_header(34)
          ntrac = int_header(43)
@@ -1374,15 +1405,22 @@ contains
       allocate ( sig(kl), dsig(kl), zsoil(ksoil), zse(ksoil) )
 
       if ( kl > 1 ) then
-            ! Get sigma levels from level variable
-            ierr = nf90_inq_varid (ncid, "lev", vid )
-            call check_ncerr(ierr, "Error getting vid for lev")
-            ierr = nf90_get_var ( ncid, vid, sig)
-            call check_ncerr(ierr, "Error getting levels")
+         ! Get sigma levels from level variable
+         ierr = nf90_inq_varid (ncid, "lev", vid )
+         call check_ncerr(ierr, "Error getting vid for lev")
+         ierr = nf90_get_var ( ncid, vid, sig )
+         call check_ncerr(ierr, "Error getting levels")
       else
          sig = 1.0
       end if
       call sig2ds(sig, dsig)
+      if ( ol > 0 ) then
+         allocate( gosig(ol) ) 
+         ierr = nf90_inq_varid (ncid, "olev", vid )
+         call check_ncerr(ierr, "Error getting vid for olev")
+         ierr = nf90_get_var ( ncid, vid, gosig )
+         call check_ncerr(ierr, "Error getting ocean levels")
+      end if
       ! Note that some initial condition files don't have zsoil
       !if ( cf_compliant ) then
          ierr = nf90_inq_varid (ncid, "zsoil", vid )
@@ -1781,8 +1819,7 @@ contains
       use newmpar_m
       real, dimension(:,:,:), intent(inout) :: u, v
       integer :: k
-
-      do k=1,kl
+      do k=1,size(u,3)
          call fix_winds2( u(:,:,k), v(:,:,k) ) 
       enddo
    end subroutine fix_winds3
@@ -1791,12 +1828,13 @@ contains
       ! Get a list of the variables in the input file
       use history, only : addfld, int_default, cf_compliant, cordex_compliant
       use interp_m, only : int_nearest, int_none, int_tapm
+      use newmpar_m, only : ol
       use physparams, only : grav, rdry
       use s2p_m, only: use_plevs, plevs, use_meters, mlevs
       type(input_var), dimension(:), pointer, contiguous :: varlist
       integer, intent(out) :: nvars
       integer :: ierr, ndimensions, nvariables, ndims, ivar, int_type, xtype
-      integer :: londim, latdim, levdim, procdim, timedim, vid, ihr, ind
+      integer :: londim, latdim, levdim, olevdim, procdim, timedim, vid, ihr, ind
       integer, dimension(nf90_max_var_dims) :: dimids
       logical :: procformat
       character(len=10) :: substr
@@ -1821,6 +1859,8 @@ contains
       call check_ncerr(ierr,"Error getting latid")
       ierr = nf90_inq_dimid(ncid, "lev", levdim)
       call check_ncerr(ierr,"Error getting levid")
+      ierr = nf90_inq_dimid(ncid, "olev", olevdim)
+      if ( ierr/=nf90_noerr ) olevdim = -1
       ierr = nf90_inq_dimid(ncid, "processor", procdim) ! only for procformat      
       procformat = (ierr==nf90_noerr)
       ierr = nf90_inq_dimid(ncid, "time", timedim)
@@ -1859,6 +1899,10 @@ contains
                nvars = nvars + 1
                varlist(nvars)%fixed = .false.
                varlist(nvars)%ndims = 3  ! Space only
+            else if ( match ( dimids(1:ndims), (/ londim, latdim, olevdim, procdim, timedim /) ) ) then
+               nvars = nvars + 1
+               varlist(nvars)%fixed = .false.
+               varlist(nvars)%ndims = 3
             else
                print*, "Error, unexpected dimensions in input variable", vname
                stop
@@ -1869,6 +1913,10 @@ contains
                nvars = nvars + 1
                varlist(nvars)%fixed = .false.
                varlist(nvars)%ndims = 3  ! Space only
+            else if ( match ( dimids(1:ndims), (/ londim, latdim, olevdim, timedim /) ) ) then
+               nvars = nvars + 1
+               varlist(nvars)%fixed = .false.
+               varlist(nvars)%ndims = 3
             else
                print*, "Error, unexpected dimensions in input variable", vname
                stop
@@ -2038,10 +2086,19 @@ contains
       end do
 
       do ivar=1,nvars
+         if ( varlist(ivar)%vname == "thetao" .or. varlist(ivar)%vname == "so" .or. &
+              varlist(ivar)%vname == "uo" .or. varlist(ivar)%vname == "vo" ) then    
+            varlist(ivar)%water = .true. 
+         else 
+            varlist(ivar)%water = .false. 
+         end if
+      end do   
+      
+      do ivar=1,nvars
          xmin = varlist(ivar)%add_offset + varlist(ivar)%scale_factor*vmin
          xmax = varlist(ivar)%add_offset + varlist(ivar)%scale_factor*vmax
          ! As a check re-calc offset, scalef
-         sf = (xmax - xmin) /(real(vmax)-real(vmin)) ! jlm fix for precision problems
+         sf = (xmax - xmin)/(real(vmax)-real(vmin)) ! jlm fix for precision problems
          aoff = xmin - sf*vmin
 !         print*, varlist(ivar)%vname, xmin, xmax, varlist(ivar)%add_offset, varlist(ivar)%scale_factor, aoff, sf
 
@@ -2272,10 +2329,18 @@ contains
                       coord_height=coord_height, cell_methods=cell_methods,  & 
                       int_type=int_type )
             end if
-         else if ( varlist(ivar)%ndims == 3 ) then
-            call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name, &
-                      varlist(ivar)%units, xmin, xmax, nlev, multilev=.true., &
-                      std_name=std_name, cell_methods=cell_methods, int_type=int_type )
+         else if ( varlist(ivar)%ndims == 3 ) then  
+            if ( varlist(ivar)%water ) then
+              call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name,       &
+                        varlist(ivar)%units, xmin, xmax, ol, multilev=.true., &
+                        std_name=std_name, water=varlist(ivar)%water,           &
+                        cell_methods=cell_methods, int_type=int_type )
+            else
+              call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name,       &
+                        varlist(ivar)%units, xmin, xmax, nlev, multilev=.true., &
+                        std_name=std_name, cell_methods=cell_methods,           &
+                        int_type=int_type )
+            end if  
          end if
       end do
 

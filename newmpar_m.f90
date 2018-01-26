@@ -25,6 +25,7 @@ module newmpar_m
    integer, public, save :: npanels = 5
    integer, public, save :: jl
    integer, public, save :: kl = 1
+   integer, public, save :: ol = 0
    integer, public, save :: ifull
    integer, public, save :: ij
    integer, public, save :: ijk
