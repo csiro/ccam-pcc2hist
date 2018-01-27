@@ -1294,9 +1294,12 @@ contains
          ierr = nf90_inquire_dimension ( ncid, dimid, len=kl )
          call check_ncerr(ierr, "Error getting number of levels")
          ierr = nf90_inq_dimid(ncid, "olev", dimid )
-         call check_ncerr(ierr, "Error getting olev dimension")
-         ierr = nf90_inquire_dimension ( ncid, dimid, len=ol )
-         call check_ncerr(ierr, "Error getting number of ocean levels")
+         if ( ierr==nf90_noerr ) then
+            ierr = nf90_inquire_dimension ( ncid, dimid, len=ol )
+            call check_ncerr(ierr, "Error getting number of ocean levels")
+         else
+            ol = 0 
+         end if    
       else
          ! older int_header method
          ! Get integer and real headers from attibutes. First check the 
