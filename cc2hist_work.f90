@@ -2139,14 +2139,17 @@ contains
 
          ! Is this really simpler than a string of if tests?
          if ( match ( varlist(ivar)%vname, &
-               (/ "vegt         ", "soilt        ", "rsmin        ", "rs           ", "zolnd        ", &
-                  "sigmf        ", "wetfrac      ", "wetfrac?     ", "tgg?         ", "tgg??        ", &
-                  "sal??        ", "roadtgg?     ", "rooftgg?     ", "waletgg?     ", "walwtgg?     ", &
-                  "dmse_ave     ", "dmsso2_ave   ", "so2e_ave     ", "so2dd_ave    ", "so2wd_ave    ", &
-                  "so2so4_ave   ", "so4e_ave     ", "so4dd_ave    ", "so4wd_ave    ", "bce_ave      ", &
-                  "bcdd_ave     ", "bcwd_ave     ", "oce_ave      ", "ocdd_ave     ", "ocwd_ave     ", &
-                  "duste_ave    ", "dustdd_ave   ", "dustwd_ave   ", "wb?_ave      ", "climate_biome", &
-                  "climate_ivegt" /)) .and. int_type /= int_none ) then
+               (/ "vegt                ", "soilt               ", "rsmin               ", "rs                  ", &
+                  "zolnd               ", "sigmf               ", "wetfrac             ", "wetfrac?            ", &
+                  "tgg?                ", "tgg??               ", "sal??               ", "roadtgg?            ", &
+                  "rooftgg?            ", "waletgg?            ", "walwtgg?            ", "dmse_ave            ", &
+                  "dmsso2_ave          ", "so2e_ave            ", "so2dd_ave           ", "so2wd_ave           ", &
+                  "so2so4_ave          ", "so4e_ave            ", "so4dd_ave           ", "so4wd_ave           ", &
+                  "bce_ave             ", "bcdd_ave            ", "bcwd_ave            ", "oce_ave             ", &
+                  "ocdd_ave            ", "ocwd_ave            ", "duste_ave           ", "dustdd_ave          ", &
+                  "dustwd_ave          ", "wb?_ave             ", "climate_biome       ", "climate_ivegt       ", &
+                  "climate_min20       ", "climate_max20       ", "climate_alpha20     ", "climate_agdd5       ", &
+                  "climate_gmd         ", "climate_dmoist_min20", "climate_dmoist_max20" /)) .and. int_type /= int_none ) then
             int_type = int_nearest
          else
             int_type = int_default
