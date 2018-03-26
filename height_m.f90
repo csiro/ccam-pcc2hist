@@ -55,7 +55,13 @@ subroutine height ( tg, qg, zg, pg, sig, phistd, pstd )
 !  Calculate geopotential height using virtual temperature
 !  If the optional argument pstd is present it specifies the pressure levels
 !  on which to calculate the height. Otherwise return sigma level heights.
+#ifdef usenc_mod
+   use netcdf, only : NF90_FILL_FLOAT
+#else
+   use netcdf_m, only : NF90_FILL_FLOAT
+#endif
    use physparams
+   use s2p_m
    real, intent(in), dimension(:,:,:) :: tg, qg
    real, intent(in), dimension(:,:)   :: zg, pg
    real, intent(in), dimension(:)     :: sig
@@ -105,27 +111,29 @@ subroutine height ( tg, qg, zg, pg, sig, phistd, pstd )
             siglev = pstd(kstd)/pg(:,lg)
             do mg=1,nx
                if ( siglev(mg)>sig(1) ) then
-                  bettemp=c*(siglev(mg)**(-rdry/c)-1.)
-                  phistd(mg,lg,kstd) = zg(mg,lg)*grav+bettemp*tv(mg,1)
+                  if ( vextrap == vextrap_missing ) then
+                     phistd(mg,lg,kstd) = NF90_FILL_FLOAT 
+                  else    
+                     bettemp=c*(siglev(mg)**(-rdry/c)-1.)
+                     phistd(mg,lg,kstd) = (zg(mg,lg)*grav+bettemp*tv(mg,1))/grav
+                  end if   
                else
                   ii = 1
                   do while ( siglev(mg)<sig(ii+1) .and. ii<nl-1 )
-                     ii = ii+1
+                     ii = ii + 1
                   end do
                   bettemp=rdry*log(sig(ii)/siglev(mg))*0.5
-                  phistd(mg,lg,kstd) = phi(mg,ii) + bettemp*(tv(mg,ii)+tv(mg,ii+1)) 
+                  phistd(mg,lg,kstd) = (phi(mg,ii) + bettemp*(tv(mg,ii)+tv(mg,ii+1)))/grav
                end if
             end do
          end do
 
       else ! Return sigma level heights
          
-         phistd(:,lg,:) = phi(:,:)
+         phistd(:,lg,:) = phi(:,:)/grav
 
       end if
    end do       ! ny loop
-
-   phistd = phistd / grav
 
 end subroutine height
 

@@ -221,11 +221,13 @@ program cc2hist
    open(1,file=trim(cfile))
    read(1,input)   
    
-   if ( vextrap == vextrap_missing .and. int_default == int_normal ) then
-      print*, "For vextrap=missing option to work, must set interp to linear or nearest"
-      call finishbanner
-      call MPI_ABORT(comm_world,-1,ierr)
-   end if
+   !if ( vextrap == vextrap_missing .and. int_default == int_normal ) then
+   !   if ( myid==0 ) then
+   !      write(6,*) "For vextrap=missing option to work, must set interp to linear or nearest"
+   !   end if  
+   !   call finishbanner
+   !   call MPI_ABORT(comm_world,-1,ierr)
+   !end if
 
 !  If filenames were not set as options look for them as arguments
    if ( len_trim(ifile) == 0 .and. len_trim(ofile) == 0 ) then

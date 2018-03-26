@@ -164,34 +164,53 @@ subroutine ints ( s_in, array, int_type )  ! input array (twice), output array
   case ( int_normal )
      do j=1,nyhis
         do i=1,nxhis
-           n=nface(i,j)
+           n=nface(i,j) 
            idel=int(xg(i,j))
-           xxg=xg(i,j)-real(idel)
-!       yg here goes from .5 to il +.5
            jdel=int(yg(i,j))
-           yyg=yg(i,j)-real(jdel)
-           cmul_1 = (1.-xxg)*(2.-xxg)*(-xxg)/6.
-           cmul_2 = (1.-xxg)*(2.-xxg)*(1.+xxg)/2.
-           cmul_3 = xxg*(1.+xxg)*(2.-xxg)/2.
-           cmul_4 = (1.-xxg)*(-xxg)*(1.+xxg)/6.
-           dmul_2 = (1.-xxg)
-           dmul_3 = xxg
-           emul_1 = (1.-yyg)*(2.-yyg)*(-yyg)/6.
-           emul_2 = (1.-yyg)*(2.-yyg)*(1.+yyg)/2.
-           emul_3 = yyg*(1.+yyg)*(2.-yyg)/2.
-           emul_4 = (1.-yyg)*(-yyg)*(1.+yyg)/6.
-           cmin = min(sx(idel,  jdel,n),sx(idel+1,jdel,  n), &
-                      sx(idel,jdel+1,n),sx(idel+1,jdel+1,n))
-           cmax = max(sx(idel,  jdel,n),sx(idel+1,jdel,  n), &
-                      sx(idel,jdel+1,n),sx(idel+1,jdel+1,n))
-           rmul_1 = sx(idel,  jdel-1,n)*dmul_2 + sx(idel+1,jdel-1,n)*dmul_3
-           rmul_2 = sx(idel-1,jdel,  n)*cmul_1 + sx(idel,  jdel,  n)*cmul_2 + &
-                    sx(idel+1,jdel,  n)*cmul_3 + sx(idel+2,jdel,  n)*cmul_4
-           rmul_3 = sx(idel-1,jdel+1,n)*cmul_1 + sx(idel,  jdel+1,n)*cmul_2 + &
-                    sx(idel+1,jdel+1,n)*cmul_3 + sx(idel+2,jdel+1,n)*cmul_4
-           rmul_4 = sx(idel,  jdel+2,n)*dmul_2 + sx(idel+1,jdel+2,n)*dmul_3
-           array(i,j) = min( max( cmin, &
-              rmul_1*emul_1 + rmul_2*emul_2 + rmul_3*emul_3 + rmul_4*emul_4 ), cmax ) ! Bermejo & Staniforth
+           if ( sx(idel,  jdel-1,n) == NF90_FILL_FLOAT .or. sx(idel+1,jdel-1,n) == NF90_FILL_FLOAT .or. &
+                sx(idel-1,jdel  ,n) == NF90_FILL_FLOAT .or. sx(idel,  jdel,  n) == NF90_FILL_FLOAT .or. &
+                sx(idel+1,jdel  ,n) == NF90_FILL_FLOAT .or. sx(idel+2,jdel,  n) == NF90_FILL_FLOAT .or. &
+                sx(idel-1,jdel+1,n) == NF90_FILL_FLOAT .or. sx(idel,  jdel+1,n) == NF90_FILL_FLOAT .or. &
+                sx(idel+1,jdel+1,n) == NF90_FILL_FLOAT .or. sx(idel+2,jdel+1,n) == NF90_FILL_FLOAT .or. &
+                sx(idel,  jdel+2,n) == NF90_FILL_FLOAT .or. sx(idel+1,jdel+2,n) == NF90_FILL_FLOAT ) then
+              if ( sx(idel,jdel,n)     == NF90_FILL_FLOAT .or. &
+                   sx(idel+1,jdel,n)   == NF90_FILL_FLOAT .or. &
+                   sx(idel+1,jdel+1,n) == NF90_FILL_FLOAT .or. &
+                   sx(idel,jdel+1,n)   == NF90_FILL_FLOAT ) then
+                 array(i,j) = NF90_FILL_FLOAT
+              else 
+                 xxg = xg(i,j)-idel
+                 yyg = yg(i,j)-jdel
+                 r(1) = sx(idel,jdel,n) + (sx(idel+1,jdel,n)-sx(idel,jdel,n))*xxg
+                 r(2) = sx(idel,jdel+1,n) + (sx(idel+1,jdel+1,n)-sx(idel,jdel+1,n))*xxg
+                 array(i,j) = r(1) + (r(2)-r(1))*yyg
+              end if         
+           else 
+              xxg=xg(i,j)-real(idel)
+              yyg=yg(i,j)-real(jdel)
+              cmul_1 = (1.-xxg)*(2.-xxg)*(-xxg)/6.
+              cmul_2 = (1.-xxg)*(2.-xxg)*(1.+xxg)/2.
+              cmul_3 = xxg*(1.+xxg)*(2.-xxg)/2.
+              cmul_4 = (1.-xxg)*(-xxg)*(1.+xxg)/6.
+              dmul_2 = (1.-xxg)
+              dmul_3 = xxg
+              emul_1 = (1.-yyg)*(2.-yyg)*(-yyg)/6.
+              emul_2 = (1.-yyg)*(2.-yyg)*(1.+yyg)/2.
+              emul_3 = yyg*(1.+yyg)*(2.-yyg)/2.
+              emul_4 = (1.-yyg)*(-yyg)*(1.+yyg)/6.
+              cmin = min(sx(idel,  jdel,n),sx(idel+1,jdel,  n), &
+                         sx(idel,jdel+1,n),sx(idel+1,jdel+1,n))
+              cmax = max(sx(idel,  jdel,n),sx(idel+1,jdel,  n), &
+                         sx(idel,jdel+1,n),sx(idel+1,jdel+1,n))
+              rmul_1 = sx(idel,  jdel-1,n)*dmul_2 + sx(idel+1,jdel-1,n)*dmul_3
+              rmul_2 = sx(idel-1,jdel,  n)*cmul_1 + sx(idel,  jdel,  n)*cmul_2 + &
+                       sx(idel+1,jdel,  n)*cmul_3 + sx(idel+2,jdel,  n)*cmul_4
+              rmul_3 = sx(idel-1,jdel+1,n)*cmul_1 + sx(idel,  jdel+1,n)*cmul_2 + &
+                       sx(idel+1,jdel+1,n)*cmul_3 + sx(idel+2,jdel+1,n)*cmul_4
+              rmul_4 = sx(idel,  jdel+2,n)*dmul_2 + sx(idel+1,jdel+2,n)*dmul_3
+              array(i,j) = min( max( cmin, &
+                 rmul_1*emul_1 + rmul_2*emul_2 + rmul_3*emul_3 + rmul_4*emul_4 ), cmax ) ! Bermejo & Staniforth
+            end if  
         enddo ! i loop
      enddo ! j loop
   case (int_nearest)
@@ -229,34 +248,53 @@ subroutine ints ( s_in, array, int_type )  ! input array (twice), output array
   case ( int_tapm )
      do j=1,nyhis
         do i=1,nxhis
-           n=nface(i,j)
+           n=nface(i,j) 
            idel=int(xg(i,j))
-           xxg=xg(i,j)-real(idel)
-!       yg here goes from .5 to il +.5
            jdel=int(yg(i,j))
-           yyg=yg(i,j)-real(jdel)
-           cmul_1 = (1.-xxg)*(2.-xxg)*(-xxg)/6.
-           cmul_2 = (1.-xxg)*(2.-xxg)*(1.+xxg)/2.
-           cmul_3 = xxg*(1.+xxg)*(2.-xxg)/2.
-           cmul_4 = (1.-xxg)*(-xxg)*(1.+xxg)/6.
-           dmul_2 = (1.-xxg)
-           dmul_3 = xxg
-           emul_1 = (1.-yyg)*(2.-yyg)*(-yyg)/6.
-           emul_2 = (1.-yyg)*(2.-yyg)*(1.+yyg)/2.
-           emul_3 = yyg*(1.+yyg)*(2.-yyg)/2.
-           emul_4 = (1.-yyg)*(-yyg)*(1.+yyg)/6.
-           cmin = min(sx(idel,  jdel,n),sx(idel+1,jdel,  n), &
-                      sx(idel,jdel+1,n),sx(idel+1,jdel+1,n))
-           cmax = max(sx(idel,  jdel,n),sx(idel+1,jdel,  n), &
-                      sx(idel,jdel+1,n),sx(idel+1,jdel+1,n))
-           rmul_1 = sx(idel,  jdel-1,n)*dmul_2 + sx(idel+1,jdel-1,n)*dmul_3
-           rmul_2 = sx(idel-1,jdel,  n)*cmul_1 + sx(idel,  jdel,  n)*cmul_2 + &
-                    sx(idel+1,jdel,  n)*cmul_3 + sx(idel+2,jdel,  n)*cmul_4
-           rmul_3 = sx(idel-1,jdel+1,n)*cmul_1 + sx(idel,  jdel+1,n)*cmul_2 + &
-                    sx(idel+1,jdel+1,n)*cmul_3 + sx(idel+2,jdel+1,n)*cmul_4
-           rmul_4 = sx(idel,  jdel+2,n)*dmul_2 + sx(idel+1,jdel+2,n)*dmul_3
-           array(i,j) = min( max( cmin, &
-              rmul_1*emul_1 + rmul_2*emul_2 + rmul_3*emul_3 + rmul_4*emul_4 ), cmax ) ! Bermejo & Staniforth
+           if ( sx(idel,  jdel-1,n) == NF90_FILL_FLOAT .or. sx(idel+1,jdel-1,n) == NF90_FILL_FLOAT .or. &
+                sx(idel-1,jdel  ,n) == NF90_FILL_FLOAT .or. sx(idel,  jdel,  n) == NF90_FILL_FLOAT .or. &
+                sx(idel+1,jdel  ,n) == NF90_FILL_FLOAT .or. sx(idel+2,jdel,  n) == NF90_FILL_FLOAT .or. &
+                sx(idel-1,jdel+1,n) == NF90_FILL_FLOAT .or. sx(idel,  jdel+1,n) == NF90_FILL_FLOAT .or. &
+                sx(idel+1,jdel+1,n) == NF90_FILL_FLOAT .or. sx(idel+2,jdel+1,n) == NF90_FILL_FLOAT .or. &
+                sx(idel,  jdel+2,n) == NF90_FILL_FLOAT .or. sx(idel+1,jdel+2,n) == NF90_FILL_FLOAT ) then
+              if ( sx(idel,jdel,n)     == NF90_FILL_FLOAT .or. &
+                   sx(idel+1,jdel,n)   == NF90_FILL_FLOAT .or. &
+                   sx(idel+1,jdel+1,n) == NF90_FILL_FLOAT .or. &
+                   sx(idel,jdel+1,n)   == NF90_FILL_FLOAT ) then
+                 array(i,j) = NF90_FILL_FLOAT
+              else 
+                 xxg = xg(i,j)-idel
+                 yyg = yg(i,j)-jdel
+                 r(1) = sx(idel,jdel,n) + (sx(idel+1,jdel,n)-sx(idel,jdel,n))*xxg
+                 r(2) = sx(idel,jdel+1,n) + (sx(idel+1,jdel+1,n)-sx(idel,jdel+1,n))*xxg
+                 array(i,j) = r(1) + (r(2)-r(1))*yyg
+              end if 
+           else 
+              xxg=xg(i,j)-real(idel)
+              yyg=yg(i,j)-real(jdel)
+              cmul_1 = (1.-xxg)*(2.-xxg)*(-xxg)/6.
+              cmul_2 = (1.-xxg)*(2.-xxg)*(1.+xxg)/2.
+              cmul_3 = xxg*(1.+xxg)*(2.-xxg)/2.
+              cmul_4 = (1.-xxg)*(-xxg)*(1.+xxg)/6.
+              dmul_2 = (1.-xxg)
+              dmul_3 = xxg
+              emul_1 = (1.-yyg)*(2.-yyg)*(-yyg)/6.
+              emul_2 = (1.-yyg)*(2.-yyg)*(1.+yyg)/2.
+              emul_3 = yyg*(1.+yyg)*(2.-yyg)/2.
+              emul_4 = (1.-yyg)*(-yyg)*(1.+yyg)/6.
+              cmin = min(sx(idel,  jdel,n),sx(idel+1,jdel,  n), &
+                         sx(idel,jdel+1,n),sx(idel+1,jdel+1,n))
+              cmax = max(sx(idel,  jdel,n),sx(idel+1,jdel,  n), &
+                         sx(idel,jdel+1,n),sx(idel+1,jdel+1,n))
+              rmul_1 = sx(idel,  jdel-1,n)*dmul_2 + sx(idel+1,jdel-1,n)*dmul_3
+              rmul_2 = sx(idel-1,jdel,  n)*cmul_1 + sx(idel,  jdel,  n)*cmul_2 + &
+                       sx(idel+1,jdel,  n)*cmul_3 + sx(idel+2,jdel,  n)*cmul_4
+              rmul_3 = sx(idel-1,jdel+1,n)*cmul_1 + sx(idel,  jdel+1,n)*cmul_2 + &
+                       sx(idel+1,jdel+1,n)*cmul_3 + sx(idel+2,jdel+1,n)*cmul_4
+              rmul_4 = sx(idel,  jdel+2,n)*dmul_2 + sx(idel+1,jdel+2,n)*dmul_3
+              array(i,j) = min( max( cmin, &
+                 rmul_1*emul_1 + rmul_2*emul_2 + rmul_3*emul_3 + rmul_4*emul_4 ), cmax ) ! Bermejo & Staniforth
+           end if   
         enddo ! i loop
      enddo ! j loop
   case default
