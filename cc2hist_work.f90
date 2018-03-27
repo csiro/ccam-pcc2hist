@@ -39,7 +39,7 @@ module work
    logical, private, save :: resprocformat
 
 !  Passed between infile and main, previously in common infil
-   integer :: ik, jk, kk
+   integer :: ik, jk, kk, ok
    integer :: nlev  ! Number of levels in output
    integer :: ndt, ktau, nqg, nsd
    integer :: ksoil, kice
@@ -124,7 +124,8 @@ contains
          allocate( hstd(pil,pjl*pnpan*lproc,kl) )
       end if
       if ( ol > 0 ) then
-         allocate( uo_tmp(pil,pjl*pnpan*lproc,ol), vo_tmp(pil,pjl*pnpan*lproc,ol) ) 
+         allocate( uo_tmp(pil,pjl*pnpan*lproc,ol), vo_tmp(pil,pjl*pnpan*lproc,ol) )
+         allocate( thetao_tmp(pil,pjl*pnpan*lproc,ol), so_tmp(pil,pjl*pnpan*lproc,ol) )
       end if
 
    end subroutine alloc_indata
@@ -736,6 +737,16 @@ contains
                   qg = max( qg, 0. )
                   call vsavehist ( "qgrg", qg )
                end if
+            case ( "so" )
+               if ( need3dfld("so") ) then
+                  call vread( "so", so_tmp )
+                  call savehist( "so", so_tmp )
+               end if
+            case ( "thetao" )
+               if ( need3dfld("thetao") ) then
+                  call vread( "thetao", thetao_tmp )
+                  call savehist( "thetao", thetao_tmp )
+               end if    
             ! Should to u, v as above with vector flag, but this will do for now
             case ( "u" )
                if ( need3dfld("u") ) then
@@ -753,6 +764,14 @@ contains
                if ( need3dfld("va") ) then
                   call vread( "v", v )
                end if
+            case ( "uo" ) 
+               if ( need3dfld("uo") ) then
+                  call vread( "uo", uo_tmp )
+               end if
+            case ( "vo" ) 
+               if ( need3dfld("vo") ) then
+                  call vread( "vo", vo_tmp )
+               end if   
             case ( "omega" )
                if ( need3dfld("omega") ) then
                   call vread( "omega", omega )
@@ -781,24 +800,8 @@ contains
                call savehist("wetfrac", tgg)
             case default
                if ( varlist(ivar)%water ) then
-                  if ( varlist(ivar)%vector ) then
-                     if ( varlist(ivar)%xcmpnt ) then
-                        name = varlist(varlist(ivar)%othercmpnt)%vname
-                        if ( needfld(varlist(ivar)%vname) .or. needfld(name) ) then
-                           call vread( varlist(ivar)%vname, uo_tmp)
-                           call vread( name, vo_tmp)
-                           call fix_winds(uo_tmp, vo_tmp)
-                           call savehist ( varlist(ivar)%vname, uo_tmp )
-                           call savehist ( name, vo_tmp )
-                        end if         
-                     end if 
-                  else
-                     ! readsave3 allocates kk levels, so we need to use the array with ol levels 
-                     if ( needfld(varlist(ivar)%vname) ) then  
-                        call vread( varlist(ivar)%vname, uo_tmp )
-                        call savehist( varlist(ivar)%vname, uo_tmp )
-                     end if  
-                  end if
+                  write(6,*) "ERROR: Not expecting ocean scalar ",trim(varlist(ivar)%vname)
+                  stop
                else
                   call readsave3 (varlist(ivar)%vname)
                end if   
@@ -1027,6 +1030,42 @@ contains
          end if
       end if
       
+      ! ocean currents
+      if ( ok>1 ) then
+         if ( needfld("uos") .or. needfld("vos") .or. &
+              needfld("uo") .or. needfld("vo") ) then
+            call fix_winds(uo_tmp,vo_tmp)
+            if ( needfld("uos") ) then
+               call savehist( "uos", uo_tmp(:,:,1) )
+            end if
+            if ( needfld("vos") ) then
+               call savehist( "vos", vo_tmp(:,:,1) )
+            end if
+            if ( needfld("uo") ) then
+               call savehist( "uo", uo_tmp )
+            end if
+            if ( needfld("vo") ) then
+               call savehist( "vo", vo_tmp ) 
+            end if    
+         end if
+         if ( needfld("sos") .or. needfld("so") ) then
+            if ( needfld("sos") ) then
+               call savehist( "sos", so_tmp(:,:,1) ) 
+            end if
+            if ( needfld("so" ) ) then
+               call savehist( "so", so_tmp )
+            end if   
+         end if
+         if ( needfld("tos") .or. needfld("thetao") ) then
+            if ( needfld("tos") ) then
+               call savehist( "tos", thetao_tmp(:,:,1) ) 
+            end if
+            if ( needfld("thetao" ) ) then
+               call savehist( "thetao", thetao_tmp )
+            end if   
+         end if
+      end if
+      
       ! only for TAPM output
       if ( needfld("cos_zen") ) then
          ! calculate zenith angle
@@ -1094,6 +1133,13 @@ contains
          needed = needfld("qgrg")
       case ( "omega" )
          needed = needfld("omega") .or. needfld("w")
+      case ( "uo", "vo" )
+         needed = needfld("uo") .or. needfld("vo") .or. needfld("uos") .or. &
+                  needfld("vos")
+      case ( "so" ) 
+         needed = needfld("so") .or. needfld("sos")
+      case ( "thetao" )
+         needed = needfld("thetao") .or. needfld("tos")
       case default
          print*, "Error - unsupported argument for need3dfld", name
          stop
@@ -1325,6 +1371,7 @@ contains
       ik = il  ! These are only set once
       jk = jl
       kk = kl
+      ok = ol
       nsd = 0
       nqg = 0
       ilt = il
@@ -2446,6 +2493,13 @@ contains
          call addfld ( "u10", "10m wind speed", "m/s", 0., 100.0, 1 ) 
          call addfld ( "d10", "10m wind direction", "deg", 0.0, 360.0, 1 )
       end if
+      
+      if ( ok > 1 ) then
+         call addfld( "uos", "x-component surface current", "m/s", -100., 100., 1 )
+         call addfld( "vos", "y-component surface current", "m/s", -100., 100., 1 )
+         call addfld( "sos", "Surface ocean salinity", "PSU", 0., 100., 1 )
+         call addfld( "tos", "Surface ocean temperature", "K", 150., 350., 1 )
+      end if    
 
    end subroutine get_var_list
 

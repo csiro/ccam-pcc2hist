@@ -31,5 +31,5 @@ module gldata
    real, allocatable, dimension(:,:,:) :: zstd
    real, allocatable, dimension(:,:,:) :: hstd
    real, allocatable, dimension(:,:,:) :: tmp3d
-   real, allocatable, dimension(:,:,:) :: uo_tmp, vo_tmp
+   real, allocatable, dimension(:,:,:) :: uo_tmp, vo_tmp, thetao_tmp, so_tmp
 end module gldata
