@@ -3582,16 +3582,18 @@ contains
 #endif
 
 #ifdef usempi3
-      call freeshdata(xyg_win)
-      call freeshdata(nface_win)
-      call freeshdata(ijoff_win)
-      nullify(xyg)
-      nullify(ijoff)
-      nullify(xg,yg)
-      nullify(nface)
+   call freeshdata(xyg_win)
+   call freeshdata(nface_win)
+   call freeshdata(ijoff_win)
+   nullify(xyg)
+   nullify(ijoff)
+   nullify(xg,yg)
+   nullify(nface)
 #else
+   if ( allocated(xg) ) then
       deallocate(xg,yg)
       deallocate(nface)
+   end if   
 #endif
    
    end subroutine cc2hist_work_close
