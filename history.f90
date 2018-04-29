@@ -310,12 +310,11 @@ module history
    logical, public :: save_ccam_parameters = .true.
 
 !  MPI working arrays
+   integer, private, save :: nx_g, ny_g
 #ifdef usempi3
    real, dimension(:,:,:,:), pointer, contiguous :: hist_a
    integer, dimension(:), allocatable, save, private :: k_indx
    real, dimension(:,:), allocatable, save, private :: hist_g
-
-   integer, private, save :: nx_g, ny_g
 #else
    real, dimension(:,:,:,:), allocatable, save, private :: hist_a
    real, dimension(:,:,:), allocatable, save, private :: hist_g
@@ -1165,19 +1164,8 @@ contains
                  pil*pjl*pnpan*lproc*hsize, "words"
             stop
          end if
-#ifdef usempi3
          nx_g = nx
          ny_g = ny
-#else
-         if ( myid == 0 ) then
-            pkl = size(sig)
-            allocate( hist_a(pil,pjl*pnpan,pkl,pnproc) )
-            allocate( hist_g(nx,ny,pkl) )
-         else
-            allocate( hist_a(0,0,0,0) )
-            allocate( hist_g(0,0,0) )
-         end if
-#endif
       end if
 
 !     Initialise the history appropriately
@@ -1190,7 +1178,7 @@ contains
          do ifld = 1, totflds
             if ( histinfo(ifld)%used(ifile) ) then
                istart = histinfo(ifld)%ptr(ifile)
-               iend = istart + histinfo(ifld)%nlevels-1
+               iend = istart + histinfo(ifld)%nlevels - 1
                histarray(:,:,istart:iend) = &
                   initval(histinfo(ifld)%ave_type(ifile))
             end if
@@ -2166,7 +2154,7 @@ contains
             end if
 
             istart = histinfo(ifld)%ptr(ifile)
-            iend = istart+nlev-1
+            iend = istart + nlev - 1
 
 !           Even multilevel variables are written one level at a time
             do k = istart,iend
@@ -2233,6 +2221,7 @@ contains
                end if
 
                call sendrecv_wrap(htemp,cnt,slab,offset)
+               
                if ( myid == 0 ) then
 
                   if ( count /= 0 .and. hbytes(ifile) == 2 ) then
@@ -2308,21 +2297,29 @@ contains
                print*, "History written at point ", histinfo(ifld)%name,&
                     histarray(ihdb,jhdb,istart+khdb-1)
             end if
+            
+            if ( myid == 0 ) then
+               allocate( hist_a(pil,pjl*pnpan,nlev,pnproc) )
+               allocate( hist_g(nx_g,ny_g) )
+            else
+               allocate( hist_a(0,0,0,0) )
+               allocate( hist_g(0,0) )
+            end if    
 
             call gather_wrap(histarray(:,:,istart:iend),hist_a)
             
             if ( myid == 0 ) then
-
-               do ip = 0,pnproc-1   
-                  do n = 0,pnpan-1
-                     hist_g(1+ioff(ip,n):pil+ioff(ip,n),1+joff(ip,n)+n*pil_g:pjl+joff(ip,n)+n*pil_g,1:iend-istart+1) = &
-                        hist_a(1:pil,1+n*pjl:(n+1)*pjl,1:iend-istart+1,ip+1)
-                  end do
-               end do
                 
 !              Even multilevel variables are written one level at a time
-               do k=istart, iend
+               do k = istart, iend
 
+                  do ip = 0,pnproc-1   
+                     do n = 0,pnpan-1
+                        hist_g(1+ioff(ip,n):pil+ioff(ip,n),1+joff(ip,n)+n*pil_g:pjl+joff(ip,n)+n*pil_g) = &
+                           hist_a(1:pil,1+n*pjl:(n+1)*pjl,k-istart+1,ip+1)
+                     end do
+                  end do
+  
                   if ( count == 0 ) then
                      if ( hbytes(ifile) == 2 ) then
                         htemp = NF90_FILL_SHORT
@@ -2332,9 +2329,9 @@ contains
                   else
 
                      if ( present(interp) ) then
-                        call interp ( hist_g(:,:,k+1-istart), htemp, histinfo(ifld)%int_type )
+                        call interp ( hist_g, htemp, histinfo(ifld)%int_type )
                      else
-                        htemp = hist_g(:,:,k+1-istart)
+                        htemp = hist_g
                      end if
 
                      if ( hbytes(ifile) == 2 ) then
@@ -2365,6 +2362,8 @@ contains
                
             end if ! myid == 0
 
+            deallocate( hist_a, hist_g )
+            
 !           Zero ready for next set
             histarray(:,:,istart:iend) = initval(ave_type)
 !           Reset the count variable
@@ -2565,7 +2564,84 @@ contains
 
    end subroutine clearhist
 
-#ifndef usempi3
+#ifdef usempi3
+   subroutine gather_wrap(histarray,hist_a,slab,offset,maxcnt,k_indx)
+      use mpidata_m, only : nproc, lproc, myid, pil, pjl, pnpan, comm_world
+      use logging_m
+#ifdef usempi_mod
+      use mpi
+#else
+      include 'mpif.h'
+#endif 
+      integer, intent(in) :: slab, offset, maxcnt
+      integer :: istart, iend, ip, k, n, ierr
+      integer, dimension(maxcnt), intent(in) :: k_indx
+      real, dimension(:,:,:), intent(in) :: histarray
+      real, dimension(size(histarray,1),size(histarray,2),slab) :: histarray_tmp
+      real, dimension(:,:,:,:), pointer, contiguous, intent(out) :: hist_a
+      real, dimension(pil*pjl*pnpan*lproc*slab*nproc), target :: hist_a_tmp
+      real, dimension(:,:,:,:), pointer, contiguous :: hist_a_remap, hist_a_tmp_remap
+   
+      call START_LOG(gatherwrap_begin)
+      
+      do ip = 0,nproc-1
+         istart = 1 + slab*(ip-offset) 
+         if ( istart > 0 ) then
+            iend = istart + slab - 1
+            iend = min( iend, maxcnt )
+            do k = istart,iend
+               histarray_tmp(:,:,k-istart+1) = histarray(:,:,k_indx(k))
+            end do   
+            call START_LOG(mpigather_begin)
+            call MPI_Gather(histarray_tmp(:,:,:), pil*pjl*pnpan*lproc*(iend-istart+1), MPI_REAL,    &
+                            hist_a_tmp, pil*pjl*pnpan*lproc*(iend-istart+1), MPI_REAL,              &
+                            ip, comm_world, ierr)
+            call END_LOG(mpigather_end)
+         end if
+      end do
+      
+      istart = 1 + slab*(myid-offset)
+      if ( istart > 0 ) then
+         iend = slab*(myid-offset+1)
+         iend = min( iend, maxcnt )          
+         hist_a_remap(1:pil,1:pjl*pnpan*lproc,1:nproc,istart:iend) => hist_a
+         hist_a_tmp_remap(1:pil,1:pjl*pnpan*lproc,istart:iend,1:nproc) =>    &
+             hist_a_tmp(1:pil*pjl*pnpan*lproc*(iend-istart+1)*nproc)
+         do n = 1,nproc
+            do k = istart,iend 
+               hist_a_remap(:,:,n,k) = hist_a_tmp_remap(:,:,k,n)
+            end do
+         end do
+      end if          
+     
+      call END_LOG(gatherwrap_end)
+   
+   end subroutine gather_wrap
+   
+   subroutine sendrecv_wrap(htemp,cnt,slab,offset)
+      use mpidata_m, only : nproc, lproc, myid, comm_world
+#ifdef usempi_mod
+      use mpi
+#else
+      include 'mpif.h'
+#endif  
+      real, dimension(:,:), intent(inout) :: htemp
+      integer, intent(in) :: cnt, slab, offset
+      integer :: rrank, sizehis, ierr
+   
+      rrank = ceiling(1.0d0*cnt/slab) - 1 + offset
+      if ( rrank /= 0 ) then
+         if ( myid == 0 ) then
+            sizehis = size(htemp, 1)*size(htemp, 2) 
+            call MPI_Recv(htemp,sizehis,MPI_REAL,rrank,1,comm_world,MPI_STATUS_IGNORE,ierr)
+         else if ( myid == rrank ) then
+            sizehis = size(htemp, 1)*size(htemp, 2) 
+            call MPI_Send(htemp,sizehis,MPI_REAL,0,1,comm_world,ierr)
+         end if
+      end if
+       
+   end subroutine sendrecv_wrap
+#else
    subroutine gather_wrap(array_in,array_out)
       use mpidata_m, only : nproc, lproc, comm_world, myid
       use logging_m
@@ -2596,82 +2672,7 @@ contains
       call END_LOG(gatherwrap_end)
       
    end subroutine gather_wrap
-#else
-   subroutine gather_wrap(histarray,hist_a,slab,offset,maxcnt,k_indx)
-      use mpidata_m, only : nproc, lproc, myid, pil, pjl, pnpan, comm_world
-      use logging_m
-#ifdef usempi_mod
-      use mpi
-#else
-      include 'mpif.h'
-#endif 
-      integer, intent(in) :: slab, offset, maxcnt
-      integer :: istart, iend, ip, k, n, ierr
-      integer, dimension(maxcnt), intent(in) :: k_indx
-      real, dimension(:,:,:), intent(in) :: histarray
-      real, dimension(size(histarray,1),size(histarray,2),slab) :: histarray_tmp
-      real, dimension(:,:,:,:), pointer, contiguous, intent(out) :: hist_a
-      real, dimension(pil*pjl*pnpan*lproc*slab*nproc), target :: hist_a_tmp
-      real, dimension(:,:,:,:), pointer, contiguous :: hist_a_remap, hist_a_tmp_remap
-   
-      call START_LOG(gatherwrap_begin)
-      
-      do ip = 0,nproc-1
-         if ( 1+slab*(ip-offset) > 0 ) then
-            istart = 1 + slab*(ip-offset)
-            iend = istart + slab - 1
-            iend = min( iend, maxcnt )
-            histarray_tmp(:,:,1:iend-istart+1) = histarray(:,:,(/k_indx(istart:iend)/))
-            call START_LOG(mpigather_begin)
-            call MPI_Gather(histarray_tmp(:,:,:), pil*pjl*pnpan*lproc*(iend-istart+1), MPI_REAL,    &
-                            hist_a_tmp, pil*pjl*pnpan*lproc*(iend-istart+1), MPI_REAL,                    &
-                            ip, comm_world, ierr)
-            call END_LOG(mpigather_end)
-         end if
-      end do
-      
-      if ( 1+slab*(myid-offset) > 0 ) then
-         istart = 1 + slab*(myid-offset)
-         iend = slab*(myid-offset+1)
-         iend = min( iend, maxcnt )          
-         hist_a_remap(1:pil,1:pjl*pnpan*lproc,1:nproc,istart:iend) => hist_a
-         hist_a_tmp_remap(1:pil,1:pjl*pnpan*lproc,istart:iend,1:nproc) =>    &
-             hist_a_tmp(1:pil*pjl*pnpan*lproc*(iend-istart+1)*nproc)
-         do k = istart,iend
-            do n = 1,nproc
-               hist_a_remap(:,:,n,k) = hist_a_tmp_remap(:,:,k,n)
-            end do
-         end do
-      end if          
-     
-      call END_LOG(gatherwrap_end)
-   
-   end subroutine gather_wrap
 #endif
-
-   subroutine sendrecv_wrap(htemp,cnt,slab,offset)
-      use mpidata_m, only : nproc, lproc, myid, comm_world
-#ifdef usempi_mod
-      use mpi
-#else
-      include 'mpif.h'
-#endif  
-      real, dimension(:,:), intent(inout) :: htemp
-      integer, intent(in) :: cnt, slab, offset
-      integer :: rrank, nxhis, nyhis, ierr
-   
-      nxhis = size(htemp, 1)
-      nyhis = size(htemp, 2)
-      rrank = ceiling(1.0d0*cnt/slab) - 1 + offset
-      if ( rrank /= 0 ) then
-         if ( myid == 0 ) then
-            call MPI_Recv(htemp,nxhis*nyhis,MPI_REAL,rrank,1,comm_world,MPI_STATUS_IGNORE,ierr)
-         else if ( myid == rrank ) then
-            call MPI_Send(htemp,nxhis*nyhis,MPI_REAL,0,1,comm_world,ierr)
-         end if
-      end if
-       
-   end subroutine sendrecv_wrap
 
 
 !-------------------------------------------------------------------
