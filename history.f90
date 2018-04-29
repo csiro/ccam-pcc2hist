@@ -311,13 +311,12 @@ module history
 
 !  MPI working arrays
    integer, private, save :: nx_g, ny_g
+   real, dimension(:,:), allocatable, save, private :: hist_g
 #ifdef usempi3
    real, dimension(:,:,:,:), pointer, contiguous :: hist_a
    integer, dimension(:), allocatable, save, private :: k_indx
-   real, dimension(:,:), allocatable, save, private :: hist_g
 #else
    real, dimension(:,:,:,:), allocatable, save, private :: hist_a
-   real, dimension(:,:,:), allocatable, save, private :: hist_g
 #endif
 
 contains
