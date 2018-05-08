@@ -1886,7 +1886,7 @@ contains
       integer :: ierr, ndimensions, nvariables, ndims, ivar, int_type, xtype
       integer :: londim, latdim, levdim, olevdim, procdim, timedim, vid, ihr, ind
       integer, dimension(nf90_max_var_dims) :: dimids
-      logical :: procformat
+      logical :: procformat, ran_type
       character(len=10) :: substr
       character(len=20) :: vname
       character(len=100) :: long_name, tmpname, valid_att, std_name, cell_methods
@@ -2201,6 +2201,17 @@ contains
          else
             int_type = int_default
          end if
+         if ( match ( varlist(ivar)%vname, &
+               (/ "cape_ave  ", "cape_max  ", "cbas_ave  ", "cfrac     ", "cld       ", "clh       ", "cll       ", &
+                  "clm       ", "convh_ave ", "ctop_ave  ", "lwp_ave   ", "maxrnd    ", "omega     ", "pblh      ", &
+                  "pmsl      ", "psl       ", "qfg       ", "qgrg      ", "qgscrn    ", "qlg       ", "qrg       ", &
+                  "qsng      ", "rfrac     ", "rhscrn    ", "rnc       ", "rnd       ", "rnd24     ", "sfcWindmax", &
+                  "sunhours  ", "temp      ", "tscrn     ", "tsu       ", "u         ", "u10       ", "u10max    ", &
+                  "uscrn     ", "v         ", "v10max    ", "zolnd     ", "zht       " /)) ) then
+            ran_type = .true.
+         else
+            ran_type = .false.
+         end if
          if ( varlist(ivar)%vname == "pmsl" ) then
             varlist(ivar)%vname = "psl"
             if ( cordex_compliant ) then
@@ -2359,13 +2370,17 @@ contains
          end if
          call cc_cfproperties(varlist(ivar), std_name, cell_methods)
          if ( varlist(ivar)%fixed ) then
-            call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name, &
-                      varlist(ivar)%units, xmin, xmax, 1, ave_type="fixed", int_type=int_type, std_name=std_name )
+            call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name,     &
+                      varlist(ivar)%units, xmin, xmax, 1, ave_type="fixed", &
+                      int_type=int_type, std_name=std_name,                 &
+                      ran_type=ran_type )
          else if ( varlist(ivar)%ndims == 2 ) then
             if ( varlist(ivar)%vname(1:3) == "max" ) then
                ! Special check for maximum rainfall rate
                call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name, &
-                      varlist(ivar)%units, xmin, xmax, 1, ave_type="max", std_name=std_name, cell_methods=cell_methods )
+                      varlist(ivar)%units, xmin, xmax, 1, ave_type="max",  &
+                      std_name=std_name, cell_methods=cell_methods,        &
+                      ran_type=ran_type )
             else
                ! Check for screen and 10m variables
                coord_height = -huge(1.) ! Acts as a null value
@@ -2381,19 +2396,20 @@ contains
                call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name,   &
                       varlist(ivar)%units, xmin, xmax, 1, std_name=std_name, &
                       coord_height=coord_height, cell_methods=cell_methods,  & 
-                      int_type=int_type )
+                      int_type=int_type, ran_type=ran_type )
             end if
          else if ( varlist(ivar)%ndims == 3 ) then  
             if ( varlist(ivar)%water ) then
               call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name,       &
-                        varlist(ivar)%units, xmin, xmax, ol, multilev=.true., &
+                        varlist(ivar)%units, xmin, xmax, ol, multilev=.true.,   &
                         std_name=std_name, water=varlist(ivar)%water,           &
-                        cell_methods=cell_methods, int_type=int_type )
+                        cell_methods=cell_methods, int_type=int_type,           &
+                        ran_type=ran_type )
             else
               call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name,       &
                         varlist(ivar)%units, xmin, xmax, nlev, multilev=.true., &
                         std_name=std_name, cell_methods=cell_methods,           &
-                        int_type=int_type )
+                        int_type=int_type, ran_type=ran_type )
             end if  
          end if
       end do
@@ -2402,40 +2418,44 @@ contains
       if ( kk > 1 ) then
          call addfld ( "grid", "Grid resolution", "km", 0., 1000., 1, ave_type="fixed" )
          call addfld ( "tsea", "Sea surface temperature", "K", 150., 350., 1, &
-                        std_name="sea_surface_temperature" )
+                        std_name="sea_surface_temperature", ran_type=.true. )
          if ( cordex_compliant ) then
             call addfld ( "evspsbl", "Evaporation", "kg/m2/s", 0., 0.001, 1, std_name="water_evaporation_flux" )          
             call addfld ( "mrso", "Total soil moisture content", "kg/m2", 0., 100.0, 1, std_name="soil_moisture_content" )          
             call addfld ( "mrfso", "Soil frozen water content", "kg/m2", 0., 100.0, 1, std_name="soil_frozen_water_content" )   
-            call addfld ( "prw", "Precipitable water column", "kg/m2", 0.0, 100.0, 1, std_name="atmosphere_water_vapor_content")
+            call addfld ( "prw", "Precipitable water column", "kg/m2", 0.0, 100.0, 1,  &
+                           std_name="atmosphere_water_vapor_content", ran_type=.true. )
             call addfld ( "ps", "Surface pressure", "Pa", 0., 120000., 1, &
-                           std_name="surface_air_pressure" )
+                           std_name="surface_air_pressure", ran_type=.true. )
             call addfld ( "rlus", "Upwelling Longwave radiation", "W/m2", -1000., 1000., 1 )
             call addfld ( "rsus", "Upwelling Shortwave radiation", "W/m2", -1000., 1000., 1 )
             if ( int_type /= int_none ) then
                call addfld ( "sftlf", "Land-sea mask", "%",  0.0, 100.0, 1, &
-                              ave_type="fixed", int_type=int_nearest )
+                              ave_type="fixed", int_type=int_nearest,       &
+                              ran_type=.true. )
             else
                call addfld ( "sftlf", "Land-sea mask", "%",  0.0, 100.0, 1, &
-                              ave_type="fixed", int_type=int_none )
+                              ave_type="fixed", int_type=int_none,          &
+                              ran_type=.true. )
             end if
             call addfld ( "snc",  "Snow area fraction", "%", 0., 6.5, 1 )
             call addfld ( "snw",  "Surface snow amount", "kg/m2", 0., 6.5, 1 )
          else
-            call addfld ( "d10", "10m wind direction", "deg", 0.0, 360.0, 1 )          
+            call addfld ( "d10", "10m wind direction", "deg", 0.0, 360.0, 1, ran_type=.true. )          
             if ( int_type /= int_none ) then
                call addfld ( "land_mask", "Land-sea mask", "",  0.0, 1.0, 1, &
-                              ave_type="fixed", int_type=int_nearest )
+                              ave_type="fixed", int_type=int_nearest, ran_type=.true. )
             else
                call addfld ( "land_mask", "Land-sea mask", "",  0.0, 1.0, 1, &
-                              ave_type="fixed", int_type=int_none )
+                              ave_type="fixed", int_type=int_none, ran_type=.true. )
             end if
             call addfld ( "ps", "Surface pressure", "hPa", 0., 1200., 1, &
-                           std_name="surface_air_pressure" )
-            call addfld ( "pwc", "Precipitable water column", "kg/m2", 0.0, 100.0, 1, std_name="atmosphere_water_vapor_content")
+                           std_name="surface_air_pressure", ran_type=.true. )
+            call addfld ( "pwc", "Precipitable water column", "kg/m2", 0.0, 100.0, 1, &
+                          std_name="atmosphere_water_vapor_content", ran_type=.true. )
          end if
-         call addfld ( "uas", "x-component 10m wind", "m/s", -100.0, 100.0, 1 )
-         call addfld ( "vas", "y-component 10m wind", "m/s", -100.0, 100.0, 1 )
+         call addfld ( "uas", "x-component 10m wind", "m/s", -100.0, 100.0, 1, ran_type=.true. )
+         call addfld ( "vas", "y-component 10m wind", "m/s", -100.0, 100.0, 1, ran_type=.true. )
          ! Packing is not going to work well in this case
          ! For height, estimate the height of the top level and use that
          ! for scaling
@@ -2453,11 +2473,14 @@ contains
          ! Round to next highest 1000 m
          topheight = 1000*(floor(0.001*topheight)+1)
          call addfld ( "zg", "Geopotential height", "m", 0., topheight, nlev,    &
-                        multilev=.true., std_name="geopotential_height" )
+                        multilev=.true., std_name="geopotential_height",         &
+                        ran_type=.true. )
          call addfld ( "press", "Air pressure", "hPa", 0., 1500., nlev,          &
-                        multilev=.true., std_name="air_pressure" )
+                        multilev=.true., std_name="air_pressure",                &
+                        ran_type=.true. )
          call addfld ( "rh", "Relative humidity", "%", 0., 110., nlev,           &
-                        multilev=.true., std_name="relative_humidity" )
+                        multilev=.true., std_name="relative_humidity",           &
+                        ran_type=.true. )
          call addfld ( "theta", "Potential temperature", "K", 150., 1200., nlev, &
                         multilev=.true., std_name="potential_temperature" )
          call addfld ( "w", "Vertical velocity", "m/s", -1., 1., nlev,           &
@@ -2468,7 +2491,8 @@ contains
          call addfld ( "tbot", "Air temperature at lowest sigma level", "K", 100., 400., 1 )
          call addfld ( "ubot", "Eastward wind at lowest sigma level", "m/s", -100., 100., 1)
          call addfld ( "vbot", "Northward wind at lowest sigma level", "m/s", -100., 100., 1)
-         call addfld ( "qbot", "Specific humidity at lowest sigma level", "kg/kg", 0., 0.1, 1)
+         call addfld ( "qbot", "Specific humidity at lowest sigma level", "kg/kg", 0., 0.1, 1, &
+                       ran_type=.true. )
 
          ! Vertical averaged fluxes. Note that these are NOT vertical integrals
          call addfld ( "vaveuq", "Vertical average of zonal humidity flux", "m/s kg/kg", -0.5, 0.5, 1, std_name=std_name )
@@ -2490,8 +2514,8 @@ contains
 
       else
          ! high-frequency output
-         call addfld ( "u10", "10m wind speed", "m/s", 0., 100.0, 1 ) 
-         call addfld ( "d10", "10m wind direction", "deg", 0.0, 360.0, 1 )
+         call addfld ( "u10", "10m wind speed", "m/s", 0., 100.0, 1, ran_type=.true. ) 
+         call addfld ( "d10", "10m wind direction", "deg", 0.0, 360.0, 1, ran_type=.true. )
       end if
       
       if ( ok > 1 ) then
@@ -2836,6 +2860,7 @@ contains
       real :: av, avx
       
       call START_LOG(fillcc0_begin)
+      
       lsize = pil*pjl*pnpan*lproc
       call START_LOG(mpigather_begin)
       call MPI_Gather(b_io,lsize,MPI_REAL,c_io,lsize,MPI_REAL,0,comm_world,ierr)
@@ -2845,69 +2870,69 @@ contains
          do n = 0,pnpan-1
             do j = 1,pjl
                do i = 1,pil
-                  iq = i+ioff(ip,n) + (j+joff(ip,n)+n*pil_g-1)*il
+                  iq = i + ioff(ip,n) + (j+joff(ip,n)+n*pil_g-1)*il
                   a(iq) = c_io(i,j+n*pjl,ip+1)
                end do
             end do
          end do
       end do
       
-      imin=1
-      imax=il
-      jmin=1
-      jmax=il
+      imin(:) = 1
+      imax(:) = il
+      jmin(:) = 1
+      jmax(:) = il
       
       nrem = 1    ! Just for first iteration
 !     nrem_gmin used to avoid infinite loops, e.g. for no sice
       do while ( nrem > 0 )
-         nrem=0
-         do n=0,5
-            iminb=il
-            imaxb=1
-            jminb=il
-            jmaxb=1
-            do j=jmin(n),jmax(n)
-               do i=imin(n),imax(n)
-                  iq=i+(j-1)*il+n*il*il
-                  b(iq)=a(iq)
-                  if ( a(iq)==value ) then
-                     neighb=0
-                     av=0.
-                     if ( a(i_n(iq))/=value ) then
-                        neighb=neighb+1
-                        av=av+a(i_n(iq))
+         nrem = 0
+         b(:) = a(:)
+         do n = 0,5
+            iminb = il
+            imaxb = 1
+            jminb = il
+            jmaxb = 1
+            do j = jmin(n),jmax(n)
+               do i = imin(n),imax(n)
+                  iq = i + (j-1)*il + n*il*il
+                  if ( a(iq) == value ) then
+                     neighb = 0
+                     av = 0.
+                     if ( a(i_n(iq)) /= value ) then
+                        neighb = neighb + 1
+                        av = av + a(i_n(iq))
                      end if
-                     if ( a(i_e(iq))/=value ) then
-                        neighb=neighb+1
-                        av=av+a(i_e(iq))
+                     if ( a(i_e(iq)) /= value ) then
+                        neighb = neighb + 1
+                        av = av + a(i_e(iq))
                      end if
-                     if ( a(i_w(iq))/=value ) then
-                        neighb=neighb+1
-                        av=av+a(i_w(iq))
+                     if ( a(i_w(iq)) /= value ) then
+                        neighb = neighb + 1
+                        av = av + a(i_w(iq))
                      end if
-                     if ( a(i_s(iq))/=value ) then
-                        neighb=neighb+1
-                        av=av+a(i_s(iq))
+                     if ( a(i_s(iq)) /= value ) then
+                        neighb = neighb + 1
+                        av = av + a(i_s(iq))
                      end if
-                     if ( neighb>0 ) then
-                        b(iq)=av/neighb
-                        avx=av
+                     if ( neighb > 0 ) then
+                        b(iq) = av/neighb
+                        avx = av
                      else
-                        nrem=nrem+1   ! current number of points without a neighbour
-                        iminb=min(i,iminb)
-                        imaxb=max(i,imaxb)
-                        jminb=min(j,jminb)
-                        jmaxb=max(j,jmaxb)
+                        nrem = nrem + 1   ! current number of points without a neighbour
+                        iminb = min( i, iminb )
+                        imaxb = max( i, imaxb )
+                        jminb = min( j, jminb )
+                        jmaxb = max( j, jmaxb )
                      end if
                   end if
                end do
             end do
-            imin(n)=iminb
-            imax(n)=imaxb
-            jmin(n)=jminb
-            jmax(n)=jmaxb
+            imin(n) = iminb
+            imax(n) = imaxb
+            jmin(n) = jminb
+            jmax(n) = jmaxb
          end do
-         a(:)=b(:)
+         a(:) = b(:)
          if ( nrem == ifull ) then
             print*, "Error in fill_cc - no points defined"
             exit

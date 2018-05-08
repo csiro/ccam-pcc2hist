@@ -211,7 +211,9 @@ module history
       real               :: valid_max
       integer            :: nlevels
 !     Controls whether variable is on the "standard" list of monthly means
-      logical            :: std        
+      logical            :: std
+!     Controls whether variable is on the "RAN" list of variables
+      logical            :: ran
 !     Scale factor for output, e.g. to convert rain from mm/step to mm/day.
       real               :: output_scale 
       logical, dimension(MAX_HFILES) :: used
@@ -311,10 +313,8 @@ module history
 
 !  MPI working arrays
    integer, private, save :: nx_g, ny_g
-   real, dimension(:,:), allocatable, save, private :: hist_g
 #ifdef usempi3
    real, dimension(:,:,:,:), pointer, contiguous :: hist_a
-   integer, dimension(:), allocatable, save, private :: k_indx
 #else
    real, dimension(:,:,:,:), allocatable, save, private :: hist_a
 #endif
@@ -537,7 +537,7 @@ contains
    subroutine addfld(name, long_name, units, valid_min, valid_max,    &
                      nlevels, amip_name, ave_type, std, output_scale, &
                      int_type, multilev, std_name, soil, water,       &
-                     coord_height, cell_methods )
+                     coord_height, cell_methods, ran_type )
 !
 !     Add a field to the master list of fields that may be saved.
 !
@@ -558,10 +558,11 @@ contains
       logical, intent(in), optional   :: water
       real, intent(in), optional :: coord_height
       character(len=*), intent(in), optional :: cell_methods
+      logical, intent(in), optional   :: ran_type
 
 !     Local variables corresponding to the optional arguments
       integer :: atype
-      logical :: lstd
+      logical :: lstd, lran
       character(len=MAX_NAMELEN) :: aname
       real    :: scale
 
@@ -607,6 +608,11 @@ contains
       else
          lstd = .false.
       end if
+      if ( present(ran_type) ) then
+         lran = ran_type  
+      else
+         lran = .false.  
+      end if
       if ( present(output_scale) ) then
          scale = output_scale
       else
@@ -632,6 +638,7 @@ contains
       histinfo(totflds)%valid_max    = valid_max
       histinfo(totflds)%nlevels      = nlevels
       histinfo(totflds)%std          = lstd
+      histinfo(totflds)%ran          = lran
       histinfo(totflds)%output_scale = scale
       histinfo(totflds)%used(:)      = .FALSE.   ! Value for now
       histinfo(totflds)%vid(:)       = 0
@@ -802,6 +809,10 @@ contains
 !              set explicitly.
                histinfo(1:totflds)%used(ifile) = &
                 histinfo(1:totflds)%used(ifile) .or. histinfo(1:totflds)%std
+            else if ( hnames(ivar,ifile) == "ran" ) then
+!              Include RAN requested variables
+               histinfo(1:totflds)%used(ifile) = &
+                histinfo(1:totflds)%used(ifile) .or. histinfo(1:totflds)%ran
             else
 !              Find the name in histinfo to set the used flag.
                ifld = bindex_hname ( hnames(ivar,ifile), &
@@ -819,7 +830,7 @@ contains
             end if
 
          end do
-
+         
 !        Apply the exclusion list
          do ivar = 1,totflds
 !           Go until the end of the variable list
@@ -1102,7 +1113,7 @@ contains
                end if
             end if
 
-            do kc=1,ncoords
+            do kc = 1,ncoords
                if ( coord_heights(kc) < 10 ) then
                   write(vname, "(a,i1.1)") "height", coord_heights(kc)
                else
@@ -1498,6 +1509,8 @@ contains
             call check_ncerr(ierr, "Error writing extra attribute")
          end do
       end if
+      
+      ierr = nf90_put_att ( ncid, NF90_GLOBAL, "modeling_realm", "atmos" )
 
 !     Define attributes for the dimensions
 !     Is there any value in keeping long_name for latitude and longitude?
@@ -1959,7 +1972,9 @@ contains
       integer :: k
       real :: umin, umax, addoff, sf
 !     Temporary for interpolated output
+      integer, dimension(:), allocatable, save :: k_indx
       real, dimension ( nxhis, nyhis ) :: htemp
+      real, dimension(:,:), allocatable, save :: hist_g
       logical :: doinc
 #ifdef usempi3
       integer :: cnt,maxcnt,interp_nproc
