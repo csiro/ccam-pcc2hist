@@ -280,7 +280,7 @@ contains
       integer :: k, ivar, ierr
       integer :: rad_day
       real, dimension(pil,pjl*pnpan*lproc) :: uten, udir, dtmp, ctmp, uastmp, vastmp
-      real, dimension(pil,pjl*pnpan*lproc) :: mrso, mrfso
+      real, dimension(pil,pjl*pnpan*lproc) :: mrso, mrfso, tscrn, qscrn
       real, dimension(pil,pjl*pnpan*lproc) :: sndw, egave, dpsdt
       real, dimension(pil,pjl*pnpan*lproc) :: tauxtmp, tauytmp
       real, dimension(pil,pjl*pnpan*lproc) :: rgn, rgd, sgn, sgd
@@ -479,6 +479,9 @@ contains
                call savehist ( "ps", dtmp )
                ! This relies on surface pressure coming before the 3D variables
                if ( use_plevs ) call sitop_setup(sig, plevs(1:nplevs), psl, maxlev, minlev)
+            case ( "qgscrn" )
+               call vread( "qgscrn", qscrn )
+               call savehist( "qgscrn", qscrn )
             case ( "rgdn_ave", "rlds" )
                call vread( "rgdn_ave", rgd )
                call savehist( varlist(ivar)%vname, rgd )
@@ -526,7 +529,8 @@ contains
                end where   
                call savehist ( "sund", dtmp )
             case ( "tas" )
-               call readsave2 (varlist(ivar)%vname, input_name="tscrn")
+               call vread( "tscrn", tscrn )
+               call savehist( "tas", tscrn )
             case ( "tasmax" )
                call readsave2 (varlist(ivar)%vname, input_name="tmaxscr")
             case ( "tasmin" )
@@ -572,6 +576,9 @@ contains
                   call fill_cc(ctmp, spval)
                   call savehist ( "tsea", ctmp )
                end if
+            case ( "tscrn" )
+               call vread( "tscrn", tscrn )
+               call savehist( "tscrn", tscrn )
             case ( "tsu" )
                call vread( "tsu", dtmp )
                where ( dtmp /= nf90_fill_float )
@@ -892,6 +899,11 @@ contains
             end do
             dtmp = 100.*psl/grav * dtmp
             call savehist ( "pwc", dtmp )
+         end if
+         
+         if ( needfld("tds") ) then
+            call calc_td( dtmp, tscrn, qscrn, psl )
+            call savehist( "tds", dtmp ) 
          end if
          
          if ( needfld("rh") ) then
@@ -2453,6 +2465,8 @@ contains
                            std_name="surface_air_pressure", ran_type=.true. )
             call addfld ( "pwc", "Precipitable water column", "kg/m2", 0.0, 100.0, 1, &
                           std_name="atmosphere_water_vapor_content", ran_type=.true. )
+            call addfld ( "tds", "Dew point temperature", "K", 100.0, 400.0, 1, &
+                          ran_type=.true. )            
          end if
          call addfld ( "uas", "x-component 10m wind", "m/s", -100.0, 100.0, 1, ran_type=.true. )
          call addfld ( "vas", "y-component 10m wind", "m/s", -100.0, 100.0, 1, ran_type=.true. )
@@ -2620,24 +2634,52 @@ contains
       real, parameter :: epsil = 0.622
       integer :: k
 
-      do k=1,kk
-            p = 100.*sig(k)*psl  ! p in Pa.
-            qc = qf(:,:,k) + ql(:,:,k)
-            where (qf(:,:,k)>1.E-12)
-              fice = min(qf(:,:,k)/qc,1.)
-            elsewhere
-              fice = 0.
-            end where
-            tliq = t(:,:,k) - hl/cp*qc - hlf/cp*qf(:,:,k)
-            qsi = qsati(p,tliq)
-            deles = esdiffx(tliq)
-            qsl = qsi + epsil*deles/p
-            qsw = fice*qsi + (1.-fice)*qsl
-            rh(:,:,k) = 100.*q(:,:,k)/qsw
-            !rh(:,:,k) = 100.*relhum(p,q(:,:,k),t(:,:,k))
+      do k = 1,kk
+         p = 100.*sig(k)*psl  ! p in Pa.
+         qc = qf(:,:,k) + ql(:,:,k)
+         where (qf(:,:,k)>1.E-12)
+            fice = min(qf(:,:,k)/qc,1.)
+         elsewhere
+            fice = 0.
+         end where
+         tliq = t(:,:,k) - hl/cp*qc - hlf/cp*qf(:,:,k)
+         qsi = qsati(p,tliq)
+         deles = esdiffx(tliq)
+         qsl = qsi + epsil*deles/p
+         qsw = fice*qsi + (1.-fice)*qsl
+         rh(:,:,k) = 100.*q(:,:,k)/qsw
+         !rh(:,:,k) = 100.*relhum(p,q(:,:,k),t(:,:,k))
       end do
    end subroutine calc_rh
 
+   subroutine calc_td ( td, tscrn, qscrn, psl )
+      real, dimension(pil,pjl*pnpan*lproc), intent(out) :: td
+      real, dimension(pil,pjl*pnpan*lproc), intent(in) :: tscrn, qscrn, psl
+      real, dimension(pil,pjl*pnpan*lproc) :: es, ws, p, ts, e, w, c
+      
+      p = max( min( 100.*psl, 1.e6 ), 1.e4 ) ! p is Pa
+      ts = max( min( tscrn, 400. ), 100. )
+      
+      where ( ts > 273.15 )
+         es = 611.2*exp(17.67*(ts-273.15)/(ts-29.65)) 
+      elsewhere
+         es = 611.2*exp(21.8745584*(ts-273.15)/(ts-7.66))
+      end where
+      ws = (287.09/461.5)*es/max(p-es,0.1)
+      e = es*min(max(qscrn,1.e-10)/ws,1.)
+      c = log(e/611.2)
+      where ( ts > 273.15 )
+         td = (17.67*273.15-29.65*c)/(17.67-c) 
+      elsewhere
+         td = (21.8745584*273.15-7.66*c)/(21.8745584-c) 
+      end where    
+      
+      where ( tscrn==NF90_FILL_FLOAT .or. qscrn==NF90_FILL_FLOAT .or. psl==NF90_FILL_FLOAT )
+         td = NF90_FILL_FLOAT
+      end where   
+      
+   end subroutine calc_td
+   
    subroutine check_cc2histfile()
       ! Check whether the input file was created by cc2hist. Without this
       ! check the error message that this gives rise to is rather obscure.
