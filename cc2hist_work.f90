@@ -2465,7 +2465,7 @@ contains
                            std_name="surface_air_pressure", ran_type=.true. )
             call addfld ( "pwc", "Precipitable water column", "kg/m2", 0.0, 100.0, 1, &
                           std_name="atmosphere_water_vapor_content", ran_type=.true. )
-            call addfld ( "tds", "Dew point temperature", "K", 100.0, 400.0, 1, &
+            call addfld ( "tds", "2m dew point temperature", "K", 100.0, 400.0, 1, &
                           ran_type=.true. )            
          end if
          call addfld ( "uas", "x-component 10m wind", "m/s", -100.0, 100.0, 1, ran_type=.true. )
