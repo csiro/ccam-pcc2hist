@@ -117,7 +117,7 @@ contains
             allocate ( zstd(pil,pjl*pnpan*lproc,kl) )
          end if
       end if
-      if ( needfld("press") .or. needfld("theta") .or. needfld("rh") .or. needfld("w") ) then
+      if ( needfld("press") .or. needfld("theta") .or. needfld("rh") .or. needfld("w") .or. needfld('td') ) then
         allocate( tmp3d(pil,pjl*pnpan*lproc,kl) )
       end if
       if ( use_meters ) then
@@ -280,7 +280,7 @@ contains
       integer :: k, ivar, ierr
       integer :: rad_day
       real, dimension(pil,pjl*pnpan*lproc) :: uten, udir, dtmp, ctmp, uastmp, vastmp
-      real, dimension(pil,pjl*pnpan*lproc) :: mrso, mrfso, tscrn, qscrn
+      real, dimension(pil,pjl*pnpan*lproc) :: mrso, mrfso
       real, dimension(pil,pjl*pnpan*lproc) :: sndw, egave, dpsdt
       real, dimension(pil,pjl*pnpan*lproc) :: tauxtmp, tauytmp
       real, dimension(pil,pjl*pnpan*lproc) :: rgn, rgd, sgn, sgd
@@ -479,9 +479,6 @@ contains
                call savehist ( "ps", dtmp )
                ! This relies on surface pressure coming before the 3D variables
                if ( use_plevs ) call sitop_setup(sig, plevs(1:nplevs), psl, maxlev, minlev)
-            case ( "qgscrn" )
-               call vread( "qgscrn", qscrn )
-               call savehist( "qgscrn", qscrn )
             case ( "rgdn_ave", "rlds" )
                call vread( "rgdn_ave", rgd )
                call savehist( varlist(ivar)%vname, rgd )
@@ -529,8 +526,7 @@ contains
                end where   
                call savehist ( "sund", dtmp )
             case ( "tas" )
-               call vread( "tscrn", tscrn )
-               call savehist( "tas", tscrn )
+               call readsave2 (varlist(ivar)%vname, input_name="tscrn")
             case ( "tasmax" )
                call readsave2 (varlist(ivar)%vname, input_name="tmaxscr")
             case ( "tasmin" )
@@ -576,9 +572,6 @@ contains
                   call fill_cc(ctmp, spval)
                   call savehist ( "tsea", ctmp )
                end if
-            case ( "tscrn" )
-               call vread( "tscrn", tscrn )
-               call savehist( "tscrn", tscrn )
             case ( "tsu" )
                call vread( "tsu", dtmp )
                where ( dtmp /= nf90_fill_float )
@@ -901,9 +894,9 @@ contains
             call savehist ( "pwc", dtmp )
          end if
          
-         if ( needfld("tds") ) then
-            call calc_td( dtmp, tscrn, qscrn, psl )
-            call savehist( "tds", dtmp ) 
+         if ( needfld("td") ) then
+            call calc_td ( t, q, ql, qf, psl, sig, tmp3d )
+            call vsavehist( "td", tmp3d ) 
          end if
          
          if ( needfld("rh") ) then
@@ -2464,9 +2457,7 @@ contains
             call addfld ( "ps", "Surface pressure", "hPa", 0., 1200., 1, &
                            std_name="surface_air_pressure", ran_type=.true. )
             call addfld ( "pwc", "Precipitable water column", "kg/m2", 0.0, 100.0, 1, &
-                          std_name="atmosphere_water_vapor_content", ran_type=.true. )
-            call addfld ( "tds", "2m dew point temperature", "K", 100.0, 400.0, 1, &
-                          ran_type=.true. )            
+                          std_name="atmosphere_water_vapor_content", ran_type=.true. )           
          end if
          call addfld ( "uas", "x-component 10m wind", "m/s", -100.0, 100.0, 1, ran_type=.true. )
          call addfld ( "vas", "y-component 10m wind", "m/s", -100.0, 100.0, 1, ran_type=.true. )
@@ -2499,7 +2490,9 @@ contains
                         multilev=.true., std_name="potential_temperature" )
          call addfld ( "w", "Vertical velocity", "m/s", -1., 1., nlev,           &
                         multilev=.true., std_name="vertical_velocity" )
-      
+         call addfld ( "td", "Dew point temperature", "K", 100.0, 400.0, nlev,   &
+                        multilev=.true., ran_type=.true. ) 
+         
          ! If the output uses pressure levels save the lowest sigma level of
          ! the basic fields.
          call addfld ( "tbot", "Air temperature at lowest sigma level", "K", 100., 400., 1 )
@@ -2652,31 +2645,53 @@ contains
       end do
    end subroutine calc_rh
 
-   subroutine calc_td ( td, tscrn, qscrn, psl )
-      real, dimension(pil,pjl*pnpan*lproc), intent(out) :: td
-      real, dimension(pil,pjl*pnpan*lproc), intent(in) :: tscrn, qscrn, psl
-      real, dimension(pil,pjl*pnpan*lproc) :: es, ws, p, ts, e, w, c
+   subroutine calc_td ( t_in, q_in, ql_in, qf_in, psl_in, sig, td )
+      real, dimension(pil,pjl*pnpan*lproc,kk), intent(out) :: td
+      real, dimension(pil,pjl*pnpan*lproc,kk), intent(in) :: t_in, q_in, ql_in, qf_in
+      real, dimension(pil,pjl*pnpan*lproc), intent(in) :: psl_in
+      real, dimension(kk), intent(in) :: sig
+      real, dimension(pil,pjl*pnpan*lproc) :: p, esl, esi, wsl, wsi
+      real, dimension(pil,pjl*pnpan*lproc) :: ws, el, ei, cl, ci, tdl, tdi
+      real, dimension(pil,pjl*pnpan*lproc) :: fice, t, q, ql, qf
+      real, parameter :: tfrz = 273.1
+      real, parameter :: tice = 233.16
+      integer :: k
       
-      p = max( min( 100.*psl, 1.e6 ), 1.e4 ) ! p is Pa
-      ts = max( min( tscrn, 400. ), 100. )
-      
-      where ( ts > 273.15 )
-         es = 611.2*exp(17.67*(ts-273.15)/(ts-29.65)) 
-      elsewhere
-         es = 611.2*exp(21.8745584*(ts-273.15)/(ts-7.66))
-      end where
-      ws = (287.09/461.5)*es/max(p-es,0.1)
-      e = es*min(max(qscrn,1.e-10)/ws,1.)
-      c = log(e/611.2)
-      where ( ts > 273.15 )
-         td = (17.67*273.15-29.65*c)/(17.67-c) 
-      elsewhere
-         td = (21.8745584*273.15-7.66*c)/(21.8745584-c) 
-      end where    
-      
-      where ( tscrn==NF90_FILL_FLOAT .or. qscrn==NF90_FILL_FLOAT .or. psl==NF90_FILL_FLOAT )
-         td = NF90_FILL_FLOAT
-      end where   
+      do k = 1,kk
+         p = min( max( 100.*psl_in*sig(k), 1.e3), 1.e7) ! p is Pa
+         t = min( max( t_in(:,:,k), 100.), 400.)
+         q = min( max( q_in(:,:,k), 1.e-10), 1.)
+         ql = min( max( ql_in(:,:,k), 1.e-20), 1.)
+         qf = min( max( qf_in(:,:,k), 1.e-20), 1.)
+         where ( t>=tfrz )
+            fice = 0.
+         elsewhere ( t>=tice .and. qf>1.e-12 )
+            fice = min(qf/(qf+ql), 1.)
+         elsewhere( t>=tice )
+            fice = 0.
+         elsewhere
+            fice = 1.
+         end where
+         esl = 611.2*exp(17.67*(t-273.15)/(t-29.65)) 
+         esi = 611.2*exp(21.8745584*(t-273.15)/(t-7.66)) 
+         wsl = (287.09/461.5)*esl/max(p-esl,0.1)
+         wsi = (287.09/461.5)*esi/max(p-esi,0.1)
+         ws = (1.-fice)*wsl + fice*wsi
+         el = esl*q/ws
+         ei = esi*q/ws
+         cl = log(el/611.2)
+         ci = log(ei/611.2)
+         tdl = (17.67*273.15-29.65*cl)/(17.67-cl) 
+         tdi = (21.8745584*273.15-7.66*ci)/(21.8745584-ci)
+         ! MJT approximation
+         where ( t_in(:,:,k)/=NF90_FILL_FLOAT .and. q_in(:,:,k)/=NF90_FILL_FLOAT .and.   &
+                 qf_in(:,:,k)/=NF90_FILL_FLOAT .and. ql_in(:,:,k)/=NF90_FILL_FLOAT .and. &
+                 psl_in(:,:)/=NF90_FILL_FLOAT )
+            td(:,:,k) = (1.-fice)*tdl + fice*tdi
+         elsewhere
+            td(:,:,k) = NF90_FILL_FLOAT
+         end where
+      end do
       
    end subroutine calc_td
    
