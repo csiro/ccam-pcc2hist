@@ -1665,17 +1665,25 @@ contains
             enddo 
          else
             !     Set lats and longs
-            do j = 1,nyhis
-               hlat(j) = minlat + (j-1)*(maxlat-minlat)/(nyhis-1)
-            end do
+            if ( nyhis == 1 ) then
+               hlat(1) = minlat
+            else  
+               do j = 1,nyhis
+                  hlat(j) = minlat + (j-1)*(maxlat-minlat)/(nyhis-1)
+               end do
+            end if   
             if ( maxlon - minlon == 360.0 ) then
                do i = 1,nxhis
                   hlon(i) = minlon + (i-1)*(maxlon-minlon)/nxhis
                end do
             else
-               do i = 1,nxhis
-                  hlon(i) = minlon + (i-1)*(maxlon-minlon)/(nxhis-1)
-               end do
+               if ( nxhis == 1 ) then
+                  hlon(1) = minlon 
+               else    
+                  do i = 1,nxhis
+                     hlon(i) = minlon + (i-1)*(maxlon-minlon)/(nxhis-1)
+                  end do
+               end if   
             end if
             do j = 1,nyhis
                do i = 1,nxhis
