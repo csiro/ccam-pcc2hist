@@ -28,14 +28,18 @@ module sitop_m
    ! Within the model, all sitop calls will have the same dimensions
    ! ix = 0 indicates that it hasn't been initialised yet
    integer, private, save :: ix=0, iy, nsglvs, nprlvs, nsgm1
+   integer, private, save :: oix=0, oiy, onsglvs, onprlvs, onsgm1
    ! Will be dimensioned (ix,iy)
    integer, private, allocatable, save, dimension(:,:) :: &
             mexdn1, mexdn2, mexup1, mexup2, min1, min2
+   integer, private, allocatable, save, dimension(:,:) :: &
+            omexdn1, omexdn2, omexup1, omexup2, omin1, omin2
    ! Will be dimensioned (ix,nprlvs,iy)
-   integer,  private, allocatable, save, dimension(:,:,:) :: jaa
-   real, private, allocatable, save, dimension(:,:,:) :: sig
+   integer,  private, allocatable, save, dimension(:,:,:) :: jaa, ojaa
+   real, private, allocatable, save, dimension(:,:,:) :: sig, osig
    ! (nsglvs)
    real, private, allocatable, save, dimension(:) :: siglvs, h, x1, x2, a, c
+   real, private, allocatable, save, dimension(:) :: osiglvs, oh, ox1, ox2, oa, oc
 
 contains
    subroutine sitop_setup ( sigr, prelvs, press, maxlev, minlev )
@@ -583,7 +587,7 @@ contains
 
 !----------------------------------------------------------------------
 !
-      call assert ( ix /= 0, "Error, sitop called before mitop_setup")
+      call assert ( ix /= 0, "Error, mitop called before mitop_setup")
 !     Check all the array sizes match
       call assert ( nsglvs == size ( grids, dim=3 ), &
                   "Error, number of sigma levels doesn't match in mitop" )
@@ -718,5 +722,271 @@ contains
       end do
 
    end subroutine mitop
+
+   subroutine ditop_setup ( sigr, mtrlvs, zs )
+
+      ! Setup for mitop. Calculate things that don't depend on the field
+      ! being interpolated.
+      use physparams
+      use utils_m, only : assert, search_fgt
+#ifdef usempi_mod
+      use mpi
+#else
+      include 'mpif.h'
+#endif
+      real, dimension(:), intent(in)       :: sigr      ! Sigma levels
+      real, dimension(:), intent(in)       :: mtrlvs    ! Height levels
+      real, dimension(:,:), intent(in)     :: zs        ! bathymetry depth
+      real, parameter :: ocmu1=0.5, oclmdam=0.5
+
+      integer :: i, k, ii, ns, iii, kp, ks
+      integer :: j, j1, jj 
+      integer :: maxlev_g, minlev_g, ierr
+      real :: v1, w1, v2, w2, h1, h2, h3, z
+      real :: mtrphys
+
+!----------------------------------------------------------------------
+!
+      if ( oix == 0 ) then
+         ! Not initialised yet
+         onsglvs = size(sigr)
+         onprlvs = size(mtrlvs)
+         oix = size(zs,dim=1)
+         oiy = size(zs,dim=2)
+         allocate ( ojaa(oix,onprlvs,oiy), osig(oix,onprlvs,oiy) )
+         allocate ( omexdn1(oix,oiy), omexdn2(oix,oiy), omexup1(oix,oiy), &
+                    omexup2(oix,oiy), omin1(oix,oiy), omin2(oix,oiy) )
+         allocate ( osiglvs(onsglvs), oh(onsglvs), ox1(onsglvs), ox2(onsglvs), &
+                    oa(onsglvs), oc(onsglvs) )
+
+         oc(1) = ocmu1
+         oa(onsglvs) = oclmdam
+!        Sigma levels in increasing order
+         osiglvs = sigr(1:onsglvs)
+         onsgm1 = onsglvs-1
+         do i = 1,onsgm1
+            oh(i) = osiglvs(i+1)-osiglvs(i)
+         end do
+         do i = 2,onsgm1
+            ox1(i) = 0.5/(oh(i)+oh(i-1))
+            ox2(i) = oh(i)/oh(i-1)
+            oa(i) = oh(i)*ox1(i)
+            oc(i) = oh(i-1)*ox1(i)
+         end do
+         oc(onsglvs) = 0.
+      end if
+
+!     Store data and heights.
+      do k = 1,onprlvs
+         osig(:,k,:) = mtrlvs(k)/max(zs,1.e-8)
+      end do
+
+      do j = 1,oiy
+!
+!     mexup1, mexup2    mexdn1,mexdn2    min1,min2 set
+!     the upper and lower limits on upward and downward
+!     extrapolation and interpolation.
+!     if there are no levels in a given class,the limits are
+!     set to zero.
+!
+         do i = 1,oix
+            omexup1(i,j) = 0
+            omexup2(i,j) = 0
+            do ii = 1,onprlvs
+               if ( osig(i,ii,j) < osiglvs(1) ) omexup2(i,j) = ii
+            end do
+            if ( omexup2(i,j) > 0 ) omexup1(i,j) = 1
+            omexdn1(i,j) = 0
+            omexdn2(i,j) = 0
+            do ii = 1,onprlvs
+               iii = onprlvs + 1 - ii
+               if ( osig(i,iii,j) > osiglvs(onsglvs) ) omexdn1(i,j) = iii
+            end do
+            if ( omexdn1(i,j) > 0 ) omexdn2(i,j) = onprlvs
+
+            if ( omexup2(i,j) == 0 ) then
+               !             no upward extrapolation
+               if ( omexdn1(i,j) == 0) then
+                  omin1(i,j) = 1
+                  omin2(i,j) = onprlvs
+               else
+                  omin1(i,j) = 1
+                  omin2(i,j) = omexdn1(i,j) - 1
+                  if ( omexdn1(i,j) == 1 ) omin1(i,j) = 0
+               end if
+            else 
+!
+!         downward extrapolation
+!
+               if ( omexdn1(i,j) == 0 ) then
+                  omin1(i,j) = omexup2(i,j) + 1
+                  omin2(i,j) = onprlvs
+                  if ( omexup2(i,j) >= onprlvs ) omin1(i,j) = 0
+                  if ( omexup2(i,j) >= onprlvs ) omin2(i,j) = 0
+               else
+                  omin1(i,j) = omexup2(i,j) + 1
+                  omin2(i,j) = omexdn1(i,j) - 1
+                  if ( omexdn1(i,j) == (omexup2(i,j)+1) ) omin1(i,j) = 0
+                  if ( omexdn1(i,j) == (omexup2(i,j)+1) ) omin2(i,j) = 0
+               end if
+            end if
+         end do
+
+!        Calculate jaa, the index of the lowest sigma level above the
+!        given depth level.
+         do kp = 1,onprlvs 
+            ojaa(:,kp,j) = search_fgt(osiglvs(:onsgm1),osig(:,kp,j),onsgm1,oix)
+         end do
+
+      end do
+      
+   end subroutine ditop_setup
+
+   
+   subroutine ditop ( grids, gridp )
+
+
+!     This routine interpolates a field "grids" on sigma surfaces
+!     to "gridp" on height surfaces
+!     The interpolation is performed using cubic splines
+!     "ix" and "iy" specify the size of the horizontal grid
+!
+!     All features of the interpolating spline are determined except
+!     for the impostion of one condition at each end
+!     These are prescribed through the quantities
+!      "cmu1","clmdam","c1" and "cm"
+!
+!     For specified slopes at each end - gsd(1) and gsd(nsglvs) - have
+!      cmu1=clmdam=0.0 , c1=gsd(1) , cm=gsd(nsglvs)
+!
+!     For specified second derivative - gsdc(1) and gsdd(nsglvs) - have
+!      cmu1=clmdam=0.5 ,
+!     c1=1,5*(gs(2     )-gs(1       ))/h(1       )-
+!        h(1       )*gsdd(1     )*0.25
+!     cm=1.5*(gs(nsglvs)-gs(nsglvs-1))/h(nsglvs-1)+
+!        h(nsglvs-1)*gsdd(nsglvs)*0.25
+!
+!     Note the case gsdd( )=gsdd(nsglvs)=0.0 is a particular case
+!     if the above and is refered to as the "natural" spline
+!
+!     The theory upon which the routine is based may be found in
+!     Ahlberg,J.A.,E.N.Nilson and J.L.Wals",1967 : The Theory of Spline
+!     and Their Applications. New York , Academic Press , 284 pp.
+!     (pages 9-15)
+!
+!     Note that this uses the natural spline, with the extrapolation
+!     imposed separately. This means that the derivatives are not continuous
+!     across the boundary between interpolation and extrapolation.
+
+#ifdef usenc_mod
+      use netcdf, only : NF90_FILL_FLOAT
+#else
+      use netcdf_m, only : NF90_FILL_FLOAT
+#endif
+      use utils_m, only : assert, search_fgt
+      use physparams
+      real, dimension(:,:,:), intent(in)   :: grids  ! Sigma field
+      real, dimension(:,:,:), intent(out)  :: gridp  ! Height field
+
+      real, dimension(size(grids,dim=1),size(grids,dim=3)) :: od, ogd, ogs
+      real, dimension(size(gridp,dim=1),size(gridp,dim=3)) :: ogp
+      real, dimension(size(grids,dim=1)) :: ox3
+      real, parameter :: ocmu1=0.5, oclmdam=0.5
+      integer :: i, k, ii, ns, iii, kp, ks
+      integer :: ominmin1, omaxmin1, omaxmin2, j, j1, jj 
+      real :: v1, w1, v2, w2, h1, h2, h3, z
+
+!----------------------------------------------------------------------
+!
+      call assert ( oix /= 0, "Error, ditop called before ditop_setup")
+!     Check all the array sizes match
+      call assert ( onsglvs == size ( grids, dim=3 ), &
+                  "Error, number of sigma levels doesn't match in ditop" )
+      call assert ( onprlvs == size ( gridp, dim=3 ), &
+                  "Error, number of height levels doesn't match in ditop" )
+
+      do j = 1,oiy
+     
+         do ns = 1,onsglvs
+            ogs(:,ns) = grids(:,j,ns)
+         end do
+         od(:,1) = 1.5*(ogs(:,2)-ogs(:,1)) / oh(1)
+         od(:,onsglvs) = 1.5*(ogs(:,onsglvs)-ogs(:,onsglvs-1)) / oh(onsglvs-1)
+         do ns = 2,onsgm1
+            od(:,ns) = 3.0*ox1(ns)*( (ogs(:,ns)-ogs(:,ns-1))*ox2(ns) + &
+                                     (ogs(:,ns+1)-ogs(:,ns))/ox2(ns) )
+         end do
+!
+!     calculate spline derivatives at orginal points
+!
+         ogd(:,1) = -oc(1)
+         do ns = 2,onsglvs
+            ox3 = 1.0 / (1.0+oa(ns)*ogd(:,ns-1))
+            ogd(:,ns) = -oc(ns)*ox3
+            od(:,ns) = (od(:,ns)-oa(ns)*od(:,ns-1)) * ox3
+         end do
+         ogd(:,onsglvs) = od(:,onsglvs)
+         do ns = 1,onsgm1
+            k = onsglvs-ns
+            ogd(:,k) = ogd(:,k)*ogd(:,k+1)+od(:,k)
+         end do
+!
+!     Find the extreme values of the interpolation. The assumption
+!     used here is that most of the values will be interpolated and there
+!     will be just a few odd extrapolations. Therefore it is worth 
+!     vectorising the interpolation section, even if a few values are
+!     calculated unnecessarily. These will be fixed up in the extrapolation
+!     section
+         ominmin1 = minval(omin1(:,j))
+         omaxmin1 = maxval(omin1(:,j))
+         omaxmin2 = maxval(omin2(:,j))
+!
+!     Do interpolation
+!
+         if ( omaxmin1/=0 ) then
+
+            do ii = max(1,ominmin1),omaxmin2
+               do i = 1,oix
+!              Use max to ensure stay in array bounds. Any points where this
+!              is used will be fixed in the extrapolation section.
+                  j1=max(ojaa(i,ii,j)-1,1)
+                  jj=ojaa(i,ii,j)
+                  v1=osiglvs(ojaa(i,ii,j))-osig(i,ii,j)
+                  w1=osig(i,ii,j)-osiglvs(j1)
+                  v2=v1*v1
+                  w2=w1*w1
+                  h1=oh(j1)
+                  h2=1.0/(h1*h1)
+                  h3=h2/h1
+                  z=(ogd(i,j1)*v2*w1-ogd(i,ojaa(i,ii,j))*w2*v1)*h2
+                  ogp(i,ii) = z + (ogs(i,j1)*v2*(w1+w1+h1)+  &
+                                ogs(i,ojaa(i,ii,j))*w2*(v1+v1+h1))*h3
+               end do
+            end do
+            
+         end if
+!
+!     missing value extrapolation
+!
+!
+         do i = 1,oix
+            do ii = 1,omexup2(i,j)
+               ogp(i,ii) = NF90_FILL_FLOAT 
+            end do
+            if ( omexdn1(i,j)/=0 ) then
+               do ii = omexdn1(i,j),onprlvs
+                  ogp(i,ii) = NF90_FILL_FLOAT
+               end do
+            end if
+         end do
+
+         do ii = 1,onprlvs
+            gridp(:,j,ii) = ogp(:,ii)
+         end do
+
+      end do
+
+   end subroutine ditop
+
    
 end module sitop_m

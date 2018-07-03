@@ -40,7 +40,7 @@ module work
 
 !  Passed between infile and main, previously in common infil
    integer :: ik, jk, kk, ok
-   integer :: nlev  ! Number of levels in output
+   integer :: nlev, onlev  ! Number of levels in output
    integer :: ndt, ktau, nqg, nsd
    integer :: ksoil, kice
    integer :: ntrac, ilt ! Extra flag controlling tracers in file. Still needed?
@@ -346,6 +346,10 @@ contains
                     dtmp = 90.*112./(real(pil_g)*dtmp)
                     call savehist("grid", dtmp)
                   end if
+               else if ( varlist(ivar)%vname == "ocndepth" ) then
+                  call vread( "ocndepth", dtmp )
+                  call savehist( "ocndepth", dtmp )
+                  if ( use_depth ) call ditop_setup( gosig, dlevs(1:onplevs), dtmp )
                else
                   call readsave2 ( varlist(ivar)%vname )
                end if
@@ -740,12 +744,12 @@ contains
             case ( "so" )
                if ( need3dfld("so") ) then
                   call vread( "so", so_tmp )
-                  call savehist( "so", so_tmp )
+                  call osavehist( "so", so_tmp )
                end if
             case ( "thetao" )
                if ( need3dfld("thetao") ) then
                   call vread( "thetao", thetao_tmp )
-                  call savehist( "thetao", thetao_tmp )
+                  call osavehist( "thetao", thetao_tmp )
                end if    
             ! Should to u, v as above with vector flag, but this will do for now
             case ( "u" )
@@ -1047,27 +1051,27 @@ contains
                call savehist( "vos", vo_tmp(:,:,1) )
             end if
             if ( needfld("uo") ) then
-               call savehist( "uo", uo_tmp )
+               call osavehist( "uo", uo_tmp )
             end if
             if ( needfld("vo") ) then
-               call savehist( "vo", vo_tmp ) 
+               call osavehist( "vo", vo_tmp ) 
             end if    
          end if
          if ( needfld("sos") .or. needfld("so") ) then
             if ( needfld("sos") ) then
                call savehist( "sos", so_tmp(:,:,1) ) 
             end if
-            if ( needfld("so" ) ) then
-               call savehist( "so", so_tmp )
-            end if   
+            !if ( needfld("so" ) ) then
+            !   call osavehist( "so", so_tmp )
+            !end if   
          end if
          if ( needfld("tos") .or. needfld("thetao") ) then
             if ( needfld("tos") ) then
                call savehist( "tos", thetao_tmp(:,:,1) ) 
             end if
-            if ( needfld("thetao" ) ) then
-               call savehist( "thetao", thetao_tmp )
-            end if   
+            !if ( needfld("thetao" ) ) then
+            !   call osavehist( "thetao", thetao_tmp )
+            !end if   
          end if
       end if
       
@@ -2209,7 +2213,9 @@ contains
                   "ocdd_ave            ", "ocwd_ave            ", "duste_ave           ", "dustdd_ave          ", &
                   "dustwd_ave          ", "wb?_ave             ", "climate_biome       ", "climate_ivegt       ", &
                   "climate_min20       ", "climate_max20       ", "climate_alpha20     ", "climate_agdd5       ", &
-                  "climate_gmd         ", "climate_dmoist_min20", "climate_dmoist_max20" /)) .and. int_type /= int_none ) then
+                  "climate_gmd         ", "climate_dmoist_min20", "climate_dmoist_max20", "thetao              ", &
+                  "so                  ", "uo                  ", "vo                  ", "ocheight            "  &
+               /)) .and. int_type /= int_none ) then
             int_type = int_nearest
          else
             int_type = int_default
@@ -2413,10 +2419,10 @@ contains
             end if
          else if ( varlist(ivar)%ndims == 3 ) then  
             if ( varlist(ivar)%water ) then
-              call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name,       &
-                        varlist(ivar)%units, xmin, xmax, ol, multilev=.true.,   &
-                        std_name=std_name, water=varlist(ivar)%water,           &
-                        cell_methods=cell_methods, int_type=int_type,           &
+              call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name,        &
+                        varlist(ivar)%units, xmin, xmax, onlev, multilev=.true., &
+                        std_name=std_name, water=varlist(ivar)%water,            &
+                        cell_methods=cell_methods, int_type=int_type,            &
                         ran_type=ran_type )
             else
               call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name,       &
@@ -2534,10 +2540,10 @@ contains
       end if
       
       if ( ok > 1 ) then
-         call addfld( "uos", "x-component surface current", "m/s", -100., 100., 1 )
-         call addfld( "vos", "y-component surface current", "m/s", -100., 100., 1 )
-         call addfld( "sos", "Surface ocean salinity", "PSU", 0., 100., 1 )
-         call addfld( "tos", "Surface ocean temperature", "K", 150., 350., 1 )
+         call addfld( "uos", "x-component surface current", "m/s", -100., 100., 1, int_type=int_nearest )
+         call addfld( "vos", "y-component surface current", "m/s", -100., 100., 1, int_type=int_nearest )
+         call addfld( "sos", "Surface ocean salinity", "PSU", 0., 100., 1, int_type=int_nearest )
+         call addfld( "tos", "Surface ocean temperature", "K", 150., 350., 1, int_type=int_nearest )
       end if    
 
    end subroutine get_var_list

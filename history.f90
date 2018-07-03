@@ -683,7 +683,7 @@ contains
 !-------------------------------------------------------------------
    subroutine openhist ( nx, ny, nl, sig, ol, gosig, suffix, hlon, hlat, basetime, &
                          doublerow, year, nxout, nyout, source, histfilename,      &
-                         pressure, height, extra_atts, hybrid_levels, anf,         &
+                         pressure, height, depth, extra_atts, hybrid_levels, anf,  &
                          bnf, p0, calendar, nsoil, zsoil )
 !
 !     Create netCDF history files using information in histinfo array.
@@ -708,6 +708,7 @@ contains
 !     Output uses sigma or pressure as vertical coordinate
       logical, intent(in), optional :: pressure
       logical, intent(in), optional :: height
+      logical, intent(in), optional :: depth
       type(hist_att), dimension(:), optional :: extra_atts
       logical, intent(in), optional :: hybrid_levels
       real, dimension(:), intent(in), optional :: anf, bnf
@@ -725,7 +726,7 @@ contains
       integer :: ncid, vid, ifile, ivar, istart, iend, ilev
       character(len=80) :: longname, units
       character(len=MAX_NAMELEN) :: vname
-      logical :: used, multilev, use_plevs, use_hyblevs, use_meters
+      logical :: used, multilev, use_plevs, use_hyblevs, use_meters, use_depth
       integer, dimension(totflds) :: coord_heights
       integer :: kc, ncoords, k, pkl
       logical :: soil_used, water_used
@@ -1000,15 +1001,21 @@ contains
             if ( present(hybrid_levels) ) then
                use_hyblevs = hybrid_levels
             end if
+            use_depth = .false.
+            if ( present(depth) ) then
+               use_depth = depth 
+            end if    
             !if ( soil_used ) then
             !   ! Better to define a new local nsoil variable?
-            !   call create_ncfile ( filename, nxhis, nyhis, size(sig), ol, multilev,               &
-            !        use_plevs, use_meters, use_hyblevs, basetime, coord_heights(1:ncoords), ncid,  &
-            !        dims, dimvars, source, extra_atts, calendar, nsoil, zsoil )
+            !   call create_ncfile ( filename, nxhis, nyhis, size(sig), size(gosig), multilev,      &
+            !        use_plevs, use_meters, use_depth, use_hyblevs, basetime,                       &
+            !        coord_heights(1:ncoords), ncid, dims, dimvars, source, extra_atts, calendar,   &
+            !        nsoil, zsoil )
             !else
-               call create_ncfile ( filename, nxhis, nyhis, size(sig), ol, multilev,               &
-                    use_plevs, use_meters, use_hyblevs, basetime, coord_heights(1:ncoords), ncid,  &
-                    dims, dimvars, source, extra_atts, calendar, nsoil, zsoil )
+               call create_ncfile ( filename, nxhis, nyhis, size(sig), size(gosig), multilev,      &
+                    use_plevs, use_meters, use_depth, use_hyblevs, basetime,                       &
+                    coord_heights(1:ncoords), ncid, dims, dimvars, source, extra_atts, calendar,   &
+                    nsoil, zsoil )
             !end if
             histid(ifile) = ncid
 
@@ -1302,7 +1309,7 @@ contains
          end if
       end if
       if ( ierr /= 0 ) then
-         print*, "Error creating variable", vinfo
+         print*, "Error creating variable ", vinfo
       end if
       call check_ncerr(ierr,"Error creating variable "// vinfo%name)
       vinfo%vid(ifile) = vid
@@ -1404,13 +1411,14 @@ contains
   
 !---------------------------------------------------------------------------
    subroutine create_ncfile ( filename, nxhis, nyhis, nlev, ol, multilev,            &
-                 use_plevs, use_meters, use_hyblevs, basetime, coord_heights, ncid,  &
-                 dims, dimvars, source, extra_atts, calendar, nsoil, zsoil )
+                 use_plevs, use_meters, use_depth, use_hyblevs, basetime,            &
+                 coord_heights, ncid, dims, dimvars, source, extra_atts, calendar,   &
+                 nsoil, zsoil )
 
       use mpidata_m
       character(len=*), intent(in) :: filename
       integer, intent(in) :: nxhis, nyhis, nlev, ol
-      logical, intent(in) :: multilev, use_plevs, use_meters, use_hyblevs
+      logical, intent(in) :: multilev, use_plevs, use_meters, use_depth, use_hyblevs
       character(len=*), intent(in) :: basetime
       integer, dimension(:), intent(in) :: coord_heights
       integer, intent(out) :: ncid
@@ -1600,14 +1608,25 @@ contains
       end if
       
       if ( ol > 0 ) then
-         ierr = nf90_def_var ( ncid, "olev", NF90_FLOAT, dims%oz, dimvars%oz )
-         call check_ncerr(ierr)
-         ierr = nf90_put_att ( ncid, dimvars%oz, "long_name", "ocean sigma_level" )
-         call check_ncerr(ierr)
-         ierr = nf90_put_att ( ncid, dimvars%oz, "units", "sigma_level" )
-         call check_ncerr(ierr)
-         ierr = nf90_put_att ( ncid, dimvars%oz, "positive", "down" )
-         call check_ncerr(ierr)
+         if ( use_depth ) then 
+            ierr = nf90_def_var ( ncid, "olev", NF90_FLOAT, dims%oz, dimvars%oz )
+            call check_ncerr(ierr)
+            ierr = nf90_put_att ( ncid, dimvars%oz, "long_name", "ocean depth" )
+            call check_ncerr(ierr)
+            ierr = nf90_put_att ( ncid, dimvars%oz, "units", "m" )
+            call check_ncerr(ierr)
+            ierr = nf90_put_att ( ncid, dimvars%oz, "positive", "down" )
+            call check_ncerr(ierr)
+         else    
+            ierr = nf90_def_var ( ncid, "olev", NF90_FLOAT, dims%oz, dimvars%oz )
+            call check_ncerr(ierr)
+            ierr = nf90_put_att ( ncid, dimvars%oz, "long_name", "ocean sigma_level" )
+            call check_ncerr(ierr)
+            ierr = nf90_put_att ( ncid, dimvars%oz, "units", "sigma_level" )
+            call check_ncerr(ierr)
+            ierr = nf90_put_att ( ncid, dimvars%oz, "positive", "down" )
+            call check_ncerr(ierr)
+         end if   
       end if
 
       if ( present(nsoil) ) then
@@ -1771,7 +1790,7 @@ contains
       character(len=*), intent(in) :: name
       real, dimension(:,:,:) :: array
       call START_LOG(savehist_begin)
-      call savehist_work  ( name, array, 1, size(array,2) )
+      call savehist_work ( name, array, 1, size(array,2) )
       call END_LOG(savehist_end)
    end subroutine gsavehist3D
    
