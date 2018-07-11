@@ -307,6 +307,7 @@ module history
    logical, public :: cf_compliant = .false.
    
    logical, public :: cordex_compliant = .false.
+   logical, public :: no_underscore = .false.
    
 ! Save CCAM parameters
    logical, public :: save_ccam_parameters = .true.
@@ -1261,12 +1262,25 @@ contains
       integer, intent(in) :: ifile
       type(dimarray), intent(in) :: dims
 
+      character(len=MAX_NAMELEN) :: local_name, new_name
       character(len=80) :: cell_methods, coord_name
       integer :: ierr, vtype, vid, zdim
+      integer :: upos
       
       integer(kind=2), parameter :: fill_short = NF90_FILL_SHORT
 
       if ( myid /=0 ) return
+      
+      local_name = vinfo%name
+      if ( no_underscore ) then
+         upos = index(local_name,"_")
+         do while ( upos > 0 )  
+            new_name = "" 
+            new_name = local_name(1:upos-1)//local_name(upos+1:)
+            local_name = new_name
+            upos = index(local_name,"_")
+         end do   
+      end if    
 
       select case ( hbytes(ifile) )
       case ( 2 )
@@ -1281,7 +1295,7 @@ contains
       end select
          
       if ( hist_debug > 4 ) then
-         print*, "Creating variable ", vinfo%name, vinfo%ave_type(ifile), vinfo%nlevels, vinfo%soil
+         print*, "Creating variable ", local_name, vinfo%ave_type(ifile), vinfo%nlevels, vinfo%soil
          print*, "DIMID", dims%x, dims%y, dims%z, dims%t, dims%zsoil
       end if
       if ( vinfo%nlevels > 1 .or. vinfo%multilev ) then
@@ -1293,25 +1307,25 @@ contains
             zdim = dims%z
          end if
          if ( vinfo%ave_type(ifile) == hist_fixed ) then
-            ierr = nf90_def_var ( ncid, vinfo%name, vtype, &
+            ierr = nf90_def_var ( ncid, local_name, vtype, &
                                 (/ dims%x, dims%y, zdim /), vid )
          else
-            ierr = nf90_def_var ( ncid, vinfo%name, vtype, &
+            ierr = nf90_def_var ( ncid, local_name, vtype, &
                                 (/ dims%x, dims%y, zdim, dims%t /), vid )
          end if
       else
          if ( vinfo%ave_type(ifile) == hist_fixed ) then
-            ierr = nf90_def_var ( ncid, vinfo%name, vtype, &
+            ierr = nf90_def_var ( ncid, local_name, vtype, &
                                 (/ dims%x, dims%y /), vid )
          else
-            ierr = nf90_def_var ( ncid, vinfo%name, vtype, &
+            ierr = nf90_def_var ( ncid, local_name, vtype, &
                                 (/ dims%x, dims%y, dims%t /), vid )
          end if
       end if
       if ( ierr /= 0 ) then
          print*, "Error creating variable ", vinfo
       end if
-      call check_ncerr(ierr,"Error creating variable "// vinfo%name)
+      call check_ncerr(ierr,"Error creating variable "// local_name)
       vinfo%vid(ifile) = vid
       
       if ( cordex_compliant ) then

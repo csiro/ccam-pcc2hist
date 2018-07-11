@@ -63,7 +63,7 @@ program cc2hist
 
    character(len=MAX_ARGLEN) :: optarg
    integer :: opt, nopt
-   type(loption), dimension(4) :: longopts
+   type(loption), dimension(5) :: longopts
    integer :: longind
    integer :: kta=0, ktb=999999, ktc=-1, ndate=-1, ntime=-1, k
    integer :: sdate=-1, edate=-1, stime=-1, etime=-1
@@ -78,7 +78,8 @@ program cc2hist
                     use_meters, mlevs, use_depth, dlevs, sdate,       &
                     edate, stime, etime, hres, debug, ifile, ofile,   &
                     int_default, vextrap, cf_compliant,               &
-                    cordex_compliant, save_ccam_parameters
+                    cordex_compliant, no_underscore,                  &
+                    save_ccam_parameters
 
    integer :: kt, kdate, ktime, ierr, ieof, ntracers
    integer :: mins
@@ -138,6 +139,7 @@ program cc2hist
    longopts(2) = loption ( "vextrap", 1, 0 )
    longopts(3) = loption ( "cf", 0, 0 )
    longopts(4) = loption ( "cordex", 0, 0 )
+   longopts(5) = loption ( "nounderscore", 0, 0 )
    ifile = ""
    ofile = ""
    cfile = ""
@@ -202,6 +204,8 @@ program cc2hist
             cf_compliant = .true.
          case ( 4 )
             cordex_compliant = .true.
+         case ( 5 )
+            no_underscore = .true.
          case default
             print*, "Unexpected result processing long options", longind
             call finishbanner
@@ -221,14 +225,6 @@ program cc2hist
    open(1,file=trim(cfile))
    read(1,input)   
    
-   !if ( vextrap == vextrap_missing .and. int_default == int_normal ) then
-   !   if ( myid==0 ) then
-   !      write(6,*) "For vextrap=missing option to work, must set interp to linear or nearest"
-   !   end if  
-   !   call finishbanner
-   !   call MPI_ABORT(comm_world,-1,ierr)
-   !end if
-
 !  If filenames were not set as options look for them as arguments
    if ( len_trim(ifile) == 0 .and. len_trim(ofile) == 0 ) then
       if ( command_argument_count() /= nopt+1 ) then

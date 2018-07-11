@@ -3087,7 +3087,9 @@ contains
             ier = nf90_get_att(ncid, nf90_global, "nproc", pnproc)
             if ( ierr==nf90_noerr ) then
                write(6,*) "ERROR: Parallel file format found in ifile = ",trim(ifile)
-               write(6,*) "       Try removing .000000 from ifile in the namelist"
+               write(6,*) "       Try removing .000000 from ifile in the namelist."
+               write(6,*) "       Alternatively, this could be a lat/lon output that"
+               write(6,*) "       has already been processed by pcc2hist."
                stop
             end if
          end if    
