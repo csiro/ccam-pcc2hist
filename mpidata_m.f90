@@ -28,18 +28,18 @@ private
 integer, dimension(:), save, allocatable, public :: ncid_in
 integer, dimension(:), save, allocatable, public :: prid_in
 logical, dimension(:), save, allocatable, public :: fown_in
-#ifdef usempi3
-integer, dimension(:,:), save, pointer, contiguous, public :: ioff, joff
-integer, dimension(:,:,:), save, pointer, contiguous, public :: ijoff
-#else
+!#ifdef usempi3
+!integer, dimension(:,:), save, pointer, contiguous, public :: ioff, joff
+!integer, dimension(:,:,:), save, pointer, contiguous, public :: ijoff
+!integer, save, public :: ijoff_win
+!#else
 integer, dimension(:,:), save, allocatable, public :: ioff, joff
-#endif
+!#endif
 integer, save, public :: myid, nproc, nproc_orig
 integer, save, public :: pil, pjl, pnpan, pnproc, lproc
 integer, save, public :: pil_g, pjl_g
 #ifdef usempi3
 integer, save, public :: node_comm, node_myid, node_nproc
-integer, save, public :: ijoff_win
 #endif
 integer, save, public :: comm_world, comm_reduced
 integer, save, public :: myid_reduced, nproc_reduced

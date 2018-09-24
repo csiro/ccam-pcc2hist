@@ -2458,7 +2458,7 @@ contains
                               ran_type=.true. )
             end if
             call addfld ( "snc",  "Snow area fraction", "%", 0., 6.5, 1 )
-            call addfld ( "snw",  "Surface snow amount", "kg/m2", 0., 6.5, 1 )
+            call addfld ( "snw",  "Surface Snow Amount", "kg m-2", 0., 6.5, 1 )
          else
             call addfld ( "d10", "10m wind direction", "deg", 0.0, 360.0, 1, ran_type=.true. )          
             if ( int_type /= int_none ) then
@@ -3200,16 +3200,16 @@ contains
       allocate( fown_in(0:lproc-1) )      
       fown_in(:) = .false.
        
-#ifdef usempi3
-      if ( node_myid == 0 ) then
-          ssize = pnproc*6*2
-      else
-          ssize = 0
-      end if
-      call allocshdata(ijoff,ssize,(/ pnproc, 6, 2 /),ijoff_win)
-      ioff(0:pnproc-1,0:5) => ijoff(:,:,1)
-      joff(0:pnproc-1,0:5) => ijoff(:,:,2)
-#endif
+!#ifdef usempi3
+!      if ( node_myid == 0 ) then
+!          ssize = pnproc*6*2
+!      else
+!          ssize = 0
+!      end if
+!      call allocshdata(ijoff,ssize,(/ pnproc, 6, 2 /),ijoff_win)
+!      ioff(0:pnproc-1,0:5) => ijoff(:,:,1)
+!      joff(0:pnproc-1,0:5) => ijoff(:,:,2)
+!#endif
 
       if ( resprocformat ) then
          allocate( prid_in(0:lproc-1) )
@@ -3341,17 +3341,17 @@ contains
          else   
             sdecomp = 'face'
          end if    
-#ifdef usempi3
-      end if
-      call START_LOG(mpibcast_begin)
-      call MPI_Bcast(pil_g,1,MPI_INTEGER,0,comm_world,ierr)
-      call MPI_Bcast(pjl_g,1,MPI_INTEGER,0,comm_world,ierr)
-      call MPI_Bcast(sdecomp,8,MPI_CHAR,0,comm_world,ierr)
-      call END_LOG(mpibcast_end)
-      itest = MPI_MODE_NOPRECEDE + MPI_MODE_NOSTORE
-      call MPI_Win_fence(itest,ijoff_win,ierr)
-      if ( node_myid==0 ) then
-#endif
+!#ifdef usempi3
+!      end if
+!      call START_LOG(mpibcast_begin)
+!      call MPI_Bcast(pil_g,1,MPI_INTEGER,0,comm_world,ierr)
+!      call MPI_Bcast(pjl_g,1,MPI_INTEGER,0,comm_world,ierr)
+!      call MPI_Bcast(sdecomp,8,MPI_CHAR,0,comm_world,ierr)
+!      call END_LOG(mpibcast_end)
+!      itest = MPI_MODE_NOPRECEDE + MPI_MODE_NOSTORE
+!      call MPI_Win_fence(itest,ijoff_win,ierr)
+!      if ( node_myid==0 ) then
+!#endif
          select case(sdecomp)
             case ("uniform")
                do n = 0,5
@@ -3381,9 +3381,9 @@ contains
          jdum(5) = pjl_g
       
       end if
-#ifdef usempi3
-      call MPI_Win_fence(MPI_MODE_NOSUCCEED,ijoff_win,ierr)
-#endif
+!#ifdef usempi3
+!      call MPI_Win_fence(MPI_MODE_NOSUCCEED,ijoff_win,ierr)
+!#endif
       
       call START_LOG(mpibcast_begin)
       call MPI_Bcast(jdum(1:5),5,MPI_INTEGER,0,comm_world,ier)
@@ -3682,9 +3682,9 @@ contains
 #ifdef usempi3
    call freeshdata(xyg_win)
    call freeshdata(nface_win)
-   call freeshdata(ijoff_win)
+   !call freeshdata(ijoff_win)
    nullify(xyg)
-   nullify(ijoff)
+   !nullify(ijoff)
    nullify(xg,yg)
    nullify(nface)
 #else
