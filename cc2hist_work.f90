@@ -126,6 +126,7 @@ contains
       if ( ol > 0 ) then
          allocate( uo_tmp(pil,pjl*pnpan*lproc,ol), vo_tmp(pil,pjl*pnpan*lproc,ol) )
          allocate( thetao_tmp(pil,pjl*pnpan*lproc,ol), so_tmp(pil,pjl*pnpan*lproc,ol) )
+         allocate( ocn_tmp(pil,pjl*pnpan*lproc,ol) )
       end if
 
    end subroutine alloc_indata
@@ -775,6 +776,11 @@ contains
             case ( "vo" ) 
                if ( need3dfld("vo") ) then
                   call vread( "vo", vo_tmp )
+               end if
+            case ( "wo" )
+               if ( need3dfld("wo") ) then
+                  call vread( "wo", ocn_tmp )
+                  call osavehist( "wo", ocn_tmp )
                end if   
             case ( "omega" )
                if ( need3dfld("omega") ) then
@@ -1149,6 +1155,8 @@ contains
          needed = needfld("so") .or. needfld("sos")
       case ( "thetao" )
          needed = needfld("thetao") .or. needfld("tos")
+      case ( "wo" )
+         needed = needfld("wo")
       case default
          print*, "Error - unsupported argument for need3dfld", name
          stop
@@ -2154,7 +2162,8 @@ contains
 
       do ivar=1,nvars
          if ( varlist(ivar)%vname == "thetao" .or. varlist(ivar)%vname == "so" .or. &
-              varlist(ivar)%vname == "uo" .or. varlist(ivar)%vname == "vo" ) then    
+              varlist(ivar)%vname == "uo" .or. varlist(ivar)%vname == "vo" .or.     &
+              varlist(ivar)%vname == "wo" ) then    
             varlist(ivar)%water = .true. 
          else 
             varlist(ivar)%water = .false. 
@@ -2214,8 +2223,8 @@ contains
                   "dustwd_ave          ", "wb?_ave             ", "climate_biome       ", "climate_ivegt       ", &
                   "climate_min20       ", "climate_max20       ", "climate_alpha20     ", "climate_agdd5       ", &
                   "climate_gmd         ", "climate_dmoist_min20", "climate_dmoist_max20", "thetao              ", &
-                  "so                  ", "uo                  ", "vo                  ", "ocheight            "  &
-               /)) .and. int_type /= int_none ) then
+                  "so                  ", "uo                  ", "vo                  ", "ocheight            ", &
+                  "wo                  " /)) .and. int_type /= int_none ) then
             int_type = int_nearest
          else
             int_type = int_default
