@@ -3386,6 +3386,8 @@ contains
 !#endif
       
       call START_LOG(mpibcast_begin)
+      call MPI_Bcast(ioff(0:pnproc-1,0:5),pnproc*6,MPI_INTEGER,0,comm_world,ierr)
+      call MPI_Bcast(joff(0:pnproc-1,0:5),pnproc*6,MPI_INTEGER,0,comm_world,ierr)
       call MPI_Bcast(jdum(1:5),5,MPI_INTEGER,0,comm_world,ier)
       call END_LOG(mpibcast_end)
       pil   = jdum(1)
