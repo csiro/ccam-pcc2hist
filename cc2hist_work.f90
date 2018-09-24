@@ -3122,9 +3122,9 @@ contains
             call check_ncerr(ierr, "Error getting var gprocessor")
          end if
 
-#ifndef usempi3
+!#ifndef usempi3
          allocate( ioff(0:pnproc-1,0:5), joff(0:pnproc-1,0:5) )
-#endif
+!#endif
       
       end if
       
