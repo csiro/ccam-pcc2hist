@@ -3123,7 +3123,7 @@ contains
          end if
 
 !#ifndef usempi3
-         allocate( ioff(0:pnproc-1,0:5), joff(0:pnproc-1,0:5) )
+!         allocate( ioff(0:pnproc-1,0:5), joff(0:pnproc-1,0:5) )
 !#endif
       
       end if
@@ -3210,6 +3210,8 @@ contains
 !      ioff(0:pnproc-1,0:5) => ijoff(:,:,1)
 !      joff(0:pnproc-1,0:5) => ijoff(:,:,2)
 !#endif
+      
+      allocate( ioff(0:pnproc-1,0:5), joff(0:pnproc-1,0:5) )
 
       if ( resprocformat ) then
          allocate( prid_in(0:lproc-1) )
