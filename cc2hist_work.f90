@@ -74,6 +74,11 @@ module work
    interface match
       module procedure matcha, matchc
    end interface
+   
+   interface ccmpi_scatter
+      module procedure ccmpi_scatter_1d_r4_host, ccmpi_scatter_1d_r4_proc
+      module procedure ccmpi_scatter_2d_r4_host, ccmpi_scatter_2d_r4_proc
+   end interface   
 
    type input_var
       character(len=20) :: vname   ! Name used in input
@@ -431,6 +436,12 @@ contains
                   dtmp = dtmp/86400.
                end where   
                call savehist ( "mrros", dtmp )
+            case ( "ocheight" )
+               call vread( "ocheight", dtmp )
+               where ( soilt > 0.5 )
+                  dtmp = nf90_fill_float
+               end where   
+               call savehist ( "ocheight", dtmp )
             case ( "pr" )
                call vread( "rnd", dtmp )
                dtmp = dtmp/86400.
@@ -745,11 +756,21 @@ contains
             case ( "so" )
                if ( need3dfld("so") ) then
                   call vread( "so", so_tmp )
+                  do k = 1,size(so_tmp,3)
+                     where ( soilt > 0.5 )
+                        so_tmp(:,:,k) = nf90_fill_float
+                     end where
+                  end do   
                   call osavehist( "so", so_tmp )
                end if
             case ( "thetao" )
                if ( need3dfld("thetao") ) then
                   call vread( "thetao", thetao_tmp )
+                  do k = 1,size(thetao_tmp,3)
+                     where ( soilt > 0.5 )
+                        thetao_tmp(:,:,k) = nf90_fill_float
+                     end where
+                  end do   
                   call osavehist( "thetao", thetao_tmp )
                end if    
             ! Should to u, v as above with vector flag, but this will do for now
@@ -771,15 +792,30 @@ contains
                end if
             case ( "uo" ) 
                if ( need3dfld("uo") ) then
+                  do k = 1,size(uo_tmp,3)
+                     where ( soilt > 0.5 )
+                        uo_tmp(:,:,k) = nf90_fill_float
+                     end where
+                  end do   
                   call vread( "uo", uo_tmp )
                end if
             case ( "vo" ) 
                if ( need3dfld("vo") ) then
+                  do k = 1,size(vo_tmp,3)
+                     where ( soilt > 0.5 )
+                        vo_tmp(:,:,k) = nf90_fill_float
+                     end where
+                  end do   
                   call vread( "vo", vo_tmp )
                end if
             case ( "wo" )
                if ( need3dfld("wo") ) then
                   call vread( "wo", ocn_tmp )
+                  do k = 1,size(ocn_tmp,3)
+                     where ( soilt > 0.5 )
+                        ocn_tmp(:,:,k) = nf90_fill_float
+                     end where
+                  end do   
                   call osavehist( "wo", ocn_tmp )
                end if   
             case ( "omega" )
@@ -1063,21 +1099,11 @@ contains
                call osavehist( "vo", vo_tmp ) 
             end if    
          end if
-         if ( needfld("sos") .or. needfld("so") ) then
-            if ( needfld("sos") ) then
-               call savehist( "sos", so_tmp(:,:,1) ) 
-            end if
-            !if ( needfld("so" ) ) then
-            !   call osavehist( "so", so_tmp )
-            !end if   
+         if ( needfld("sos") ) then
+            call savehist( "sos", so_tmp(:,:,1) ) 
          end if
-         if ( needfld("tos") .or. needfld("thetao") ) then
-            if ( needfld("tos") ) then
-               call savehist( "tos", thetao_tmp(:,:,1) ) 
-            end if
-            !if ( needfld("thetao" ) ) then
-            !   call osavehist( "thetao", thetao_tmp )
-            !end if   
+         if ( needfld("tos") ) then
+            call savehist( "tos", thetao_tmp(:,:,1) ) 
          end if
       end if
       
@@ -1630,9 +1656,9 @@ contains
       end if
 
       if ( node_myid == 0 ) then
-         ssize=nxhis*nyhis
+         ssize = nxhis*nyhis
       else
-         ssize=0
+         ssize = 0
       end if
       call allocshdata(xyg,ssize*2,(/ nxhis, nyhis, 2 /),xyg_win)
       xg => xyg(:,:,1)
@@ -1737,7 +1763,6 @@ contains
       type(input_var), dimension(:) :: varlist
       integer, intent(in) :: nvars
       real, dimension(:,:), allocatable :: costh_g, sinth_g
-      real, dimension(:,:,:), allocatable :: c_io
       real :: sinlong, coslong, sinlat, coslat
       real :: polenx, poleny, polenz, zonx, zony, zonz, den
       real :: theta_lc, rlongdeg, rlatdeg, ri, rj
@@ -1782,7 +1807,6 @@ contains
 #endif
          
            allocate ( costh_g(il,jl), sinth_g(il,jl) )
-           allocate ( c_io(pil,pjl*pnpan,pnproc) )
 
 !     For calculating zonal and meridional wind components, use the
 !     following information, where theta is the angle between the
@@ -1814,47 +1838,14 @@ contains
                   sinth_g(i,j) = -(zonx*bx(iq)+zony*by(iq)+zonz*bz(iq))/den
                end do
             end do
-
-            do ip = 0,pnproc-1   
-               do n = 0,pnpan-1
-                  c_io(1:pil,1+n*pjl:(n+1)*pjl,ip+1) = &
-                    costh_g(1+ioff(ip,n):pil+ioff(ip,n),1+joff(ip,n)+n*pil_g:pjl+joff(ip,n)+n*pil_g)
-               end do
-            end do
+            call ccmpi_scatter(costh,costh_g)
+            call ccmpi_scatter(sinth,sinth_g)
+            deallocate( costh_g, sinth_g )
      
          else
-            allocate( c_io(0,0,0) )
+            call ccmpi_scatter(costh)
+            call ccmpi_scatter(sinth)
          end if 
-
-         call START_LOG(mpiscatter_begin)
-         call MPI_Scatter(c_io,pil*pjl*pnpan*lproc,MPI_REAL,costh,pil*pjl*pnpan*lproc,MPI_REAL,0,comm_world,ierr)
-         call END_LOG(mpiscatter_end)
-
-#ifdef usempi3
-         if ( node_myid == 0 ) then
-#else
-         if ( myid == 0 ) then
-#endif
-            do ip = 0,pnproc-1   
-               do n = 0,pnpan-1
-                  c_io(1:pil,1+n*pjl:(n+1)*pjl,ip+1) = &
-                    sinth_g(1+ioff(ip,n):pil+ioff(ip,n),1+joff(ip,n)+n*pil_g:pjl+joff(ip,n)+n*pil_g)
-               end do
-            end do
-         end if
-
-         call START_LOG(mpiscatter_begin)
-         call MPI_Scatter(c_io,pil*pjl*pnpan*lproc,MPI_REAL,sinth,pil*pjl*pnpan*lproc,MPI_REAL,0,comm_world,ierr)
-         call END_LOG(mpiscatter_end)
-
-#ifdef usempi3
-         if ( node_myid == 0 ) then
-#else
-         if ( myid == 0 ) then
-#endif
-            deallocate( costh_g, sinth_g )
-         end if
-         deallocate( c_io )
 
       end if
       
@@ -2222,9 +2213,7 @@ contains
                   "ocdd_ave            ", "ocwd_ave            ", "duste_ave           ", "dustdd_ave          ", &
                   "dustwd_ave          ", "wb?_ave             ", "climate_biome       ", "climate_ivegt       ", &
                   "climate_min20       ", "climate_max20       ", "climate_alpha20     ", "climate_agdd5       ", &
-                  "climate_gmd         ", "climate_dmoist_min20", "climate_dmoist_max20", "thetao              ", &
-                  "so                  ", "uo                  ", "vo                  ", "ocheight            ", &
-                  "wo                  " /)) .and. int_type /= int_none ) then
+                  "climate_gmd         ", "climate_dmoist_min20", "climate_dmoist_max20" /)) .and. int_type /= int_none ) then
             int_type = int_nearest
          else
             int_type = int_default
@@ -2549,10 +2538,10 @@ contains
       end if
       
       if ( ok > 1 ) then
-         call addfld( "uos", "x-component surface current", "m/s", -100., 100., 1, int_type=int_nearest )
-         call addfld( "vos", "y-component surface current", "m/s", -100., 100., 1, int_type=int_nearest )
-         call addfld( "sos", "Surface ocean salinity", "PSU", 0., 100., 1, int_type=int_nearest )
-         call addfld( "tos", "Surface ocean temperature", "K", 150., 350., 1, int_type=int_nearest )
+         call addfld( "uos", "x-component surface current", "m/s", -100., 100., 1 )
+         call addfld( "vos", "y-component surface current", "m/s", -100., 100., 1 )
+         call addfld( "sos", "Surface ocean salinity", "PSU", 0., 100., 1 )
+         call addfld( "tos", "Surface ocean temperature", "K", 150., 350., 1 )
       end if    
 
    end subroutine get_var_list
@@ -3093,7 +3082,7 @@ contains
             singlefile = .true.
             ierr = nf90_open(pfile, nmode, ncid)
             call check_ncerr(ierr, "Error opening file "//trim(old_pfile)//" or "//trim(pfile))
-            ier = nf90_get_att(ncid, nf90_global, "nproc", pnproc)
+            ierr = nf90_get_att(ncid, nf90_global, "nproc", pnproc)
             if ( ierr==nf90_noerr ) then
                write(6,*) "ERROR: Parallel file format found in ifile = ",trim(ifile)
                write(6,*) "       Try removing .000000 from ifile in the namelist."
@@ -3708,5 +3697,124 @@ contains
 #endif
    
    end subroutine cc2hist_work_close
+
+   subroutine ccmpi_scatter_1d_r4_host(data_l,data_g)
    
+   use logging_m
+#ifdef usempi_mod
+   use mpi
+#endif
+   use newmpar_m, only : il, jl
+   
+   implicit none
+   
+#ifndef usempi_mod
+   include 'mpif.h'
+#endif
+   
+   integer ip, n, iq_a, iq_b, i, j, ierr
+   real, dimension(pil*pjl*pnpan*lproc), intent(out) :: data_l
+   real, dimension(il*jl), intent(in) :: data_g
+   real, dimension(pil*pjl*pnpan,pnproc) :: data_s
+   
+   do ip = 0,pnproc-1   
+      do n = 0,pnpan-1
+         do j = 1,pjl
+            do i = 1,pil
+               iq_a = i + pil*(j-1) + n*pil*pjl
+               iq_b = i + ioff(ip,n) + il*(j-1+joff(ip,n)) + n*il*il
+               data_s(iq_a,ip+1) = data_g(iq_b)
+            end do
+         end do
+      end do
+   end do   
+
+   call START_LOG(mpiscatter_begin)
+   call MPI_Scatter(data_s,pil*pjl*pnpan*lproc,MPI_REAL,data_l,pil*pjl*pnpan*lproc,MPI_REAL,0,comm_world,ierr)
+   call END_LOG(mpiscatter_end)
+   
+   end subroutine ccmpi_scatter_1d_r4_host
+   
+   subroutine ccmpi_scatter_1d_r4_proc(data_l)
+   
+   use logging_m
+#ifdef usempi_mod
+   use mpi
+#endif
+   use newmpar_m, only : il, jl
+   
+   implicit none
+   
+#ifndef usempi_mod
+   include 'mpif.h'
+#endif
+   
+   integer ierr
+   real, dimension(pil*pjl*pnpan*lproc), intent(out) :: data_l
+   real, dimension(0,0) :: data_s
+   
+   call START_LOG(mpiscatter_begin)
+   call MPI_Scatter(data_s,pil*pjl*pnpan*lproc,MPI_REAL,data_l,pil*pjl*pnpan*lproc,MPI_REAL,0,comm_world,ierr)
+   call END_LOG(mpiscatter_end)
+   
+   end subroutine ccmpi_scatter_1d_r4_proc
+   
+   subroutine ccmpi_scatter_2d_r4_host(data_l,data_g)
+   
+   use logging_m
+#ifdef usempi_mod
+   use mpi
+#endif
+   use newmpar_m, only : il, jl
+   
+   implicit none
+   
+#ifndef usempi_mod
+   include 'mpif.h'
+#endif
+   
+   integer :: ip, n, ierr
+   real, dimension(pil,pjl*pnpan*lproc), intent(out) :: data_l
+   real, dimension(il,jl), intent(in) :: data_g
+   real, dimension(pil,pjl*pnpan,pnproc) :: data_s
+   
+   do ip = 0,pnproc-1   
+      do n = 0,pnpan-1
+         data_s(1:pil,1+n*pjl:(n+1)*pjl,ip+1) = &
+              data_g(1+ioff(ip,n):pil+ioff(ip,n),1+joff(ip,n)+n*pil_g:pjl+joff(ip,n)+n*pil_g)
+      end do
+   end do
+
+   call START_LOG(mpiscatter_begin)
+   call MPI_Scatter(data_s,pil*pjl*pnpan*lproc,MPI_REAL,data_l,pil*pjl*pnpan*lproc,MPI_REAL,0,comm_world,ierr)
+   call END_LOG(mpiscatter_end)
+
+   
+   end subroutine ccmpi_scatter_2d_r4_host         
+         
+   subroutine ccmpi_scatter_2d_r4_proc(data_l)
+
+   use logging_m
+#ifdef usempi_mod
+   use mpi
+#endif
+   use newmpar_m, only : il, jl
+   
+   implicit none
+   
+#ifndef usempi_mod
+   include 'mpif.h'
+#endif
+   
+   integer ierr
+   real, dimension(pil,pjl*pnpan*lproc), intent(out) :: data_l
+   real, dimension(0,0,0) :: data_s
+   
+   call START_LOG(mpiscatter_begin)
+   call MPI_Scatter(data_s,pil*pjl*pnpan*lproc,MPI_REAL,data_l,pil*pjl*pnpan*lproc,MPI_REAL,0,comm_world,ierr)
+   call END_LOG(mpiscatter_end)
+   
+   end subroutine ccmpi_scatter_2d_r4_proc         
+         
+         
 end module work

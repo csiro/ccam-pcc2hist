@@ -292,6 +292,7 @@ module history
    integer, parameter :: vmin=-32500, vmax=32500
 
    real :: missing_value = NF90_FILL_FLOAT
+   real :: missing_value_cordex = 1.00000002004e+20
    character(len=20), save :: filesuffix
 
 !  Output array size (may be different to model resolution and accumulation
@@ -334,16 +335,16 @@ contains
       integer, dimension(8) :: idatetime
       character(len=1000) :: str
    
-      logname = ""
-      call get_environment_variable("LOGNAME",logname)
-      hostname = ""
-      call get_environment_variable("HOSTNAME",hostname)
+      !logname = ""
+      !call get_environment_variable("LOGNAME",logname)
+      !hostname = ""
+      !call get_environment_variable("HOSTNAME",hostname)
       call date_and_time(values=idatetime)
       
       ! Avoid overflow in the output string by writing to a long internal string
       str = ""
-      write(str,'("Created by ",a, " on ", a, " ", i4.4,"-", i2.2,"-",i2.2," ",i2.2,":",i2.2,":", i2.2)') &
-           trim(logname), trim(hostname), idatetime(1:3), idatetime(5:7)
+      write(str,'("Created on ", i4.4,"-", i2.2,"-",i2.2," ",i2.2,":",i2.2,":", i2.2)') &
+           idatetime(1:3), idatetime(5:7)
       hstr = str ! Copy truncates if necessary
       
    end subroutine hstring
@@ -1404,9 +1405,9 @@ contains
             call check_ncerr(ierr,"Error with missing value attribute")
          end if
       else
-         ierr = nf90_put_att ( ncid, vid, "_FillValue", missing_value )
+         ierr = nf90_put_att ( ncid, vid, "_FillValue", missing_value_cordex )
          call check_ncerr(ierr,"Error with FLOAT/DOUBLE fill value attribute")
-         ierr = nf90_put_att ( ncid, vid, "missing_value", missing_value )
+         ierr = nf90_put_att ( ncid, vid, "missing_value", missing_value_cordex )
          call check_ncerr(ierr,"Error with missing value attribute")
       end if
 
@@ -1506,14 +1507,20 @@ contains
          ierr = nf90_put_att ( ncid, NF90_GLOBAL, "source", source )
          call check_ncerr(ierr)
       end if
-      if ( cf_compliant ) then
-         ierr = nf90_put_att ( ncid, NF90_GLOBAL, "Conventions", "CF-1.0" )
+      !if ( cf_compliant ) then
+         ierr = nf90_put_att ( ncid, NF90_GLOBAL, "Conventions", "CF-1.7" )
          call check_ncerr(ierr)
-      end if
+         ierr = nf90_put_att ( ncid, NF90_GLOBAL, "title", "CCAM simulation data" )
+         call check_ncerr(ierr)
+         ierr = nf90_put_att ( ncid, NF90_GLOBAL, "contact", "ccam@csiro.au" )
+         call check_ncerr(ierr)
+         ierr = nf90_put_att ( ncid, NF90_GLOBAL, "project", "Undefined CCAM project" )
+         call check_ncerr(ierr)
+      !end if
 !     Make sure it's a null string, otherwise len_trim won't find the end 
 !     properly.
       histstr = "" 
-      !call hstring(histstr)
+      call hstring(histstr)
       ierr = nf90_put_att ( ncid, NF90_GLOBAL, "history", histstr )
       if ( present(extra_atts) .and. save_ccam_parameters ) then
          do i=1,size(extra_atts)
@@ -2271,18 +2278,24 @@ contains
                
                if ( myid == 0 ) then
 
-                  if ( count /= 0 .and. hbytes(ifile) == 2 ) then
-                     addoff = histinfo(ifld)%addoff(ifile)
-                     sf = histinfo(ifld)%scalef(ifile)
-                     umin = sf * vmin + addoff
-                     umax = sf * vmax + addoff
-                     where ( fpequal(htemp, missing_value) )
-                        htemp = NF90_FILL_SHORT
-                     elsewhere
-!                    Put the scaled array back in the original and let
-!                    netcdf take care of conversion to int2
-                        htemp = nint((max(umin,min(umax,htemp))-addoff)/sf)
-                     endwhere
+                  if ( count /= 0 ) then
+                     if ( hbytes(ifile) == 2 ) then
+                       addoff = histinfo(ifld)%addoff(ifile)
+                       sf = histinfo(ifld)%scalef(ifile)
+                       umin = sf * vmin + addoff
+                       umax = sf * vmax + addoff
+                       where ( fpequal(htemp, missing_value) )
+                          htemp = NF90_FILL_SHORT
+                       elsewhere
+                          ! Put the scaled array back in the original and let
+                          ! netcdf take care of conversion to int2
+                          htemp = nint((max(umin,min(umax,htemp))-addoff)/sf)
+                       end where
+                     else
+                       where ( fpequal(htemp, missing_value) )
+                          htemp = missing_value_cordex 
+                       end where    
+                     end if    
                   end if
                    
                   if ( nlev > 1 .or. histinfo(ifld)%multilev ) then
@@ -2389,10 +2402,14 @@ contains
                         where ( fpequal(htemp, missing_value) )
                            htemp = NF90_FILL_SHORT
                         elsewhere
-!                       Put the scaled array back in the original and let
-!                       netcdf take care of conversion to int2
+                           ! Put the scaled array back in the original and let
+                           ! netcdf take care of conversion to int2
                            htemp = nint((max(umin,min(umax,htemp))-addoff)/sf)
-                        endwhere
+                        end where
+                     else
+                        where ( fpequal(htemp, missing_value) )
+                           htemp = missing_value_cordex
+                        end where  
                      end if
                   
                   end if
@@ -2453,6 +2470,7 @@ contains
       character(len=MAX_NAMELEN) :: vname
       integer, dimension(nxhis,nyhis) :: imat
       real :: addoff, sf, umin, umax
+      real, dimension(nxhis,nyhis) :: rmat
       integer :: year1
 
       if ( myid /= 0 ) return
@@ -2532,8 +2550,13 @@ contains
                ierr = nf90_put_var ( ncid, vid, imat, start=astart, &
                                      count=acount )
             else
-               ierr = nf90_put_var ( ncid, vid, histarray(:,:,istart), &
-                                     start=astart, count=acount )
+               where ( fpequal(histarray(:,:,istart), missing_value) )
+                  rmat = missing_value_cordex
+               elsewhere
+                  rmat = histarray(:,:,istart)
+               end where   
+               ierr = nf90_put_var ( ncid, vid, rmat, start=astart, &
+                                     count=acount )
             end if
             call check_ncerr(ierr, &
                  "Error writing history variable "//vname )

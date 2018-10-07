@@ -177,7 +177,7 @@ subroutine ints ( s_in, array, int_type )  ! input array (twice), output array
                    sx(idel+1,jdel,n)   == NF90_FILL_FLOAT .or. &
                    sx(idel+1,jdel+1,n) == NF90_FILL_FLOAT .or. &
                    sx(idel,jdel+1,n)   == NF90_FILL_FLOAT ) then
-                 array(i,j) = NF90_FILL_FLOAT
+                 array(i,j) = sx(idel,jdel,n) 
               else 
                  xxg = xg(i,j)-idel
                  yyg = yg(i,j)-jdel
@@ -235,7 +235,7 @@ subroutine ints ( s_in, array, int_type )  ! input array (twice), output array
                 sx(idel+1,jdel,n) == NF90_FILL_FLOAT .or. &
                 sx(idel+1,jdel+1,n) == NF90_FILL_FLOAT .or. &
                 sx(idel,jdel+1,n) == NF90_FILL_FLOAT ) then
-              array(i,j) = NF90_FILL_FLOAT
+              array(i,j) = sx(idel,jdel,n) 
            else
               xxg = xg(i,j)-idel
               yyg = yg(i,j)-jdel
@@ -261,7 +261,7 @@ subroutine ints ( s_in, array, int_type )  ! input array (twice), output array
                    sx(idel+1,jdel,n)   == NF90_FILL_FLOAT .or. &
                    sx(idel+1,jdel+1,n) == NF90_FILL_FLOAT .or. &
                    sx(idel,jdel+1,n)   == NF90_FILL_FLOAT ) then
-                 array(i,j) = NF90_FILL_FLOAT
+                 array(i,j) = sx(idel,jdel,n) 
               else 
                  xxg = xg(i,j)-idel
                  yyg = yg(i,j)-jdel
