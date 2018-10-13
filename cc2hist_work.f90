@@ -318,19 +318,18 @@ contains
          ! Files with fixed type only written on first pass
          if ( varlist(ivar)%fixed ) then
             if ( first_in ) then
-               select case ( varlist(ivar)%vname )
-               case ( "zs", "orog" )
+               if ( varlist(ivar)%vname == "zs" ) then
                   ! This could also be done with the output_scale
                   call vread( "zht", zs )
                   zs = zs / grav
-                  if ( needfld(varlist(ivar)%vname) ) then
-                     call savehist ( varlist(ivar)%vname, zs )
-                  end if   
-               case ( "soilt" )
+                  call savehist ( "zs", zs )
+               else if ( varlist(ivar)%vname == "orog" ) then
+                  call vread( "zht", zs )
+                  zs = zs / grav
+                  call savehist ( "orog", zs )
+               else if ( varlist(ivar)%vname == "soilt" ) then
                   call vread( "soilt", soilt )
-                  if ( needfld("soilt") ) then
-                     call savehist("soilt", soilt)
-                  end if   
+                  call savehist("soilt", soilt)
                   if ( needfld("land_mask") ) then
                      where ( soilt > 0.5 )
                         dtmp = 1.
@@ -346,26 +345,20 @@ contains
                      end where
                      call savehist("sftlf", dtmp)
                   endif
-               case ( "map" )
-                  if ( needfld("map") .or. needfld("grid") ) then 
-                     call vread( "map", dtmp )
-                     if ( needfld("map") ) then
-                        call savehist("map", dtmp )
-                     end if   
-                     if ( needfld("grid") ) then
-                        dtmp = 90.*112./(real(pil_g)*dtmp)
-                        call savehist("grid", dtmp)
-                     end if   
+               else if ( varlist(ivar)%vname == "map" ) then
+                  call vread( "map", dtmp )
+                  call savehist("map", dtmp )
+                  if ( needfld("grid") ) then
+                    dtmp = 90.*112./(real(pil_g)*dtmp)
+                    call savehist("grid", dtmp)
                   end if
-               case ( "ocndepth" )
+               else if ( varlist(ivar)%vname == "ocndepth" ) then
                   call vread( "ocndepth", dtmp )
-                  if ( needfld("ocndepth") ) then
-                     call savehist( "ocndepth", dtmp )
-                  end if   
+                  call savehist( "ocndepth", dtmp )
                   if ( use_depth ) call ditop_setup( gosig, dlevs(1:onplevs), dtmp )
-               case default
+               else
                   call readsave2 ( varlist(ivar)%vname )
-               end select
+               end if
             end if
             cycle ! Otherwise will match the following if test as well
          end if
@@ -378,184 +371,136 @@ contains
             case ( "clivi" )
                call readsave2 (varlist(ivar)%vname, input_name="iwp_ave")
             case ( "clh" )
-               if ( needfld("clh") ) then 
-                  call vread( "clh", dtmp )
-                  if ( cordex_compliant ) then
-                     where ( dtmp /= nf90_fill_float )
-                        dtmp = dtmp*100.
-                     end where  
-                  end if
-                  call savehist ( "clh", dtmp )
-               end if   
-            case ( "cll" )
-               if ( needfld("cll") ) then 
-                  call vread( "cll", dtmp )
-                  if ( cordex_compliant ) then
-                     where ( dtmp /= nf90_fill_float ) 
-                        dtmp = dtmp*100.
-                     end where
-                  end if
-                  call savehist ( "cll", dtmp )
-               end if   
-            case ( "clm" )
-               if ( needfld("clm") ) then 
-                  call vread( "clm", dtmp )
-                  if ( cordex_compliant ) then
-                     where ( dtmp /= nf90_fill_float ) 
-                        dtmp = dtmp*100.
-                     end where   
-                  end if
-                  call savehist ( "clm", dtmp )
-               end if   
-            case ( "clt" )
-               if ( needfld("clt") ) then 
-                  call vread( "cld", dtmp )
+               call vread( "clh", dtmp )
+               if ( cordex_compliant ) then
                   where ( dtmp /= nf90_fill_float )
                      dtmp = dtmp*100.
+                  end where  
+               end if
+               call savehist ( "clh", dtmp )
+            case ( "cll" )
+               call vread( "cll", dtmp )
+               if ( cordex_compliant ) then
+                  where ( dtmp /= nf90_fill_float ) 
+                     dtmp = dtmp*100.
+                  end where
+               end if
+               call savehist ( "cll", dtmp )
+            case ( "clm" )
+               call vread( "clm", dtmp )
+               if ( cordex_compliant ) then
+                  where ( dtmp /= nf90_fill_float ) 
+                     dtmp = dtmp*100.
                   end where   
-                  call savehist ( "clt", dtmp )
-               end if   
+               end if
+               call savehist ( "clm", dtmp )
+            case ( "clt" )
+               call vread( "cld", dtmp )
+               where ( dtmp /= nf90_fill_float )
+                  dtmp = dtmp*100.
+               end where   
+               call savehist ( "clt", dtmp )
             case ( "clwvi" )
                call readsave2 (varlist(ivar)%vname, input_name="lwp_ave")
             case ( "dpsdt" )
-                if ( needfld("dpsdt") .or. needfld("w") ) then
-                   call vread( "dpsdt", dpsdt )
-                   if ( needfld("dpsdt") ) then
-                      call savehist ( "dpsdt", dpsdt )
-                   end if   
-                end if   
+                call vread( "dpsdt", dpsdt )
+                call savehist ( "dpsdt", dpsdt )
             case ( "evspsblpot" )
-               if ( needfld("evspsblpot") ) then 
-                  call vread( "epot_ave", dtmp )
-                  where ( dtmp /= nf90_fill_float )
-                     dtmp = dtmp/2.501e6 ! Latent heat of vaporisation (J kg^-1)
-                  end where   
-                  call savehist ( "evspsblpot", dtmp )
-               end if   
+               call vread( "epot_ave", dtmp )
+               where ( dtmp /= nf90_fill_float )
+                  dtmp = dtmp/2.501e6 ! Latent heat of vaporisation (J kg^-1)
+               end where   
+               call savehist ( "evspsblpot", dtmp )
             case ( "hfls" )
-               if ( needfld("hfls") .or. needfld("evspsbl") ) then 
-                  call vread( "eg_ave", egave )
-                  if ( needfld("hfls") ) then
-                     call savehist( "hfls", egave )
-                  end if   
-               end if   
+               call vread( "eg_ave", egave )
+               call savehist( "hfls", egave )
             case ( "hfss" )
                call readsave2 (varlist(ivar)%vname, input_name="fg_ave")
             case ( "hurs" )
                call readsave2 (varlist(ivar)%vname, input_name="rhscrn")
             case ( "huss" )
-               if ( needfld("huss") ) then 
-                  call vread( "qgscrn", dtmp )
-                  where ( dtmp /= nf90_fill_float )
-                     dtmp = dtmp/(dtmp+1.)
-                  end where  
-                  call savehist ( "huss", dtmp )
-               end if   
+               call vread( "qgscrn", dtmp )
+               where ( dtmp /= nf90_fill_float )
+                  dtmp = dtmp/(dtmp+1.)
+               end where  
+               call savehist ( "huss", dtmp )
             case ( "mrro" )
-               if ( needfld("mrro") ) then 
-                  call vread( "runoff", dtmp )
-                  where ( dtmp /= nf90_fill_float )
-                     dtmp = dtmp/86400.
-                  end where   
-                  call savehist ( "mrro", dtmp )
-               end if   
-            case ( "mrros" )
-               if ( needfld("mrros") ) then 
-                  call vread( "mrros", dtmp )
-                  where ( dtmp /= nf90_fill_float )
-                     dtmp = dtmp/86400.
-                  end where   
-                  call savehist ( "mrros", dtmp )
-               end if   
-            case ( "ocheight" )
-               if ( needfld("ocheight") ) then 
-                  call vread( "ocheight", dtmp )
-                  where ( soilt > 0.5 )
-                     dtmp = nf90_fill_float
-                  end where   
-                  call savehist ( "ocheight", dtmp )
-               end if   
-            case ( "pr" )
-               if ( needfld("pr") ) then 
-                  call vread( "rnd", dtmp )
+               call vread( "runoff", dtmp )
+               where ( dtmp /= nf90_fill_float )
                   dtmp = dtmp/86400.
-                  call savehist ( "pr", dtmp )
-               end if   
+               end where   
+               call savehist ( "mrro", dtmp )
+            case ( "mrros" )
+               call vread( "mrros", dtmp )
+               where ( dtmp /= nf90_fill_float )
+                  dtmp = dtmp/86400.
+               end where   
+               call savehist ( "mrros", dtmp )
+            case ( "ocheight" )
+               call vread( "ocheight", dtmp )
+               where ( soilt > 0.5 )
+                  dtmp = nf90_fill_float
+               end where   
+               call savehist ( "ocheight", dtmp )
+            case ( "pr" )
+               call vread( "rnd", dtmp )
+               dtmp = dtmp/86400.
+               call savehist ( "pr", dtmp )
             case ( "prc" )
-               if ( needfld("prc") ) then 
-                  call vread( "rnc", dtmp )
-                  where ( dtmp /= nf90_fill_float )
-                     dtmp = dtmp/86400.
-                  end where   
-                  call savehist ( "prc", dtmp )
-               end if   
+               call vread( "rnc", dtmp )
+               where ( dtmp /= nf90_fill_float )
+                  dtmp = dtmp/86400.
+               end where   
+               call savehist ( "prc", dtmp )
             case ( "prmax" )
-               if ( needfld("prmax") ) then 
-                  call vread( "maxrnd", dtmp )
-                  where ( dtmp /= nf90_fill_float )
-                     dtmp = dtmp/86400.
-                  end where   
-                  call savehist ( "prmax", dtmp )
-               end if   
+               call vread( "maxrnd", dtmp )
+               where ( dtmp /= nf90_fill_float )
+                  dtmp = dtmp/86400.
+               end where   
+               call savehist ( "prmax", dtmp )
             case ( "prsn" )
-               if ( needfld("prsn") ) then 
-                  call vread( "sno", dtmp )
-                  where ( dtmp /= nf90_fill_float )
-                     dtmp = dtmp/86400.
-                  end where   
-                  call savehist ( "prsn", dtmp )
-               end if   
+               call vread( "sno", dtmp )
+               where ( dtmp /= nf90_fill_float )
+                  dtmp = dtmp/86400.
+               end where   
+               call savehist ( "prsn", dtmp )
             case ( "psl" )
-               if ( needfld("psl") ) then 
-                  call vread( "pmsl", dtmp )
-                  if ( cordex_compliant ) then
-                     where ( dtmp /= nf90_fill_float ) 
-                        dtmp = dtmp*100.
-                     end where   
-                  end if
-                  call savehist ( "psl", dtmp )
-               end if   
+               call vread( "pmsl", dtmp )
+               if ( cordex_compliant ) then
+                  where ( dtmp /= nf90_fill_float ) 
+                     dtmp = dtmp*100.
+                  end where   
+               end if
+               call savehist ( "psl", dtmp )
             case ( "psl_ave" )
-               if ( needfld("psl_ave") ) then 
-                  call vread( "pmsl_ave", dtmp )
-                  if ( cordex_compliant ) then
-                     where ( dtmp /= nf90_fill_float ) 
-                        dtmp = dtmp*100.
-                     end where   
-                  end if
-                  call savehist ( "psl_ave", dtmp )
-               end if   
+               call vread( "pmsl_ave", dtmp )
+               if ( cordex_compliant ) then
+                  where ( dtmp /= nf90_fill_float ) 
+                     dtmp = dtmp*100.
+                  end where   
+               end if
+               call savehist ( "psl_ave", dtmp )
             case ( "psf" )
                call vread( "psf", psl )
                where ( psl /= nf90_fill_float )
                   psl = 1.0e3 * exp(psl) ! hPa
-               end where
-               if ( needfld("ps") ) then
-                  if ( cordex_compliant ) then
-                     where ( dtmp /= nf90_fill_float ) 
-                        dtmp = 100.*psl     ! Pa
-                     end where   
-                  else    
-                     dtmp = psl          ! hPa
-                  end if
-                  call savehist ( "ps", dtmp )
-               end if   
+               end where   
+               if ( cordex_compliant ) then
+                  where ( dtmp /= nf90_fill_float ) 
+                     dtmp = 100.*psl     ! Pa
+                  end where   
+               else    
+                  dtmp = psl          ! hPa
+               end if
+               call savehist ( "ps", dtmp )
                ! This relies on surface pressure coming before the 3D variables
                if ( use_plevs ) call sitop_setup(sig, plevs(1:nplevs), psl, maxlev, minlev)
             case ( "rgdn_ave", "rlds" )
-               if ( needfld("rgdn") .or. needfld("rlds") .or. needfld("rlus") ) then 
-                  call vread( "rgdn_ave", rgd )
-                  if ( needfld(varlist(ivar)%vname) ) then
-                     call savehist( varlist(ivar)%vname, rgd )
-                  end if   
-               end if   
+               call vread( "rgdn_ave", rgd )
+               call savehist( varlist(ivar)%vname, rgd )
             case ( "rgn_ave" )
-               if ( needfld("rgn_ave") .or. needfld("rlus") ) then 
-                  call vread( "rgn_ave", rgn )
-                  if ( needfld("rgn_ave") ) then
-                     call savehist( "rgn_ave", rgn )
-                  end if   
-               end if   
+               call vread( "rgn_ave", rgn )
+               call savehist( "rgn_ave", rgn )
             case ( "rlut" )
                call readsave2( varlist(ivar)%vname, input_name="rtu_ave" )
             case ( "rsdt" )
@@ -563,97 +508,110 @@ contains
             case ( "rsut" )
                call readsave2 (varlist(ivar)%vname, input_name="sot_ave") 
             case ( "sic" )
-               if ( needfld("sic") ) then 
-                  call vread2( "fracice", dtmp )
-                  where ( dtmp /= nf90_fill_float )
-                     dtmp = dtmp*100.
-                  end where   
-                  call savehist( "sic", dtmp )
-               end if   
+               call vread2( "fracice", dtmp )
+               where ( dtmp /= nf90_fill_float )
+                  dtmp = dtmp*100.
+               end where   
+               call savehist( "sic", dtmp )
             case ( "sgdn_ave", "rsds" )
-               if ( needfld("sgdn_ave") .or. needfld("rsds") .or. needfld("rsus") ) then 
-                  call vread( "sgdn_ave", sgd )
-                  if ( needfld(varlist(ivar)%vname) ) then
-                     call savehist( varlist(ivar)%vname, sgd )
-                  end if   
-               end if   
+               call vread( "sgdn_ave", sgd )
+               call savehist( varlist(ivar)%vname, sgd )
             case ( "sgn_ave" )
-               if ( needfld("sgn_ave") .or. needfld("rsus") ) then 
-                  call vread( "sgn_ave", sgn )
-                  if ( needfld("sgn_ave") ) then
-                     call savehist( "sgn_ave", sgn )
-                  end if   
-               end if   
+               call vread( "sgn_ave", sgn )
+               call savehist( "sgn_ave", sgn )
             case ( "snd" )
-               if ( needfld("snd") .or. needfld("snc") .or. needfld("snw") ) then
-                  call vread( "snd", sndw )
-                  if ( needfld("snd") ) then
-                     if ( cordex_compliant ) then
-                        where ( dtmp /= nf90_fill_float )  
-                           dtmp = sndw*10. ! change from equiv water to equiv snow
-                        end where   
-                     else
-                        dtmp = sndw
-                     end if
-                     call savehist ( "snd", dtmp )
-                  end if   
-               end if   
+               call vread( "snd", sndw )
+               if ( cordex_compliant ) then
+                 where ( dtmp /= nf90_fill_float )  
+                    dtmp = sndw*10. ! change from equiv water to equiv snow
+                 end where   
+               else
+                 dtmp = sndw
+               end if
+               call savehist ( "snd", dtmp )
             case ( "snm" )
-               if ( needfld("snm") ) then 
-                  call vread( "snm", dtmp )
-                  where ( dtmp /= nf90_fill_float )
-                     dtmp = dtmp/86400.
-                  end where   
-                  call savehist ( "snm", dtmp )
-               end if   
+               call vread( "snm", dtmp )
+               where ( dtmp /= nf90_fill_float )
+                  dtmp = dtmp/86400.
+               end where   
+               call savehist ( "snm", dtmp )
             case ( "sund" )
-               if ( needfld("sund") ) then 
-                  call vread( "sunhours", dtmp )
-                  where ( dtmp /= nf90_fill_float )
-                     dtmp = dtmp*3600.
-                  end where   
-                  call savehist ( "sund", dtmp )
-               end if   
+               call vread( "sunhours", dtmp )
+               where ( dtmp /= nf90_fill_float )
+                  dtmp = dtmp*3600.
+               end where   
+               call savehist ( "sund", dtmp )
             case ( "tas" )
                call readsave2 (varlist(ivar)%vname, input_name="tscrn")
             case ( "tasmax" )
                call readsave2 (varlist(ivar)%vname, input_name="tmaxscr")
             case ( "tasmin" )
                call readsave2 (varlist(ivar)%vname, input_name="tminscr")
-            case ( "tauu", "taux" ) 
+            case ( "tauu" )
                call vread( "taux", tauxtmp ) 
-            case ( "tauv", "tauy" )
+               if ( .not.needfld("tauv") ) then
+                 call vread( "tauy", tauytmp )  
+               end if  
+            case ( "tauv" )
+               if ( .not.needfld("tauu") ) then
+                 call vread( "taux", tauxtmp )  
+               end if  
                call vread( "tauy", tauytmp )  
-            case ( "ts", "tsu" )
-               if ( needfld("ts") .or. needfld("tsu") .or. needfld("tsea") ) then 
-                  call vread( "tsu", dtmp )
-                  ! Some (all?) initial conditions have tsu negative over ocean
-                  where ( dtmp /= nf90_fill_float )
-                     dtmp = abs(dtmp)
+            case ( "taux" )
+               call vread( "taux", tauxtmp ) 
+               if ( .not.needfld("tauy") ) then
+                 call vread( "tauy", tauytmp )  
+               end if  
+            case ( "tauy" )
+               if ( .not.needfld("taux") ) then
+                 call vread( "taux", tauxtmp )  
+               end if  
+               call vread( "tauy", tauytmp )  
+            case ( "ts" )
+               call vread( "tsu", dtmp )
+               ! Some (all?) initial conditions have tsu negative over ocean
+               where ( dtmp /= nf90_fill_float )
+                  dtmp = abs(dtmp)
+               end where   
+               call savehist("ts", dtmp)
+               where ( dtmp /= nf90_fill_float )
+                  dtmp = max(tfreeze, abs(dtmp))
+               end where
+               if ( needfld("tsea") ) then
+                  ! Use soilt as a land-sea mask (integer but read as float)
+                  where ( soilt > 0.5 )
+                     ctmp = spval
+                  elsewhere
+                     ! Use the maxval to ignore ice points.
+                     ctmp = dtmp
                   end where
-                  if ( needfld(varlist(ivar)%vname) ) then
-                     call savehist(varlist(ivar)%vname, dtmp)
-                  end if   
-                  if ( needfld("tsea") ) then
-                     where ( dtmp /= nf90_fill_float )
-                        dtmp = max(tfreeze, dtmp)
-                     end where
-                     ! Use soilt as a land-sea mask (integer but read as float)
-                     where ( soilt > 0.5 )
-                        ctmp = spval
-                     elsewhere
-                        ! Use the maxval to ignore ice points.
-                        ctmp = dtmp
-                     end where
-                     call fill_cc(ctmp, spval)
-                     call savehist ( "tsea", ctmp )
-                  end if   
+                  call fill_cc(ctmp, spval)
+                  call savehist ( "tsea", ctmp )
+               end if
+            case ( "tsu" )
+               call vread( "tsu", dtmp )
+               where ( dtmp /= nf90_fill_float )
+                  dtmp = abs(dtmp)
+               end where   
+               ! Some (all?) initial conditions have tsu negative over ocean
+               call savehist("tsu", dtmp)
+               where ( dtmp /= nf90_fill_float )
+                  dtmp = max(tfreeze, abs(dtmp))
+               end where
+               if ( needfld("tsea") ) then
+                  ! Use soilt as a land-sea mask (integer but read as float)
+                  where ( soilt > 0.5 )
+                     ctmp = spval
+                  elsewhere
+                     ! Use the maxval to ignore ice points.
+                     ctmp = dtmp
+                  end where
+                  call fill_cc(ctmp, spval)
+                  call savehist ( "tsea", ctmp )
                end if
             case ( "u10", "sfcWind" )
                call vread( "u10", uten )
-               if ( needfld(varlist(ivar)%vname) ) then
-                  call savehist( varlist(ivar)%vname, uten )
-               end if   
+               call savehist( varlist(ivar)%vname, uten )
             case ( "uas" )
                 call vread( "uas", uastmp ) ! only for high-frequency output
             case ( "vas" )
@@ -671,12 +629,8 @@ contains
                         call vread( varlist(ivar)%vname, ctmp)
                         call vread( name, dtmp)
                         call fix_winds(ctmp, dtmp)
-                        if ( needfld(varlist(ivar)%vname) ) then
-                           call savehist ( varlist(ivar)%vname, ctmp )
-                        end if
-                        if ( needfld(name) ) then
-                           call savehist ( name, dtmp )
-                        end if   
+                        call savehist ( varlist(ivar)%vname, ctmp )
+                        call savehist ( name, dtmp )
                      end if
                   endif
                else if ( varlist(ivar)%vname(1:3)=='tgg' .or.     &
@@ -684,38 +638,34 @@ contains
                          varlist(ivar)%vname(1:7)=='waletgg' .or. &
                          varlist(ivar)%vname(1:7)=='walwtgg' .or. &
                          varlist(ivar)%vname(1:7)=='roadtgg' ) then
-                  if ( needfld(varlist(ivar)%vname) ) then
-                     ! Fix soil, ocean or urban temperature offset
-                     call vread(varlist(ivar)%vname,dtmp)
-                     where ( dtmp<100. .and. dtmp/=nf90_fill_float )
-                        dtmp = dtmp + 290. ! reference temperature
-                     end where
-                     call savehist(varlist(ivar)%vname,dtmp)
-                  end if   
+                  ! Fix soil, ocean or urban temperature offset
+                  call vread(varlist(ivar)%vname,dtmp)
+                  where ( dtmp<100. .and. dtmp/=nf90_fill_float )
+                    dtmp = dtmp + 290. ! reference temperature
+                  end where
+                  call savehist(varlist(ivar)%vname,dtmp)
                else
-                  if ( needfld(varlist(ivar)%vname) ) then           
-                     call vread( varlist(ivar)%vname, ctmp ) 
-                     validvar = .true.
-                     do k = 1,size(zse)
-                        write(name,'(a,i1.1,a)') 'wb', k,'_ave'
-                        if ( varlist(ivar)%vname == name ) then
-                           mrso = mrso + ctmp*zse(k)*1000.
-                        end if
-                        write(name,'(a,i1.1,a)') 'wbice', k,'_ave'
-                        if ( varlist(ivar)%vname == name ) then
-                           mrfso = mrfso + ctmp*zse(k)*1000. 
-                           validvar = .false.
-                        end if    
-                     end do
-                     if ( validvar ) then
-                        call savehist( varlist(ivar)%vname, ctmp )
+                  call vread( varlist(ivar)%vname, ctmp ) 
+                  validvar = .true.
+                  do k = 1,size(zse)
+                     write(name,'(a,i1.1,a)') 'wb', k,'_ave'
+                     if ( varlist(ivar)%vname == name ) then
+                        mrso = mrso + ctmp*zse(k)*1000.
                      end if
-                  end if   
+                     write(name,'(a,i1.1,a)') 'wbice', k,'_ave'
+                     if ( varlist(ivar)%vname == name ) then
+                        mrfso = mrfso + ctmp*zse(k)*1000. 
+                        validvar = .false.
+                     end if    
+                  end do
+                  if ( validvar ) then
+                     call savehist( varlist(ivar)%vname, ctmp )
+                  end if
                end if
             end select
          else
             select case ( varlist(ivar)%vname )
-            case ( "ta", "temp" )
+            case ( "ta" )
                ! temp should be the first of the 3D fields
                if ( use_meters ) then
                   minlev = 1
@@ -732,56 +682,76 @@ contains
                      hstd(:,:,k) = mlevs(nplevs)*(hstd(:,:,k) - zs)/(mlevs(nplevs)-zs)
                   end do
                   call mitop_setup( sig, mlevs(1:nplevs), hstd, zs, t, q, maxlev, minlev )
-                  if ( needfld(varlist(ivar)%vname) ) then
-                     call vsavehist ( varlist(ivar)%vname, t )
+                  if ( need3dfld("ta") ) then
+                     call vsavehist ( "ta", t )
                   end if
-               else if ( need3dfld(varlist(ivar)%vname) ) then
+               else if ( need3dfld("ta") ) then
                   call vread( "temp", t)
-                  if ( needfld(varlist(ivar)%vname) ) then
-                     call vsavehist ( varlist(ivar)%vname, t )
-                  end if   
+                  call vsavehist ( "ta", t )
                end if
-             case ( "hus", "mixr" )
-               if ( need3dfld(varlist(ivar)%vname)) then
+            case ( "temp" )
+               ! temp should be the first of the 3D fields
+               if ( use_meters ) then
+                  minlev = 1
+                  maxlev = kk
+                  ! assume that 2D zs is previously loaded
+                  ! MJT notes - reading mixr skips ahead in the input file
+                  ! possibly reorder temp, mixr, u and v in CCAM
+                  call vread( "temp", t)
+                  call vread( "mixr", q)
+                  q = max( q, 1.e-20 )
+                  ! psl will not be used in height
+                  call height( t, q, zs, psl, sig, hstd )
+                  do k = 1,size(hstd,dim=3)
+                     hstd(:,:,k) = mlevs(nplevs)*(hstd(:,:,k) - zs)/(mlevs(nplevs)-zs)
+                  end do
+                  call mitop_setup( sig, mlevs(1:nplevs), hstd, zs, t, q, maxlev, minlev )
+                  if ( need3dfld("temp") ) then
+                     call vsavehist ( "temp", t )
+                  end if
+               else if ( need3dfld("temp") ) then
+                  call vread( "temp", t)
+                  call vsavehist ( "temp", t )
+               end if
+             case ( "hus" )
+               if ( need3dfld("hus")) then
                   if ( .not. use_meters ) then
                      call vread( "mixr", q )
                      q = max( q, 1.e-20 )
                   end if
-                  if ( needfld(varlist(ivar)%vname) ) then
-                     call vsavehist ( varlist(ivar)%vname, q )
-                  end if   
+                  call vsavehist ( "hus", q )
+               end if
+             case ( "mixr" )
+               if ( need3dfld("mixr")) then
+                  if ( .not. use_meters ) then
+                     call vread( "mixr", q )
+                     q = max( q, 1.e-20 )
+                  end if
+                  call vsavehist ( "mixr", q )
                end if
             case ( "qlg" )
                if ( need3dfld("qlg")) then
                   call vread( "qlg", ql )
                   ql = max( ql, 0. )
-                  if ( needfld("qlg") ) then
-                     call vsavehist ( "qlg", ql )
-                  end if   
+                  call vsavehist ( "qlg", ql )
                end if
             case ( "qfg" )
                if ( need3dfld("qfg")) then
                   call vread( "qfg", qf )
                   qf = max( qf, 0. )
-                  if ( needfld("qfg") ) then
-                     call vsavehist ( "qfg", qf )
-                  end if   
+                  call vsavehist ( "qfg", qf )
                end if
             case ( "qsng" )
                if ( need3dfld("qsng")) then
                   call vread( "qsng", qs )
                   qs = max( qs, 0. )
-                  if ( needfld("qsng") ) then
-                     call vsavehist ( "qsng", qs )
-                  end if   
+                  call vsavehist ( "qsng", qs )
                end if
             case ( "qgrg" )
                if ( need3dfld("qgrg")) then
                   call vread( "qgrg", qg )
                   qg = max( qg, 0. )
-                  if ( needfld("qgrg") ) then
-                     call vsavehist ( "qgrg", qg )
-                  end if   
+                  call vsavehist ( "qgrg", qg )
                end if
             case ( "so" )
                if ( need3dfld("so") ) then
@@ -790,10 +760,8 @@ contains
                      where ( soilt > 0.5 )
                         so_tmp(:,:,k) = nf90_fill_float
                      end where
-                  end do
-                  if ( needfld("so") ) then
-                     call osavehist( "so", so_tmp )
-                  end if   
+                  end do   
+                  call osavehist( "so", so_tmp )
                end if
             case ( "thetao" )
                if ( need3dfld("thetao") ) then
@@ -802,37 +770,43 @@ contains
                      where ( soilt > 0.5 )
                         thetao_tmp(:,:,k) = nf90_fill_float
                      end where
-                  end do
-                  if ( needfld("thetao") ) then
-                     call osavehist( "thetao", thetao_tmp )
-                  end if   
+                  end do   
+                  call osavehist( "thetao", thetao_tmp )
                end if    
             ! Should to u, v as above with vector flag, but this will do for now
-            case ( "u", "ua" )
-               if ( need3dfld(varlist(ivar)%vname) ) then
+            case ( "u" )
+               if ( need3dfld("u") ) then
                   call vread( "u", u )
                end if
-            case ( "v", "va" )
-               if ( need3dfld(varlist(ivar)%vname) ) then
+            case ( "v" )
+               if ( need3dfld("v") ) then
+                  call vread( "v", v )
+               end if
+            case ( "ua" )
+               if ( need3dfld("ua") ) then
+                  call vread( "u", u )
+               end if
+            case ( "va" )
+               if ( need3dfld("va") ) then
                   call vread( "v", v )
                end if
             case ( "uo" ) 
                if ( need3dfld("uo") ) then
-                  call vread( "uo", uo_tmp ) 
                   do k = 1,size(uo_tmp,3)
                      where ( soilt > 0.5 )
                         uo_tmp(:,:,k) = nf90_fill_float
                      end where
                   end do   
+                  call vread( "uo", uo_tmp )
                end if
             case ( "vo" ) 
                if ( need3dfld("vo") ) then
-                  call vread( "vo", vo_tmp ) 
                   do k = 1,size(vo_tmp,3)
                      where ( soilt > 0.5 )
                         vo_tmp(:,:,k) = nf90_fill_float
                      end where
                   end do   
+                  call vread( "vo", vo_tmp )
                end if
             case ( "wo" )
                if ( need3dfld("wo") ) then
@@ -841,36 +815,35 @@ contains
                      where ( soilt > 0.5 )
                         ocn_tmp(:,:,k) = nf90_fill_float
                      end where
-                  end do
-                  if ( needfld("wo") ) then
-                     call osavehist( "wo", ocn_tmp )
-                  end if   
+                  end do   
+                  call osavehist( "wo", ocn_tmp )
                end if   
             case ( "omega" )
                if ( need3dfld("omega") ) then
                   call vread( "omega", omega )
-                  if ( needfld("omega") ) then
-                     call vsavehist( "omega", omega )
-                  end if   
+                  call vsavehist( "omega", omega )
                end if
             case ( "tgg" )
-               if ( needfld("tgg") ) then 
-                  ! Only in cf_compliant mode
-                  do k = 1,ksoil
-                     write(name,'(a,i1)') 'tgg', k
-                     call vread(name,tgg(:,:,k))
-                  end do
-                  call savehist("tgg", tgg)
-               end if   
+               ! Only in cf_compliant mode
+               do k=1,ksoil
+                  write(name,'(a,i1)') 'tgg', k
+                  call vread(name,tgg(:,:,k))
+               end do
+               call savehist("tgg", tgg)
+            !case ( "wb" )
+            !   ! Only in cf_compliant mode
+            !   do k=1,ksoil
+            !      write(name,'(a,i1)') 'wb', k
+            !      call vread(name,wb(:,:,k))
+            !   end do
+            !   call savehist("wb", wb)
             case ( "wetfrac" )
-               if ( needfld("wetfrac") ) then 
-                  ! Only in cf_compliant mode
-                  do k = 1,ksoil
-                     write(name,'(a,i1)') 'wetfrac', k
-                     call vread(name,tgg(:,:,k))
-                  end do
-                  call savehist("wetfrac", tgg)
-               end if   
+               ! Only in cf_compliant mode
+               do k=1,ksoil
+                  write(name,'(a,i1)') 'wetfrac', k
+                  call vread(name,tgg(:,:,k))
+               end do
+               call savehist("wetfrac", tgg)
             case default
                if ( varlist(ivar)%water ) then
                   write(6,*) "ERROR: Not expecting ocean scalar ",trim(varlist(ivar)%vname)
@@ -898,7 +871,7 @@ contains
       
       if ( needfld("mrso") ) then
          call savehist( "mrso", mrso )
-      end if   
+      end if
 
       if ( needfld("rlus") ) then
          dtmp = rgn - rgd
@@ -921,86 +894,26 @@ contains
       
       if ( needfld("snw") ) then
          call savehist( "snw", sndw )
-      end if   
+      end if
       
       if ( needfld("tauu") .or. needfld("tauv") .or. &
-           needfld("taux") .or. needfld("tauy") .or. &
-           (needfld("uas").and.kk>1) .or.            &
-           (needfld("vas").and.kk>1) .or.            &
-           (needfld("d10").and.kk>1) ) then
+           needfld("taux") .or. needfld("tauy") ) then
          call fix_winds(tauxtmp, tauytmp)
-         if ( needfld("tauu") ) then
-            call savehist( "tauu", tauxtmp )
-         end if
-         if ( needfld("tauv") ) then
+         if ( needfld("tauu") .or. needfld("tauv") ) then
+            call savehist( "tauu", tauxtmp ) 
             call savehist( "tauv", tauytmp )
          end if
-         if ( needfld("taux") ) then
-            call savehist( "taux", tauxtmp )
-         end if
-         if ( needfld("tauy") ) then
+         if ( needfld("taux") .or. needfld("tauy") ) then
+            call savehist( "taux", tauxtmp ) 
             call savehist( "tauy", tauytmp )
-         end if   
-         wind_norm(:,:) = sqrt(tauxtmp*tauxtmp+tauytmp*tauytmp)
-         if ( needfld("uas") .and. kk>1 ) then
-            where ( wind_norm > 0. )
-               dtmp = tauxtmp*uten/wind_norm
-            elsewhere
-               dtmp = 0. 
-            end where    
-            call savehist ( "uas", dtmp )    
-         end if    
-         if ( needfld("vas") .and. kk>1 ) then
-            where ( wind_norm > 0. )
-               dtmp = tauytmp*uten/wind_norm
-            elsewhere
-               dtmp = 0. 
-            end where    
-            call savehist ( "vas", dtmp )    
-         end if
-         if ( needfld("d10") .and. kk>1 ) then
-            udir = atan2(-u(:,:,1),-v(:,:,1))*180./3.1415927
-            where ( udir < 0. )
-               udir = udir + 360.
-            end where
-            call savehist( "d10", udir )        
-         end if    
-      end if
-
-      ! high-frequency output 
-      if ( (needfld("uas").and.kk<=1) .or. &
-           (needfld("vas").and.kk<=1) .or. &
-           (needfld("u10").and.kk<=1) .or. &
-           (needfld("d10").and.kk<=1) ) then
-         call fix_winds( uastmp, vastmp )
-         if ( needfld("uas") ) then
-            call savehist( "uas", uastmp )
-         end if
-         if ( needfld("vas") ) then
-            call savehist( "vas", vastmp )
-         end if   
-         if ( needfld("u10") ) then
-            uten = sqrt( uastmp*uastmp + vastmp*vastmp )
-            call savehist( "u10", uten )
-         end if
-         if ( needfld("d10") ) then
-            udir = atan2(-uastmp,-vastmp)*180./3.1415927
-            where ( udir < 0. )
-               udir = udir + 360.
-            end where
-            call savehist( "d10", udir )
          end if
       end if
 
       if ( kk>1 ) then
+          
+         call savehist( "qbot", q(:,:,1))
          
-         if ( needfld("qbot") ) then
-            call savehist( "qbot", q(:,:,1))
-         end if   
-         
-         if ( needfld("tbot") ) then
-            call savehist( "tbot", t(:,:,1))
-         end if   
+         call savehist( "tbot", t(:,:,1))
           
          if ( needfld("press") ) then
             do k = 1,kk
@@ -1075,29 +988,63 @@ contains
               needfld("ua") .or. needfld("va")         .or. &             
               needfld("vaveuq") .or. needfld("vavevq") .or. &
               needfld("vaveut") .or. needfld("vavevt") .or. &
-              needfld("ubot")   .or. needfld("vbot") ) then
+              needfld("ubot")   .or. needfld("vbot")   .or. &
+              needfld("uas")    .or. needfld("vas")    .or. &
+              needfld("d10") ) then
             call fix_winds(u, v)
             if ( cordex_compliant ) then
-               if ( needfld("ua") ) then 
-                  call vsavehist ( "ua", u )
-               end if
-               if ( needfld("va") ) then
-                  call vsavehist ( "va", v )
-               end if   
+               call vsavehist ( "ua", u )
+               call vsavehist ( "va", v )
             else
-               if ( needfld("u") ) then 
-                  call vsavehist ( "u", u )
-               end if
-               if ( needfld("v") ) then
-                  call vsavehist ( "v", v )
-               end if   
+               call vsavehist ( "u", u )
+               call vsavehist ( "v", v )
             end if
-            if ( needfld("ubot") ) then
-               call savehist ( "ubot", u(:,:,1) )
+            call savehist ( "ubot", u(:,:,1) )
+            call savehist ( "vbot", v(:,:,1) )
+            if ( needfld("d10") ) then
+               udir = atan2(-u(:,:,1),-v(:,:,1))*180./3.1415927
+               where ( udir < 0. )
+                 udir = udir + 360.
+               end where
+               call savehist( "d10", udir )
             end if
-            if ( needfld("vbot") ) then
-               call savehist ( "vbot", v(:,:,1) )
-            end if   
+            if ( needfld("uas") .or. needfld("vas") ) then
+               wind_norm(:,:) = sqrt(u(:,:,1)*u(:,:,1)+v(:,:,1)*v(:,:,1))
+            end if
+            if ( needfld("uas") ) then
+               where ( wind_norm > 0. )
+                  dtmp = u(:,:,1)*uten/wind_norm
+               elsewhere
+                  dtmp = 0.
+               end where
+               call savehist ( "uas", dtmp )
+            end if
+            if ( needfld("vas") ) then
+               where ( wind_norm > 0. )
+                  dtmp = v(:,:,1)*uten/wind_norm
+               elsewhere
+                  dtmp = 0.
+               end where
+               call savehist ( "vas", dtmp )
+            end if
+         end if
+      else
+         ! high-frequency output 
+         if ( needfld("u10") .or. needfld("d10") .or. needfld("uas") .or. needfld("vas") ) then
+            call fix_winds( uastmp, vastmp )
+            call savehist( "uas", uastmp )
+            call savehist( "vas", vastmp )
+            if ( needfld("u10") ) then
+               uten = sqrt( uastmp*uastmp + vastmp*vastmp )
+               call savehist( "u10", uten )
+            end if
+            if ( needfld("d10") ) then
+               udir = atan2(-uastmp,-vastmp)*180./3.1415927
+               where ( udir < 0. )
+                  udir = udir + 360.
+               end where
+               call savehist( "d10", udir )
+            end if
          end if
       end if       
       
@@ -1144,20 +1091,20 @@ contains
             end if
             if ( needfld("vos") ) then
                call savehist( "vos", vo_tmp(:,:,1) )
-            end if   
+            end if
             if ( needfld("uo") ) then
                call osavehist( "uo", uo_tmp )
             end if
             if ( needfld("vo") ) then
                call osavehist( "vo", vo_tmp ) 
-            end if
-            if ( needfld("sos") ) then
-               call savehist( "sos", so_tmp(:,:,1) )
-            end if
-            if ( needfld("tos") ) then
-               call savehist( "tos", thetao_tmp(:,:,1) )
-            end if   
-         end if   
+            end if    
+         end if
+         if ( needfld("sos") ) then
+            call savehist( "sos", so_tmp(:,:,1) ) 
+         end if
+         if ( needfld("tos") ) then
+            call savehist( "tos", thetao_tmp(:,:,1) ) 
+         end if
       end if
       
       ! only for TAPM output
@@ -1209,12 +1156,14 @@ contains
          needed = needfld("u") .or. needfld("v") .or. needfld("vaveuq") .or. &
                   needfld("vavevq") .or. needfld("vaveut") .or.              &
                   needfld("vavevt") .or. needfld("vbot") .or.                &
-                  needfld("ubot")
+                  needfld("ubot") .or. needfld("d10") .or.                   &
+                  needfld("uas") .or. needfld("vas")
       case ( "ua", "va" )
          needed = needfld("ua") .or. needfld("va") .or. needfld("vaveuq") .or. &
                   needfld("vavevq") .or. needfld("vaveut") .or.                &
                   needfld("vavevt") .or. needfld("vbot") .or.                  &
-                  needfld("ubot")
+                  needfld("ubot") .or. needfld("d10") .or.                     &
+                  needfld("uas") .or. needfld("vas")
      case ( "qlg" )
          needed = needfld("qlg") .or. needfld("rh")
       case ( "qfg" )
@@ -2241,9 +2190,7 @@ contains
               varlist(ivar)%vname == "u1max" .or.           &
               varlist(ivar)%vname == "v1max" .or.           &
               varlist(ivar)%vname == "u2max" .or.           &
-              varlist(ivar)%vname == "v2max" .or.           &
-              varlist(ivar)%vname == "urbantasmax" .or.     &
-              varlist(ivar)%vname == "urbantasmin" ) then
+              varlist(ivar)%vname == "v2max" ) then
             varlist(ivar)%daily = .true.
          end if
          ! Also set daily if variable has a 'valid_time' attribute with the 
