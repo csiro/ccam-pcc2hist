@@ -26,8 +26,7 @@ module interp_m
 #ifdef usempi3
    real, pointer, contiguous, dimension(:,:), public :: xg, yg
    integer, pointer, contiguous, dimension(:,:), public :: nface
-   real, pointer, contiguous, dimension(:,:,:), public :: xyg
-   integer :: xyg_win, nface_win
+   integer :: xg_win, yg_win, nface_win
 #else
    real, allocatable, dimension(:,:), public :: xg, yg
    integer, allocatable, dimension(:,:), public :: nface

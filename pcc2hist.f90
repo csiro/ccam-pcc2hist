@@ -121,7 +121,7 @@ program cc2hist
    end if
    
 #ifdef usempi3
-   call MPI_Comm_split_type(comm_world, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, node_comm, ierr) ! Per node communictor
+   call MPI_Comm_split_type(comm_world, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, node_comm, ierr) ! Per node communicator
    call MPI_Comm_size(node_comm, node_nproc, ierr) ! Find number of processes on node
    call MPI_Comm_rank(node_comm, node_myid, ierr)  ! Find local processor id on node
 #endif

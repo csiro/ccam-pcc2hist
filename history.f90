@@ -2319,11 +2319,9 @@ contains
             end if
 
 !           Even multilevel variables are written one level at a time
-            do k = istart,iend
-               if ( count /= 0 ) then
-                  cnt = cnt + 1
-               end if
-            end do   ! k loop
+            if ( count /= 0 ) then
+              cnt = cnt + iend - istart + 1
+            end if
                
          end do ! Loop over fields
 
@@ -2357,12 +2355,12 @@ contains
             iend = istart + nlev - 1
 
 !           Even multilevel variables are written one level at a time
-            do k = istart,iend
-               if ( count /= 0 ) then
+            if ( count /= 0 ) then
+               do k = istart,iend
                   cnt = cnt + 1
                   k_indx(cnt) = k
-               end if
-            end do   ! k loop
+               end do   ! k loop
+            end if  
 
          end do ! Loop over fields
 

@@ -470,9 +470,6 @@ contains
             case ( "ocheight" )
                if ( needfld("ocheight") ) then 
                   call vread( "ocheight", dtmp )
-                  where ( soilt > 0.5 )
-                     dtmp = nf90_fill_float
-                  end where   
                   call savehist ( "ocheight", dtmp )
                end if   
             case ( "pr" )
@@ -786,11 +783,6 @@ contains
             case ( "so" )
                if ( need3dfld("so") ) then
                   call vread( "so", so_tmp )
-                  do k = 1,size(so_tmp,3)
-                     where ( soilt > 0.5 )
-                        so_tmp(:,:,k) = nf90_fill_float
-                     end where
-                  end do
                   if ( needfld("so") ) then
                      call osavehist( "so", so_tmp )
                   end if   
@@ -798,11 +790,6 @@ contains
             case ( "thetao" )
                if ( need3dfld("thetao") ) then
                   call vread( "thetao", thetao_tmp )
-                  do k = 1,size(thetao_tmp,3)
-                     where ( soilt > 0.5 )
-                        thetao_tmp(:,:,k) = nf90_fill_float
-                     end where
-                  end do
                   if ( needfld("thetao") ) then
                      call osavehist( "thetao", thetao_tmp )
                   end if   
@@ -818,30 +805,15 @@ contains
                end if
             case ( "uo" ) 
                if ( need3dfld("uo") ) then
-                  call vread( "uo", uo_tmp ) 
-                  do k = 1,size(uo_tmp,3)
-                     where ( soilt > 0.5 )
-                        uo_tmp(:,:,k) = nf90_fill_float
-                     end where
-                  end do   
+                  call vread( "uo", uo_tmp )  
                end if
             case ( "vo" ) 
                if ( need3dfld("vo") ) then
                   call vread( "vo", vo_tmp ) 
-                  do k = 1,size(vo_tmp,3)
-                     where ( soilt > 0.5 )
-                        vo_tmp(:,:,k) = nf90_fill_float
-                     end where
-                  end do   
                end if
             case ( "wo" )
                if ( need3dfld("wo") ) then
                   call vread( "wo", ocn_tmp )
-                  do k = 1,size(ocn_tmp,3)
-                     where ( soilt > 0.5 )
-                        ocn_tmp(:,:,k) = nf90_fill_float
-                     end where
-                  end do
                   if ( needfld("wo") ) then
                      call osavehist( "wo", ocn_tmp )
                   end if   
@@ -1390,7 +1362,7 @@ contains
       integer, parameter :: ntang=2, idiag=0
       integer :: i, j, k
       character(len=10) :: rundate*10
-      integer :: m, meso, nx1, nps, mex, mup, nem, nx2, nmi,           &
+      integer :: m, meso, nx1, nps, mex, mup, nem, nx2, nmi,                &
                  npsav, nhor, nkuo, khdif, nx3, nx4, nvad,                  &
                  nx5, nrun, nrunx, khor, ksc, kountr, ndiur, nhort,         &
                  nhorps, nsoil, ms, ntsur, nrad, kuocb, nvmix, ntsea,       &
@@ -1406,7 +1378,6 @@ contains
 
 #ifdef usempi3
       integer(kind=MPI_ADDRESS_KIND) :: ssize
-      integer :: itest
 #endif
 !     Read the header here because doing the CC grid initialisation before
 !     alloc_indata minimises the total memory requirements
@@ -1600,50 +1571,6 @@ contains
           call setxyz ( il, jl, kl, npanels, ifull, iquad, idiag, id, jd,        &
                     rlong0, rlat0, schmidt, schm13, ntang, erad )
                     
-!#ifdef usempi3
-!      else
-!          if ( node_myid == 0 ) then
-!              ssize=ifull*10
-!          else
-!              ssize=0
-!          endif
-!          call allocshdata(i_ewns,ssize,(/ ifull, 10 /),i_ewns_win)
-!          i_w => i_ewns(:,1)
-!          i_ww => i_ewns(:,2)
-!          i_e => i_ewns(:,3)
-!          i_ee => i_ewns(:,4)
-!          i_s => i_ewns(:,5)
-!          i_ss => i_ewns(:,6)
-!          i_n => i_ewns(:,7)
-!          i_nn => i_ewns(:,8)
-!          i_en => i_ewns(:,9)
-!          i_wn => i_ewns(:,10)
-!
-!          if ( node_myid == 0 ) then
-!              ssize=(npanels+1)*10
-!          else
-!              ssize=0
-!          end if
-!          call allocshdata(lewns,ssize,(/ npanels + 1, 10 /),lewns_win)
-!          lwws(0:npanels) => lewns(:,1)
-!          lws(0:npanels) => lewns(:,2)
-!          lwss(0:npanels) => lewns(:,3)
-!          lees(0:npanels) => lewns(:,4)
-!          les(0:npanels) => lewns(:,5)
-!          less(0:npanels) => lewns(:,6)
-!          lwwn(0:npanels) => lewns(:,7)
-!          lwnn(0:npanels) => lewns(:,8)
-!          leen(0:npanels) => lewns(:,9)
-!          lenn(0:npanels) => lewns(:,10)
-!
-!          itest = MPI_MODE_NOPRECEDE + MPI_MODE_NOSTORE
-!          call MPI_Win_fence(itest,i_ewns_win,ierr)
-!          call MPI_Win_fence(itest,lewns_win,ierr)
-!!         the shared data is set from node_myid=0 between these fences
-!          call MPI_Win_fence(MPI_MODE_NOSUCCEED,i_ewns_win,ierr)
-!          call MPI_Win_fence(MPI_MODE_NOSUCCEED,lewns_win,ierr)
-!#endif
-
       end if
 
       if ( int_default == int_none ) then
@@ -1699,31 +1626,35 @@ contains
 #else
       if ( myid == 0 ) then
 #endif
-
 !        To save memory de-allocate a number of arrays defined by setxyz
 !        that aren't needed by cc2hist.
          deallocate ( f, fu, fv, dmdx, dmdy, dmdxv, dmdyu )
-#ifdef usempi3
       end if
-
+      
+#ifdef usempi3
       if ( node_myid == 0 ) then
          ssize = nxhis*nyhis
       else
          ssize = 0
       end if
-      call allocshdata(xyg,ssize*2,(/ nxhis, nyhis, 2 /),xyg_win)
-      xg => xyg(:,:,1)
-      yg => xyg(:,:,2)
+      call allocshdata(xg,ssize,(/ nxhis, nyhis /),xg_win)
+      call allocshdata(yg,ssize,(/ nxhis, nyhis /),yg_win)
       call allocshdata(nface,ssize,(/ nxhis, nyhis /),nface_win)
 
-      itest = MPI_MODE_NOPRECEDE + MPI_MODE_NOSTORE
-      call MPI_Win_fence(itest,xyg_win,ierr)
-      call MPI_Win_fence(itest,nface_win,ierr)
-
-      if ( node_myid == 0 ) then
+      call MPI_Win_fence(0,xg_win,ierr)
+      call MPI_Win_fence(0,yg_win,ierr)
+      call MPI_Win_fence(0,nface_win,ierr)
 #else
+      if ( myid==0 ) then
          allocate ( nface(nxhis,nyhis) )
          allocate ( xg(nxhis,nyhis), yg(nxhis,nyhis) )
+      end if   
+#endif
+
+#ifdef usempi3
+      if ( node_myid==0 ) then
+#else
+      if ( myid==0 ) then
 #endif
          allocate ( hlon(nxhis), hlat(nyhis) )
          if ( int_default == int_none ) then
@@ -1789,8 +1720,9 @@ contains
       end if   
 
 #ifdef usempi3
-      call MPI_Win_fence(MPI_MODE_NOSUCCEED,xyg_win,ierr)
-      call MPI_Win_fence(MPI_MODE_NOSUCCEED,nface_win,ierr)
+      call MPI_Win_fence(0,xg_win,ierr)
+      call MPI_Win_fence(0,yg_win,ierr)
+      call MPI_Win_fence(0,nface_win,ierr)
 #endif
 
 
@@ -1822,6 +1754,7 @@ contains
       logical :: need_rotate
       
       call START_LOG(finalinit_begin)
+      
 #ifdef usempi3
       if ( node_myid == 0 ) then
 #else
@@ -1851,13 +1784,9 @@ contains
 
          allocate ( costh(pil,pjl*pnpan*lproc), sinth(pil,pjl*pnpan*lproc) )
          
-#ifdef usempi3
-         if ( node_myid == 0 ) then
-#else
          if ( myid == 0 ) then
-#endif
-         
-           allocate ( costh_g(il,jl), sinth_g(il,jl) )
+
+            allocate ( costh_g(il,jl), sinth_g(il,jl) )
 
 !     For calculating zonal and meridional wind components, use the
 !     following information, where theta is the angle between the
@@ -2202,7 +2131,7 @@ contains
          end if
       end do
 
-      do ivar=1,nvars
+      do ivar = 1,nvars
          if ( varlist(ivar)%vname == "thetao" .or. varlist(ivar)%vname == "so" .or. &
               varlist(ivar)%vname == "uo" .or. varlist(ivar)%vname == "vo" .or.     &
               varlist(ivar)%vname == "wo" ) then    
@@ -2212,7 +2141,7 @@ contains
          end if
       end do   
       
-      do ivar=1,nvars
+      do ivar = 1,nvars
          xmin = varlist(ivar)%add_offset + varlist(ivar)%scale_factor*vmin
          xmax = varlist(ivar)%add_offset + varlist(ivar)%scale_factor*vmax
          ! As a check re-calc offset, scalef
@@ -2422,8 +2351,10 @@ contains
                varlist(ivar)%vname = "ta"
             else if ( varlist(ivar)%vname == "tmaxscr" ) then
                varlist(ivar)%vname = "tasmax"
+               varlist(ivar)%daily = .true.
             else if ( varlist(ivar)%vname == "tminscr" ) then
                varlist(ivar)%vname = "tasmin"
+               varlist(ivar)%daily = .true.
             else if ( varlist(ivar)%vname == "tscrn" ) then
                varlist(ivar)%vname = "tas"
             else if ( varlist(ivar)%vname == "tsu" ) then
@@ -3111,7 +3042,6 @@ contains
 
 #ifdef usempi3
       integer(kind=MPI_ADDRESS_KIND) :: ssize
-      integer :: itest
 #endif
 
       call START_LOG(paraopen_begin)
@@ -3173,10 +3103,6 @@ contains
             call check_ncerr(ierr, "Error getting var gprocessor")
          end if
 
-!#ifndef usempi3
-!         allocate( ioff(0:pnproc-1,0:5), joff(0:pnproc-1,0:5) )
-!#endif
-      
       end if
       
       call START_LOG(mpibcast_begin)
@@ -3250,18 +3176,7 @@ contains
       allocate( ncid_in(0:lproc-1) )
       allocate( fown_in(0:lproc-1) )      
       fown_in(:) = .false.
-       
-!#ifdef usempi3
-!      if ( node_myid == 0 ) then
-!          ssize = pnproc*6*2
-!      else
-!          ssize = 0
-!      end if
-!      call allocshdata(ijoff,ssize,(/ pnproc, 6, 2 /),ijoff_win)
-!      ioff(0:pnproc-1,0:5) => ijoff(:,:,1)
-!      joff(0:pnproc-1,0:5) => ijoff(:,:,2)
-!#endif
-      
+            
       allocate( ioff(0:pnproc-1,0:5), joff(0:pnproc-1,0:5) )
 
       if ( resprocformat ) then
@@ -3394,17 +3309,7 @@ contains
          else   
             sdecomp = 'face'
          end if    
-!#ifdef usempi3
-!      end if
-!      call START_LOG(mpibcast_begin)
-!      call MPI_Bcast(pil_g,1,MPI_INTEGER,0,comm_world,ierr)
-!      call MPI_Bcast(pjl_g,1,MPI_INTEGER,0,comm_world,ierr)
-!      call MPI_Bcast(sdecomp,8,MPI_CHAR,0,comm_world,ierr)
-!      call END_LOG(mpibcast_end)
-!      itest = MPI_MODE_NOPRECEDE + MPI_MODE_NOSTORE
-!      call MPI_Win_fence(itest,ijoff_win,ierr)
-!      if ( node_myid==0 ) then
-!#endif
+
          select case(sdecomp)
             case ("uniform")
                do n = 0,5
@@ -3434,9 +3339,6 @@ contains
          jdum(5) = pjl_g
       
       end if
-!#ifdef usempi3
-!      call MPI_Win_fence(MPI_MODE_NOSUCCEED,ijoff_win,ierr)
-!#endif
       
       call START_LOG(mpibcast_begin)
       call MPI_Bcast(ioff(0:pnproc-1,0:5),pnproc*6,MPI_INTEGER,0,comm_world,ierr)
@@ -3735,11 +3637,9 @@ contains
 #endif
 
 #ifdef usempi3
-   call freeshdata(xyg_win)
+   call freeshdata(xg_win)
+   call freeshdata(yg_win)
    call freeshdata(nface_win)
-   !call freeshdata(ijoff_win)
-   nullify(xyg)
-   !nullify(ijoff)
    nullify(xg,yg)
    nullify(nface)
 #else
