@@ -470,6 +470,9 @@ contains
             case ( "ocheight" )
                if ( needfld("ocheight") ) then 
                   call vread( "ocheight", dtmp )
+                  where ( soilt > 0.5 )
+                     dtmp = -nf90_fill_float ! flag for land
+                  end where   
                   call savehist ( "ocheight", dtmp )
                end if   
             case ( "pr" )
@@ -783,6 +786,11 @@ contains
             case ( "so" )
                if ( need3dfld("so") ) then
                   call vread( "so", so_tmp )
+                  do k = 1,size(so_tmp,3)
+                     where ( soilt > 0.5 )
+                        so_tmp(:,:,k) = -nf90_fill_float ! flag for land
+                     end where
+                  end do
                   if ( needfld("so") ) then
                      call osavehist( "so", so_tmp )
                   end if   
@@ -790,6 +798,11 @@ contains
             case ( "thetao" )
                if ( need3dfld("thetao") ) then
                   call vread( "thetao", thetao_tmp )
+                  do k = 1,size(thetao_tmp,3)
+                     where ( soilt > 0.5 )
+                        thetao_tmp(:,:,k) = -nf90_fill_float ! flag for land
+                     end where
+                  end do   
                   if ( needfld("thetao") ) then
                      call osavehist( "thetao", thetao_tmp )
                   end if   
@@ -805,15 +818,30 @@ contains
                end if
             case ( "uo" ) 
                if ( need3dfld("uo") ) then
-                  call vread( "uo", uo_tmp )  
+                  call vread( "uo", uo_tmp )
+                  do k = 1,size(uo_tmp,3)
+                     where ( soilt > 0.5 )
+                        uo_tmp(:,:,k) = -nf90_fill_float ! flag for land
+                     end where
+                  end do
                end if
             case ( "vo" ) 
                if ( need3dfld("vo") ) then
                   call vread( "vo", vo_tmp ) 
+                  do k = 1,size(vo_tmp,3)
+                     where ( soilt > 0.5 )
+                        vo_tmp(:,:,k) = -nf90_fill_float ! flag for land
+                     end where
+                  end do
                end if
             case ( "wo" )
                if ( need3dfld("wo") ) then
                   call vread( "wo", ocn_tmp )
+                  do k = 1,size(ocn_tmp,3)
+                     where ( soilt > 0.5 )
+                        ocn_tmp(:,:,k) = -nf90_fill_float ! flag for land
+                     end where
+                  end do
                   if ( needfld("wo") ) then
                      call osavehist( "wo", ocn_tmp )
                   end if   
@@ -2200,9 +2228,6 @@ contains
          else
             int_type = int_default
          end if
-         if ( match ( varlist(ivar)%vname, (/ "thetao", "so    " /) ) .and. int_type /= int_none ) then
-            int_type = int_nearest
-         end if
          if ( match ( varlist(ivar)%vname, &
                (/ "cape_ave  ", "cape_max  ", "cbas_ave  ", "cfrac     ", "cld       ", "clh       ", "cll       ", &
                   "clm       ", "convh_ave ", "ctop_ave  ", "lwp_ave   ", "maxrnd    ", "omega     ", "pblh      ", &
@@ -2527,8 +2552,8 @@ contains
       if ( ok > 1 ) then
          call addfld( "uos", "x-component surface current", "m/s", -100., 100., 1 )
          call addfld( "vos", "y-component surface current", "m/s", -100., 100., 1 )
-         call addfld( "sos", "Surface ocean salinity", "PSU", 0., 100., 1, int_type=int_nearest )
-         call addfld( "tos", "Surface ocean temperature", "K", 150., 350., 1, int_type=int_nearest )
+         call addfld( "sos", "Surface ocean salinity", "PSU", 0., 100., 1 )
+         call addfld( "tos", "Surface ocean temperature", "K", 150., 350., 1 )
       end if    
 
    end subroutine get_var_list

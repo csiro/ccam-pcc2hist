@@ -291,7 +291,6 @@ module history
 !  Valid range for 16 bit values
    integer, parameter :: vmin=-32500, vmax=32500
 
-   real :: missing_value = NF90_FILL_FLOAT
    real :: missing_value_cordex = 1.00000002004e+20
    character(len=20), save :: filesuffix
 
@@ -2059,23 +2058,55 @@ contains
             nx = size(histarray,1)
             select case ( histinfo(ifld)%ave_type(ifile))
             case ( hist_ave )
-               histarray(:,jn,istart:iend) = &
-                    histarray(:,jn,istart:iend) + array(1:nx,1,:)
-               histarray(:,js,istart:iend) = &
-                    histarray(:,js,istart:iend) + array(nx+1:,1,:)
+               where ( abs(array(1:nx,1,:)) /= nf90_fill_float .and. histarray(:,jn,istart:iend) /= nf90_fill_float )  
+                  histarray(:,jn,istart:iend) = &
+                       histarray(:,jn,istart:iend) + array(1:nx,1,:)
+               elsewhere
+                  histarray(:,jn,istart:iend) = nf90_fill_float
+               end where
+               where ( abs(array(nx+1:,1,:)) /= nf90_fill_float .and. histarray(:,js,istart:iend) /= nf90_fill_float )
+                  histarray(:,js,istart:iend) = &
+                       histarray(:,js,istart:iend) + array(nx+1:,1,:)
+               elsewhere
+                  histarray(:,js,istart:iend) = nf90_fill_float 
+               end where    
             case ( hist_max )
-               histarray(:,jn,istart:iend) = &
-                  max ( histarray(:,jn,istart:iend), array(1:nx,1,:) )
-               histarray(:,js,istart:iend) = &
-                  max ( histarray(:,js,istart:iend), array(nx+1:,1,:) )
-            case ( hist_min ) 
-               histarray(:,jn,istart:iend) = &
-                  min ( histarray(:,jn,istart:iend), array(1:nx,1,:) )
-               histarray(:,js,istart:iend) = &
-                  min ( histarray(:,js,istart:iend), array(nx+1:,1,:) )
+               where ( abs(array(1:nx,1,:)) /= nf90_fill_float .and. histarray(:,jn,istart:iend) /= nf90_fill_float )
+                  histarray(:,jn,istart:iend) = &
+                     max ( histarray(:,jn,istart:iend), array(1:nx,1,:) )
+               elsewhere
+                  histarray(:,jn,istart:iend) = nf90_fill_float 
+               end where
+               where ( abs(array(nx+1:,1,:)) /= nf90_fill_float .and. histarray(:,js,istart:iend) /= nf90_fill_float )
+                  histarray(:,js,istart:iend) = &
+                     max ( histarray(:,js,istart:iend), array(nx+1:,1,:) )
+               elsewhere
+                  histarray(:,js,istart:iend) = nf90_fill_float 
+               end where    
+            case ( hist_min )
+               where ( abs(array(1:nx,1,:)) /= nf90_fill_float .and. histarray(:,jn,istart:iend) /= nf90_fill_float ) 
+                  histarray(:,jn,istart:iend) = &
+                     min ( histarray(:,jn,istart:iend), array(1:nx,1,:) )
+               elsewhere
+                  histarray(:,jn,istart:iend) = nf90_fill_float 
+               end where
+               where ( abs(array(nx+1:,1,:)) /= nf90_fill_float .and. histarray(:,js,istart:iend) /= nf90_fill_float )
+                  histarray(:,js,istart:iend) = &
+                     min ( histarray(:,js,istart:iend), array(nx+1:,1,:) )
+               elsewhere
+                  histarray(:,js,istart:iend) = nf90_fill_float 
+               end where
             case ( hist_inst, hist_fixed ) 
-               histarray(:,jn,istart:iend) = array(1:nx,1,:)
-               histarray(:,js,istart:iend) = array(nx+1:,1,:)
+               where ( abs(array(1:nx,1,:)) /= nf90_fill_float ) 
+                  histarray(:,jn,istart:iend) = array(1:nx,1,:)
+               elsewhere
+                  histarray(:,jn,istart:iend) = nf90_fill_float
+               end where
+               where ( abs(array(nx+1:,1,:)) /= nf90_fill_float )
+                  histarray(:,js,istart:iend) = array(nx+1:,1,:)
+               elsewhere
+                  histarray(:,js,istart:iend) = nf90_fill_float 
+               end where    
             case default
                print*, "Internal error in history, unknown ave_type", &
                     histinfo(ifld)%ave_type(ifile)
@@ -2084,16 +2115,32 @@ contains
          else
             select case ( histinfo(ifld)%ave_type(ifile))
             case ( hist_ave )
-               histarray(:,jlat1:jlat2,istart:iend) =  &
-                    histarray(:,jlat1:jlat2,istart:iend) + array
+               where ( abs(array) /= nf90_fill_float .and. histarray(:,jlat1:jlat2,istart:iend) /= nf90_fill_float ) 
+                  histarray(:,jlat1:jlat2,istart:iend) =  &
+                       histarray(:,jlat1:jlat2,istart:iend) + array
+               elsewhere
+                  histarray(:,jlat1:jlat2,istart:iend) = nf90_fill_float 
+               end where    
             case ( hist_max ) 
-               histarray(:,jlat1:jlat2,istart:iend) =  &
-                    max ( histarray(:,jlat1:jlat2,istart:iend), array )
+               where ( abs(array) /= nf90_fill_float .and. histarray(:,jlat1:jlat2,istart:iend) /= nf90_fill_float )  
+                  histarray(:,jlat1:jlat2,istart:iend) =  &
+                       max ( histarray(:,jlat1:jlat2,istart:iend), array )
+               elsewhere
+                  histarray(:,jlat1:jlat2,istart:iend) = nf90_fill_float 
+               end where 
             case ( hist_min )
-               histarray(:,jlat1:jlat2,istart:iend) =  &
-                    min ( histarray(:,jlat1:jlat2,istart:iend), array )
+               where ( abs(array) /= nf90_fill_float .and. histarray(:,jlat1:jlat2,istart:iend) /= nf90_fill_float )     
+                  histarray(:,jlat1:jlat2,istart:iend) =  &
+                       min ( histarray(:,jlat1:jlat2,istart:iend), array )
+               elsewhere
+                  histarray(:,jlat1:jlat2,istart:iend) = nf90_fill_float 
+               end where 
             case ( hist_inst, hist_fixed ) 
-               histarray(:,jlat1:jlat2,istart:iend) =  array
+               where ( abs(array) /= nf90_fill_float ) 
+                  histarray(:,jlat1:jlat2,istart:iend) = array
+               elsewhere
+                  histarray(:,jlat1:jlat2,istart:iend) = nf90_fill_float 
+               end where    
             case default
                print*, "Internal error in history, unknown ave_type", &
                     histinfo(ifld)%ave_type(ifile)
@@ -2428,7 +2475,7 @@ contains
                        sf = histinfo(ifld)%scalef(ifile)
                        umin = sf * vmin + addoff
                        umax = sf * vmax + addoff
-                       where ( fpequal(htemp, missing_value) )
+                       where ( fpequal(htemp, nf90_fill_float) )
                           htemp = NF90_FILL_SHORT
                        elsewhere
                           ! Put the scaled array back in the original and let
@@ -2436,7 +2483,7 @@ contains
                           htemp = nint((max(umin,min(umax,htemp))-addoff)/sf)
                        end where
                      else
-                       where ( fpequal(htemp, missing_value) )
+                       where ( fpequal(htemp, nf90_fill_float) )
                           htemp = missing_value_cordex 
                        end where    
                      end if    
@@ -2543,7 +2590,7 @@ contains
                         sf = histinfo(ifld)%scalef(ifile)
                         umin = sf * vmin + addoff
                         umax = sf * vmax + addoff
-                        where ( fpequal(htemp, missing_value) )
+                        where ( fpequal(htemp, nf90_fill_float) )
                            htemp = NF90_FILL_SHORT
                         elsewhere
                            ! Put the scaled array back in the original and let
@@ -2551,7 +2598,7 @@ contains
                            htemp = nint((max(umin,min(umax,htemp))-addoff)/sf)
                         end where
                      else
-                        where ( fpequal(htemp, missing_value) )
+                        where ( fpequal(htemp, nf90_fill_float) )
                            htemp = missing_value_cordex
                         end where  
                      end if
@@ -2683,7 +2730,7 @@ contains
                call check_ncerr(ierr,"Error getting scale_factor attribute")
                umin = sf * vmin + addoff
                umax = sf * vmax + addoff
-               where ( fpequal(histarray(:,:,istart), missing_value) )
+               where ( fpequal(histarray(:,:,istart), nf90_fill_float) )
                   imat = NF90_FILL_SHORT
                elsewhere
                   imat = &
@@ -2694,7 +2741,7 @@ contains
                ierr = nf90_put_var ( ncid, vid, imat, start=astart, &
                                      count=acount )
             else
-               where ( fpequal(histarray(:,:,istart), missing_value) )
+               where ( fpequal(histarray(:,:,istart), nf90_fill_float) )
                   rmat = missing_value_cordex
                elsewhere
                   rmat = histarray(:,:,istart)

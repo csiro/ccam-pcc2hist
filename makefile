@@ -102,7 +102,6 @@ utilities.o: precis_m.o
 history.o: utils_m.o ncutils_m.o mpidata_m.o logging_m.o netcdf_m.o
 utils_m.o: kinds_m.o 
 vertutils_m.o: hyblevs_m.o physparams.o 
-hyblevs_m.o: physparams.o utils_m.o netcdf_m.o
 usage_m.o : mpidata_m.o
 shdata_m.o: mpidata_m.o 
 logging_m.o: mpidata_m.o

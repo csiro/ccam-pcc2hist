@@ -112,7 +112,7 @@ subroutine height ( tg, qg, zg, pg, sig, phistd, pstd )
             do mg=1,nx
                if ( siglev(mg)>sig(1) ) then
                   if ( vextrap == vextrap_missing ) then
-                     phistd(mg,lg,kstd) = NF90_FILL_FLOAT 
+                     phistd(mg,lg,kstd) = -NF90_FILL_FLOAT ! local missing flag
                   else    
                      bettemp=c*(siglev(mg)**(-rdry/c)-1.)
                      phistd(mg,lg,kstd) = (zg(mg,lg)*grav+bettemp*tv(mg,1))/grav
