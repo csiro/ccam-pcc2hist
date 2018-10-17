@@ -2195,10 +2195,13 @@ contains
                   "ocdd_ave            ", "ocwd_ave            ", "duste_ave           ", "dustdd_ave          ", &
                   "dustwd_ave          ", "wb?_ave             ", "climate_biome       ", "climate_ivegt       ", &
                   "climate_min20       ", "climate_max20       ", "climate_alpha20     ", "climate_agdd5       ", &
-                  "climate_gmd         ", "climate_dmoist_min20", "climate_dmoist_max20" /)) .and. int_type /= int_none ) then
+                  "climate_gmd         ", "climate_dmoist_min20", "climate_dmoist_max20" /)) .and. int_default /= int_none ) then
             int_type = int_nearest
          else
             int_type = int_default
+         end if
+         if ( match ( varlist(ivar)%vname, (/ "thetao", "so    " /) ) .and. int_type /= int_none ) then
+            int_type = int_nearest
          end if
          if ( match ( varlist(ivar)%vname, &
                (/ "cape_ave  ", "cape_max  ", "cbas_ave  ", "cfrac     ", "cld       ", "clh       ", "cll       ", &
@@ -2524,8 +2527,8 @@ contains
       if ( ok > 1 ) then
          call addfld( "uos", "x-component surface current", "m/s", -100., 100., 1 )
          call addfld( "vos", "y-component surface current", "m/s", -100., 100., 1 )
-         call addfld( "sos", "Surface ocean salinity", "PSU", 0., 100., 1 )
-         call addfld( "tos", "Surface ocean temperature", "K", 150., 350., 1 )
+         call addfld( "sos", "Surface ocean salinity", "PSU", 0., 100., 1, int_type=int_nearest )
+         call addfld( "tos", "Surface ocean temperature", "K", 150., 350., 1, int_type=int_nearest )
       end if    
 
    end subroutine get_var_list
