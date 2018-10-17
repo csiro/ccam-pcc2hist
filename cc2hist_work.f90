@@ -1880,12 +1880,18 @@ contains
       real, dimension(pil,pjl*pnpan*lproc) :: uzon, vmer
 
       if ( int_default == int_none ) return      
-      
-      uzon = costh*u - sinth*v
-      vmer = sinth*u + costh*v
+
+      where ( abs(u) /= nf90_fill_float .and. abs(v) /= nf90_fill_float )
+         uzon = costh*u - sinth*v
+         vmer = sinth*u + costh*v
 !        Now save these back to the original arrays.
          u = uzon
          v = vmer
+      elsewhere
+         u = nf90_fill_float
+         v = nf90_fill_float
+      end where
+      
    end subroutine fix_winds2
 
    subroutine fix_winds3 ( u, v )
