@@ -1888,8 +1888,8 @@ contains
          u = uzon
          v = vmer
       elsewhere
-         u = nf90_fill_float
-         v = nf90_fill_float
+         u = -nf90_fill_float ! local missing value
+         v = -nf90_fill_float ! local missing value
       end where
       
    end subroutine fix_winds2
