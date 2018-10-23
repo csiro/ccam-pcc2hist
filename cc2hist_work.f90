@@ -1887,6 +1887,9 @@ contains
 !        Now save these back to the original arrays.
          u = uzon
          v = vmer
+      elsewhere ( u == nf90_fill_float .or. v == nf90_fill_float )
+         u = nf90_fill_float 
+         v = nf90_fill_float
       elsewhere
          u = -nf90_fill_float ! local missing value
          v = -nf90_fill_float ! local missing value
@@ -1899,7 +1902,7 @@ contains
       use newmpar_m
       real, dimension(:,:,:), intent(inout) :: u, v
       integer :: k
-      do k=1,size(u,3)
+      do k = 1,size(u,3)
          call fix_winds2( u(:,:,k), v(:,:,k) ) 
       enddo
    end subroutine fix_winds3
@@ -2195,8 +2198,11 @@ contains
             end if
          end do
          if ( varlist(ivar)%vname == "tmaxscr" .or.         &
+              varlist(ivar)%vname == "tasmax" .or.          &
               varlist(ivar)%vname == "tminscr" .or.         &
+              varlist(ivar)%vname == "tasmin" .or.          &
               varlist(ivar)%vname == "maxrnd" .or.          &
+              varlist(ivar)%vname == "prmax" .or.           &
               varlist(ivar)%vname == "rhmaxscr" .or.        &
               varlist(ivar)%vname == "rhminscr" .or.        &
               varlist(ivar)%vname == "u10max" .or.          &
