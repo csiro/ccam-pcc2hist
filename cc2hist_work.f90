@@ -532,7 +532,7 @@ contains
                end where
                if ( needfld("ps") ) then
                   if ( cordex_compliant ) then
-                     where ( dtmp /= nf90_fill_float ) 
+                     where ( psl /= nf90_fill_float ) 
                         dtmp = 100.*psl     ! Pa
                      end where   
                   else    
