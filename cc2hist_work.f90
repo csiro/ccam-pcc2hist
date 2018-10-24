@@ -589,7 +589,7 @@ contains
                   call vread( "snd", sndw )
                   if ( needfld("snd") ) then
                      if ( cordex_compliant ) then
-                        where ( dtmp /= nf90_fill_float )  
+                        where ( sndw /= nf90_fill_float )  
                            dtmp = sndw*10. ! change from equiv water to equiv snow
                         end where   
                      else
