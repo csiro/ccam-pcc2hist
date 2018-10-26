@@ -3073,6 +3073,7 @@ contains
       integer, dimension(54) :: int_header
       integer :: ier, ip, n, rip, ierr
       integer :: colour, vid
+      integer, dimension(:,:), allocatable, save :: resprocdata_inv
       integer, dimension(:), allocatable, save :: resprocmap_inv
       integer, dimension(:), allocatable, save :: procfileowner
       character(len=*), intent(in) :: ifile
@@ -3126,7 +3127,7 @@ contains
             ier = nf90_get_att(ncid, nf90_global, "nproc", pnproc)
             call check_ncerr(ier, "nproc")
             ier = nf90_get_att(ncid, nf90_global, "procmode", resprocmode)
-            if ( ier==nf90_noerr ) then
+            if ( ier == nf90_noerr ) then
                resprocformat = .true.  
             end if
          else
@@ -3136,11 +3137,30 @@ contains
          end if    
 
          if ( resprocformat ) then
-            allocate( resprocmap_inv(0:pnproc-1) )
-            ierr = nf90_inq_varid (ncid, 'gprocessor', vid ) 
-            call check_ncerr(ierr, "Error getting vid for gprocessor")
-            ierr = nf90_get_var ( ncid, vid, resprocmap_inv, start=(/ 1 /), count=(/ pnproc /) )
-            call check_ncerr(ierr, "Error getting var gprocessor")
+            allocate( resprocdata_inv(0:pnproc-1,2) ) 
+            ierr = nf90_inq_varid (ncid, 'gprocnode', vid )
+            if ( ierr == nf90_noerr ) then
+               ! procformat v2 format 
+               ierr = nf90_get_var ( ncid, vid, resprocdata_inv(:,1), start=(/ 1 /), count=(/ pnproc /) ) 
+               call check_ncerr(ierr, "Error getting var gprocnode")
+               ierr = nf90_inq_varid (ncid, 'gprocoffset', vid )
+               call check_ncerr(ierr, "Error getting vid for gprocoffset")
+               ierr = nf90_get_var ( ncid, vid, resprocdata_inv(:,2), start=(/ 1 /), count=(/ pnproc /) ) 
+               call check_ncerr(ierr, "Error getting var gprocoffset")
+            else
+               ! procformat v1 format 
+               allocate( resprocmap_inv(0:pnproc-1) )
+               ierr = nf90_inq_varid (ncid, 'gprocessor', vid ) 
+               call check_ncerr(ierr, "Error getting vid for gprocessor")
+               ierr = nf90_get_var ( ncid, vid, resprocmap_inv, start=(/ 1 /), count=(/ pnproc /) )
+               call check_ncerr(ierr, "Error getting var gprocessor")
+               do ip = 0,pnproc-1
+                  rip = resprocmap_inv(ip) 
+                  resprocdata_inv(ip,1) = rip/resprocmode
+                  resprocdata_inv(ip,2) = mod(rip, resprocmode)
+               end do    
+               deallocate( resprocmap_inv )
+            end if   
          end if
 
       end if
@@ -3150,18 +3170,13 @@ contains
         jdum(1) = pnproc
         if ( resprocformat ) then
           jdum(2) = 1 ! indicates true for resprocformat
-          jdum(3) = resprocmode
         else
           jdum(2) = 0 ! indicates false for resprocformat
-          jdum(3) = 0
         end if
       end if
-      call MPI_Bcast(jdum(1:3), 3, MPI_INTEGER, 0, comm_world, ier)
+      call MPI_Bcast(jdum(1:2), 2, MPI_INTEGER, 0, comm_world, ier)
       pnproc = jdum(1)
       resprocformat = (jdum(2)==1)
-      if ( resprocformat ) then
-         resprocmode = jdum(3)
-      end if
       call END_LOG(mpibcast_end)
 
       
@@ -3223,14 +3238,13 @@ contains
          allocate( prid_in(0:lproc-1) )
          allocate( procfileowner(0:pnproc-1) )
          procfileowner(:) = -1
-         if ( .not.allocated(resprocmap_inv) ) then
-            allocate( resprocmap_inv(0:pnproc-1) )
+         if ( .not.allocated(resprocdata_inv) ) then
+            allocate( resprocdata_inv(0:pnproc-1,2) )
          end if
-         call MPI_Bcast(resprocmap_inv, pnproc, MPI_INTEGER, 0, comm_world, ier)
+         call MPI_Bcast(resprocdata_inv, 2*pnproc, MPI_INTEGER, 0, comm_world, ier)
          do ip = 0,lproc-1
             rip = myid*lproc + ip
-            rip = resprocmap_inv(rip)
-            prid_in(ip) = mod(rip, resprocmode) + 1
+            prid_in(ip) = resprocdata_inv(rip,2) + 1
          end do
       end if
 
@@ -3239,8 +3253,7 @@ contains
          if ( resprocformat ) then
             do ip = 0,lproc-1
                rip = myid*lproc + ip
-               rip = resprocmap_inv(rip)
-               rip = rip/resprocmode
+               rip = resprocdata_inv(rip,1)
                if ( procfileowner(rip) == -1 ) then
                   fown_in(ip) = .true.
                   procfileowner(rip) = ip
@@ -3260,7 +3273,7 @@ contains
                end if
             end do
             deallocate(procfileowner)
-            deallocate(resprocmap_inv)
+            deallocate(resprocdata_inv)
          else
             do ip = 0,lproc-1
                rip = myid*lproc + ip
@@ -3287,8 +3300,7 @@ contains
          if ( resprocformat ) then
             procfileowner(0) = 0
             do ip = 1,lproc-1
-               rip = resprocmap_inv(ip)
-               rip = rip/resprocmode
+               rip = resprocdata_inv(ip,1)
                if ( procfileowner(rip) == -1 ) then
                   fown_in(ip) = .true.
                   procfileowner(rip) = ip
@@ -3308,7 +3320,7 @@ contains
                end if
             end do
             deallocate(procfileowner)
-            deallocate(resprocmap_inv)
+            deallocate(resprocdata_inv)
          else
             do ip = 1,lproc-1
                rip = ip
