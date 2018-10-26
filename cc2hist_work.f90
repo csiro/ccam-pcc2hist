@@ -692,8 +692,9 @@ contains
                      end where
                      call savehist(varlist(ivar)%vname,dtmp)
                   end if   
-               else
-                  if ( needfld(varlist(ivar)%vname) ) then           
+                else
+                  if ( needfld(varlist(ivar)%vname) .or. match ( varlist(ivar)%vname, &
+                     (/ "wb?_ave", "wbice?_ave" /)) ) then           
                      call vread( varlist(ivar)%vname, ctmp ) 
                      validvar = .true.
                      do k = 1,size(zse)
