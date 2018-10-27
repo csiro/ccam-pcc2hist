@@ -2462,9 +2462,18 @@ contains
          call addfld ( "tsea", "Sea surface temperature", "K", 150., 350., 1, &
                         std_name="sea_surface_temperature", ran_type=.true. )
          if ( cordex_compliant ) then
-            call addfld ( "evspsbl", "Evaporation", "kg/m2/s", 0., 0.001, 1, std_name="water_evaporation_flux" )          
-            call addfld ( "mrso", "Total soil moisture content", "kg/m2", 0., 100.0, 1, std_name="soil_moisture_content" )          
-            call addfld ( "mrfso", "Soil frozen water content", "kg/m2", 0., 100.0, 1, std_name="soil_frozen_water_content" )   
+            call addfld ( "evspsbl", "Evaporation", "kg/m2/s", 0., 0.001, 1, std_name="water_evaporation_flux" )
+            if ( int_type /= int_none ) then
+               call addfld ( "mrso", "Total soil moisture content", "kg/m2", 0., 100.0, 1, std_name="soil_moisture_content", &
+                             int_type = int_nearest )          
+               call addfld ( "mrfso", "Soil frozen water content", "kg/m2", 0., 100.0, 1, std_name="soil_frozen_water_content", &
+                             int_type = int_nearest )
+            else
+               call addfld ( "mrso", "Total soil moisture content", "kg/m2", 0., 100.0, 1, std_name="soil_moisture_content", &
+                             int_type = int_none )          
+               call addfld ( "mrfso", "Soil frozen water content", "kg/m2", 0., 100.0, 1, std_name="soil_frozen_water_content", &
+                             int_type = int_none )                
+            end if    
             call addfld ( "prw", "Precipitable water column", "kg/m2", 0.0, 100.0, 1,  &
                            std_name="atmosphere_water_vapor_content", ran_type=.true. )
             call addfld ( "ps", "Surface pressure", "Pa", 0., 120000., 1, &
