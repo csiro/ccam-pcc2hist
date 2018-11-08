@@ -971,7 +971,7 @@ contains
 !
          do i = 1,oix
             do ii = 1,omexup2(i,j)
-               ogp(i,ii) = -NF90_FILL_FLOAT ! local missing value
+               ogp(i,ii) = ogs(i,1)
             end do
             if ( omexdn1(i,j)/=0 ) then
                do ii = omexdn1(i,j),onprlvs
