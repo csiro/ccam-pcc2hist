@@ -132,6 +132,8 @@ contains
          allocate( uo_tmp(pil,pjl*pnpan*lproc,ol), vo_tmp(pil,pjl*pnpan*lproc,ol) )
          allocate( thetao_tmp(pil,pjl*pnpan*lproc,ol), so_tmp(pil,pjl*pnpan*lproc,ol) )
          allocate( ocn_tmp(pil,pjl*pnpan*lproc,ol) )
+         allocate( kmo_tmp(pil,pjl*pnpan*lproc,ol), kso_tmp(pil,pjl*pnpan*lproc,ol) )
+         allocate( tkeo_tmp(pil,pjl*pnpan*lproc,ol), epso_tmp(pil,pjl*pnpan*lproc,ol) )
       end if
 
    end subroutine alloc_indata
@@ -847,6 +849,54 @@ contains
                      call osavehist( "wo", ocn_tmp )
                   end if   
                end if   
+            case ( "kmo" )
+               if ( need3dfld("kmo") ) then
+                  call vread( "kmo", kmo_tmp )
+                  do k = 1,size(kmo_tmp,3)
+                     where ( soilt > 0.5 )
+                        kmo_tmp(:,:,k) = -nf90_fill_float ! flag for land
+                     end where
+                  end do
+                  if ( needfld("kmo") ) then
+                    call osavehist( "kmo", kmo_tmp )
+                 end if
+               end if
+            case ( "kso" )
+               if ( need3dfld("kso") ) then
+                  call vread( "kso", kso_tmp )
+                  do k = 1,size(kso_tmp,3)
+                     where ( soilt > 0.5 )
+                        kso_tmp(:,:,k) = -nf90_fill_float ! flag for land
+                     end where
+                  end do
+                  if ( needfld("kso") ) then
+                    call osavehist( "kso", kso_tmp )
+                 end if
+               end if
+            case ( "tkeo" )
+               if ( need3dfld("tkeo") ) then
+                  call vread( "tkeo", tkeo_tmp )
+                  do k = 1,size(tkeo_tmp,3)
+                     where ( soilt > 0.5 )
+                        tkeo_tmp(:,:,k) = -nf90_fill_float ! flag for land
+                     end where
+                  end do
+                  if ( needfld("tkeo") ) then
+                    call osavehist( "tkeo", tkeo_tmp )
+                 end if
+               end if
+            case ( "epso" )
+               if ( need3dfld("epso") ) then
+                  call vread( "epso", epso_tmp )
+                  do k = 1,size(epso_tmp,3)
+                     where ( soilt > 0.5 )
+                        epso_tmp(:,:,k) = -nf90_fill_float ! flag for land
+                     end where
+                  end do
+                  if ( needfld("epso") ) then
+                    call osavehist( "epso", epso_tmp )
+                 end if
+               end if
             case ( "omega" )
                if ( need3dfld("omega") ) then
                   call vread( "omega", omega )
@@ -1235,6 +1285,14 @@ contains
          needed = needfld("thetao") .or. needfld("tos")
       case ( "wo" )
          needed = needfld("wo")
+      case ( "kmo" ) 
+         needed = needfld("kmo")
+      case ( "kso" ) 
+         needed = needfld("kso")
+      case ( "tkeo" ) 
+         needed = needfld("tkeo")
+      case ( "epso" ) 
+         needed = needfld("epso")
       case default
          print*, "Error - unsupported argument for need3dfld", name
          stop
@@ -2172,7 +2230,10 @@ contains
       do ivar = 1,nvars
          if ( varlist(ivar)%vname == "thetao" .or. varlist(ivar)%vname == "so" .or. &
               varlist(ivar)%vname == "uo" .or. varlist(ivar)%vname == "vo" .or.     &
-              varlist(ivar)%vname == "wo" ) then    
+              varlist(ivar)%vname == "wo" .or. varlist(ivar)%vname == "uo" .or.     &
+              varlist(ivar)%vname == "vo" .or. varlist(ivar)%vname == "kmo" .or.    &
+              varlist(ivar)%vname == "kso" .or. varlist(ivar)%vname == "tkeo" .or.  &
+              varlist(ivar)%vname == "epso" ) then
             varlist(ivar)%water = .true. 
          else 
             varlist(ivar)%water = .false. 
