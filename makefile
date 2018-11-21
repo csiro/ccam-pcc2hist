@@ -8,7 +8,10 @@ FHOST = -xCORE-AVX2
 endif
 FFLAGS = -O $(FHOST) -ftz -fp-model precise -traceback -Dusempi3
 INC = -I $(NETCDF_ROOT)/include
-LIBS = -L $(NETCDF_ROOT)/lib -lnetcdf -lnetcdff
+LIBS = -L $(NETCDF_ROOT)/lib -lnetcdf
+ifneq ($(NCCLIB),yes)
+LIBS += -lnetcdff
+endif
 PPFLAG90 = -fpp
 DEBUGFLAG = -check all -debug all -fpe0
 endif
@@ -43,6 +46,9 @@ ifeq ($(TEST),yes)
 FFLAGS += $(DEBUGFLAG)
 endif
 
+ifeq ($(NCCLIB),yes)
+FFLAGS += -Dncclib
+endif
 
 OBJ = pcc2hist.o cc2hist_work.o gldata_m.o height_m.o indices_m.o ind_m.o \
 interp_m.o jimcc_m.o jimco_m.o jim_utils.o latltoij_m.o newmpar_m.o nfft_m.o \
