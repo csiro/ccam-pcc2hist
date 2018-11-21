@@ -291,7 +291,8 @@ module history
 !  Valid range for 16 bit values
    integer, parameter :: vmin=-32500, vmax=32500
 
-   real :: missing_value_cordex = 1.00000002004e+20
+   !real :: missing_value_cordex = 1.00000002004e+20
+   real :: missing_value_cordex = nf90_fill_float
    character(len=20), save :: filesuffix
 
 !  Output array size (may be different to model resolution and accumulation
