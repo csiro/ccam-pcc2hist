@@ -620,10 +620,14 @@ contains
                call readsave2 (varlist(ivar)%vname, input_name="tmaxscr")
             case ( "tasmin" )
                call readsave2 (varlist(ivar)%vname, input_name="tminscr")
-            case ( "tauu", "taux" ) 
-               call vread( "taux", tauxtmp ) 
+            case ( "tauu", "taux" )
+               if ( needfld("taux") .or. needfld("tauy") .or. needfld("tauu") .or. needfld("tauv") ) then 
+                  call vread( "taux", tauxtmp )
+               end if  
             case ( "tauv", "tauy" )
-               call vread( "tauy", tauytmp )  
+               if ( needfld("taux") .or. needfld("tauy") .or. needfld("tauu") .or. needfld("tauv") ) then 
+                  call vread( "tauy", tauytmp )
+               end if   
             case ( "ts", "tsu" )
                if ( needfld("ts") .or. needfld("tsu") .or. needfld("tsea") ) then 
                   call vread( "tsu", dtmp )
@@ -925,10 +929,7 @@ contains
       end if   
       
       if ( needfld("tauu") .or. needfld("tauv") .or. &
-           needfld("taux") .or. needfld("tauy") .or. &
-           (needfld("uas").and.kk>1) .or.            &
-           (needfld("vas").and.kk>1) .or.            &
-           (needfld("d10").and.kk>1) ) then
+           needfld("taux") .or. needfld("tauy") ) then
          call fix_winds(tauxtmp, tauytmp)
          if ( needfld("tauu") ) then
             call savehist( "tauu", tauxtmp )
@@ -941,58 +942,9 @@ contains
          end if
          if ( needfld("tauy") ) then
             call savehist( "tauy", tauytmp )
-         end if   
-         wind_norm(:,:) = sqrt(tauxtmp*tauxtmp+tauytmp*tauytmp)
-         if ( needfld("uas") .and. kk>1 ) then
-            where ( wind_norm > 0. )
-               dtmp = tauxtmp*uten/wind_norm
-            elsewhere
-               dtmp = 0. 
-            end where    
-            call savehist ( "uas", dtmp )    
-         end if    
-         if ( needfld("vas") .and. kk>1 ) then
-            where ( wind_norm > 0. )
-               dtmp = tauytmp*uten/wind_norm
-            elsewhere
-               dtmp = 0. 
-            end where    
-            call savehist ( "vas", dtmp )    
-         end if
-         if ( needfld("d10") .and. kk>1 ) then
-            udir = atan2(-u(:,:,1),-v(:,:,1))*180./3.1415927
-            where ( udir < 0. )
-               udir = udir + 360.
-            end where
-            call savehist( "d10", udir )        
-         end if    
-      end if
-
-      ! high-frequency output 
-      if ( (needfld("uas").and.kk<=1) .or. &
-           (needfld("vas").and.kk<=1) .or. &
-           (needfld("u10").and.kk<=1) .or. &
-           (needfld("d10").and.kk<=1) ) then
-         call fix_winds( uastmp, vastmp )
-         if ( needfld("uas") ) then
-            call savehist( "uas", uastmp )
-         end if
-         if ( needfld("vas") ) then
-            call savehist( "vas", vastmp )
-         end if   
-         if ( needfld("u10") ) then
-            uten = sqrt( uastmp*uastmp + vastmp*vastmp )
-            call savehist( "u10", uten )
-         end if
-         if ( needfld("d10") ) then
-            udir = atan2(-uastmp,-vastmp)*180./3.1415927
-            where ( udir < 0. )
-               udir = udir + 360.
-            end where
-            call savehist( "d10", udir )
-         end if
-      end if
-
+         end if 
+      end if    
+      
       if ( kk>1 ) then
          
          if ( needfld("qbot") ) then
@@ -1076,7 +1028,9 @@ contains
               needfld("ua") .or. needfld("va")         .or. &             
               needfld("vaveuq") .or. needfld("vavevq") .or. &
               needfld("vaveut") .or. needfld("vavevt") .or. &
-              needfld("ubot")   .or. needfld("vbot") ) then
+              needfld("ubot")   .or. needfld("vbot")   .or. &
+              needfld("uas")    .or. needfld("vas")    .or. &
+              needfld("d10") ) then
             call fix_winds(u, v)
             if ( cordex_compliant ) then
                if ( needfld("ua") ) then 
@@ -1099,7 +1053,59 @@ contains
             if ( needfld("vbot") ) then
                call savehist ( "vbot", v(:,:,1) )
             end if   
+            wind_norm(:,:) = sqrt(u(:,:,1)**2+v(:,:,1)**2)
+            if ( needfld("uas") .and. kk>1 ) then
+               where ( wind_norm > 0. )
+                  dtmp = u(:,:,1)*uten/wind_norm
+               elsewhere
+                  dtmp = 0. 
+               end where    
+               call savehist ( "uas", dtmp )    
+            end if    
+            if ( needfld("vas") .and. kk>1 ) then
+               where ( wind_norm > 0. )
+                  dtmp = v(:,:,1)*uten/wind_norm
+               elsewhere
+                  dtmp = 0. 
+               end where    
+               call savehist ( "vas", dtmp )    
+            end if
+            if ( needfld("d10") .and. kk>1 ) then
+               udir = atan2(-u(:,:,1),-v(:,:,1))*180./3.1415927
+               where ( udir < 0. )
+                  udir = udir + 360.
+               end where
+               call savehist( "d10", udir )        
+            end if   
          end if
+
+      else        
+          
+         ! high-frequency output 
+         if ( (needfld("uas").and.kk<=1) .or. &
+              (needfld("vas").and.kk<=1) .or. &
+              (needfld("u10").and.kk<=1) .or. &
+              (needfld("d10").and.kk<=1) ) then
+            call fix_winds( uastmp, vastmp )
+            if ( needfld("uas") ) then
+               call savehist( "uas", uastmp )
+            end if
+            if ( needfld("vas") ) then
+               call savehist( "vas", vastmp )
+            end if   
+            if ( needfld("u10") ) then
+               uten = sqrt( uastmp*uastmp + vastmp*vastmp )
+               call savehist( "u10", uten )
+            end if
+            if ( needfld("d10") ) then
+               udir = atan2(-uastmp,-vastmp)*180./3.1415927
+               where ( udir < 0. )
+                  udir = udir + 360.
+               end where
+               call savehist( "d10", udir )
+            end if
+         end if
+          
       end if       
       
       ! Note that these are just vertical averages, not vertical integrals
@@ -1210,7 +1216,8 @@ contains
          needed = needfld("u") .or. needfld("v") .or. needfld("vaveuq") .or. &
                   needfld("vavevq") .or. needfld("vaveut") .or.              &
                   needfld("vavevt") .or. needfld("vbot") .or.                &
-                  needfld("ubot")
+                  needfld("ubot")   .or. needfld("d10") .or.                 &
+                  needfld("uas")    .or. needfld("vas")
       case ( "ua", "va" )
          needed = needfld("ua") .or. needfld("va") .or. needfld("vaveuq") .or. &
                   needfld("vavevq") .or. needfld("vaveut") .or.                &
@@ -1806,6 +1813,7 @@ contains
 
       if ( need_rotate .or. needfld("u") .or. needfld("v") .or.   &
            needfld("taux") .or. needfld("tauy") .or.              &
+           needfld("tauu") .or. needfld("tauv") .or.              &
            needfld("u10max") .or. needfld("v10max") .or.          &
            needfld("uas") .or. needfld("vas") .or.                &
            needfld("d10") .or. needfld("ubot")  .or.              &
