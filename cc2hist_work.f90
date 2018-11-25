@@ -423,7 +423,19 @@ contains
                    if ( needfld("dpsdt") ) then
                       call savehist ( "dpsdt", dpsdt )
                    end if   
-                end if   
+                end if 
+            case ( "epso" )
+               if ( need3dfld("epso") ) then
+                  call vread( "epso", ocn_tmp )
+                  do k = 1,size(ocn_tmp,3)
+                     where ( soilt > 0.5 )
+                        ocn_tmp(:,:,k) = -nf90_fill_float ! flag for land
+                     end where
+                  end do   
+                  if ( needfld("epso") ) then
+                     call osavehist( "epso", ocn_tmp )
+                  end if   
+               end if  
             case ( "evspsblpot" )
                if ( needfld("evspsblpot") ) then 
                   call vread( "epot_ave", dtmp )
@@ -450,7 +462,31 @@ contains
                      dtmp = dtmp/(dtmp+1.)
                   end where  
                   call savehist ( "huss", dtmp )
-               end if   
+               end if 
+            case ( "kmo" )
+               if ( need3dfld("kmo") ) then
+                  call vread( "kmo", ocn_tmp )
+                  do k = 1,size(ocn_tmp,3)
+                     where ( soilt > 0.5 )
+                        ocn_tmp(:,:,k) = -nf90_fill_float ! flag for land
+                     end where
+                  end do   
+                  if ( needfld("kmo") ) then
+                     call osavehist( "kmo", ocn_tmp )
+                  end if   
+               end if  
+            case ( "kso" )
+               if ( need3dfld("kso") ) then
+                  call vread( "kso", ocn_tmp )
+                  do k = 1,size(ocn_tmp,3)
+                     where ( soilt > 0.5 )
+                        ocn_tmp(:,:,k) = -nf90_fill_float ! flag for land
+                     end where
+                  end do   
+                  if ( needfld("kso") ) then
+                     call osavehist( "kso", ocn_tmp )
+                  end if   
+               end if 
             case ( "mrro" )
                if ( needfld("mrro") ) then 
                   call vread( "runoff", dtmp )
@@ -627,7 +663,19 @@ contains
             case ( "tauv", "tauy" )
                if ( needfld("taux") .or. needfld("tauy") .or. needfld("tauu") .or. needfld("tauv") ) then 
                   call vread( "tauy", tauytmp )
-               end if   
+               end if 
+            case ( "tkeo" )
+               if ( need3dfld("tkeo") ) then
+                  call vread( "tkeo", ocn_tmp )
+                  do k = 1,size(ocn_tmp,3)
+                     where ( soilt > 0.5 )
+                        ocn_tmp(:,:,k) = -nf90_fill_float ! flag for land
+                     end where
+                  end do   
+                  if ( needfld("tkeo") ) then
+                     call osavehist( "tkeo", ocn_tmp )
+                  end if   
+               end if  
             case ( "ts", "tsu" )
                if ( needfld("ts") .or. needfld("tsu") .or. needfld("tsea") ) then 
                   call vread( "tsu", dtmp )
@@ -2180,7 +2228,9 @@ contains
       do ivar = 1,nvars
          if ( varlist(ivar)%vname == "thetao" .or. varlist(ivar)%vname == "so" .or. &
               varlist(ivar)%vname == "uo" .or. varlist(ivar)%vname == "vo" .or.     &
-              varlist(ivar)%vname == "wo" ) then    
+              varlist(ivar)%vname == "wo" .or. varlist(ivar)%vname == "kmo" .or.    &
+              varlist(ivar)%vname == "kso" .or. varlist(ivar)%vname == "tkeo" .or.  &
+              varlist(ivar)%vname == "epso" ) then    
             varlist(ivar)%water = .true. 
          else 
             varlist(ivar)%water = .false. 
