@@ -424,18 +424,6 @@ contains
                       call savehist ( "dpsdt", dpsdt )
                    end if   
                 end if 
-            case ( "epso" )
-               if ( need3dfld("epso") ) then
-                  call vread( "epso", ocn_tmp )
-                  do k = 1,size(ocn_tmp,3)
-                     where ( soilt > 0.5 )
-                        ocn_tmp(:,:,k) = -nf90_fill_float ! flag for land
-                     end where
-                  end do   
-                  if ( needfld("epso") ) then
-                     call osavehist( "epso", ocn_tmp )
-                  end if   
-               end if  
             case ( "evspsblpot" )
                if ( needfld("evspsblpot") ) then 
                   call vread( "epot_ave", dtmp )
@@ -462,30 +450,6 @@ contains
                      dtmp = dtmp/(dtmp+1.)
                   end where  
                   call savehist ( "huss", dtmp )
-               end if 
-            case ( "kmo" )
-               if ( need3dfld("kmo") ) then
-                  call vread( "kmo", ocn_tmp )
-                  do k = 1,size(ocn_tmp,3)
-                     where ( soilt > 0.5 )
-                        ocn_tmp(:,:,k) = -nf90_fill_float ! flag for land
-                     end where
-                  end do   
-                  if ( needfld("kmo") ) then
-                     call osavehist( "kmo", ocn_tmp )
-                  end if   
-               end if  
-            case ( "kso" )
-               if ( need3dfld("kso") ) then
-                  call vread( "kso", ocn_tmp )
-                  do k = 1,size(ocn_tmp,3)
-                     where ( soilt > 0.5 )
-                        ocn_tmp(:,:,k) = -nf90_fill_float ! flag for land
-                     end where
-                  end do   
-                  if ( needfld("kso") ) then
-                     call osavehist( "kso", ocn_tmp )
-                  end if   
                end if 
             case ( "mrro" )
                if ( needfld("mrro") ) then 
@@ -663,18 +627,6 @@ contains
             case ( "tauv", "tauy" )
                if ( needfld("taux") .or. needfld("tauy") .or. needfld("tauu") .or. needfld("tauv") ) then 
                   call vread( "tauy", tauytmp )
-               end if 
-            case ( "tkeo" )
-               if ( need3dfld("tkeo") ) then
-                  call vread( "tkeo", ocn_tmp )
-                  do k = 1,size(ocn_tmp,3)
-                     where ( soilt > 0.5 )
-                        ocn_tmp(:,:,k) = -nf90_fill_float ! flag for land
-                     end where
-                  end do   
-                  if ( needfld("tkeo") ) then
-                     call osavehist( "tkeo", ocn_tmp )
-                  end if   
                end if  
             case ( "ts", "tsu" )
                if ( needfld("ts") .or. needfld("tsu") .or. needfld("tsea") ) then 
@@ -768,6 +720,59 @@ contains
             end select
          else
             select case ( varlist(ivar)%vname )
+            case ( "epso" )
+               if ( need3dfld("epso") ) then
+                  call vread( "epso", ocn_tmp )
+                  do k = 1,size(ocn_tmp,3)
+                     where ( soilt > 0.5 )
+                        ocn_tmp(:,:,k) = -nf90_fill_float ! flag for land
+                     end where
+                  end do   
+                  if ( needfld("epso") ) then
+                     call osavehist( "epso", ocn_tmp )
+                  end if   
+               end if  
+            case ( "hus", "mixr" )
+               if ( need3dfld(varlist(ivar)%vname)) then
+                  if ( .not. use_meters ) then
+                     call vread( "mixr", q )
+                     q = max( q, 1.e-20 )
+                  end if
+                  if ( needfld(varlist(ivar)%vname) ) then
+                     call vsavehist ( varlist(ivar)%vname, q )
+                  end if   
+               end if
+            case ( "kmo" )
+               if ( need3dfld("kmo") ) then
+                  call vread( "kmo", ocn_tmp )
+                  do k = 1,size(ocn_tmp,3)
+                     where ( soilt > 0.5 )
+                        ocn_tmp(:,:,k) = -nf90_fill_float ! flag for land
+                     end where
+                  end do   
+                  if ( needfld("kmo") ) then
+                     call osavehist( "kmo", ocn_tmp )
+                  end if   
+               end if  
+            case ( "kso" )
+               if ( need3dfld("kso") ) then
+                  call vread( "kso", ocn_tmp )
+                  do k = 1,size(ocn_tmp,3)
+                     where ( soilt > 0.5 )
+                        ocn_tmp(:,:,k) = -nf90_fill_float ! flag for land
+                     end where
+                  end do   
+                  if ( needfld("kso") ) then
+                     call osavehist( "kso", ocn_tmp )
+                  end if   
+               end if 
+            case ( "omega" )
+               if ( need3dfld("omega") ) then
+                  call vread( "omega", omega )
+                  if ( needfld("omega") ) then
+                     call vsavehist( "omega", omega )
+                  end if   
+               end if
             case ( "ta", "temp" )
                ! temp should be the first of the 3D fields
                if ( use_meters ) then
@@ -794,14 +799,25 @@ contains
                      call vsavehist ( varlist(ivar)%vname, t )
                   end if   
                end if
-             case ( "hus", "mixr" )
-               if ( need3dfld(varlist(ivar)%vname)) then
-                  if ( .not. use_meters ) then
-                     call vread( "mixr", q )
-                     q = max( q, 1.e-20 )
-                  end if
-                  if ( needfld(varlist(ivar)%vname) ) then
-                     call vsavehist ( varlist(ivar)%vname, q )
+            case ( "tgg" )
+               if ( needfld("tgg") ) then 
+                  ! Only in cf_compliant mode
+                  do k = 1,ksoil
+                     write(name,'(a,i1)') 'tgg', k
+                     call vread(name,tgg(:,:,k))
+                  end do
+                  call savehist("tgg", tgg)
+               end if   
+            case ( "tkeo" )
+               if ( need3dfld("tkeo") ) then
+                  call vread( "tkeo", ocn_tmp )
+                  do k = 1,size(ocn_tmp,3)
+                     where ( soilt > 0.5 )
+                        ocn_tmp(:,:,k) = -nf90_fill_float ! flag for land
+                     end where
+                  end do   
+                  if ( needfld("tkeo") ) then
+                     call osavehist( "tkeo", ocn_tmp )
                   end if   
                end if
             case ( "qlg" )
@@ -887,6 +903,15 @@ contains
                      end where
                   end do
                end if
+            case ( "wetfrac" )
+               if ( needfld("wetfrac") ) then 
+                  ! Only in cf_compliant mode
+                  do k = 1,ksoil
+                     write(name,'(a,i1)') 'wetfrac', k
+                     call vread(name,tgg(:,:,k))
+                  end do
+                  call savehist("wetfrac", tgg)
+               end if   
             case ( "wo" )
                if ( need3dfld("wo") ) then
                   call vread( "wo", ocn_tmp )
@@ -898,39 +923,15 @@ contains
                   if ( needfld("wo") ) then
                      call osavehist( "wo", ocn_tmp )
                   end if   
-               end if   
-            case ( "omega" )
-               if ( need3dfld("omega") ) then
-                  call vread( "omega", omega )
-                  if ( needfld("omega") ) then
-                     call vsavehist( "omega", omega )
-                  end if   
-               end if
-            case ( "tgg" )
-               if ( needfld("tgg") ) then 
-                  ! Only in cf_compliant mode
-                  do k = 1,ksoil
-                     write(name,'(a,i1)') 'tgg', k
-                     call vread(name,tgg(:,:,k))
-                  end do
-                  call savehist("tgg", tgg)
-               end if   
-            case ( "wetfrac" )
-               if ( needfld("wetfrac") ) then 
-                  ! Only in cf_compliant mode
-                  do k = 1,ksoil
-                     write(name,'(a,i1)') 'wetfrac', k
-                     call vread(name,tgg(:,:,k))
-                  end do
-                  call savehist("wetfrac", tgg)
-               end if   
+               end if    
             case default
                if ( varlist(ivar)%water ) then
                   write(6,*) "ERROR: Not expecting ocean scalar ",trim(varlist(ivar)%vname)
                   stop
                else
                   call readsave3 (varlist(ivar)%vname)
-               end if   
+               end if  
+
             end select
          end if
 
