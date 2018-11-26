@@ -1282,6 +1282,12 @@ contains
          needed = needfld("qgrg")
       case ( "omega" )
          needed = needfld("omega") .or. needfld("w")
+      case ( "epso" )
+         needed = needfld("epso") 
+      case ( "kmo" )
+         needed = needfld("kmo")
+      case ( "kso" )
+         needed = needfld("kso")
       case ( "uo", "vo" )
          needed = needfld("uo") .or. needfld("vo") .or. needfld("uos") .or. &
                   needfld("vos")
@@ -1289,6 +1295,8 @@ contains
          needed = needfld("so") .or. needfld("sos")
       case ( "thetao" )
          needed = needfld("thetao") .or. needfld("tos")
+      case ( "tkeo" )
+         needed = needfld("tkeo") 
       case ( "wo" )
          needed = needfld("wo")
       case default
