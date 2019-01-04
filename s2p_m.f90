@@ -232,9 +232,10 @@ contains
       real, dimension(:,:,:), allocatable, save :: parray
 
       if ( .not. needfld(name) ) return
+      
       call START_LOG(vsavehist_begin)
       if ( use_depth ) then
-!        sigma to meters conversion.
+!        sigma or z* to meters conversion.
          if ( .not. allocated(parray) ) then
            allocate ( parray(size(array,1), size(array,2), onplevs) )
          else if ( size(parray,1)/=size(array,1) .or. size(parray,2)/=size(array,2) .or. size(parray,3)/=onplevs ) then
@@ -244,7 +245,7 @@ contains
          call ditop ( array, parray )
          call savehist ( name, parray )
       else
-!        Save the sigma level values directly.
+!        Save the sigma or z* level values directly.
          call savehist ( name, array(:,:,:) )
       end if
       call END_LOG(vsavehist_end)

@@ -735,7 +735,7 @@ contains
       real :: dx, dy
       
       integer :: i, upos
-      integer, parameter :: n_underscore_names = 120
+      integer, parameter :: n_underscore_names = 119
       character(len=MAX_NAMELEN) :: new_name, local_name
       character(len=MAX_NAMELEN), dimension(n_underscore_names) :: underscore_names
       
@@ -902,19 +902,18 @@ contains
       underscore_names(105) = "strat_nt"
       underscore_names(106) = "tscrn_ave"
       underscore_names(107) = "tsu_ave"
-      underscore_names(108) = "urbantas_ave"
-      underscore_names(109) = "wb1_ave"
-      underscore_names(110) = "wb2_ave"
-      underscore_names(111) = "wb3_ave"
-      underscore_names(112) = "wb4_ave"
-      underscore_names(113) = "wb5_ave"
-      underscore_names(114) = "wb6_ave"
-      underscore_names(115) = "wbice1_ave"
-      underscore_names(116) = "wbice2_ave"
-      underscore_names(117) = "wbice3_ave"
-      underscore_names(118) = "wbice4_ave"
-      underscore_names(119) = "wbice5_ave"
-      underscore_names(120) = "wbice6_ave"
+      underscore_names(108) = "wb1_ave"
+      underscore_names(109) = "wb2_ave"
+      underscore_names(110) = "wb3_ave"
+      underscore_names(111) = "wb4_ave"
+      underscore_names(112) = "wb5_ave"
+      underscore_names(113) = "wb6_ave"
+      underscore_names(114) = "wbice1_ave"
+      underscore_names(115) = "wbice2_ave"
+      underscore_names(116) = "wbice3_ave"
+      underscore_names(117) = "wbice4_ave"
+      underscore_names(118) = "wbice5_ave"
+      underscore_names(119) = "wbice6_ave"
 
 !     Save this as a module variable
       filesuffix = suffix
