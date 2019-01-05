@@ -731,7 +731,7 @@ contains
       logical :: used, multilev, use_plevs, use_hyblevs, use_meters, use_depth
       integer, dimension(totflds) :: coord_heights
       integer :: kc, ncoords, k, pkl
-      logical :: soil_used, water_used
+      logical :: soil_used, water_used, osig_found
       real :: dx, dy
       
       integer :: i, upos
@@ -1151,18 +1151,19 @@ contains
             use_depth = .false.
             if ( present(depth) ) then
                use_depth = depth 
-            end if    
+            end if
+            osig_found = all(gosig<=1.)
             !if ( soil_used ) then
             !   ! Better to define a new local nsoil variable?
             !   call create_ncfile ( filename, nxhis, nyhis, size(sig), size(gosig), multilev,      &
             !        use_plevs, use_meters, use_depth, use_hyblevs, basetime,                       &
             !        coord_heights(1:ncoords), ncid, dims, dimvars, source, extra_atts, calendar,   &
-            !        nsoil, zsoil )
+            !        nsoil, zsoil, osig_found )
             !else
                call create_ncfile ( filename, nxhis, nyhis, size(sig), size(gosig), multilev,      &
                     use_plevs, use_meters, use_depth, use_hyblevs, basetime,                       &
                     coord_heights(1:ncoords), ncid, dims, dimvars, source, extra_atts, calendar,   &
-                    nsoil, zsoil )
+                    nsoil, zsoil, osig_found )
             !end if
             histid(ifile) = ncid
 
@@ -1573,12 +1574,13 @@ contains
    subroutine create_ncfile ( filename, nxhis, nyhis, nlev, ol, multilev,            &
                  use_plevs, use_meters, use_depth, use_hyblevs, basetime,            &
                  coord_heights, ncid, dims, dimvars, source, extra_atts, calendar,   &
-                 nsoil, zsoil )
+                 nsoil, zsoil, osig_found )
 
       use mpidata_m
       character(len=*), intent(in) :: filename
       integer, intent(in) :: nxhis, nyhis, nlev, ol
       logical, intent(in) :: multilev, use_plevs, use_meters, use_depth, use_hyblevs
+      logical, intent(in) :: osig_found
       character(len=*), intent(in) :: basetime
       integer, dimension(:), intent(in) :: coord_heights
       integer, intent(out) :: ncid
@@ -1786,10 +1788,17 @@ contains
          else    
             ierr = nf90_def_var ( ncid, "olev", NF90_FLOAT, dims%oz, dimvars%oz )
             call check_ncerr(ierr)
-            ierr = nf90_put_att ( ncid, dimvars%oz, "long_name", "ocean sigma_level" )
-            call check_ncerr(ierr)
-            ierr = nf90_put_att ( ncid, dimvars%oz, "units", "sigma_level" )
-            call check_ncerr(ierr)
+            if ( osig_found ) then
+               ierr = nf90_put_att ( ncid, dimvars%oz, "long_name", "ocean sigma_level" )
+               call check_ncerr(ierr)
+               ierr = nf90_put_att ( ncid, dimvars%oz, "units", "sigma_level" )
+               call check_ncerr(ierr)
+            else
+               ierr = nf90_put_att ( ncid, dimvars%oz, "long_name", "ocean zstar_level" )
+               call check_ncerr(ierr)
+               ierr = nf90_put_att ( ncid, dimvars%oz, "units", "m" )
+               call check_ncerr(ierr)                
+            end if   
             ierr = nf90_put_att ( ncid, dimvars%oz, "positive", "down" )
             call check_ncerr(ierr)
          end if   
