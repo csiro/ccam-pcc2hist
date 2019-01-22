@@ -6,7 +6,12 @@ FHOST = -xHost
 ifeq ($(BROADWELL),yes)
 FHOST = -xCORE-AVX2
 endif
-FFLAGS = -O $(FHOST) -ftz -fp-model precise -traceback -Dusempi3
+ifeq ($(NOMPI3),yes)
+MPIFLAG =
+else
+MPIFLAG = -Dusempi3
+endif
+FFLAGS = -O $(FHOST) -ftz -fp-model precise -traceback $(MPIFLAG)
 INC = -I $(NETCDF_ROOT)/include
 LIBS = -L $(NETCDF_ROOT)/lib -lnetcdf
 ifneq ($(NCCLIB),yes)
@@ -20,7 +25,7 @@ endif
 ifeq ($(GFORTRAN),yes)
 MPIFC = gfortran
 MPIF77 = gfortran
-FFLAGS = -O2 -mtune=native -march=native -fbacktrace -Dusempi3
+FFLAGS = -O2 -mtune=native -march=native -fbacktrace
 PPFLAG90 = -x f95-cpp-input
 DEBUGFLAG = -g -Wall -Wextra -fbounds-check
 endif
