@@ -291,7 +291,8 @@ module history
 !  Valid range for 16 bit values
    integer, parameter :: vmin=-32500, vmax=32500
 
-   real :: missing_value_cordex = 1.00000002004e+20
+   !real :: missing_value_cordex = 1.00000002004e+20
+   real :: missing_value_cordex = nf90_fill_float
    character(len=20), save :: filesuffix
 
 !  Output array size (may be different to model resolution and accumulation
@@ -730,11 +731,11 @@ contains
       logical :: used, multilev, use_plevs, use_hyblevs, use_meters, use_depth
       integer, dimension(totflds) :: coord_heights
       integer :: kc, ncoords, k, pkl
-      logical :: soil_used, water_used
+      logical :: soil_used, water_used, osig_found
       real :: dx, dy
       
       integer :: i, upos
-      integer, parameter :: n_underscore_names = 120
+      integer, parameter :: n_underscore_names = 119
       character(len=MAX_NAMELEN) :: new_name, local_name
       character(len=MAX_NAMELEN), dimension(n_underscore_names) :: underscore_names
       
@@ -901,19 +902,18 @@ contains
       underscore_names(105) = "strat_nt"
       underscore_names(106) = "tscrn_ave"
       underscore_names(107) = "tsu_ave"
-      underscore_names(108) = "urbantas_ave"
-      underscore_names(109) = "wb1_ave"
-      underscore_names(110) = "wb2_ave"
-      underscore_names(111) = "wb3_ave"
-      underscore_names(112) = "wb4_ave"
-      underscore_names(113) = "wb5_ave"
-      underscore_names(114) = "wb6_ave"
-      underscore_names(115) = "wbice1_ave"
-      underscore_names(116) = "wbice2_ave"
-      underscore_names(117) = "wbice3_ave"
-      underscore_names(118) = "wbice4_ave"
-      underscore_names(119) = "wbice5_ave"
-      underscore_names(120) = "wbice6_ave"
+      underscore_names(108) = "wb1_ave"
+      underscore_names(109) = "wb2_ave"
+      underscore_names(110) = "wb3_ave"
+      underscore_names(111) = "wb4_ave"
+      underscore_names(112) = "wb5_ave"
+      underscore_names(113) = "wb6_ave"
+      underscore_names(114) = "wbice1_ave"
+      underscore_names(115) = "wbice2_ave"
+      underscore_names(116) = "wbice3_ave"
+      underscore_names(117) = "wbice4_ave"
+      underscore_names(118) = "wbice5_ave"
+      underscore_names(119) = "wbice6_ave"
 
 !     Save this as a module variable
       filesuffix = suffix
@@ -1151,18 +1151,19 @@ contains
             use_depth = .false.
             if ( present(depth) ) then
                use_depth = depth 
-            end if    
+            end if
+            osig_found = all(gosig<=1.)
             !if ( soil_used ) then
             !   ! Better to define a new local nsoil variable?
             !   call create_ncfile ( filename, nxhis, nyhis, size(sig), size(gosig), multilev,      &
             !        use_plevs, use_meters, use_depth, use_hyblevs, basetime,                       &
             !        coord_heights(1:ncoords), ncid, dims, dimvars, source, extra_atts, calendar,   &
-            !        nsoil, zsoil )
+            !        nsoil, zsoil, osig_found )
             !else
                call create_ncfile ( filename, nxhis, nyhis, size(sig), size(gosig), multilev,      &
                     use_plevs, use_meters, use_depth, use_hyblevs, basetime,                       &
                     coord_heights(1:ncoords), ncid, dims, dimvars, source, extra_atts, calendar,   &
-                    nsoil, zsoil )
+                    nsoil, zsoil, osig_found )
             !end if
             histid(ifile) = ncid
 
@@ -1573,12 +1574,13 @@ contains
    subroutine create_ncfile ( filename, nxhis, nyhis, nlev, ol, multilev,            &
                  use_plevs, use_meters, use_depth, use_hyblevs, basetime,            &
                  coord_heights, ncid, dims, dimvars, source, extra_atts, calendar,   &
-                 nsoil, zsoil )
+                 nsoil, zsoil, osig_found )
 
       use mpidata_m
       character(len=*), intent(in) :: filename
       integer, intent(in) :: nxhis, nyhis, nlev, ol
       logical, intent(in) :: multilev, use_plevs, use_meters, use_depth, use_hyblevs
+      logical, intent(in) :: osig_found
       character(len=*), intent(in) :: basetime
       integer, dimension(:), intent(in) :: coord_heights
       integer, intent(out) :: ncid
@@ -1786,10 +1788,17 @@ contains
          else    
             ierr = nf90_def_var ( ncid, "olev", NF90_FLOAT, dims%oz, dimvars%oz )
             call check_ncerr(ierr)
-            ierr = nf90_put_att ( ncid, dimvars%oz, "long_name", "ocean sigma_level" )
-            call check_ncerr(ierr)
-            ierr = nf90_put_att ( ncid, dimvars%oz, "units", "sigma_level" )
-            call check_ncerr(ierr)
+            if ( osig_found ) then
+               ierr = nf90_put_att ( ncid, dimvars%oz, "long_name", "ocean sigma_level" )
+               call check_ncerr(ierr)
+               ierr = nf90_put_att ( ncid, dimvars%oz, "units", "sigma_level" )
+               call check_ncerr(ierr)
+            else
+               ierr = nf90_put_att ( ncid, dimvars%oz, "long_name", "ocean zstar_level" )
+               call check_ncerr(ierr)
+               ierr = nf90_put_att ( ncid, dimvars%oz, "units", "m" )
+               call check_ncerr(ierr)                
+            end if   
             ierr = nf90_put_att ( ncid, dimvars%oz, "positive", "down" )
             call check_ncerr(ierr)
          end if   

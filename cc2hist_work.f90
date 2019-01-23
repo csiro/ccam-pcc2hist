@@ -132,8 +132,6 @@ contains
          allocate( uo_tmp(pil,pjl*pnpan*lproc,ol), vo_tmp(pil,pjl*pnpan*lproc,ol) )
          allocate( thetao_tmp(pil,pjl*pnpan*lproc,ol), so_tmp(pil,pjl*pnpan*lproc,ol) )
          allocate( ocn_tmp(pil,pjl*pnpan*lproc,ol) )
-         allocate( kmo_tmp(pil,pjl*pnpan*lproc,ol), kso_tmp(pil,pjl*pnpan*lproc,ol) )
-         allocate( tkeo_tmp(pil,pjl*pnpan*lproc,ol), epso_tmp(pil,pjl*pnpan*lproc,ol) )
       end if
 
    end subroutine alloc_indata
@@ -425,7 +423,7 @@ contains
                    if ( needfld("dpsdt") ) then
                       call savehist ( "dpsdt", dpsdt )
                    end if   
-                end if   
+                end if 
             case ( "evspsblpot" )
                if ( needfld("evspsblpot") ) then 
                   call vread( "epot_ave", dtmp )
@@ -452,7 +450,7 @@ contains
                      dtmp = dtmp/(dtmp+1.)
                   end where  
                   call savehist ( "huss", dtmp )
-               end if   
+               end if 
             case ( "mrro" )
                if ( needfld("mrro") ) then 
                   call vread( "runoff", dtmp )
@@ -622,10 +620,14 @@ contains
                call readsave2 (varlist(ivar)%vname, input_name="tmaxscr")
             case ( "tasmin" )
                call readsave2 (varlist(ivar)%vname, input_name="tminscr")
-            case ( "tauu", "taux" ) 
-               call vread( "taux", tauxtmp ) 
+            case ( "tauu", "taux" )
+               if ( needfld("taux") .or. needfld("tauy") .or. needfld("tauu") .or. needfld("tauv") ) then 
+                  call vread( "taux", tauxtmp )
+               end if  
             case ( "tauv", "tauy" )
-               call vread( "tauy", tauytmp )  
+               if ( needfld("taux") .or. needfld("tauy") .or. needfld("tauu") .or. needfld("tauv") ) then 
+                  call vread( "tauy", tauytmp )
+               end if  
             case ( "ts", "tsu" )
                if ( needfld("ts") .or. needfld("tsu") .or. needfld("tsea") ) then 
                   call vread( "tsu", dtmp )
@@ -696,7 +698,7 @@ contains
                   end if   
                 else
                   if ( needfld(varlist(ivar)%vname) .or. match ( varlist(ivar)%vname, &
-                     (/ "wb?_ave", "wbice?_ave" /)) ) then           
+                     (/ "wb?_ave   ", "wbice?_ave" /)) ) then           
                      call vread( varlist(ivar)%vname, ctmp ) 
                      validvar = .true.
                      do k = 1,size(zse)
@@ -718,6 +720,59 @@ contains
             end select
          else
             select case ( varlist(ivar)%vname )
+            case ( "epso" )
+               if ( need3dfld("epso") ) then
+                  call vread( "epso", ocn_tmp )
+                  do k = 1,size(ocn_tmp,3)
+                     where ( soilt > 0.5 )
+                        ocn_tmp(:,:,k) = -nf90_fill_float ! flag for land
+                     end where
+                  end do   
+                  if ( needfld("epso") ) then
+                     call osavehist( "epso", ocn_tmp )
+                  end if   
+               end if  
+            case ( "hus", "mixr" )
+               if ( need3dfld(varlist(ivar)%vname)) then
+                  if ( .not. use_meters ) then
+                     call vread( "mixr", q )
+                     q = max( q, 1.e-20 )
+                  end if
+                  if ( needfld(varlist(ivar)%vname) ) then
+                     call vsavehist ( varlist(ivar)%vname, q )
+                  end if   
+               end if
+            case ( "kmo" )
+               if ( need3dfld("kmo") ) then
+                  call vread( "kmo", ocn_tmp )
+                  do k = 1,size(ocn_tmp,3)
+                     where ( soilt > 0.5 )
+                        ocn_tmp(:,:,k) = -nf90_fill_float ! flag for land
+                     end where
+                  end do   
+                  if ( needfld("kmo") ) then
+                     call osavehist( "kmo", ocn_tmp )
+                  end if   
+               end if  
+            case ( "kso" )
+               if ( need3dfld("kso") ) then
+                  call vread( "kso", ocn_tmp )
+                  do k = 1,size(ocn_tmp,3)
+                     where ( soilt > 0.5 )
+                        ocn_tmp(:,:,k) = -nf90_fill_float ! flag for land
+                     end where
+                  end do   
+                  if ( needfld("kso") ) then
+                     call osavehist( "kso", ocn_tmp )
+                  end if   
+               end if 
+            case ( "omega" )
+               if ( need3dfld("omega") ) then
+                  call vread( "omega", omega )
+                  if ( needfld("omega") ) then
+                     call vsavehist( "omega", omega )
+                  end if   
+               end if
             case ( "ta", "temp" )
                ! temp should be the first of the 3D fields
                if ( use_meters ) then
@@ -744,14 +799,25 @@ contains
                      call vsavehist ( varlist(ivar)%vname, t )
                   end if   
                end if
-             case ( "hus", "mixr" )
-               if ( need3dfld(varlist(ivar)%vname)) then
-                  if ( .not. use_meters ) then
-                     call vread( "mixr", q )
-                     q = max( q, 1.e-20 )
-                  end if
-                  if ( needfld(varlist(ivar)%vname) ) then
-                     call vsavehist ( varlist(ivar)%vname, q )
+            case ( "tgg" )
+               if ( needfld("tgg") ) then 
+                  ! Only in cf_compliant mode
+                  do k = 1,ksoil
+                     write(name,'(a,i1)') 'tgg', k
+                     call vread(name,tgg(:,:,k))
+                  end do
+                  call savehist("tgg", tgg)
+               end if   
+            case ( "tkeo" )
+               if ( need3dfld("tkeo") ) then
+                  call vread( "tkeo", ocn_tmp )
+                  do k = 1,size(ocn_tmp,3)
+                     where ( soilt > 0.5 )
+                        ocn_tmp(:,:,k) = -nf90_fill_float ! flag for land
+                     end where
+                  end do   
+                  if ( needfld("tkeo") ) then
+                     call osavehist( "tkeo", ocn_tmp )
                   end if   
                end if
             case ( "qlg" )
@@ -837,6 +903,15 @@ contains
                      end where
                   end do
                end if
+            case ( "wetfrac" )
+               if ( needfld("wetfrac") ) then 
+                  ! Only in cf_compliant mode
+                  do k = 1,ksoil
+                     write(name,'(a,i1)') 'wetfrac', k
+                     call vread(name,tgg(:,:,k))
+                  end do
+                  call savehist("wetfrac", tgg)
+               end if   
             case ( "wo" )
                if ( need3dfld("wo") ) then
                   call vread( "wo", ocn_tmp )
@@ -848,87 +923,15 @@ contains
                   if ( needfld("wo") ) then
                      call osavehist( "wo", ocn_tmp )
                   end if   
-               end if   
-            case ( "kmo" )
-               if ( need3dfld("kmo") ) then
-                  call vread( "kmo", kmo_tmp )
-                  do k = 1,size(kmo_tmp,3)
-                     where ( soilt > 0.5 )
-                        kmo_tmp(:,:,k) = -nf90_fill_float ! flag for land
-                     end where
-                  end do
-                  if ( needfld("kmo") ) then
-                    call osavehist( "kmo", kmo_tmp )
-                 end if
-               end if
-            case ( "kso" )
-               if ( need3dfld("kso") ) then
-                  call vread( "kso", kso_tmp )
-                  do k = 1,size(kso_tmp,3)
-                     where ( soilt > 0.5 )
-                        kso_tmp(:,:,k) = -nf90_fill_float ! flag for land
-                     end where
-                  end do
-                  if ( needfld("kso") ) then
-                    call osavehist( "kso", kso_tmp )
-                 end if
-               end if
-            case ( "tkeo" )
-               if ( need3dfld("tkeo") ) then
-                  call vread( "tkeo", tkeo_tmp )
-                  do k = 1,size(tkeo_tmp,3)
-                     where ( soilt > 0.5 )
-                        tkeo_tmp(:,:,k) = -nf90_fill_float ! flag for land
-                     end where
-                  end do
-                  if ( needfld("tkeo") ) then
-                    call osavehist( "tkeo", tkeo_tmp )
-                 end if
-               end if
-            case ( "epso" )
-               if ( need3dfld("epso") ) then
-                  call vread( "epso", epso_tmp )
-                  do k = 1,size(epso_tmp,3)
-                     where ( soilt > 0.5 )
-                        epso_tmp(:,:,k) = -nf90_fill_float ! flag for land
-                     end where
-                  end do
-                  if ( needfld("epso") ) then
-                    call osavehist( "epso", epso_tmp )
-                 end if
-               end if
-            case ( "omega" )
-               if ( need3dfld("omega") ) then
-                  call vread( "omega", omega )
-                  if ( needfld("omega") ) then
-                     call vsavehist( "omega", omega )
-                  end if   
-               end if
-            case ( "tgg" )
-               if ( needfld("tgg") ) then 
-                  ! Only in cf_compliant mode
-                  do k = 1,ksoil
-                     write(name,'(a,i1)') 'tgg', k
-                     call vread(name,tgg(:,:,k))
-                  end do
-                  call savehist("tgg", tgg)
-               end if   
-            case ( "wetfrac" )
-               if ( needfld("wetfrac") ) then 
-                  ! Only in cf_compliant mode
-                  do k = 1,ksoil
-                     write(name,'(a,i1)') 'wetfrac', k
-                     call vread(name,tgg(:,:,k))
-                  end do
-                  call savehist("wetfrac", tgg)
-               end if   
+               end if    
             case default
                if ( varlist(ivar)%water ) then
                   write(6,*) "ERROR: Not expecting ocean scalar ",trim(varlist(ivar)%vname)
                   stop
                else
                   call readsave3 (varlist(ivar)%vname)
-               end if   
+               end if  
+
             end select
          end if
 
@@ -975,10 +978,7 @@ contains
       end if   
       
       if ( needfld("tauu") .or. needfld("tauv") .or. &
-           needfld("taux") .or. needfld("tauy") .or. &
-           (needfld("uas").and.kk>1) .or.            &
-           (needfld("vas").and.kk>1) .or.            &
-           (needfld("d10").and.kk>1) ) then
+           needfld("taux") .or. needfld("tauy") ) then
          call fix_winds(tauxtmp, tauytmp)
          if ( needfld("tauu") ) then
             call savehist( "tauu", tauxtmp )
@@ -991,58 +991,9 @@ contains
          end if
          if ( needfld("tauy") ) then
             call savehist( "tauy", tauytmp )
-         end if   
-         wind_norm(:,:) = sqrt(tauxtmp*tauxtmp+tauytmp*tauytmp)
-         if ( needfld("uas") .and. kk>1 ) then
-            where ( wind_norm > 0. )
-               dtmp = tauxtmp*uten/wind_norm
-            elsewhere
-               dtmp = 0. 
-            end where    
-            call savehist ( "uas", dtmp )    
-         end if    
-         if ( needfld("vas") .and. kk>1 ) then
-            where ( wind_norm > 0. )
-               dtmp = tauytmp*uten/wind_norm
-            elsewhere
-               dtmp = 0. 
-            end where    
-            call savehist ( "vas", dtmp )    
-         end if
-         if ( needfld("d10") .and. kk>1 ) then
-            udir = atan2(-u(:,:,1),-v(:,:,1))*180./3.1415927
-            where ( udir < 0. )
-               udir = udir + 360.
-            end where
-            call savehist( "d10", udir )        
-         end if    
-      end if
-
-      ! high-frequency output 
-      if ( (needfld("uas").and.kk<=1) .or. &
-           (needfld("vas").and.kk<=1) .or. &
-           (needfld("u10").and.kk<=1) .or. &
-           (needfld("d10").and.kk<=1) ) then
-         call fix_winds( uastmp, vastmp )
-         if ( needfld("uas") ) then
-            call savehist( "uas", uastmp )
-         end if
-         if ( needfld("vas") ) then
-            call savehist( "vas", vastmp )
-         end if   
-         if ( needfld("u10") ) then
-            uten = sqrt( uastmp*uastmp + vastmp*vastmp )
-            call savehist( "u10", uten )
-         end if
-         if ( needfld("d10") ) then
-            udir = atan2(-uastmp,-vastmp)*180./3.1415927
-            where ( udir < 0. )
-               udir = udir + 360.
-            end where
-            call savehist( "d10", udir )
-         end if
-      end if
-
+         end if 
+      end if    
+      
       if ( kk>1 ) then
          
          if ( needfld("qbot") ) then
@@ -1126,7 +1077,9 @@ contains
               needfld("ua") .or. needfld("va")         .or. &             
               needfld("vaveuq") .or. needfld("vavevq") .or. &
               needfld("vaveut") .or. needfld("vavevt") .or. &
-              needfld("ubot")   .or. needfld("vbot") ) then
+              needfld("ubot")   .or. needfld("vbot")   .or. &
+              needfld("uas")    .or. needfld("vas")    .or. &
+              needfld("d10") ) then
             call fix_winds(u, v)
             if ( cordex_compliant ) then
                if ( needfld("ua") ) then 
@@ -1149,7 +1102,59 @@ contains
             if ( needfld("vbot") ) then
                call savehist ( "vbot", v(:,:,1) )
             end if   
+            wind_norm(:,:) = sqrt(u(:,:,1)**2+v(:,:,1)**2)
+            if ( needfld("uas") .and. kk>1 ) then
+               where ( wind_norm > 0. )
+                  dtmp = u(:,:,1)*uten/wind_norm
+               elsewhere
+                  dtmp = 0. 
+               end where    
+               call savehist ( "uas", dtmp )    
+            end if    
+            if ( needfld("vas") .and. kk>1 ) then
+               where ( wind_norm > 0. )
+                  dtmp = v(:,:,1)*uten/wind_norm
+               elsewhere
+                  dtmp = 0. 
+               end where    
+               call savehist ( "vas", dtmp )    
+            end if
+            if ( needfld("d10") .and. kk>1 ) then
+               udir = atan2(-u(:,:,1),-v(:,:,1))*180./3.1415927
+               where ( udir < 0. )
+                  udir = udir + 360.
+               end where
+               call savehist( "d10", udir )        
+            end if   
          end if
+
+      else        
+          
+         ! high-frequency output 
+         if ( (needfld("uas").and.kk<=1) .or. &
+              (needfld("vas").and.kk<=1) .or. &
+              (needfld("u10").and.kk<=1) .or. &
+              (needfld("d10").and.kk<=1) ) then
+            call fix_winds( uastmp, vastmp )
+            if ( needfld("uas") ) then
+               call savehist( "uas", uastmp )
+            end if
+            if ( needfld("vas") ) then
+               call savehist( "vas", vastmp )
+            end if   
+            if ( needfld("u10") ) then
+               uten = sqrt( uastmp*uastmp + vastmp*vastmp )
+               call savehist( "u10", uten )
+            end if
+            if ( needfld("d10") ) then
+               udir = atan2(-uastmp,-vastmp)*180./3.1415927
+               where ( udir < 0. )
+                  udir = udir + 360.
+               end where
+               call savehist( "d10", udir )
+            end if
+         end if
+          
       end if       
       
       ! Note that these are just vertical averages, not vertical integrals
@@ -1260,7 +1265,8 @@ contains
          needed = needfld("u") .or. needfld("v") .or. needfld("vaveuq") .or. &
                   needfld("vavevq") .or. needfld("vaveut") .or.              &
                   needfld("vavevt") .or. needfld("vbot") .or.                &
-                  needfld("ubot")
+                  needfld("ubot")   .or. needfld("d10") .or.                 &
+                  needfld("uas")    .or. needfld("vas")
       case ( "ua", "va" )
          needed = needfld("ua") .or. needfld("va") .or. needfld("vaveuq") .or. &
                   needfld("vavevq") .or. needfld("vaveut") .or.                &
@@ -1276,6 +1282,12 @@ contains
          needed = needfld("qgrg")
       case ( "omega" )
          needed = needfld("omega") .or. needfld("w")
+      case ( "epso" )
+         needed = needfld("epso") 
+      case ( "kmo" )
+         needed = needfld("kmo")
+      case ( "kso" )
+         needed = needfld("kso")
       case ( "uo", "vo" )
          needed = needfld("uo") .or. needfld("vo") .or. needfld("uos") .or. &
                   needfld("vos")
@@ -1283,16 +1295,10 @@ contains
          needed = needfld("so") .or. needfld("sos")
       case ( "thetao" )
          needed = needfld("thetao") .or. needfld("tos")
+      case ( "tkeo" )
+         needed = needfld("tkeo") 
       case ( "wo" )
          needed = needfld("wo")
-      case ( "kmo" ) 
-         needed = needfld("kmo")
-      case ( "kso" ) 
-         needed = needfld("kso")
-      case ( "tkeo" ) 
-         needed = needfld("tkeo")
-      case ( "epso" ) 
-         needed = needfld("epso")
       case default
          print*, "Error - unsupported argument for need3dfld", name
          stop
@@ -1864,6 +1870,7 @@ contains
 
       if ( need_rotate .or. needfld("u") .or. needfld("v") .or.   &
            needfld("taux") .or. needfld("tauy") .or.              &
+           needfld("tauu") .or. needfld("tauv") .or.              &
            needfld("u10max") .or. needfld("v10max") .or.          &
            needfld("uas") .or. needfld("vas") .or.                &
            needfld("d10") .or. needfld("ubot")  .or.              &
@@ -2230,10 +2237,9 @@ contains
       do ivar = 1,nvars
          if ( varlist(ivar)%vname == "thetao" .or. varlist(ivar)%vname == "so" .or. &
               varlist(ivar)%vname == "uo" .or. varlist(ivar)%vname == "vo" .or.     &
-              varlist(ivar)%vname == "wo" .or. varlist(ivar)%vname == "uo" .or.     &
-              varlist(ivar)%vname == "vo" .or. varlist(ivar)%vname == "kmo" .or.    &
+              varlist(ivar)%vname == "wo" .or. varlist(ivar)%vname == "kmo" .or.    &
               varlist(ivar)%vname == "kso" .or. varlist(ivar)%vname == "tkeo" .or.  &
-              varlist(ivar)%vname == "epso" ) then
+              varlist(ivar)%vname == "epso" ) then    
             varlist(ivar)%water = .true. 
          else 
             varlist(ivar)%water = .false. 

@@ -734,7 +734,7 @@ contains
 #else
       include 'mpif.h'
 #endif
-      real, dimension(:), intent(in)       :: sigr      ! Sigma levels
+      real, dimension(:), intent(in)       :: sigr      ! Sigma pr zstar levels
       real, dimension(:), intent(in)       :: mtrlvs    ! Height levels
       real, dimension(:,:), intent(in)     :: zs        ! bathymetry depth
       real, parameter :: ocmu1=0.5, oclmdam=0.5
@@ -761,7 +761,7 @@ contains
 
          oc(1) = ocmu1
          oa(onsglvs) = oclmdam
-!        Sigma levels in increasing order
+!        Sigma or zstar levels in increasing order
          osiglvs = sigr(1:onsglvs)
          onsgm1 = onsglvs-1
          do i = 1,onsgm1
@@ -777,9 +777,20 @@ contains
       end if
 
 !     Store data and heights.
-      do k = 1,onprlvs
-         osig(:,k,:) = mtrlvs(k)/max(zs,1.e-8)
-      end do
+      if ( all(osiglvs<=1.) ) then
+         ! sigma levels 
+         do k = 1,onprlvs
+            osig(:,k,:) = mtrlvs(k)/max(zs,1.e-8)
+         end do
+      else
+         ! zstar levels 
+         do k = 1,onprlvs
+            osig(:,k,:) = mtrlvs(k)
+            where ( mtrlvs(k)>zs )
+              osig(:,k,:) = 1.e8 ! below ocean floor
+            end where
+         end do
+      end if    
 
       do j = 1,oiy
 !
