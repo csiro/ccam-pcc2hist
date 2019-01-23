@@ -81,7 +81,7 @@ module work
    end interface   
 
    type input_var
-      character(len=20) :: vname   ! Name used in input
+      character(len=30) :: vname   ! Name used in input
       ! Initialise these so they don't end up with trailing nulls.
       character(len=100) :: long_name=""
       character(len=20) :: units=""
@@ -1987,7 +1987,7 @@ contains
       integer, dimension(nf90_max_var_dims) :: dimids
       logical :: procformat, ran_type
       character(len=10) :: substr
-      character(len=20) :: vname
+      character(len=30) :: vname
       character(len=100) :: long_name, tmpname, valid_att, std_name, cell_methods
       ! Perhaps should read these from the input?
       integer, parameter :: vmin=-32500, vmax=32500
@@ -2835,7 +2835,7 @@ contains
       type(input_var), intent(in) :: vinfo
       character(len=80), intent(out) :: stdname
       character(len=80), intent(out) :: cell_methods
-      character(len=20) :: vname
+      character(len=30) :: vname
 
       ! Some fields like rnd03 can't really be made CF compliant. Their time
       ! bounds don't match those of the overall file properly.
