@@ -156,7 +156,7 @@ module history
    logical, private, save :: double = .false.
 
 !  Maximum length of names of history variables
-   integer, parameter :: MAX_NAMELEN = 20
+   integer, parameter :: MAX_NAMELEN = 30
 
 !  Maximum length of string used for key generation. Names must be unique
 !  within this length.
