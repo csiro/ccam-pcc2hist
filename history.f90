@@ -1152,15 +1152,19 @@ contains
             if ( present(depth) ) then
                use_depth = depth 
             end if
-            osig_found = all(gosig<=1.)
+            if ( ol > 0 ) then
+               osig_found = all(gosig<=1.)
+            else 
+               osig_found = .true.
+            end if    
             !if ( soil_used ) then
             !   ! Better to define a new local nsoil variable?
-            !   call create_ncfile ( filename, nxhis, nyhis, size(sig), size(gosig), multilev,      &
+            !   call create_ncfile ( filename, nxhis, nyhis, size(sig), ol, multilev,               &
             !        use_plevs, use_meters, use_depth, use_hyblevs, basetime,                       &
             !        coord_heights(1:ncoords), ncid, dims, dimvars, source, extra_atts, calendar,   &
             !        nsoil, zsoil, osig_found )
             !else
-               call create_ncfile ( filename, nxhis, nyhis, size(sig), size(gosig), multilev,      &
+               call create_ncfile ( filename, nxhis, nyhis, size(sig), ol, multilev,               &
                     use_plevs, use_meters, use_depth, use_hyblevs, basetime,                       &
                     coord_heights(1:ncoords), ncid, dims, dimvars, source, extra_atts, calendar,   &
                     nsoil, zsoil, osig_found )
