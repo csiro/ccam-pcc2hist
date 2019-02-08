@@ -784,7 +784,7 @@ contains
          end do
       end if
 
-      call sortlist ( histinfo(1:totflds), inames(1:totflds) )
+      call sortlist
 
       if ( hist_debug > 2 ) then
          print*, " Names after sorting "
@@ -1358,27 +1358,25 @@ contains
 
    end subroutine openhist
 
-   subroutine sortlist ( histinfo, inames )
+   subroutine sortlist
 
 !     Simple insertion sort of the list of names.
 !     Assumes all lower case. This should be enforced or checked somewhere
 
-      type(hinfo), dimension(:), intent(inout) :: histinfo
-      integer (bigint), dimension(:), intent(out) :: inames
       integer :: i, ipos, j
       type(hinfo) :: temp
       integer (bigint) :: itemp
 
-      do i=1,size(histinfo)
+      do i=1,totflds
          inames(i) = hashkey ( histinfo(i)%name )
       end do
 
-      do i=1,size(histinfo)
+      do i=1,totflds
 
 !        Find the first element in the rest of the list
          itemp = inames(i)
          ipos = i
-         do j=i+1,size(histinfo)
+         do j=i+1,totflds
             if ( inames(j) < itemp ) then
                itemp = inames(j)
                ipos = j
@@ -1397,7 +1395,7 @@ contains
 
       if ( hist_debug > 1 ) then
          print*, "Sorted NAMES "
-         do i=1,size(histinfo)
+         do i=1,totflds
             print*, histinfo(i)%name, inames(i)
          end do
       end if
