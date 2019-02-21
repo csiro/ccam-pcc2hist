@@ -1,6 +1,6 @@
 ! Conformal Cubic Atmospheric Model
     
-! Copyright 2015-2018 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+! Copyright 2015-2019 Commonwealth Scientific Industrial Research Organisation (CSIRO)
     
 ! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
 !
@@ -784,7 +784,7 @@ contains
          end do
       end if
 
-      call sortlist ( histinfo(1:totflds), inames(1:totflds) )
+      call sortlist
 
       if ( hist_debug > 2 ) then
          print*, " Names after sorting "
@@ -1152,15 +1152,19 @@ contains
             if ( present(depth) ) then
                use_depth = depth 
             end if
-            osig_found = all(gosig<=1.)
+            if ( ol > 0 ) then
+               osig_found = all(gosig<=1.)
+            else 
+               osig_found = .true.
+            end if    
             !if ( soil_used ) then
             !   ! Better to define a new local nsoil variable?
-            !   call create_ncfile ( filename, nxhis, nyhis, size(sig), size(gosig), multilev,      &
+            !   call create_ncfile ( filename, nxhis, nyhis, size(sig), ol, multilev,               &
             !        use_plevs, use_meters, use_depth, use_hyblevs, basetime,                       &
             !        coord_heights(1:ncoords), ncid, dims, dimvars, source, extra_atts, calendar,   &
             !        nsoil, zsoil, osig_found )
             !else
-               call create_ncfile ( filename, nxhis, nyhis, size(sig), size(gosig), multilev,      &
+               call create_ncfile ( filename, nxhis, nyhis, size(sig), ol, multilev,               &
                     use_plevs, use_meters, use_depth, use_hyblevs, basetime,                       &
                     coord_heights(1:ncoords), ncid, dims, dimvars, source, extra_atts, calendar,   &
                     nsoil, zsoil, osig_found )
@@ -1354,27 +1358,25 @@ contains
 
    end subroutine openhist
 
-   subroutine sortlist ( histinfo, inames )
+   subroutine sortlist
 
 !     Simple insertion sort of the list of names.
 !     Assumes all lower case. This should be enforced or checked somewhere
 
-      type(hinfo), dimension(:), intent(inout) :: histinfo
-      integer (bigint), dimension(:), intent(out) :: inames
       integer :: i, ipos, j
       type(hinfo) :: temp
       integer (bigint) :: itemp
 
-      do i=1,size(histinfo)
+      do i=1,totflds
          inames(i) = hashkey ( histinfo(i)%name )
       end do
 
-      do i=1,size(histinfo)
+      do i=1,totflds
 
 !        Find the first element in the rest of the list
          itemp = inames(i)
          ipos = i
-         do j=i+1,size(histinfo)
+         do j=i+1,totflds
             if ( inames(j) < itemp ) then
                itemp = inames(j)
                ipos = j
@@ -1393,7 +1395,7 @@ contains
 
       if ( hist_debug > 1 ) then
          print*, "Sorted NAMES "
-         do i=1,size(histinfo)
+         do i=1,totflds
             print*, histinfo(i)%name, inames(i)
          end do
       end if
