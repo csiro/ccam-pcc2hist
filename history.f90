@@ -2670,7 +2670,7 @@ contains
                      end if    
                   end if
                    
-                  if ( nlev > 3 ) then
+                  if ( histinfo(ifld)%pop4d ) then
                      start4D = (/ 1, 1, mod(k+1-istart-1,cptch)+1, 1+(k+1-istart-1)/cptch,  histset(ifile) /)
                      ierr = nf90_put_var ( ncid, vid, htemp, start=start4D, count=count4D )
                   else if ( nlev > 1 .or. histinfo(ifld)%multilev ) then
@@ -2789,7 +2789,7 @@ contains
                   
                   end if
 
-                  if ( nlev > 3 ) then
+                  if ( histinfo(ifld)%pop4d ) then
                      start4D = (/ 1, 1, mod(k+1-istart-1,cptch)+1, 1+(k+1-istart-1)/cptch,  histset(ifile) /)
                      ierr = nf90_put_var ( ncid, vid, htemp, start=start4D, count=count4D )
                   else if ( nlev > 1 .or. histinfo(ifld)%multilev ) then
