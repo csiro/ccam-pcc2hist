@@ -94,8 +94,9 @@ module work
       logical :: vector ! Is it a vector component?
       logical :: xcmpnt ! Is it x-component of a vector?
       logical :: water  ! Is it a multi-level ocean variable
-      logical :: pop3d ! Is it a x-y-cptch dimensioned variable
-      logical :: pop4d ! Is it a x-y-cptch-cchrt dimensioned variable
+      logical :: pop2d ! Is it a x-y POP dimensioned variable
+      logical :: pop3d ! Is it a x-y-cptch POP dimensioned variable
+      logical :: pop4d ! Is it a x-y-cptch-cchrt POP dimensioned variable
       integer :: othercmpnt ! Index of matching x or y component
    end type input_var
 
@@ -2080,7 +2081,7 @@ contains
       integer, intent(out) :: nvars
       integer :: ierr, ndimensions, nvariables, ndims, ivar, int_type, xtype
       integer :: londim, latdim, levdim, olevdim, procdim, timedim, vid, ihr, ind
-      integer :: cptchdim, cchrtdim
+      integer :: cptchdim, cchrtdim, tn_type
       integer, dimension(nf90_max_var_dims) :: dimids
       logical :: procformat, ran_type
       character(len=10) :: substr
@@ -2376,6 +2377,11 @@ contains
       
       do ivar = 1,nvars
          if ( varlist(ivar)%vname(3:12) == "_pop_grid_" ) then
+            if ( varlist(ivar)%ndims == 2 ) then    
+               varlist(ivar)%pop2d = .true. 
+            else 
+               varlist(ivar)%pop2d = .false. 
+            end if
             if ( varlist(ivar)%ndims == 3 ) then    
                varlist(ivar)%pop3d = .true. 
             else 
@@ -2464,6 +2470,18 @@ contains
             ran_type = .true.
          else
             ran_type = .false.
+         end if
+         tn_type = 0
+         if ( index(varlist(ivar)%vname,'t1_pop_grid_') /= 0 ) then 
+            tn_type = 1
+         else if ( index(varlist(ivar)%vname,'t2_pop_grid_') /= 0 ) then 
+            tn_type = 2
+         else if ( index(varlist(ivar)%vname,'t3_pop_grid_') /= 0 ) then 
+            tn_type = 4
+         else if ( index(varlist(ivar)%vname,'t4_pop_grid_') /= 0 ) then 
+            tn_type = 8
+         else if ( index(varlist(ivar)%vname,'t5_pop_grid_') /= 0 ) then 
+            tn_type = 16
          end if
          if ( varlist(ivar)%vname == "pmsl" ) then
             varlist(ivar)%vname = "psl"
@@ -2651,7 +2669,8 @@ contains
                call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name,   &
                       varlist(ivar)%units, xmin, xmax, 1, std_name=std_name, &
                       coord_height=coord_height, cell_methods=cell_methods,  & 
-                      int_type=int_type, ran_type=ran_type )
+                      int_type=int_type, ran_type=ran_type,                  &
+                      pop2d=varlist(ivar)%pop2d, tn_type=tn_type )
             end if
          else if ( varlist(ivar)%ndims == 3 ) then  
             if ( varlist(ivar)%water ) then
@@ -2665,7 +2684,7 @@ contains
                         varlist(ivar)%units, xmin, xmax, cptch, multilev=.true., &
                         std_name=std_name, pop3d=varlist(ivar)%pop3d,            &
                         cell_methods=cell_methods, int_type=int_type,            &
-                        ran_type=ran_type )
+                        ran_type=ran_type, tn_type=tn_type )
             else
               call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name,       &
                         varlist(ivar)%units, xmin, xmax, nlev, multilev=.true., &
@@ -2678,7 +2697,7 @@ contains
                         varlist(ivar)%units, xmin, xmax, cptch*cchrt, multilev=.true., &
                         std_name=std_name, pop4d=varlist(ivar)%pop4d,                  &
                         cell_methods=cell_methods, int_type=int_type,                  &
-                        ran_type=ran_type )
+                        ran_type=ran_type, tn_type=tn_type )
             end if
          end if
       end do
