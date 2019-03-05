@@ -2454,8 +2454,8 @@ contains
                   "climate_min20       ", "climate_max20       ", "climate_alpha20     ", "climate_agdd5       ", &
                   "climate_gmd         ", "climate_dmoist_min20", "climate_dmoist_max20" /)) .and. int_default /= int_none ) then
             int_type = int_nearest
-         else if ( match ( varlist(ivar)%vname, &
-               (/ "t?_pop_grid_patch_id", "t?_pop_grid_patch_layer1_cohort_id" /)) .and. int_default /= int_none ) then
+         else if ( match ( varlist(ivar)%vname, (/ "t?_pop_grid_patch_id              ", "t?_pop_grid_patch_layer1_cohort_id" /)) &
+                   .and. int_default /= int_none ) then
             int_type = int_nearest
          else
             int_type = int_default
