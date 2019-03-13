@@ -62,10 +62,12 @@ private
    integer, public, save :: writehistput_begin, writehistput_end
    integer, public, save :: gathervwrap_begin, gathervwrap_end
    integer, public, save :: mpigatherv_begin, mpigatherv_end
+   integer, public, save :: bindex_begin, bindex_end
+   integer, public, save :: sortlist_begin, sortlist_end
 #ifdef simple_timer
    public :: simple_timer_finalize
 #endif
-   integer, parameter :: nevents = 26
+   integer, parameter :: nevents = 28
    real(kind=8), dimension(nevents), save :: tot_time = 0., start_time
    character(len=15), dimension(nevents), save :: event_name
 
@@ -223,6 +225,14 @@ contains
       mpigatherv_begin = 26
       mpigatherv_end =  mpigatherv_begin
       event_name(mpigatherv_begin) = "MPIGatherv"
+
+      bindex_begin = 27
+      bindex_end = bindex_begin
+      event_name(bindex_begin) = "Bindex"
+
+      sortlist_begin = 28
+      sortlist_end = sortlist_begin
+      event_name(sortlist_begin) = "Sortlist"
 
    end subroutine log_setup
 
