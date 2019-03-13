@@ -160,7 +160,7 @@ module history
 
 !  Maximum length of string used for key generation. Names must be unique
 !  within this length.
-   integer, parameter :: MAX_KEYLEN = 20
+   integer, parameter :: MAX_KEYLEN = 10
 
 !  Maximum number of history files
    integer, parameter :: MAX_HFILES = 1
@@ -180,7 +180,8 @@ module history
          hnames = "", xnames = ""
 
 !  Integer array of keys corresponding to hnames to make searching faster.
-   integer (bigint), dimension(nfmax), save :: inames
+   integer, parameter :: MAX_KEYINDEX = 6 !>=MAX_NAMELEN/MAX_KEYLEN
+   integer (bigint), dimension(MAX_KEYINDEX,nfmax), save :: inames
 
 !  Frequency of writing history files. This may be in either steps or minutes
 !  depending on the argument of the calling routine. 
@@ -308,7 +309,6 @@ module history
    logical, public :: cf_compliant = .false.
    
    logical, public :: cordex_compliant = .false.
-   logical, public :: no_underscore = .false.
    
 ! Save CCAM parameters
    logical, public :: save_ccam_parameters = .true.
@@ -734,11 +734,6 @@ contains
       logical :: soil_used, water_used, osig_found
       real :: dx, dy
       
-      integer :: i, upos
-      integer, parameter :: n_underscore_names = 119
-      character(len=MAX_NAMELEN) :: new_name, local_name
-      character(len=MAX_NAMELEN), dimension(n_underscore_names) :: underscore_names
-      
       call START_LOG(openhist_begin)
       
 !     Set the module variables
@@ -792,128 +787,6 @@ contains
             print*, ivar, histinfo(ivar)%name, histinfo(ivar)%nlevels
          end do
       end if
-      
-      ! define names that have an underscore
-      underscore_names(:) = ""
-      underscore_names(1)   = "aero_vis"
-      underscore_names(2)   = "alb_ave"
-      underscore_names(3)   = "anth_ave"
-      underscore_names(4)   = "bc_vis"
-      underscore_names(5)   = "bcb_ave"
-      underscore_names(6)   = "bcdd_ave"
-      underscore_names(7)   = "bce_ave"
-      underscore_names(8)   = "bci_s"
-      underscore_names(9)   = "bcwd_ave"
-      underscore_names(10)  = "bco_s"
-      underscore_names(11)  = "cape_ave"
-      underscore_names(12)  = "cape_max"
-      underscore_names(13)  = "cbas_ave"
-      underscore_names(14)  = "climate_agdd5"
-      underscore_names(15)  = "climate_alpha20"
-      underscore_names(16)  = "climate_biome"
-      underscore_names(17)  = "climate_gmd"
-      underscore_names(18)  = "climate_dmoist_max20"
-      underscore_names(19)  = "climate_dmoist_min20"
-      underscore_names(20)  = "climate_ivegt"
-      underscore_names(21)  = "climate_max20"
-      underscore_names(22)  = "climate_min20"
-      underscore_names(23)  = "cnbp_ave"
-      underscore_names(24)  = "cnpp_ave"
-      underscore_names(25)  = "convh_ave"
-      underscore_names(26)  = "cos_zen"
-      underscore_names(27)  = "ctop_ave"
-      underscore_names(28)  = "dew_ave"
-      underscore_names(29)  = "dms_s"
-      underscore_names(30)  = "dmsb_ave"
-      underscore_names(31)  = "dmse_ave"
-      underscore_names(32)  = "dmsso2_ave"
-      underscore_names(33)  = "dust1_s"
-      underscore_names(34)  = "dust1b_ave"
-      underscore_names(35)  = "dust1dd_ave"
-      underscore_names(36)  = "dust1e_ave"
-      underscore_names(37)  = "dust1wd_ave"
-      underscore_names(38)  = "dust2_s"
-      underscore_names(39)  = "dust2b_ave"
-      underscore_names(40)  = "dust2dd_ave"
-      underscore_names(41)  = "dust2e_ave"
-      underscore_names(42)  = "dust2wd_ave"
-      underscore_names(43)  = "dust3_s"
-      underscore_names(44)  = "dust3b_ave"
-      underscore_names(45)  = "dust3dd_ave"
-      underscore_names(46)  = "dust3e_ave"
-      underscore_names(47)  = "dust3dd_ave"
-      underscore_names(48)  = "dust3wd_ave"
-      underscore_names(49)  = "dust4_s"
-      underscore_names(50)  = "dust4b_ave"
-      underscore_names(51)  = "dust4dd_ave"
-      underscore_names(52)  = "dust4e_ave"
-      underscore_names(53)  = "dust4wd_ave"
-      underscore_names(54)  = "eg_ave"
-      underscore_names(55)  = "epan_ave"
-      underscore_names(56)  = "epot_ave"
-      underscore_names(57)  = "fbeam_ave"
-      underscore_names(58)  = "fg_ave"
-      underscore_names(59)  = "fnee_ave"
-      underscore_names(60)  = "fpn_ave"
-      underscore_names(61)  = "frday_ave"
-      underscore_names(62)  = "frp_ave"
-      underscore_names(63)  = "frpr_ave"
-      underscore_names(64)  = "frpw_ave"
-      underscore_names(65)  = "frs_ave"
-      underscore_names(66)  = "ga_ave"
-      underscore_names(67)  = "iwp_ave"
-      underscore_names(68)  = "ldust_vis"
-      underscore_names(69)  = "lwp_ave"
-      underscore_names(70)  = "mixd_ave"
-      underscore_names(71)  = "oc_vis"
-      underscore_names(72)  = "ocb_ave"
-      underscore_names(73)  = "ocdd_ave"
-      underscore_names(74)  = "oce_ave"
-      underscore_names(75)  = "oci_s"
-      underscore_names(76)  = "oco_s"
-      underscore_names(77)  = "ocwd_ave"
-      underscore_names(78)  = "pmsl_ave"
-      underscore_names(79)  = "rgc_ave"
-      underscore_names(80)  = "rgdn_ave"
-      underscore_names(81)  = "rgn_ave"
-      underscore_names(82)  = "rnet_ave"
-      underscore_names(83)  = "rtc_ave"
-      underscore_names(84)  = "rtu_ave"
-      underscore_names(85)  = "sdust_vis"
-      underscore_names(86)  = "sgc_ave"
-      underscore_names(87)  = "sgdn_ave"
-      underscore_names(88)  = "sgn_ave"
-      underscore_names(89)  = "sint_ave"
-      underscore_names(90)  = "so2_s"
-      underscore_names(91)  = "so2dd_ave"
-      underscore_names(92)  = "so2b_ave"
-      underscore_names(93)  = "so2e_ave"
-      underscore_names(94)  = "so2so4_ave"
-      underscore_names(95)  = "so2wd_ave"
-      underscore_names(96)  = "so4_s"
-      underscore_names(97)  = "so4_vis"
-      underscore_names(98)  = "so4b_ave"
-      underscore_names(99)  = "so4dd_ave"
-      underscore_names(100) = "so4e_ave"
-      underscore_names(101) = "so4wd_ave"
-      underscore_names(102) = "soc_ave"
-      underscore_names(103) = "sot_ave"
-      underscore_names(104) = "ssalt_vis"
-      underscore_names(105) = "strat_nt"
-      underscore_names(106) = "tscrn_ave"
-      underscore_names(107) = "tsu_ave"
-      underscore_names(108) = "wb1_ave"
-      underscore_names(109) = "wb2_ave"
-      underscore_names(110) = "wb3_ave"
-      underscore_names(111) = "wb4_ave"
-      underscore_names(112) = "wb5_ave"
-      underscore_names(113) = "wb6_ave"
-      underscore_names(114) = "wbice1_ave"
-      underscore_names(115) = "wbice2_ave"
-      underscore_names(116) = "wbice3_ave"
-      underscore_names(117) = "wbice4_ave"
-      underscore_names(118) = "wbice5_ave"
-      underscore_names(119) = "wbice6_ave"
 
 !     Save this as a module variable
       filesuffix = suffix
@@ -928,25 +801,7 @@ contains
             end if
             if ( hist_debug > 2 ) then
                print*, 'Openhist', ifile,  ivar, adjustl(hnames(ivar,ifile))
-            end if
-            
-            ! add underscore to variable names so they match
-            if ( no_underscore ) then
-               do i = 1,n_underscore_names
-                  local_name = ""
-                  local_name = underscore_names(i) 
-                  upos = index(local_name,"_")
-                  do while ( upos > 0 )  
-                     new_name = "" 
-                     new_name = local_name(1:upos-1)//local_name(upos+1:)
-                     local_name = new_name
-                     upos = index(local_name,"_")
-                  end do
-                  if ( hnames(ivar,ifile) == local_name ) then
-                     hnames(ivar,ifile) = underscore_names(i)
-                  end if
-               end do
-            end if   
+            end if 
             
             if ( hnames(ivar,ifile) == "all" ) then
                histinfo(1:totflds)%used(ifile) = .true.
@@ -964,7 +819,7 @@ contains
             else
 !              Find the name in histinfo to set the used flag.
                ifld = bindex_hname ( hnames(ivar,ifile), &
-                                     inames(1:totflds), totflds )
+                                     inames(:,1:totflds), totflds )
                if ( ifld == 0 ) then
                   print*, "Error - history variable ", hnames(ivar,ifile),  &
                           " is not known. "
@@ -990,7 +845,7 @@ contains
             end if
             
 !           Find the name in histinfo to set the used flag.
-            ifld = bindex_hname ( xnames(ivar,ifile), inames(1:totflds), totflds )
+            ifld = bindex_hname ( xnames(ivar,ifile), inames(:,1:totflds), totflds )
             if ( ifld == 0 ) then
                print*, "Error - excluded history variable ", xnames(ivar,ifile)," is not known. "
                stop
@@ -1028,65 +883,7 @@ contains
 
       if ( myid == 0 ) then
 
-!!        First file may be old average format. If this is the case it has
-!!        to be handled differently
-!         if ( ihtype(1) == hist_oave ) then
-!
-!            ifile = 1
-!            if ( present(histfilename) ) then
-!               ! Use histfile as a path in this case
-!               oldprefix = trim(histfilename) // "/s"
-!            else
-!               oldprefix = "s"
-!            end if
-!
-!            do ifld = 1, totflds
-!
-!               if ( .not. histinfo(ifld)%used(ifile) ) then
-!                  cycle
-!               end if
-!
-!!              lookup again to get long name and units
-!               vname = histinfo(ifld)%name
-!               longname = histinfo(ifld)%long_name
-!               units = histinfo(ifld)%units
-!
-!               do ilev=1,histinfo(ifld)%nlevels
-!                  if ( histinfo(ifld)%nlevels == 1 ) then
-!                     vname = histinfo(ifld)%name
-!                  else
-!                     write(vname,"(a,i2.2)") trim(histinfo(ifld)%name), ilev
-!                  end if
-!                  write(filename,"(a,a,a,a)" ) trim(oldprefix), trim(vname), &
-!                                               trim(suffix), ".nc"
-!!                 Check if this file exists. If it does there's no more to
-!!                 do, if not go on to create it.
-!                  inquire(file=filename, exist=used)
-!                  if ( used ) then
-!                     if ( hist_debug > 0 ) then
-!                        print*, "Using existing file ", filename
-!                     end if
-!                     cycle
-!                  else
-!
-!                     if ( .not. present(year) ) then
-!                        print*, " Year argument to openhist is required for old format files"
-!                        stop
-!                     end if
-!                     call create_oldfile ( filename, nxhis, nyhis, hbytes(ifile),&
-!                                           vname, longname, units, &
-!                                           histinfo(ifld)%valid_min, &
-!                                           histinfo(ifld)%valid_max, &
-!                                           hlat, hlon, year )
-!
-!                  end if
-!
-!               end do
-!            end do
-!            istart = 2
-!         else
-            istart = 1
-!         end if ! ihtype(1) == hist_oave
+         istart = 1
 
 !        The rest of the history files are much simpler with multilevel variables
          do ifile = istart, nhfiles
@@ -1365,27 +1162,32 @@ contains
 
       integer :: i, ipos, j
       type(hinfo) :: temp
-      integer (bigint) :: itemp
-
+      integer (bigint), dimension(MAX_KEYINDEX) :: itemp
+      
+      if ( MAX_KEYINDEX < MAX_NAMELEN/MAX_KEYLEN ) then
+         print*, "Error: MAX_KEYINDEX is too small"
+         stop
+      end if
+          
       do i=1,totflds
-         inames(i) = hashkey ( histinfo(i)%name )
+         inames(:,i) = hashkey ( histinfo(i)%name )
       end do
 
       do i=1,totflds
 
 !        Find the first element in the rest of the list
-         itemp = inames(i)
+         itemp(:) = inames(:,i)
          ipos = i
          do j=i+1,totflds
-            if ( inames(j) < itemp ) then
-               itemp = inames(j)
+            if ( hash_lt(inames(:,j),itemp) ) then 
+               itemp(:) = inames(:,j)
                ipos = j
             end if
          end do
 
 !        Move the smallest value to position i
-         inames(ipos) = inames(i)
-         inames(i) = itemp
+         inames(:,ipos) = inames(:,i)
+         inames(:,i) = itemp(:)
 !        Swap histinfo elements so they keep the same order
          temp = histinfo(ipos)
          histinfo(ipos) = histinfo(i)
@@ -1396,11 +1198,47 @@ contains
       if ( hist_debug > 1 ) then
          print*, "Sorted NAMES "
          do i=1,totflds
-            print*, histinfo(i)%name, inames(i)
+            print*, histinfo(i)%name, inames(:,i)
          end do
       end if
 
     end subroutine sortlist
+    
+    function hash_lt(a,b) result(ans)
+       integer(bigint), dimension(:), intent(in) :: a,b
+       logical :: ans
+       integer :: k
+       
+       ans = .false.
+       do k = 1,MAX_KEYINDEX
+          if ( a(k) < b(k) ) then
+             ans = .true.
+             exit
+          else if ( a(k) > b(k) ) then
+             ans = .false.
+             exit
+          end if
+       end do
+    
+    end function hash_lt
+    
+    function hash_gt(a,b) result(ans)
+       integer(bigint), dimension(:), intent(in) :: a,b
+       logical :: ans
+       integer :: k
+       
+       ans = .false.
+       do k = 1,MAX_KEYINDEX
+          if ( a(k) > b(k) ) then
+             ans = .true.
+             exit
+          else if ( a(k) < b(k) ) then
+             ans = .false.
+             exit
+          end if
+       end do
+    
+    end function hash_gt
     
 !-------------------------------------------------------------------
    subroutine create_ncvar(vinfo, ncid, ifile, dims)
@@ -1414,22 +1252,12 @@ contains
       character(len=MAX_NAMELEN) :: local_name, new_name
       character(len=80) :: cell_methods, coord_name
       integer :: ierr, vtype, vid, zdim
-      integer :: upos
       
       integer(kind=2), parameter :: fill_short = NF90_FILL_SHORT
 
       if ( myid /=0 ) return
       
-      local_name = vinfo%name
-      if ( no_underscore ) then
-         upos = index(local_name,"_")
-         do while ( upos > 0 )  
-            new_name = "" 
-            new_name = local_name(1:upos-1)//local_name(upos+1:)
-            local_name = new_name
-            upos = index(local_name,"_")
-         end do   
-      end if    
+      local_name = vinfo%name  
 
       select case ( hbytes(ifile) )
       case ( 2 )
@@ -1993,7 +1821,7 @@ contains
 !     Loop over history files because variable could occur in several.
       do ifile = 1,nhfiles
 
-         ifld = qindex_hname(name,inames(1:totflds),totflds,ifile)
+         ifld = qindex_hname(name,inames(:,1:totflds),totflds,ifile)
          if ( ifld == 0 ) then
             print*, "Error - history variable ", name, " is not known. "
             stop
@@ -2956,7 +2784,7 @@ contains
 !     Check if name is in the list for any of the history files
       needed = .false.
       do ifile=1,nhfiles
-         ifld = qindex_hname ( name, inames(1:totflds), totflds, ifile)
+         ifld = qindex_hname ( name, inames(:,1:totflds), totflds, ifile)
          if ( ifld == 0 ) then
             ! Name not known at all in this case
             needed = .false.
@@ -2972,24 +2800,27 @@ contains
    function bindex_hname(name, table,nflds) result(ifld)
       character(len=*), intent(in)    :: name
       integer, intent(in) :: nflds
-      integer ( bigint ), intent(in), dimension(nflds) :: table
+      integer ( bigint ), intent(in), dimension(MAX_KEYINDEX,nflds) :: table
       integer :: ifld
-      integer :: i, lower, upper
-      integer (bigint) :: key, fac
+      integer :: i, lower, upper, k
+      integer (bigint), dimension(MAX_KEYINDEX) :: key
+      integer (bigint) :: fac
 
 !  Lookup "key" in "table" of integers using a binary search.
 !  This assumes that the list has been sorted but it doesn't test for this.
 
 !      key = hashkey ( name )
 !     hashkey inlined by hand      
-      key = 0
-      fac = 1
+      key(:) = 0
 !     This makes numerical order the same as alphabetical order
-      do i=min(MAX_KEYLEN,len_trim(name)),1,-1
-         ! Netcdf allowed characters for variables names are in 
-         ! range 48 to 122 (alphanumeric and _)
-         key = key + fac*(ichar(name(i:i))-48)
-         fac = fac * 75
+      do k = 1,MAX_KEYINDEX
+         fac = 1 
+         do i=min(k*MAX_KEYLEN,len_trim(name)),(k-1)*MAX_KEYLEN+1,-1
+            ! Netcdf allowed characters for variables names are in 
+            ! range 48 to 122 (alphanumeric and _)
+            key(k) = key(k) + fac*(ichar(name(i:i))-48)
+            fac = fac * 75
+         end do   
       end do
 
       ifld = 0
@@ -2998,9 +2829,9 @@ contains
       do
          i = (lower+upper)/2
 !         print*, "Search", lower, upper, i, table(lower), table(upper), table(i), key
-         if ( key < table(i) ) then
+         if ( hash_lt(key,table(:,i)) ) then
             upper = i-1
-         else if ( key > table(i) ) then
+         else if ( hash_gt(key,table(:,i)) ) then
             lower = i + 1
          else
             ifld = i
@@ -3016,7 +2847,7 @@ contains
    function qindex_hname ( name, table, nflds, ifile ) result(ifld)
       character(len=*), intent(in)    :: name
       integer, intent(in) :: nflds
-      integer ( bigint ), intent(in), dimension(nflds) :: table
+      integer ( bigint ), intent(in), dimension(MAX_KEYINDEX,nflds) :: table
       integer, intent(in) :: ifile
       integer :: ifld
 !     Both of these are initially set to one because this is a safe value.
@@ -3051,18 +2882,20 @@ contains
    function hashkey ( name ) result (key)
 !  Generate an integer from a string
       character(len=*), intent(in) :: name
-      integer (bigint) :: key
-      integer :: i
+      integer (bigint), dimension(MAX_KEYINDEX) :: key
+      integer :: i, k
       integer (bigint) :: fac
 
-      key = 0
-      fac = 1
-!     This makes numerical order the same as alphabetical order
-      do i=min(MAX_KEYLEN,len_trim(name)),1,-1
-         ! Netcdf allowed characters for variables names are in 
-         ! range 48 to 122 (alphanumeric and _)
-         key = key + fac*(ichar(name(i:i))-48)
-         fac = fac * 75
+      key(:) = 0
+      do k = 1,MAX_KEYINDEX
+         fac = 1 
+         ! This makes numerical order the same as alphabetical order
+         do i=min(k*MAX_KEYLEN,len_trim(name)),(k-1)*MAX_KEYLEN+1,-1
+            ! Netcdf allowed characters for variables names are in 
+            ! range 48 to 122 (alphanumeric and _)
+            key(k) = key(k) + fac*(ichar(name(i:i))-48)
+            fac = fac * 75
+         end do   
       end do
       if (hist_debug > 2 ) then
          print*, "  HASHKEY ", name, key
