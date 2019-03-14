@@ -318,7 +318,6 @@ module history
    logical, public :: cf_compliant = .false.
    
    logical, public :: cordex_compliant = .false.
-   logical, public :: no_underscore = .false.
    
 ! Save CCAM parameters
    logical, public :: save_ccam_parameters = .true.
@@ -774,11 +773,7 @@ contains
       real :: dx, dy
       
       integer :: i, upos, n
-      integer, parameter :: n_underscore_names = 119
-      integer, parameter :: n_pop_underscore_names = 58
       character(len=MAX_NAMELEN) :: new_name, local_name
-      character(len=MAX_NAMELEN), dimension(n_underscore_names) :: underscore_names
-      character(len=MAX_NAMELEN), dimension(n_pop_underscore_names) :: pop_underscore_names
       real, dimension(:), allocatable :: cabledata
       
       call START_LOG(openhist_begin)
@@ -835,188 +830,6 @@ contains
          end do
       end if
       
-      ! define names that have an underscore
-      underscore_names(:) = ""
-      underscore_names(1)   = "aero_vis"
-      underscore_names(2)   = "alb_ave"
-      underscore_names(3)   = "anth_ave"
-      underscore_names(4)   = "bc_vis"
-      underscore_names(5)   = "bcb_ave"
-      underscore_names(6)   = "bcdd_ave"
-      underscore_names(7)   = "bce_ave"
-      underscore_names(8)   = "bci_s"
-      underscore_names(9)   = "bcwd_ave"
-      underscore_names(10)  = "bco_s"
-      underscore_names(11)  = "cape_ave"
-      underscore_names(12)  = "cape_max"
-      underscore_names(13)  = "cbas_ave"
-      underscore_names(14)  = "climate_agdd5"
-      underscore_names(15)  = "climate_alpha20"
-      underscore_names(16)  = "climate_biome"
-      underscore_names(17)  = "climate_gmd"
-      underscore_names(18)  = "climate_dmoist_max20"
-      underscore_names(19)  = "climate_dmoist_min20"
-      underscore_names(20)  = "climate_ivegt"
-      underscore_names(21)  = "climate_max20"
-      underscore_names(22)  = "climate_min20"
-      underscore_names(23)  = "cnbp_ave"
-      underscore_names(24)  = "cnpp_ave"
-      underscore_names(25)  = "convh_ave"
-      underscore_names(26)  = "cos_zen"
-      underscore_names(27)  = "ctop_ave"
-      underscore_names(28)  = "dew_ave"
-      underscore_names(29)  = "dms_s"
-      underscore_names(30)  = "dmsb_ave"
-      underscore_names(31)  = "dmse_ave"
-      underscore_names(32)  = "dmsso2_ave"
-      underscore_names(33)  = "dust1_s"
-      underscore_names(34)  = "dust1b_ave"
-      underscore_names(35)  = "dust1dd_ave"
-      underscore_names(36)  = "dust1e_ave"
-      underscore_names(37)  = "dust1wd_ave"
-      underscore_names(38)  = "dust2_s"
-      underscore_names(39)  = "dust2b_ave"
-      underscore_names(40)  = "dust2dd_ave"
-      underscore_names(41)  = "dust2e_ave"
-      underscore_names(42)  = "dust2wd_ave"
-      underscore_names(43)  = "dust3_s"
-      underscore_names(44)  = "dust3b_ave"
-      underscore_names(45)  = "dust3dd_ave"
-      underscore_names(46)  = "dust3e_ave"
-      underscore_names(47)  = "dust3dd_ave"
-      underscore_names(48)  = "dust3wd_ave"
-      underscore_names(49)  = "dust4_s"
-      underscore_names(50)  = "dust4b_ave"
-      underscore_names(51)  = "dust4dd_ave"
-      underscore_names(52)  = "dust4e_ave"
-      underscore_names(53)  = "dust4wd_ave"
-      underscore_names(54)  = "eg_ave"
-      underscore_names(55)  = "epan_ave"
-      underscore_names(56)  = "epot_ave"
-      underscore_names(57)  = "fbeam_ave"
-      underscore_names(58)  = "fg_ave"
-      underscore_names(59)  = "fnee_ave"
-      underscore_names(60)  = "fpn_ave"
-      underscore_names(61)  = "frday_ave"
-      underscore_names(62)  = "frp_ave"
-      underscore_names(63)  = "frpr_ave"
-      underscore_names(64)  = "frpw_ave"
-      underscore_names(65)  = "frs_ave"
-      underscore_names(66)  = "ga_ave"
-      underscore_names(67)  = "iwp_ave"
-      underscore_names(68)  = "ldust_vis"
-      underscore_names(69)  = "lwp_ave"
-      underscore_names(70)  = "mixd_ave"
-      underscore_names(71)  = "oc_vis"
-      underscore_names(72)  = "ocb_ave"
-      underscore_names(73)  = "ocdd_ave"
-      underscore_names(74)  = "oce_ave"
-      underscore_names(75)  = "oci_s"
-      underscore_names(76)  = "oco_s"
-      underscore_names(77)  = "ocwd_ave"
-      underscore_names(78)  = "pmsl_ave"
-      underscore_names(79)  = "rgc_ave"
-      underscore_names(80)  = "rgdn_ave"
-      underscore_names(81)  = "rgn_ave"
-      underscore_names(82)  = "rnet_ave"
-      underscore_names(83)  = "rtc_ave"
-      underscore_names(84)  = "rtu_ave"
-      underscore_names(85)  = "sdust_vis"
-      underscore_names(86)  = "sgc_ave"
-      underscore_names(87)  = "sgdn_ave"
-      underscore_names(88)  = "sgn_ave"
-      underscore_names(89)  = "sint_ave"
-      underscore_names(90)  = "so2_s"
-      underscore_names(91)  = "so2dd_ave"
-      underscore_names(92)  = "so2b_ave"
-      underscore_names(93)  = "so2e_ave"
-      underscore_names(94)  = "so2so4_ave"
-      underscore_names(95)  = "so2wd_ave"
-      underscore_names(96)  = "so4_s"
-      underscore_names(97)  = "so4_vis"
-      underscore_names(98)  = "so4b_ave"
-      underscore_names(99)  = "so4dd_ave"
-      underscore_names(100) = "so4e_ave"
-      underscore_names(101) = "so4wd_ave"
-      underscore_names(102) = "soc_ave"
-      underscore_names(103) = "sot_ave"
-      underscore_names(104) = "ssalt_vis"
-      underscore_names(105) = "strat_nt"
-      underscore_names(106) = "tscrn_ave"
-      underscore_names(107) = "tsu_ave"
-      underscore_names(108) = "wb1_ave"
-      underscore_names(109) = "wb2_ave"
-      underscore_names(110) = "wb3_ave"
-      underscore_names(111) = "wb4_ave"
-      underscore_names(112) = "wb5_ave"
-      underscore_names(113) = "wb6_ave"
-      underscore_names(114) = "wbice1_ave"
-      underscore_names(115) = "wbice2_ave"
-      underscore_names(116) = "wbice3_ave"
-      underscore_names(117) = "wbice4_ave"
-      underscore_names(118) = "wbice5_ave"
-      underscore_names(119) = "wbice6_ave"
-
-      pop_underscore_names(:) = ""
-      pop_underscore_names(1) = "pop_grid_cmass_sum"
-      pop_underscore_names(2) = "pop_grid_patch_id"
-      pop_underscore_names(3) = "pop_grid_freq"
-      pop_underscore_names(4) = "pop_grid_freq_old"
-      pop_underscore_names(5) = "pop_grid_patch_factor_recruit"
-      pop_underscore_names(6) = "pop_grid_patch_pgap"
-      pop_underscore_names(7) = "pop_grid_patch_lai"
-      pop_underscore_names(8) = "pop_grid_patch_biomass"
-      pop_underscore_names(9) = "pop_grid_patch_biomass_old"
-      pop_underscore_names(10) = "pop_grid_patch_sapwood"
-      pop_underscore_names(11) = "pop_grid_patch_heartwood"
-      pop_underscore_names(12) = "pop_grid_patch_sapwood_old"
-      pop_underscore_names(13) = "pop_grid_patch_sapwood_area"
-      pop_underscore_names(14) = "pop_grid_patch_sapwood_area_old"
-      pop_underscore_names(15) = "pop_grid_patch_stress_mortality"
-      pop_underscore_names(16) = "pop_grid_patch_fire_mortality"
-      pop_underscore_names(17) = "pop_grid_patch_cat_mortality"
-      pop_underscore_names(18) = "pop_grid_patch_crowding_mortality"
-      pop_underscore_names(19) = "pop_grid_patch_cpc"
-      pop_underscore_names(20) = "pop_grid_patch_mortality"
-      pop_underscore_names(21) = "pop_grid_patch_sapwood_loss"
-      pop_underscore_names(22) = "pop_grid_patch_sapwood_area_loss"
-      pop_underscore_names(23) = "pop_grid_patch_growth"
-      pop_underscore_names(24) = "pop_grid_patch_area_growth"
-      pop_underscore_names(25) = "pop_grid_patch_frac_NPP"
-      pop_underscore_names(26) = "pop_grid_patch_frac_respiration"
-      pop_underscore_names(27) = "pop_grid_patch_frac_light_uptake"
-      pop_underscore_names(28) = "pop_grid_patch_disturbance_interval1"
-      pop_underscore_names(29) = "pop_grid_patch_first_disturbance_year1"
-      pop_underscore_names(30) = "pop_grid_patch_age1"
-      pop_underscore_names(31) = "pop_grid_ranked_age_unique1"
-      pop_underscore_names(32) = "pop_grid_freq_ranked_age_unique1"
-      pop_underscore_names(33) = "pop_grid_patch_layer1_ncohort"
-      pop_underscore_names(34) = "pop_grid_patch_layer1_biomass"
-      pop_underscore_names(35) = "pop_grid_patch_layer1_density"
-      pop_underscore_names(36) = "pop_grid_patch_layer1_hmean"
-      pop_underscore_names(37) = "pop_grid_patch_layer1_hmax"
-      pop_underscore_names(38) = "pop_grid_patch_layer1_cohort_age"
-      pop_underscore_names(39) = "pop_grid_patch_layer1_cohort_id"
-      pop_underscore_names(40) = "pop_grid_patch_layer1_cohort_biomass"
-      pop_underscore_names(41) = "pop_grid_patch_layer1_cohort_density"
-      pop_underscore_names(42) = "pop_grid_patch_layer1_cohort_frac_resource_uptake"
-      pop_underscore_names(43) = "pop_grid_patch_layer1_cohort_frac_light_uptake"
-      pop_underscore_names(44) = "pop_grid_patch_layer1_cohort_frac_interception"
-      pop_underscore_names(45) = "pop_grid_patch_layer1_cohort_frac_respiration"
-      pop_underscore_names(46) = "pop_grid_patch_layer1_cohort_frac_NPP"
-      pop_underscore_names(47) = "pop_grid_patch_layer1_cohort_respiration_scalar"
-      pop_underscore_names(48) = "pop_grid_patch_layer1_cohort_crown_area"
-      pop_underscore_names(49) = "pop_grid_patch_layer1_cohort_Pgap"
-      pop_underscore_names(50) = "pop_grid_patch_layer1_cohort_height"
-      pop_underscore_names(51) = "pop_grid_patch_layer1_cohort_diameter"
-      pop_underscore_names(52) = "pop_grid_patch_layer1_cohort_sapwood"
-      pop_underscore_names(53) = "pop_grid_patch_layer1_cohort_heartwood"
-      pop_underscore_names(54) = "pop_grid_patch_layer1_cohort_sapwood_area"
-      pop_underscore_names(55) = "pop_grid_patch_layer1_cohort_basal_area"
-      pop_underscore_names(56) = "pop_grid_patch_layer1_cohort_LAI"
-      pop_underscore_names(57) = "pop_grid_patch_layer1_cohort_Cleaf"
-      pop_underscore_names(58) = "pop_grid_patch_layer1_cohort_Croot"
-
 !     Save this as a module variable
       filesuffix = suffix
 
@@ -1031,40 +844,6 @@ contains
             if ( hist_debug > 2 ) then
                print*, 'Openhist', ifile,  ivar, adjustl(hnames(ivar,ifile))
             end if
-            
-            ! add underscore to variable names so they match
-            if ( no_underscore ) then
-               do i = 1,n_underscore_names
-                  local_name = ""
-                  local_name = underscore_names(i) 
-                  upos = index(local_name,"_")
-                  do while ( upos > 0 )  
-                     new_name = "" 
-                     new_name = local_name(1:upos-1)//local_name(upos+1:)
-                     local_name = new_name
-                     upos = index(local_name,"_")
-                  end do
-                  if ( hnames(ivar,ifile) == local_name ) then
-                     hnames(ivar,ifile) = underscore_names(i)
-                  end if
-               end do
-               do n = 1,maxtile
-                  do i = 1,n_pop_underscore_names
-                     local_name = ""
-                     write(local_name,'("t",I1.1,"_",a)') n,trim(adjustl(pop_underscore_names(i)))
-                     upos = index(local_name,"_")
-                     do while ( upos > 0 )  
-                        new_name = "" 
-                        new_name = local_name(1:upos-1)//local_name(upos+1:)
-                        local_name = new_name
-                        upos = index(local_name,"_")
-                     end do
-                     if ( hnames(ivar,ifile) == local_name ) then
-                        write(hnames(ivar,ifile),'("t",I1.1,"_",a)') n,trim(adjustl(pop_underscore_names(i)))
-                     end if
-                  end do
-               end do
-            end if   
             
             if ( hnames(ivar,ifile) == "all" ) then
                histinfo(1:totflds)%used(ifile) = .true.
@@ -1594,15 +1373,6 @@ contains
       if ( myid /=0 ) return
       
       local_name = vinfo%name
-      if ( no_underscore ) then
-         upos = index(local_name,"_")
-         do while ( upos > 0 )  
-            new_name = "" 
-            new_name = local_name(1:upos-1)//local_name(upos+1:)
-            local_name = new_name
-            upos = index(local_name,"_")
-         end do   
-      end if    
 
       select case ( hbytes(ifile) )
       case ( 2 )

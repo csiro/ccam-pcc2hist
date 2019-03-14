@@ -76,7 +76,6 @@ module usage_m
    print*, " --vextrap=none    Use end values rather than extrapolation"
    print*, " --vextrap=missing Set values below surface as missing"
    print *," --cordex          Format output for CORDEX"
-   print *," --nounderscore    Remove underscore from variable names"
    print*, "Note that the missing option only works with linear or nearest "
    print*, "horizontal interpolation. Default is to extrapolate temperature"
    print*, "below surface with standard lapse rate and to use end values for"
@@ -160,7 +159,6 @@ module usage_m
    print*, "                       4 (lapse rate)"
    print*, "cf_compliant         = true or false"
    print*, "cordex_compliant     = true or false"
-   print*, "no_underscore        = true or false"
    print*, "save_ccam_parameters = true or false"
    print*, ""
    print*, "pcc2hist version ", trim(version)
