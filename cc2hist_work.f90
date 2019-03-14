@@ -2392,6 +2392,10 @@ contains
             else 
                varlist(ivar)%pop4d = .false. 
             end if
+         else
+            varlist(ivar)%pop2d = .false.
+            varlist(ivar)%pop3d = .false.
+            varlist(ivar)%pop4d = .false.
          end if
       end do   
       
