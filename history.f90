@@ -160,7 +160,7 @@ module history
 
 !  Maximum length of string used for key generation. Names must be unique
 !  within this length.
-   integer, parameter :: MAX_KEYLEN = 60
+   integer, parameter :: MAX_KEYLEN = 10
 
 !  Maximum number of history files
    integer, parameter :: MAX_HFILES = 1
@@ -180,7 +180,8 @@ module history
          hnames = "", xnames = ""
 
 !  Integer array of keys corresponding to hnames to make searching faster.
-   integer (bigint), dimension(nfmax), save :: inames
+   integer, parameter :: MAX_KEYINDEX = 6 !>=MAX_NAMELEN/MAX_KEYLEN
+   integer (bigint), dimension(MAX_KEYINDEX,nfmax), save :: inames
 
 !  Frequency of writing history files. This may be in either steps or minutes
 !  depending on the argument of the calling routine. 
@@ -771,11 +772,9 @@ contains
       integer :: kc, ncoords, k, pkl
       logical :: soil_used, water_used, osig_found
       real :: dx, dy
-      
-      integer :: i, upos, n
-      character(len=MAX_NAMELEN) :: new_name, local_name
+      integer :: i
       real, dimension(:), allocatable :: cabledata
-      
+
       call START_LOG(openhist_begin)
       
 !     Set the module variables
@@ -829,7 +828,7 @@ contains
             print*, ivar, histinfo(ivar)%name, histinfo(ivar)%nlevels
          end do
       end if
-      
+
 !     Save this as a module variable
       filesuffix = suffix
 
@@ -843,7 +842,7 @@ contains
             end if
             if ( hist_debug > 2 ) then
                print*, 'Openhist', ifile,  ivar, adjustl(hnames(ivar,ifile))
-            end if
+            end if 
             
             if ( hnames(ivar,ifile) == "all" ) then
                histinfo(1:totflds)%used(ifile) = .true.
@@ -898,7 +897,7 @@ contains
             else
 !              Find the name in histinfo to set the used flag.
                ifld = bindex_hname ( hnames(ivar,ifile), &
-                                     inames(1:totflds), totflds )
+                                     inames(:,1:totflds), totflds )
                if ( ifld == 0 ) then
                   print*, "Error - history variable ", hnames(ivar,ifile),  &
                           " is not known. "
@@ -924,7 +923,7 @@ contains
             end if
             
 !           Find the name in histinfo to set the used flag.
-            ifld = bindex_hname ( xnames(ivar,ifile), inames(1:totflds), totflds )
+            ifld = bindex_hname ( xnames(ivar,ifile), inames(:,1:totflds), totflds )
             if ( ifld == 0 ) then
                print*, "Error - excluded history variable ", xnames(ivar,ifile)," is not known. "
                stop
@@ -962,65 +961,7 @@ contains
 
       if ( myid == 0 ) then
 
-!!        First file may be old average format. If this is the case it has
-!!        to be handled differently
-!         if ( ihtype(1) == hist_oave ) then
-!
-!            ifile = 1
-!            if ( present(histfilename) ) then
-!               ! Use histfile as a path in this case
-!               oldprefix = trim(histfilename) // "/s"
-!            else
-!               oldprefix = "s"
-!            end if
-!
-!            do ifld = 1, totflds
-!
-!               if ( .not. histinfo(ifld)%used(ifile) ) then
-!                  cycle
-!               end if
-!
-!!              lookup again to get long name and units
-!               vname = histinfo(ifld)%name
-!               longname = histinfo(ifld)%long_name
-!               units = histinfo(ifld)%units
-!
-!               do ilev=1,histinfo(ifld)%nlevels
-!                  if ( histinfo(ifld)%nlevels == 1 ) then
-!                     vname = histinfo(ifld)%name
-!                  else
-!                     write(vname,"(a,i2.2)") trim(histinfo(ifld)%name), ilev
-!                  end if
-!                  write(filename,"(a,a,a,a)" ) trim(oldprefix), trim(vname), &
-!                                               trim(suffix), ".nc"
-!!                 Check if this file exists. If it does there's no more to
-!!                 do, if not go on to create it.
-!                  inquire(file=filename, exist=used)
-!                  if ( used ) then
-!                     if ( hist_debug > 0 ) then
-!                        print*, "Using existing file ", filename
-!                     end if
-!                     cycle
-!                  else
-!
-!                     if ( .not. present(year) ) then
-!                        print*, " Year argument to openhist is required for old format files"
-!                        stop
-!                     end if
-!                     call create_oldfile ( filename, nxhis, nyhis, hbytes(ifile),&
-!                                           vname, longname, units, &
-!                                           histinfo(ifld)%valid_min, &
-!                                           histinfo(ifld)%valid_max, &
-!                                           hlat, hlon, year )
-!
-!                  end if
-!
-!               end do
-!            end do
-!            istart = 2
-!         else
-            istart = 1
-!         end if ! ihtype(1) == hist_oave
+         istart = 1
 
 !        The rest of the history files are much simpler with multilevel variables
          do ifile = istart, nhfiles
@@ -1317,27 +1258,32 @@ contains
 
       integer :: i, ipos, j
       type(hinfo) :: temp
-      integer (bigint) :: itemp
-
+      integer (bigint), dimension(MAX_KEYINDEX) :: itemp
+      
+      if ( MAX_KEYINDEX < MAX_NAMELEN/MAX_KEYLEN ) then
+         print*, "Error: MAX_KEYINDEX is too small"
+         stop
+      end if
+          
       do i=1,totflds
-         inames(i) = hashkey ( histinfo(i)%name )
+         inames(:,i) = hashkey ( histinfo(i)%name )
       end do
 
       do i=1,totflds
 
 !        Find the first element in the rest of the list
-         itemp = inames(i)
+         itemp(:) = inames(:,i)
          ipos = i
          do j=i+1,totflds
-            if ( inames(j) < itemp ) then
-               itemp = inames(j)
+            if ( hash_lt(inames(:,j),itemp) ) then 
+               itemp(:) = inames(:,j)
                ipos = j
             end if
          end do
 
 !        Move the smallest value to position i
-         inames(ipos) = inames(i)
-         inames(i) = itemp
+         inames(:,ipos) = inames(:,i)
+         inames(:,i) = itemp(:)
 !        Swap histinfo elements so they keep the same order
          temp = histinfo(ipos)
          histinfo(ipos) = histinfo(i)
@@ -1348,11 +1294,47 @@ contains
       if ( hist_debug > 1 ) then
          print*, "Sorted NAMES "
          do i=1,totflds
-            print*, histinfo(i)%name, inames(i)
+            print*, histinfo(i)%name, inames(:,i)
          end do
       end if
 
     end subroutine sortlist
+    
+    function hash_lt(a,b) result(ans)
+       integer(bigint), dimension(:), intent(in) :: a,b
+       logical :: ans
+       integer :: k
+       
+       ans = .false.
+       do k = 1,MAX_KEYINDEX
+          if ( a(k) < b(k) ) then
+             ans = .true.
+             exit
+          else if ( a(k) > b(k) ) then
+             ans = .false.
+             exit
+          end if
+       end do
+    
+    end function hash_lt
+    
+    function hash_gt(a,b) result(ans)
+       integer(bigint), dimension(:), intent(in) :: a,b
+       logical :: ans
+       integer :: k
+       
+       ans = .false.
+       do k = 1,MAX_KEYINDEX
+          if ( a(k) > b(k) ) then
+             ans = .true.
+             exit
+          else if ( a(k) < b(k) ) then
+             ans = .false.
+             exit
+          end if
+       end do
+    
+    end function hash_gt
     
 !-------------------------------------------------------------------
    subroutine create_ncvar(vinfo, ncid, ifile, dims)
@@ -1366,13 +1348,12 @@ contains
       character(len=MAX_NAMELEN) :: local_name, new_name
       character(len=80) :: cell_methods, coord_name
       integer :: ierr, vtype, vid, zdim, wdim
-      integer :: upos
       
       integer(kind=2), parameter :: fill_short = NF90_FILL_SHORT
 
       if ( myid /=0 ) return
       
-      local_name = vinfo%name
+      local_name = vinfo%name  
 
       select case ( hbytes(ifile) )
       case ( 2 )
@@ -1984,7 +1965,7 @@ contains
 !     Loop over history files because variable could occur in several.
       do ifile = 1,nhfiles
 
-         ifld = qindex_hname(name,inames(1:totflds),totflds,ifile)
+         ifld = qindex_hname(name,inames(:,1:totflds),totflds,ifile)
          if ( ifld == 0 ) then
             print*, "Error - history variable ", name, " is not known. "
             stop
@@ -2956,7 +2937,7 @@ contains
 !     Check if name is in the list for any of the history files
       needed = .false.
       do ifile=1,nhfiles
-         ifld = qindex_hname ( name, inames(1:totflds), totflds, ifile)
+         ifld = qindex_hname ( name, inames(:,1:totflds), totflds, ifile)
          if ( ifld == 0 ) then
             ! Name not known at all in this case
             needed = .false.
@@ -2972,24 +2953,27 @@ contains
    function bindex_hname(name, table,nflds) result(ifld)
       character(len=*), intent(in)    :: name
       integer, intent(in) :: nflds
-      integer ( bigint ), intent(in), dimension(nflds) :: table
+      integer ( bigint ), intent(in), dimension(MAX_KEYINDEX,nflds) :: table
       integer :: ifld
-      integer :: i, lower, upper
-      integer (bigint) :: key, fac
+      integer :: i, lower, upper, k
+      integer (bigint), dimension(MAX_KEYINDEX) :: key
+      integer (bigint) :: fac
 
 !  Lookup "key" in "table" of integers using a binary search.
 !  This assumes that the list has been sorted but it doesn't test for this.
 
 !      key = hashkey ( name )
 !     hashkey inlined by hand      
-      key = 0
-      fac = 1
+      key(:) = 0
 !     This makes numerical order the same as alphabetical order
-      do i=min(MAX_KEYLEN,len_trim(name)),1,-1
-         ! Netcdf allowed characters for variables names are in 
-         ! range 48 to 122 (alphanumeric and _)
-         key = key + fac*(ichar(name(i:i))-48)
-         fac = fac * 75
+      do k = 1,MAX_KEYINDEX
+         fac = 1 
+         do i=min(k*MAX_KEYLEN,len_trim(name)),(k-1)*MAX_KEYLEN+1,-1
+            ! Netcdf allowed characters for variables names are in 
+            ! range 48 to 122 (alphanumeric and _)
+            key(k) = key(k) + fac*(ichar(name(i:i))-48)
+            fac = fac * 75
+         end do   
       end do
 
       ifld = 0
@@ -2998,9 +2982,9 @@ contains
       do
          i = (lower+upper)/2
 !         print*, "Search", lower, upper, i, table(lower), table(upper), table(i), key
-         if ( key < table(i) ) then
+         if ( hash_lt(key,table(:,i)) ) then
             upper = i-1
-         else if ( key > table(i) ) then
+         else if ( hash_gt(key,table(:,i)) ) then
             lower = i + 1
          else
             ifld = i
@@ -3016,7 +3000,7 @@ contains
    function qindex_hname ( name, table, nflds, ifile ) result(ifld)
       character(len=*), intent(in)    :: name
       integer, intent(in) :: nflds
-      integer ( bigint ), intent(in), dimension(nflds) :: table
+      integer ( bigint ), intent(in), dimension(MAX_KEYINDEX,nflds) :: table
       integer, intent(in) :: ifile
       integer :: ifld
 !     Both of these are initially set to one because this is a safe value.
@@ -3051,18 +3035,20 @@ contains
    function hashkey ( name ) result (key)
 !  Generate an integer from a string
       character(len=*), intent(in) :: name
-      integer (bigint) :: key
-      integer :: i
+      integer (bigint), dimension(MAX_KEYINDEX) :: key
+      integer :: i, k
       integer (bigint) :: fac
 
-      key = 0
-      fac = 1
-!     This makes numerical order the same as alphabetical order
-      do i=min(MAX_KEYLEN,len_trim(name)),1,-1
-         ! Netcdf allowed characters for variables names are in 
-         ! range 48 to 122 (alphanumeric and _)
-         key = key + fac*(ichar(name(i:i))-48)
-         fac = fac * 75
+      key(:) = 0
+      do k = 1,MAX_KEYINDEX
+         fac = 1 
+         ! This makes numerical order the same as alphabetical order
+         do i=min(k*MAX_KEYLEN,len_trim(name)),(k-1)*MAX_KEYLEN+1,-1
+            ! Netcdf allowed characters for variables names are in 
+            ! range 48 to 122 (alphanumeric and _)
+            key(k) = key(k) + fac*(ichar(name(i:i))-48)
+            fac = fac * 75
+         end do   
       end do
       if (hist_debug > 2 ) then
          print*, "  HASHKEY ", name, key
