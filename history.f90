@@ -101,7 +101,6 @@
 
 module history
 
-   use dictionary
 #ifdef usenc_mod
    use netcdf
 #else
@@ -114,9 +113,6 @@ module history
 !  Make everything private so that the internal variables of the history 
 !  module can only be used by the appropriate routines.
    private   
-
-!  dictionary for variable name lookup
-   type(DICT_STRUCT), pointer :: dict
 
 !  Only these routine names need to be public
    public :: savehist, openhist, closehist, writehist, addfld, &
@@ -132,12 +128,18 @@ module history
 !  Private internal routines
    private :: bindex_hname, initval, sortlist, create_ncvar,            &
               create_ncfile, oldwrite, savehist2D,                      &
-              savehist3D, qindex_hname, savehist_work,         &
+              savehist3D, hashkey, qindex_hname, savehist_work,         &
               gsavehist2D, gsavehist3D, gsavehist4D
    !private :: create_oldfile
 
    character(len=50), public, parameter :: &
         history_revision = "$Revision: 7.10 $"
+
+!  This gets a 64 bit integer
+!   integer, private, parameter :: bigint = selected_int_kind(18)
+!  On SX-6 range is smaller, though full range is available for addition
+!  and subtraction which is all that's required for the key.
+   integer, private, parameter :: bigint = selected_int_kind(14)
 
 !  Debugging level. 0 for no debugging, larger values for more detail
    integer, public, save :: hist_debug = 0
@@ -156,6 +158,10 @@ module history
 !  Maximum length of names of history variables
    integer, parameter :: MAX_NAMELEN = 60
 
+!  Maximum length of string used for key generation. Names must be unique
+!  within this length.
+   integer, parameter :: MAX_KEYLEN = 60
+
 !  Maximum number of history files
    integer, parameter :: MAX_HFILES = 1
 !  Actual number of history files used
@@ -172,6 +178,9 @@ module history
 !  Initialise hnames so that set_hnames can find the end of the list to append.
    character(len=MAX_NAMELEN), dimension(nfmax,MAX_HFILES), save ::  &
          hnames = "", xnames = ""
+
+!  Integer array of keys corresponding to hnames to make searching faster.
+   integer (bigint), dimension(nfmax), save :: inames
 
 !  Frequency of writing history files. This may be in either steps or minutes
 !  depending on the argument of the calling routine. 
@@ -1109,7 +1118,8 @@ contains
                 histinfo(1:totflds)%used(ifile) .or. btest(histinfo(1:totflds)%tn,4)
             else
 !              Find the name in histinfo to set the used flag.
-               ifld = bindex_hname ( hnames(ivar,ifile) )
+               ifld = bindex_hname ( hnames(ivar,ifile), &
+                                     inames(1:totflds), totflds )
                if ( ifld == 0 ) then
                   print*, "Error - history variable ", hnames(ivar,ifile),  &
                           " is not known. "
@@ -1135,7 +1145,7 @@ contains
             end if
             
 !           Find the name in histinfo to set the used flag.
-            ifld = bindex_hname ( xnames(ivar,ifile) )
+            ifld = bindex_hname ( xnames(ivar,ifile), inames(1:totflds), totflds )
             if ( ifld == 0 ) then
                print*, "Error - excluded history variable ", xnames(ivar,ifile)," is not known. "
                stop
@@ -1523,30 +1533,32 @@ contains
 
    subroutine sortlist
 
-      use logging_m
-
 !     Simple insertion sort of the list of names.
 !     Assumes all lower case. This should be enforced or checked somewhere
 
       integer :: i, ipos, j
       type(hinfo) :: temp
-      character(len=60) :: ctemp
-      type(DICT_DATA) :: data
+      integer (bigint) :: itemp
 
-      call START_LOG(sortlist_begin)
+      do i=1,totflds
+         inames(i) = hashkey ( histinfo(i)%name )
+      end do
 
       do i=1,totflds
 
 !        Find the first element in the rest of the list
-         ctemp = histinfo(i)%name
+         itemp = inames(i)
          ipos = i
          do j=i+1,totflds
-            if ( llt(histinfo(j)%name,ctemp) ) then
-               ctemp = histinfo(j)%name
+            if ( inames(j) < itemp ) then
+               itemp = inames(j)
                ipos = j
             end if
          end do
 
+!        Move the smallest value to position i
+         inames(ipos) = inames(i)
+         inames(i) = itemp
 !        Swap histinfo elements so they keep the same order
          temp = histinfo(ipos)
          histinfo(ipos) = histinfo(i)
@@ -1557,20 +1569,9 @@ contains
       if ( hist_debug > 1 ) then
          print*, "Sorted NAMES "
          do i=1,totflds
-            print*, histinfo(i)%name
+            print*, histinfo(i)%name, inames(i)
          end do
       end if
-
-      if ( totflds > 0 ) then
-         data%index = 1
-         call dict_create( dict, trim(histinfo(1)%name), data )
-      end if
-      do i=2,totflds
-         data%index = i
-         call dict_add_key( dict, trim(histinfo(i)%name), data )
-      end do
-
-      call END_LOG(sortlist_end)
 
     end subroutine sortlist
     
@@ -2213,7 +2214,7 @@ contains
 !     Loop over history files because variable could occur in several.
       do ifile = 1,nhfiles
 
-         ifld = qindex_hname(name,ifile)
+         ifld = qindex_hname(name,inames(1:totflds),totflds,ifile)
          if ( ifld == 0 ) then
             print*, "Error - history variable ", name, " is not known. "
             stop
@@ -3185,7 +3186,7 @@ contains
 !     Check if name is in the list for any of the history files
       needed = .false.
       do ifile=1,nhfiles
-         ifld = qindex_hname ( name, ifile)
+         ifld = qindex_hname ( name, inames(1:totflds), totflds, ifile)
          if ( ifld == 0 ) then
             ! Name not known at all in this case
             needed = .false.
@@ -3198,39 +3199,54 @@ contains
    end function needfld
    
 !-------------------------------------------------------------------
-   function bindex_hname(name) result(ifld)
-
-      use logging_m
-
+   function bindex_hname(name, table,nflds) result(ifld)
       character(len=*), intent(in)    :: name
+      integer, intent(in) :: nflds
+      integer ( bigint ), intent(in), dimension(nflds) :: table
       integer :: ifld
-#if 1
-      type(DICT_DATA)                :: data
-#else
-      integer :: i
-#endif
+      integer :: i, lower, upper
+      integer (bigint) :: key, fac
 
-      call START_LOG(bindex_begin)
+!  Lookup "key" in "table" of integers using a binary search.
+!  This assumes that the list has been sorted but it doesn't test for this.
 
-#if 1
-      data = dict_get_key(dict, trim(name) )
-      ifld =  data%index
-#else
+!      key = hashkey ( name )
+!     hashkey inlined by hand      
+      key = 0
+      fac = 1
+!     This makes numerical order the same as alphabetical order
+      do i=min(MAX_KEYLEN,len_trim(name)),1,-1
+         ! Netcdf allowed characters for variables names are in 
+         ! range 48 to 122 (alphanumeric and _)
+         key = key + fac*(ichar(name(i:i))-48)
+         fac = fac * 75
+      end do
+
       ifld = 0
-      do i=1,totflds
-         if ( trim(name) == trim(histinfo(i)%name) ) then
+      lower = 1
+      upper = nflds
+      do
+         i = (lower+upper)/2
+!         print*, "Search", lower, upper, i, table(lower), table(upper), table(i), key
+         if ( key < table(i) ) then
+            upper = i-1
+         else if ( key > table(i) ) then
+            lower = i + 1
+         else
             ifld = i
             exit
          end if
+         if ( upper < lower ) then
+            exit
+         end if
       end do
-#endif
-
-      call END_LOG(bindex_end)
 
    end function bindex_hname
 !-------------------------------------------------------------------
-   function qindex_hname ( name, ifile ) result(ifld)
+   function qindex_hname ( name, table, nflds, ifile ) result(ifld)
       character(len=*), intent(in)    :: name
+      integer, intent(in) :: nflds
+      integer ( bigint ), intent(in), dimension(nflds) :: table
       integer, intent(in) :: ifile
       integer :: ifld
 !     Both of these are initially set to one because this is a safe value.
@@ -3247,7 +3263,7 @@ contains
 
       ifld = successor(prev(ifile),ifile)
       if ( histinfo(ifld)%name /= name ) then
-         ifld = bindex_hname ( name )
+         ifld = bindex_hname ( name, table, nflds )
          if ( ifld == 0 ) then
             ! Name is not known, return without updating internal fields
             return
@@ -3261,5 +3277,26 @@ contains
          
 
    end function qindex_hname
+!-------------------------------------------------------------------
+   function hashkey ( name ) result (key)
+!  Generate an integer from a string
+      character(len=*), intent(in) :: name
+      integer (bigint) :: key
+      integer :: i
+      integer (bigint) :: fac
+
+      key = 0
+      fac = 1
+!     This makes numerical order the same as alphabetical order
+      do i=min(MAX_KEYLEN,len_trim(name)),1,-1
+         ! Netcdf allowed characters for variables names are in 
+         ! range 48 to 122 (alphanumeric and _)
+         key = key + fac*(ichar(name(i:i))-48)
+         fac = fac * 75
+      end do
+      if (hist_debug > 2 ) then
+         print*, "  HASHKEY ", name, key
+      end if
+   end function hashkey
    
 end module history

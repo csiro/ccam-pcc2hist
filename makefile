@@ -11,7 +11,7 @@ MPIFLAG =
 else
 MPIFLAG = -Dusempi3
 endif
-FFLAGS = -g -O $(FHOST) -ftz -fp-model precise -traceback $(MPIFLAG)
+FFLAGS = -O $(FHOST) -ftz -fp-model precise -traceback $(MPIFLAG)
 INC = -I $(NETCDF_ROOT)/include
 LIBS = -L $(NETCDF_ROOT)/lib -lnetcdf
 ifneq ($(NCCLIB),yes)
@@ -55,8 +55,8 @@ ifeq ($(NCCLIB),yes)
 FFLAGS += -Dncclib
 endif
 
-OBJ = pcc2hist.o cc2hist_work.o dict_m.o dictionary.o gldata_m.o height_m.o indices_m.o ind_m.o \
-interp_m.o jimcc_m.o jimco_m.o jim_utils.o latltoij_m.o linkedlist.o newmpar_m.o nfft_m.o \
+OBJ = pcc2hist.o cc2hist_work.o gldata_m.o height_m.o indices_m.o ind_m.o \
+interp_m.o jimcc_m.o jimco_m.o jim_utils.o latltoij_m.o newmpar_m.o nfft_m.o \
 parm_m.o precis_m.o s2p_m.o setxyz_m.o sitop_m.o staguv_m.o usage_m.o \
 xyzinfo_m.o utilities.o history.o getopt_m.o utils_m.o ncutils_m.o \
 kinds_m.o physparams.o vertutils_m.o moistfuncs.o hyblevs_m.o checkver_m.o \
@@ -110,11 +110,9 @@ sitop_m.o: physparams.o utils_m.o netcdf_m.o
 staguv_m.o: indices_m.o newmpar_m.o 
 xyzinfo_m.o: precis_m.o 
 utilities.o: precis_m.o 
-history.o: utils_m.o ncutils_m.o mpidata_m.o logging_m.o netcdf_m.o dict_m.o dictionary.o
+history.o: utils_m.o ncutils_m.o mpidata_m.o logging_m.o netcdf_m.o
 utils_m.o: kinds_m.o 
 vertutils_m.o: hyblevs_m.o physparams.o 
 usage_m.o : mpidata_m.o
 shdata_m.o: mpidata_m.o 
 logging_m.o: mpidata_m.o
-dictionary.o: dict_m.o linkedlist.o
-linkedlist.o: dict_m.o
