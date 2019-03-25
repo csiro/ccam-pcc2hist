@@ -129,7 +129,7 @@ module history
    private :: bindex_hname, initval, sortlist, create_ncvar,            &
               create_ncfile, oldwrite, savehist2D,                      &
               savehist3D, hashkey, qindex_hname, savehist_work,         &
-              gsavehist2D, gsavehist3D
+              gsavehist2D, gsavehist3D, gsavehist4D
    !private :: create_oldfile
 
    character(len=50), public, parameter :: &
@@ -215,6 +215,8 @@ module history
       logical            :: std
 !     Controls whether variable is on the "RAN" list of variables
       logical            :: ran
+!     Controls whether variable is on the t?_pop list of variables
+      integer            :: tn
 !     Scale factor for output, e.g. to convert rain from mm/step to mm/day.
       real               :: output_scale 
       logical, dimension(MAX_HFILES) :: used
@@ -231,6 +233,12 @@ module history
       logical                        :: soil
 !     For multilevel ocean variables
       logical                        :: water
+!     For 2d pop variables
+      logical                        :: pop2d
+!     For 3d pop variables
+      logical                        :: pop3d
+!     For 4d pop variables
+      logical                        :: pop4d
       ! For CF coordinate attribute
       real                           :: coord_height
       ! cell_methods appropriate for variable before any history processing is done
@@ -256,6 +264,8 @@ module history
       integer :: oz = -1
       integer :: t = -1
       integer :: zsoil = -1
+      integer :: cptch = -1
+      integer :: cchrt = -1
       ! For bounds 
       integer :: b = -1
       integer :: x_b = -1
@@ -279,7 +289,7 @@ module history
    integer, save :: totflds = 0
 
    interface savehist
-      module procedure savehist2D, savehist3D, gsavehist2D, gsavehist3D
+      module procedure savehist2D, savehist3D, gsavehist2D, gsavehist3D, gsavehist4D
    end interface
     
 !  Define parameters to identify the processing of history data: ave, max, min
@@ -320,6 +330,9 @@ module history
 #else
    real, dimension(:,:,:,:), allocatable, save, private :: hist_a
 #endif
+
+!  Maximum number of CABLE tiles
+   integer, parameter :: maxtile=5
 
 contains
 
@@ -539,7 +552,8 @@ contains
    subroutine addfld(name, long_name, units, valid_min, valid_max,    &
                      nlevels, amip_name, ave_type, std, output_scale, &
                      int_type, multilev, std_name, soil, water,       &
-                     coord_height, cell_methods, ran_type )
+                     pop2d, pop3d, pop4d,                             &
+                     coord_height, cell_methods, ran_type, tn_type )
 !
 !     Add a field to the master list of fields that may be saved.
 !
@@ -558,12 +572,16 @@ contains
       character(len=*), intent(in), optional :: std_name
       logical, intent(in), optional   :: soil
       logical, intent(in), optional   :: water
+      logical, intent(in), optional   :: pop2d
+      logical, intent(in), optional   :: pop3d
+      logical, intent(in), optional   :: pop4d
       real, intent(in), optional :: coord_height
       character(len=*), intent(in), optional :: cell_methods
       logical, intent(in), optional   :: ran_type
+      integer, intent(in), optional   :: tn_type
 
 !     Local variables corresponding to the optional arguments
-      integer :: atype
+      integer :: atype, ltn
       logical :: lstd, lran
       character(len=MAX_NAMELEN) :: aname
       real    :: scale
@@ -615,6 +633,11 @@ contains
       else
          lran = .false.  
       end if
+      if ( present(tn_type) ) then
+         ltn = tn_type  
+      else
+         ltn = 0
+      end if
       if ( present(output_scale) ) then
          scale = output_scale
       else
@@ -641,6 +664,7 @@ contains
       histinfo(totflds)%nlevels      = nlevels
       histinfo(totflds)%std          = lstd
       histinfo(totflds)%ran          = lran
+      histinfo(totflds)%tn           = ltn
       histinfo(totflds)%output_scale = scale
       histinfo(totflds)%used(:)      = .FALSE.   ! Value for now
       histinfo(totflds)%vid(:)       = 0
@@ -664,6 +688,21 @@ contains
       else
          histinfo(totflds)%water = .false.
       end if
+      if ( present(pop2d) ) then
+         histinfo(totflds)%pop2d = pop2d
+      else
+         histinfo(totflds)%pop2d = .false.
+      end if
+      if ( present(pop3d) ) then
+         histinfo(totflds)%pop3d = pop3d
+      else
+         histinfo(totflds)%pop3d = .false.
+      end if
+      if ( present(pop4d) ) then
+         histinfo(totflds)%pop4d = pop4d
+      else
+         histinfo(totflds)%pop4d = .false.
+      end if
       if ( present(soil) ) then
          histinfo(totflds)%soil = soil
       else
@@ -683,7 +722,7 @@ contains
    end subroutine addfld
    
 !-------------------------------------------------------------------
-   subroutine openhist ( nx, ny, nl, sig, ol, gosig, suffix, hlon, hlat, basetime, &
+   subroutine openhist ( nx, ny, nl, sig, ol, cptch, cchrt, gosig, suffix, hlon, hlat, basetime, &
                          doublerow, year, nxout, nyout, source, histfilename,      &
                          pressure, height, depth, extra_atts, hybrid_levels, anf,  &
                          bnf, p0, calendar, nsoil, zsoil )
@@ -693,7 +732,7 @@ contains
       use mpidata_m
       use logging_m
 
-      integer, intent(in) :: nx, ny, nl, ol
+      integer, intent(in) :: nx, ny, nl, ol, cptch, cchrt
       real, intent(in), dimension(:) :: sig
       real, intent(in), dimension(:) :: gosig
       character(len=*), intent(in)   :: suffix  ! Filename suffix
@@ -733,7 +772,9 @@ contains
       integer :: kc, ncoords, k, pkl
       logical :: soil_used, water_used, osig_found
       real :: dx, dy
-      
+      integer :: i
+      real, dimension(:), allocatable :: cabledata
+
       call START_LOG(openhist_begin)
       
 !     Set the module variables
@@ -816,6 +857,43 @@ contains
 !              Include RAN requested variables
                histinfo(1:totflds)%used(ifile) = &
                 histinfo(1:totflds)%used(ifile) .or. histinfo(1:totflds)%ran
+            else if ( hnames(ivar,ifile) == "pop2d" ) then
+!              Include POP 3d requested variables
+               histinfo(1:totflds)%used(ifile) = &
+                histinfo(1:totflds)%used(ifile) .or. histinfo(1:totflds)%pop2d
+            else if ( hnames(ivar,ifile) == "pop3d" ) then
+!              Include POP 3d requested variables
+               histinfo(1:totflds)%used(ifile) = &
+                histinfo(1:totflds)%used(ifile) .or. histinfo(1:totflds)%pop3d
+            else if ( hnames(ivar,ifile) == "pop4d" ) then
+!              Include POP 4d requested variables
+               histinfo(1:totflds)%used(ifile) = &
+                histinfo(1:totflds)%used(ifile) .or. histinfo(1:totflds)%pop4d
+            else if ( hnames(ivar,ifile) == "pop" ) then
+!              Include POP requested variables
+               histinfo(1:totflds)%used(ifile) = &
+                histinfo(1:totflds)%used(ifile) .or. histinfo(1:totflds)%pop2d .or.   &
+                histinfo(1:totflds)%pop3d .or. histinfo(1:totflds)%pop4d
+            else if ( hnames(ivar,ifile) == "t1_pop" ) then
+!              Include POP requested variables
+               histinfo(1:totflds)%used(ifile) = &
+                histinfo(1:totflds)%used(ifile) .or. btest(histinfo(1:totflds)%tn,0)
+            else if ( hnames(ivar,ifile) == "t2_pop" ) then
+!              Include POP requested variables
+               histinfo(1:totflds)%used(ifile) = &
+                histinfo(1:totflds)%used(ifile) .or. btest(histinfo(1:totflds)%tn,1)
+            else if ( hnames(ivar,ifile) == "t3_pop" ) then
+!              Include POP requested variables
+               histinfo(1:totflds)%used(ifile) = &
+                histinfo(1:totflds)%used(ifile) .or. btest(histinfo(1:totflds)%tn,2)
+            else if ( hnames(ivar,ifile) == "t4_pop" ) then
+!              Include POP requested variables
+               histinfo(1:totflds)%used(ifile) = &
+                histinfo(1:totflds)%used(ifile) .or. btest(histinfo(1:totflds)%tn,3)
+            else if ( hnames(ivar,ifile) == "t5_pop" ) then
+!              Include POP requested variables
+               histinfo(1:totflds)%used(ifile) = &
+                histinfo(1:totflds)%used(ifile) .or. btest(histinfo(1:totflds)%tn,4)
             else
 !              Find the name in histinfo to set the used flag.
                ifld = bindex_hname ( hnames(ivar,ifile), &
@@ -961,7 +1039,7 @@ contains
             !        coord_heights(1:ncoords), ncid, dims, dimvars, source, extra_atts, calendar,   &
             !        nsoil, zsoil, osig_found )
             !else
-               call create_ncfile ( filename, nxhis, nyhis, size(sig), ol, multilev,               &
+               call create_ncfile ( filename, nxhis, nyhis, size(sig), ol, cptch, cchrt, multilev,               &
                     use_plevs, use_meters, use_depth, use_hyblevs, basetime,                       &
                     coord_heights(1:ncoords), ncid, dims, dimvars, source, extra_atts, calendar,   &
                     nsoil, zsoil, osig_found )
@@ -1046,6 +1124,24 @@ contains
             if ( ol > 0 ) then
                ierr = nf90_put_var ( ncid, dimvars%oz, gosig )
                call check_ncerr(ierr,"Error writing olev")
+            end if
+            if ( cptch > 0 ) then
+               allocate( cabledata(cptch) )
+               do i=1,cptch
+                  cabledata(i) = real(i)
+               end do
+               ierr = nf90_put_var ( ncid, dimvars%cptch, cabledata )
+               call check_ncerr(ierr,"Error writing cable_patch")
+               deallocate( cabledata )
+            end if
+            if ( cchrt > 0 ) then
+               allocate( cabledata(cchrt) )
+               do i=1,cchrt
+                  cabledata(i) = real(i)
+               end do
+               ierr = nf90_put_var ( ncid, dimvars%cchrt, cabledata )
+               call check_ncerr(ierr,"Error writing cable_cohort")
+               deallocate( cabledata )
             end if
             !if ( soil_used .and. present(zsoil) ) then
             if ( present(zsoil) .and. present(nsoil) ) then
@@ -1251,7 +1347,7 @@ contains
 
       character(len=MAX_NAMELEN) :: local_name, new_name
       character(len=80) :: cell_methods, coord_name
-      integer :: ierr, vtype, vid, zdim
+      integer :: ierr, vtype, vid, zdim, wdim
       
       integer(kind=2), parameter :: fill_short = NF90_FILL_SHORT
 
@@ -1280,12 +1376,20 @@ contains
             zdim = dims%zsoil
          else if ( vinfo%water ) then
             zdim = dims%oz
+         else if ( vinfo%pop3d ) then
+            zdim = dims%cptch
+         else if ( vinfo%pop4d ) then
+            zdim = dims%cptch
+            wdim = dims%cchrt
          else
             zdim = dims%z
          end if
          if ( vinfo%ave_type(ifile) == hist_fixed ) then
             ierr = nf90_def_var ( ncid, local_name, vtype, &
                                 (/ dims%x, dims%y, zdim /), vid )
+         else if ( vinfo%pop4d ) then
+            ierr = nf90_def_var ( ncid, local_name, vtype, &
+                                (/ dims%x, dims%y, zdim, wdim, dims%t /), vid )
          else
             ierr = nf90_def_var ( ncid, local_name, vtype, &
                                 (/ dims%x, dims%y, zdim, dims%t /), vid )
@@ -1401,14 +1505,14 @@ contains
    end subroutine create_ncvar
   
 !---------------------------------------------------------------------------
-   subroutine create_ncfile ( filename, nxhis, nyhis, nlev, ol, multilev,            &
+   subroutine create_ncfile ( filename, nxhis, nyhis, nlev, ol, cptch, cchrt, multilev,            &
                  use_plevs, use_meters, use_depth, use_hyblevs, basetime,            &
                  coord_heights, ncid, dims, dimvars, source, extra_atts, calendar,   &
                  nsoil, zsoil, osig_found )
 
       use mpidata_m
       character(len=*), intent(in) :: filename
-      integer, intent(in) :: nxhis, nyhis, nlev, ol
+      integer, intent(in) :: nxhis, nyhis, nlev, ol, cptch, cchrt
       logical, intent(in) :: multilev, use_plevs, use_meters, use_depth, use_hyblevs
       logical, intent(in) :: osig_found
       character(len=*), intent(in) :: basetime
@@ -1475,6 +1579,16 @@ contains
             call check_ncerr(ierr,"Error creating soil depth dimension")
             if ( hist_debug > 5 ) print*, "Created soil dimension, id",  dims%zsoil
          end if
+      end if
+      if ( cptch > 0 ) then
+         ierr = nf90_def_dim ( ncid, "cable_patch", cptch, dims%cptch )
+         call check_ncerr(ierr,"Error creating cable_patch dimension")
+         if ( hist_debug > 5 ) print*, "Created cable_patch dimension, id", dims%cptch
+      end if
+      if ( cchrt > 0 ) then
+         ierr = nf90_def_dim ( ncid, "cable_cohort", cchrt, dims%cchrt )
+         call check_ncerr(ierr,"Error creating cable_cohort dimension")
+         if ( hist_debug > 5 ) print*, "Created cable_cohort dimension, id", dims%cchrt
       end if
       ierr = nf90_def_dim ( ncid, "time", NF90_UNLIMITED, dims%t )
       call check_ncerr(ierr,"Error creating time dimension")
@@ -1656,6 +1770,15 @@ contains
          end if
       end if
 
+      if ( cptch > 0 ) then
+         ierr = nf90_def_var ( ncid, "cable_patch", NF90_FLOAT, dims%cptch, dimvars%cptch )
+         call check_ncerr(ierr)
+      end if
+      if ( cchrt > 0 ) then
+         ierr = nf90_def_var ( ncid, "cable_cohort", NF90_FLOAT, dims%cchrt, dimvars%cchrt )
+         call check_ncerr(ierr)
+      end if
+
       ierr = nf90_def_var ( ncid, "time", NF90_FLOAT, dims%t, dimvars%t )
       call check_ncerr(ierr)
       ierr = nf90_put_att ( ncid, dimvars%t, "units", basetime )
@@ -1794,10 +1917,31 @@ contains
       use logging_m
       character(len=*), intent(in) :: name
       real, dimension(:,:,:) :: array
+      real, dimension(size(array,1),size(array,2),size(array,3)) :: temp
+
       call START_LOG(savehist_begin)
-      call savehist_work ( name, array, 1, size(array,2) )
+
+      temp(:,:,:) = array
+      call savehist_work ( name, temp, 1, size(array,2) )
+
       call END_LOG(savehist_end)
+
    end subroutine gsavehist3D
+   
+   subroutine gsavehist4D( name, array )
+      use logging_m
+      character(len=*), intent(in) :: name
+      real, dimension(:,:,:,:) :: array
+      real, dimension(size(array,1),size(array,2),size(array,3)*size(array,4)) :: temp
+
+      call START_LOG(savehist_begin)
+
+      temp(:,:,:) = reshape(array,(/ size(array,1), size(array,2), size(array,3)*size(array,4) /) )
+      call savehist_work ( name, temp, 1, size(array,2) )
+
+      call END_LOG(savehist_end)
+
+   end subroutine gsavehist4D
    
    subroutine savehist_work ( name, array, jlat1, jlat2 )
 
@@ -2019,6 +2163,7 @@ contains
    subroutine writehist ( istep, endofrun, year, month, interp, time, time_bnds )
 
       use mpidata_m
+      use newmpar_m, only : cptch, cchrt
       use logging_m
       
       integer, intent(in) :: istep
@@ -2037,6 +2182,7 @@ contains
 
       integer ierr, vid, ifld
       integer ip, n
+      integer, dimension(5) :: start4D, count4D
       integer, dimension(4) :: start3D, count3D
       integer, dimension(3) :: start2D, count2D
       integer :: istart, iend
@@ -2162,6 +2308,7 @@ contains
             start2D = (/ 1, 1, histset(ifile) /)
             count2D = (/ nxhis, nyhis, 1 /)
             count3D = (/ nxhis, nyhis, 1, 1 /)
+            count4D = (/ nxhis, nyhis, 1, 1, 1 /)
          
          end if
 
@@ -2328,7 +2475,10 @@ contains
                      end if    
                   end if
                    
-                  if ( nlev > 1 .or. histinfo(ifld)%multilev ) then
+                  if ( histinfo(ifld)%pop4d ) then
+                     start4D = (/ 1, 1, mod(k+1-istart-1,cptch)+1, 1+(k+1-istart-1)/cptch,  histset(ifile) /)
+                     ierr = nf90_put_var ( ncid, vid, htemp, start=start4D, count=count4D )
+                  else if ( nlev > 1 .or. histinfo(ifld)%multilev ) then
                      start3D = (/ 1, 1, k+1-istart, histset(ifile) /)
                      ierr = nf90_put_var ( ncid, vid, htemp, start=start3D, count=count3D )
                   else
@@ -2444,7 +2594,10 @@ contains
                   
                   end if
 
-                  if ( nlev > 1 .or. histinfo(ifld)%multilev ) then
+                  if ( histinfo(ifld)%pop4d ) then
+                     start4D = (/ 1, 1, mod(k+1-istart-1,cptch)+1, 1+(k+1-istart-1)/cptch,  histset(ifile) /)
+                     ierr = nf90_put_var ( ncid, vid, htemp, start=start4D, count=count4D )
+                  else if ( nlev > 1 .or. histinfo(ifld)%multilev ) then
                      start3D = (/ 1, 1, k+1-istart, histset(ifile) /)
                      ierr = nf90_put_var ( ncid, vid, htemp, start=start3D, count=count3D )
                   else

@@ -27,10 +27,13 @@ module gldata
    real, dimension(:,:,:), allocatable, save :: u, v, t, q, rh, ql, qf, qs, qg
    real, dimension(:,:,:), allocatable, save :: omega
    real, dimension(:),     allocatable, save :: sig, dsig, zsoil, zse, gosig
+   integer, dimension(:),   allocatable, save :: cable_patch, cable_cohort
    real, dimension(:,:,:), allocatable, save :: tgg
    real, allocatable, dimension(:,:,:) :: zstd
    real, allocatable, dimension(:,:,:) :: hstd
    real, allocatable, dimension(:,:,:) :: tmp3d
    real, allocatable, dimension(:,:,:) :: uo_tmp, vo_tmp, thetao_tmp, so_tmp
    real, allocatable, dimension(:,:,:) :: ocn_tmp
+   real, allocatable, dimension(:,:,:) :: cp_tmp
+   real, allocatable, dimension(:,:,:,:) :: cpc_tmp
 end module gldata

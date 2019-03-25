@@ -50,6 +50,7 @@ private
    integer, public, save :: vread_begin, vread_end
    integer, public, save :: paravar2a_begin, paravar2a_end
    integer, public, save :: paravar3a_begin, paravar3a_end
+   integer, public, save :: paravar4a_begin, paravar4a_end
    integer, public, save :: mpiscatter_begin, mpiscatter_end
    integer, public, save :: fillcc_begin, fillcc_end
    integer, public, save :: fillcc0_begin, fillcc0_end
@@ -64,7 +65,7 @@ private
 #ifdef simple_timer
    public :: simple_timer_finalize
 #endif
-   integer, parameter :: nevents = 25
+   integer, parameter :: nevents = 26
    real(kind=8), dimension(nevents), save :: tot_time = 0., start_time
    character(len=15), dimension(nevents), save :: event_name
 
@@ -175,47 +176,51 @@ contains
       paravar3a_end =  paravar3a_begin
       event_name(paravar3a_begin) = "Paravar3a"
 
-      mpiscatter_begin = 15
+      paravar4a_begin = 15
+      paravar4a_end =  paravar4a_begin
+      event_name(paravar4a_begin) = "Paravar4a"
+
+      mpiscatter_begin = 16
       mpiscatter_end =  mpiscatter_begin
       event_name(mpiscatter_begin) = "MPIScatter"
 
-      fillcc_begin = 16
+      fillcc_begin = 17
       fillcc_end =  fillcc_begin
       event_name(fillcc_begin) = "Fillcc"
 
-      fillcc0_begin = 17
+      fillcc0_begin = 18
       fillcc0_end =  fillcc0_begin
       event_name(fillcc0_begin) = "Fillcc0"
 
-      finalinit_begin = 18
+      finalinit_begin = 19
       finalinit_end =  finalinit_begin
       event_name(finalinit_begin) = "Finalinit"
 
-      mpibcast_begin = 19
+      mpibcast_begin = 20
       mpibcast_end =  mpibcast_begin
       event_name(mpibcast_begin) = "MPIBcast"
 
-      mpigather_begin = 20
+      mpigather_begin = 21
       mpigather_end =  mpigather_begin
       event_name(mpigather_begin) = "MPIGather"
 
-      gatherwrap_begin = 21
+      gatherwrap_begin = 22
       gatherwrap_end =  gatherwrap_begin
       event_name(gatherwrap_begin) = "Gatherwrap"
 
-      getdate_begin = 22
+      getdate_begin = 23
       getdate_end =  getdate_begin
       event_name(getdate_begin) = "Getdate"
 
-      writehistput_begin = 23
+      writehistput_begin = 24
       writehistput_end =  writehistput_begin
       event_name(writehistput_begin) = "WritehistPut"
 
-      gathervwrap_begin = 24
+      gathervwrap_begin = 25
       gathervwrap_end =  gathervwrap_begin
       event_name(gathervwrap_begin) = "Gathervwrap"
 
-      mpigatherv_begin = 25
+      mpigatherv_begin = 26
       mpigatherv_end =  mpigatherv_begin
       event_name(mpigatherv_begin) = "MPIGatherv"
 
