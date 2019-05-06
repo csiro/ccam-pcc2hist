@@ -191,6 +191,10 @@ contains
          else
             call sitop ( array, parray, sig, plevs(1:nplevs), psl, vextrap )
          end if
+         if ( name=="qlg" .or. name=="qfg" ) then
+            ! special fix 
+            parray = max( parray, 0. )
+         end if    
          call savehist ( name, parray )
       else if ( use_meters ) then
 !        sigma to meters conversion.
@@ -208,6 +212,10 @@ contains
             end if
          else
             call mitop ( array, parray, vextrap )
+         end if
+         if ( name=="qlg" .or. name=="qfg" ) then
+            ! special fix 
+            parray = max( parray, 0. )
          end if
          call savehist ( name, parray )
       else
