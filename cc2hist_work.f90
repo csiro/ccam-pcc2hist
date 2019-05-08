@@ -62,13 +62,13 @@ module work
 
    public :: initialise, fix_winds, final_init, check_cc2histfile
    public :: paraopen, paraclose, cc2hist_work_close
-   private :: need3dfld, fill_cc
+   private :: need3dfld, need4dfld, fill_cc
    interface fix_winds
       module procedure fix_winds2, fix_winds3
    end interface
 
    interface vread
-      module procedure vread2, vread3
+      module procedure vread2, vread3, vread4
    end interface
 
    interface match
@@ -81,7 +81,7 @@ module work
    end interface   
 
    type input_var
-      character(len=30) :: vname   ! Name used in input
+      character(len=60) :: vname   ! Name used in input
       ! Initialise these so they don't end up with trailing nulls.
       character(len=100) :: long_name=""
       character(len=20) :: units=""
@@ -94,19 +94,22 @@ module work
       logical :: vector ! Is it a vector component?
       logical :: xcmpnt ! Is it x-component of a vector?
       logical :: water  ! Is it a multi-level ocean variable
+      logical :: pop2d ! Is it a x-y POP dimensioned variable
+      logical :: pop3d ! Is it a x-y-cptch POP dimensioned variable
+      logical :: pop4d ! Is it a x-y-cptch-cchrt POP dimensioned variable
       integer :: othercmpnt ! Index of matching x or y component
    end type input_var
 
 contains
 
-   subroutine alloc_indata ( il, jl, kl, ol, ksoil, kice )
+   subroutine alloc_indata ( il, jl, kl, ol, cptch, cchrt, ksoil, kice )
 
 !     Allocates arrays for the variables that have to be stored rather than
 !     being immediately processed.
       use history, only : needfld
       use s2p_m
 
-      integer, intent(in) :: il, jl, kl, ol, ksoil, kice
+      integer, intent(in) :: il, jl, kl, ol, cptch, cchrt, ksoil, kice
       
       allocate ( psl(pil,pjl*pnpan*lproc),   zs(pil,pjl*pnpan*lproc) )
       allocate ( soilt(pil,pjl*pnpan*lproc), u(pil,pjl*pnpan*lproc,kl),  v(pil,pjl*pnpan*lproc,kl) )
@@ -132,6 +135,12 @@ contains
          allocate( uo_tmp(pil,pjl*pnpan*lproc,ol), vo_tmp(pil,pjl*pnpan*lproc,ol) )
          allocate( thetao_tmp(pil,pjl*pnpan*lproc,ol), so_tmp(pil,pjl*pnpan*lproc,ol) )
          allocate( ocn_tmp(pil,pjl*pnpan*lproc,ol) )
+      end if
+      if ( cptch > 0 ) then
+         allocate( cp_tmp(pil,pjl*pnpan*lproc,cptch) )
+      end if
+      if ( cptch > 0 .and. cchrt > 0 ) then
+         allocate( cpc_tmp(pil,pjl*pnpan*lproc,cptch,cchrt) )
       end if
 
    end subroutine alloc_indata
@@ -275,7 +284,7 @@ contains
       use physparams, only : grav, rdry, cp, pi
       use s2p_m
       use height_m
-      use newmpar_m, only : ol
+      use newmpar_m, only : ol, cptch, cchrt
       use sitop_m
       use logging_m
       use parm_m, only : rlong0, rlat0
@@ -286,7 +295,7 @@ contains
       integer :: k, ivar, ierr
       integer :: rad_day
       real, dimension(pil,pjl*pnpan*lproc) :: uten, udir, dtmp, ctmp, uastmp, vastmp
-      real, dimension(pil,pjl*pnpan*lproc) :: uten_stn, uastmp_stn, vastmp_stn
+      real, dimension(pil,pjl*pnpan*lproc) :: uten_stn, uastmp_stn, vastmp_stn      
       real, dimension(pil,pjl*pnpan*lproc) :: mrso, mrfso
       real, dimension(pil,pjl*pnpan*lproc) :: sndw, egave, dpsdt
       real, dimension(pil,pjl*pnpan*lproc) :: tauxtmp, tauytmp
@@ -307,7 +316,7 @@ contains
 
       call START_LOG(infile_begin)
       if ( first_in ) then
-         call alloc_indata ( ik, jk, kk, ol, ksoil, kice )
+         call alloc_indata ( ik, jk, kk, ol, cptch, cchrt, ksoil, kice )
       end if
       
       mrso = 0.  ! total soil moisture
@@ -663,7 +672,7 @@ contains
                call vread( "u10_stn", uten_stn )
                if ( needfld(varlist(ivar)%vname) ) then
                   call savehist( varlist(ivar)%vname, uten_stn )
-               end if  
+               end if  	       
             case ( "uas" )
                 call vread( "uas", uastmp )         ! only for high-frequency output
             case ( "uas_stn" )
@@ -938,6 +947,20 @@ contains
                if ( varlist(ivar)%water ) then
                   write(6,*) "ERROR: Not expecting ocean scalar ",trim(varlist(ivar)%vname)
                   stop
+               else if ( varlist(ivar)%pop3d ) then
+                  if ( need3dfld(varlist(ivar)%vname) ) then
+                     call vread(varlist(ivar)%vname,cp_tmp)
+                     if ( needfld(varlist(ivar)%vname) ) then
+                       call savehist(varlist(ivar)%vname, cp_tmp)
+                     end if
+                  end if   
+               else if ( varlist(ivar)%pop4d ) then
+                  if ( need4dfld(varlist(ivar)%vname) ) then
+                     call vread(varlist(ivar)%vname,cpc_tmp)
+                     if ( needfld(varlist(ivar)%vname) ) then
+                       call savehist(varlist(ivar)%vname, cpc_tmp)
+                     end if
+                  end if   
                else
                   call readsave3 (varlist(ivar)%vname)
                end if  
@@ -1158,7 +1181,7 @@ contains
       else        
           
          ! high-frequency output 
-         if ( (needfld("uas").and.kk<=1) .or.     &
+        if ( (needfld("uas").and.kk<=1) .or.     &
               (needfld("vas").and.kk<=1) .or.     &
               (needfld("u10").and.kk<=1) .or.     &
               (needfld("uas_stn").and.kk<=1) .or. &
@@ -1195,6 +1218,7 @@ contains
                call savehist( "d10", udir )
             end if
          end if
+
           
       end if       
       
@@ -1342,10 +1366,27 @@ contains
       case ( "wo" )
          needed = needfld("wo")
       case default
-         print*, "Error - unsupported argument for need3dfld", name
-         stop
+         if ( index(name,'_pop_grid_') /= 0 ) then 
+           needed = needfld(name)
+         else
+            print*, "Error - unsupported argument for need3dfld", name
+            stop
+         end if
       end select
    end function need3dfld
+
+   function need4dfld(name) result ( needed )
+      use history, only : needfld
+      character(len=*), intent(in) :: name
+      logical :: needed
+
+      if ( index(name,'_pop_grid_') /= 0 ) then 
+        needed = needfld(name)
+      else
+         print*, "Error - unsupported argument for need4dfld", name
+         stop
+      end if
+   end function need4dfld
 
    subroutine vread2(name, var, required, vread_err)
 
@@ -1391,6 +1432,22 @@ contains
       call END_LOG(vread_end)
 
    end subroutine vread3
+   
+   subroutine vread4(name, var)
+      use logging_m
+      
+      ! Routine to read a variable from either a fortran binary or netcdf file. 
+      character(len=*), intent(in) :: name
+      real, dimension(:,:,:,:), intent(out) :: var
+      integer :: pkl, pll
+
+      call START_LOG(vread_begin)
+      pkl = size(var,3)
+      pll = size(var,4)
+      call paravar4a(name,var,nrec,pkl,pll)
+      call END_LOG(vread_end)
+
+   end subroutine vread4
    
    subroutine readsave2 ( name, save_flag, input_name, required )
 !     Read an array from the input file and call savehist
@@ -1546,6 +1603,29 @@ contains
          else
             ol = 0 
          end if    
+         ierr = nf90_inq_dimid(ncid, "cable_patch", dimid )
+         if ( ierr==nf90_noerr ) then
+            ierr = nf90_inquire_dimension ( ncid, dimid, len=cptch )
+            call check_ncerr(ierr, "Error getting number of cable patches")
+         else
+            cptch = 0 
+         end if    
+         ierr = nf90_inq_dimid(ncid, "cable_cohort", dimid )
+         if ( ierr==nf90_noerr ) then
+            ierr = nf90_inquire_dimension ( ncid, dimid, len=cchrt )
+            call check_ncerr(ierr, "Error getting number of cable cohorts")
+         else
+            cchrt = 0 
+         end if    
+         if ( (cptch == 0 .and. cchrt > 0) ) then
+            print*, "Error - cable_patch cannot be zero when cable_cohort is greater than zero"
+            stop
+         end if
+         !pr - this check is probably not required
+         if ( (cptch > 0 .and. cchrt == 0) ) then
+            print*, "Error - cable_cohort cannot be zero when cable_patch is greater than zero"
+            stop
+         end if
       else
          ! older int_header method
          ! Get integer and real headers from attibutes. First check the 
@@ -1564,6 +1644,8 @@ contains
          jl = int_header(2)
          kl = int_header(3)
          ol = 0
+         cptch = 0
+         cchrt = 0
          ndt = int_header(14)
          ms = int_header(34)
          ntrac = int_header(43)
@@ -1689,6 +1771,22 @@ contains
       do k = 3,ksoil
         zse(k) = 2.*(zsoil(k)-sum(zse(1:k-1)))  
       end do
+
+      if ( cptch > 0 ) then
+         allocate( cable_patch(cptch) ) 
+         ierr = nf90_inq_varid (ncid, "cable_patch", vid )
+         call check_ncerr(ierr, "Error getting vid for cable_patch")
+         ierr = nf90_get_var ( ncid, vid, cable_patch )
+         call check_ncerr(ierr, "Error getting cable_patch")
+      end if
+
+      if ( cchrt > 0 ) then
+         allocate( cable_cohort(cchrt) ) 
+         ierr = nf90_inq_varid (ncid, "cable_cohort", vid )
+         call check_ncerr(ierr, "Error getting vid for cable_cohort")
+         ierr = nf90_get_var ( ncid, vid, cable_cohort )
+         call check_ncerr(ierr, "Error getting cable_cohort")
+      end if
 
 !     Set all the resolution parameters
       npanels = jl/il - 1
@@ -2020,17 +2118,18 @@ contains
       ! Get a list of the variables in the input file
       use history, only : addfld, int_default, cf_compliant, cordex_compliant
       use interp_m, only : int_nearest, int_none, int_tapm
-      use newmpar_m, only : ol
+      use newmpar_m, only : ol, cptch, cchrt
       use physparams, only : grav, rdry
       use s2p_m, only: use_plevs, plevs, use_meters, mlevs
       type(input_var), dimension(:), pointer, contiguous :: varlist
       integer, intent(out) :: nvars
       integer :: ierr, ndimensions, nvariables, ndims, ivar, int_type, xtype
       integer :: londim, latdim, levdim, olevdim, procdim, timedim, vid, ihr, ind
+      integer :: cptchdim, cchrtdim, tn_type
       integer, dimension(nf90_max_var_dims) :: dimids
       logical :: procformat, ran_type
       character(len=10) :: substr
-      character(len=30) :: vname
+      character(len=60) :: vname
       character(len=100) :: long_name, tmpname, valid_att, std_name, cell_methods
       ! Perhaps should read these from the input?
       integer, parameter :: vmin=-32500, vmax=32500
@@ -2053,6 +2152,10 @@ contains
       call check_ncerr(ierr,"Error getting levid")
       ierr = nf90_inq_dimid(ncid, "olev", olevdim)
       if ( ierr/=nf90_noerr ) olevdim = -1
+      ierr = nf90_inq_dimid(ncid, "cable_patch", cptchdim)
+      if ( ierr/=nf90_noerr ) cptchdim = -1
+      ierr = nf90_inq_dimid(ncid, "cable_cohort", cchrtdim)
+      if ( ierr/=nf90_noerr ) cchrtdim = -1
       ierr = nf90_inq_dimid(ncid, "processor", procdim) ! only for procformat      
       procformat = (ierr==nf90_noerr)
       ierr = nf90_inq_dimid(ncid, "time", timedim)
@@ -2084,14 +2187,37 @@ contains
             !end if
          !end if
 !         print*, ivar, vname, ndims, dimids(1:ndims)
-         if ( ndims == 5 .and. procformat ) then   
+         if ( ndims == 6 .and. procformat ) then   
             ! Should be lon, lat, lev, proc, time
-            call check_ncerr(ierr,"Error getting processorid")
+            if ( match ( dimids(1:ndims), (/ londim, latdim, cptchdim, cchrtdim, procdim, timedim /) ) ) then
+               nvars = nvars + 1
+               varlist(nvars)%fixed = .false.
+               varlist(nvars)%ndims = 4
+            else
+               print*, "Error, unexpected dimensions in input variable", vname
+               stop
+            end if
+         else if ( ndims == 5 .and. .not.procformat ) then   
+            ! Should be lon, lat, lev, time
+            if ( match ( dimids(1:ndims), (/ londim, latdim, cptchdim, cchrtdim, timedim /) ) ) then
+               nvars = nvars + 1
+               varlist(nvars)%fixed = .false.
+               varlist(nvars)%ndims = 4
+            else
+                      print*, "Error, unexpected dimensions in input variable", vname
+                      stop
+            end if
+         else if ( ndims == 5 .and. procformat ) then   
+            ! Should be lon, lat, lev, proc, time
             if ( match ( dimids(1:ndims), (/ londim, latdim, levdim, procdim, timedim /) ) ) then
                nvars = nvars + 1
                varlist(nvars)%fixed = .false.
                varlist(nvars)%ndims = 3  ! Space only
             else if ( match ( dimids(1:ndims), (/ londim, latdim, olevdim, procdim, timedim /) ) ) then
+               nvars = nvars + 1
+               varlist(nvars)%fixed = .false.
+               varlist(nvars)%ndims = 3
+            else if ( match ( dimids(1:ndims), (/ londim, latdim, cptchdim, procdim, timedim /) ) ) then
                nvars = nvars + 1
                varlist(nvars)%fixed = .false.
                varlist(nvars)%ndims = 3
@@ -2106,6 +2232,10 @@ contains
                varlist(nvars)%fixed = .false.
                varlist(nvars)%ndims = 3  ! Space only
             else if ( match ( dimids(1:ndims), (/ londim, latdim, olevdim, timedim /) ) ) then
+               nvars = nvars + 1
+               varlist(nvars)%fixed = .false.
+               varlist(nvars)%ndims = 3
+            else if ( match ( dimids(1:ndims), (/ londim, latdim, cptchdim, timedim /) ) ) then
                nvars = nvars + 1
                varlist(nvars)%fixed = .false.
                varlist(nvars)%ndims = 3
@@ -2290,6 +2420,30 @@ contains
       end do   
       
       do ivar = 1,nvars
+         if ( varlist(ivar)%vname(3:12) == "_pop_grid_" ) then
+            if ( varlist(ivar)%ndims == 2 ) then    
+               varlist(ivar)%pop2d = .true. 
+            else 
+               varlist(ivar)%pop2d = .false. 
+            end if
+            if ( varlist(ivar)%ndims == 3 ) then    
+               varlist(ivar)%pop3d = .true. 
+            else 
+               varlist(ivar)%pop3d = .false. 
+            end if
+            if ( varlist(ivar)%ndims == 4 ) then    
+               varlist(ivar)%pop4d = .true. 
+            else 
+               varlist(ivar)%pop4d = .false. 
+            end if
+         else
+            varlist(ivar)%pop2d = .false.
+            varlist(ivar)%pop3d = .false.
+            varlist(ivar)%pop4d = .false.
+         end if
+      end do   
+      
+      do ivar = 1,nvars
          xmin = varlist(ivar)%add_offset + varlist(ivar)%scale_factor*vmin
          xmax = varlist(ivar)%add_offset + varlist(ivar)%scale_factor*vmax
          ! As a check re-calc offset, scalef
@@ -2348,6 +2502,9 @@ contains
                   "climate_min20       ", "climate_max20       ", "climate_alpha20     ", "climate_agdd5       ", &
                   "climate_gmd         ", "climate_dmoist_min20", "climate_dmoist_max20" /)) .and. int_default /= int_none ) then
             int_type = int_nearest
+         else if ( match ( varlist(ivar)%vname, (/ "t?_pop_grid_patch_id              ", "t?_pop_grid_patch_layer1_cohort_id" /)) &
+                   .and. int_default /= int_none ) then
+            int_type = int_nearest
          else
             int_type = int_default
          end if
@@ -2361,6 +2518,18 @@ contains
             ran_type = .true.
          else
             ran_type = .false.
+         end if
+         tn_type = 0
+         if ( index(varlist(ivar)%vname,'t1_pop_grid_') /= 0 ) then 
+            tn_type = 1
+         else if ( index(varlist(ivar)%vname,'t2_pop_grid_') /= 0 ) then 
+            tn_type = 2
+         else if ( index(varlist(ivar)%vname,'t3_pop_grid_') /= 0 ) then 
+            tn_type = 4
+         else if ( index(varlist(ivar)%vname,'t4_pop_grid_') /= 0 ) then 
+            tn_type = 8
+         else if ( index(varlist(ivar)%vname,'t5_pop_grid_') /= 0 ) then 
+            tn_type = 16
          end if
          if ( varlist(ivar)%vname == "pmsl" ) then
             varlist(ivar)%vname = "psl"
@@ -2548,7 +2717,8 @@ contains
                call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name,   &
                       varlist(ivar)%units, xmin, xmax, 1, std_name=std_name, &
                       coord_height=coord_height, cell_methods=cell_methods,  & 
-                      int_type=int_type, ran_type=ran_type )
+                      int_type=int_type, ran_type=ran_type,                  &
+                      pop2d=varlist(ivar)%pop2d, tn_type=tn_type )
             end if
          else if ( varlist(ivar)%ndims == 3 ) then  
             if ( varlist(ivar)%water ) then
@@ -2557,12 +2727,26 @@ contains
                         std_name=std_name, water=varlist(ivar)%water,            &
                         cell_methods=cell_methods, int_type=int_type,            &
                         ran_type=ran_type )
+            else if ( varlist(ivar)%pop3d ) then
+              call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name,        &
+                        varlist(ivar)%units, xmin, xmax, cptch, multilev=.true., &
+                        std_name=std_name, pop3d=varlist(ivar)%pop3d,            &
+                        cell_methods=cell_methods, int_type=int_type,            &
+                        ran_type=ran_type, tn_type=tn_type )
             else
               call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name,       &
                         varlist(ivar)%units, xmin, xmax, nlev, multilev=.true., &
                         std_name=std_name, cell_methods=cell_methods,           &
                         int_type=int_type, ran_type=ran_type )
             end if  
+         else if ( varlist(ivar)%ndims == 4 ) then  
+            if ( varlist(ivar)%pop4d ) then
+              call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name,              &
+                        varlist(ivar)%units, xmin, xmax, cptch*cchrt, multilev=.true., &
+                        std_name=std_name, pop4d=varlist(ivar)%pop4d,                  &
+                        cell_methods=cell_methods, int_type=int_type,                  &
+                        ran_type=ran_type, tn_type=tn_type )
+            end if
          end if
       end do
 
@@ -2614,11 +2798,11 @@ contains
                           std_name="atmosphere_water_vapor_content", ran_type=.true. )           
          end if
          call addfld ( "rlus", "Upwelling Longwave radiation", "W/m2", -1000., 1000., 1 )
-         call addfld ( "rsus", "Upwelling Shortwave radiation", "W/m2", -1000., 1000., 1 )
+         call addfld ( "rsus", "Upwelling Shortwave radiation", "W/m2", -1000., 1000., 1 ) 
          call addfld ( "uas", "x-component 10m wind", "m/s", -100.0, 100.0, 1, ran_type=.true. )
          call addfld ( "vas", "y-component 10m wind", "m/s", -100.0, 100.0, 1, ran_type=.true. )
          call addfld ( "uas_stn", "x-component 10m wind", "m/s", -100.0, 100.0, 1, ran_type=.false. )
-         call addfld ( "vas_stn", "y-component 10m wind", "m/s", -100.0, 100.0, 1, ran_type=.false. )
+         call addfld ( "vas_stn", "y-component 10m wind", "m/s", -100.0, 100.0, 1, ran_type=.false. )	 
          ! Packing is not going to work well in this case
          ! For height, estimate the height of the top level and use that
          ! for scaling
@@ -2880,7 +3064,7 @@ contains
       type(input_var), intent(in) :: vinfo
       character(len=80), intent(out) :: stdname
       character(len=80), intent(out) :: cell_methods
-      character(len=30) :: vname
+      character(len=60) :: vname
 
       ! Some fields like rnd03 can't really be made CF compliant. Their time
       ! bounds don't match those of the overall file properly.
@@ -3651,6 +3835,53 @@ contains
       call END_LOG(paravar3a_end)
    
    end subroutine paravar3a
+
+   subroutine paravar4a(name,var,nrec,pkl,pll)
+      use s2p_m, only : minlev, maxlev
+      use logging_m
+      integer, intent(in) :: nrec, pkl, pll
+      integer ip, n, vid, ierr, vartyp, k
+      real, dimension(:,:,:,:), intent(out) :: var
+      real, dimension(pil,pjl*pnpan,pkl,pll) :: inarray4
+      real addoff, sf
+      character(len=*), intent(in) :: name
+
+      call START_LOG(paravar4a_begin)
+
+      do ip = 0,lproc-1
+
+         ierr = nf90_inq_varid ( ncid_in(ip), name, vid )
+         call check_ncerr(ierr, "Error getting vid for "//name)
+
+         if ( resprocformat ) then
+            ierr = nf90_get_var ( ncid_in(ip), vid, inarray4, start=(/ 1, 1, 1, 1, prid_in(ip), nrec /), &
+                                  count=(/ pil, pjl*pnpan, pkl, pll, 1, 1 /) )
+         else
+            ierr = nf90_get_var ( ncid_in(ip), vid, inarray4, start=(/ 1, 1, 1, 1, nrec /), &
+                                  count=(/ pil, pjl*pnpan, pkl, pll, 1 /) )
+         end if
+         call check_ncerr(ierr, "Error getting var "//name)
+      
+         ierr = nf90_inquire_variable ( ncid_in(ip), vid, xtype=vartyp )
+         if ( vartyp == NF90_SHORT ) then
+            if ( all( inarray4 == -32501. ) ) then
+               inarray4 = NF90_FILL_FLOAT
+            else
+               ierr = nf90_get_att ( ncid_in(ip), vid, "add_offset", addoff )
+               call check_ncerr(ierr, "Error getting add_offset attribute")
+               ierr = nf90_get_att ( ncid_in(ip), vid, "scale_factor", sf )
+               call check_ncerr (ierr,"Error getting scale_factor attribute")                
+               inarray4 = addoff + inarray4*sf
+            end if
+         end if
+      
+         var(:,1+ip*pjl*pnpan:(ip+1)*pjl*pnpan,:,:) = inarray4(:,:,:,:)
+         
+      end do
+      
+      call END_LOG(paravar4a_end)
+   
+   end subroutine paravar4a
 
    subroutine proc_setup(il_g,jl_g,nproc,nin,il,jl,ioff,joff,npan)
       integer, intent(in) :: il_g, jl_g, nproc, nin
