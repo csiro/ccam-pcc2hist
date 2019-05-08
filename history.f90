@@ -2502,6 +2502,14 @@ contains
          end if
          deallocate(k_indx)
 #else
+         if ( myid == 0 ) then
+            allocate( hist_g(nx_g,ny_g) )
+            allocate( hist_a(pil,pjl*pnpan,1,pnproc) )
+         else
+            allocate( hist_g(0,0) )
+            allocate( hist_a(0,0,0,0) )
+         end if
+
          do ifld = 1,totflds
             if ( .not. histinfo(ifld)%used(ifile) ) then
                cycle
@@ -2539,11 +2547,10 @@ contains
             end if
             
             if ( myid == 0 ) then
-               allocate( hist_a(pil,pjl*pnpan,nlev,pnproc) )
-               allocate( hist_g(nx_g,ny_g) )
-            else
-               allocate( hist_a(0,0,0,0) )
-               allocate( hist_g(0,0) )
+               if ( size(hist_a,3)/=nlev ) then
+                  deallocate(hist_a)
+                  allocate( hist_a(pil,pjl*pnpan,nlev,pnproc) )
+               end if   
             end if    
 
             call gather_wrap(histarray(:,:,istart:iend),hist_a)
@@ -2608,15 +2615,15 @@ contains
                end do   ! k loop
                
             end if ! myid == 0
-
-            deallocate( hist_a, hist_g )
-            
+           
 !           Zero ready for next set
             histarray(:,:,istart:iend) = initval(ave_type)
 !           Reset the count variable
             histinfo(ifld)%count(ifile) = 0
 
          end do ! Loop over fields
+         
+         deallocate( hist_a, hist_g )
 #endif
 
          avetime(ifile) = 0.0
