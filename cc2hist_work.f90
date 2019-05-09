@@ -131,11 +131,13 @@ contains
       if ( use_meters ) then
          allocate( hstd(pil,pjl*pnpan*lproc,kl) )
       end if
+      ! ocean arrays
       if ( ol > 0 ) then
          allocate( uo_tmp(pil,pjl*pnpan*lproc,ol), vo_tmp(pil,pjl*pnpan*lproc,ol) )
          allocate( thetao_tmp(pil,pjl*pnpan*lproc,ol), so_tmp(pil,pjl*pnpan*lproc,ol) )
          allocate( ocn_tmp(pil,pjl*pnpan*lproc,ol) )
       end if
+      ! POP arrays
       if ( cptch > 0 ) then
          allocate( cp_tmp(pil,pjl*pnpan*lproc,cptch) )
       end if
@@ -204,18 +206,6 @@ contains
       end if
       kdate = yyyy*10000 + mm*100 + dd
       ktime = hh*100 + mt
-      !! Get vid and then values for kdate, ktime, ktau
-      !ierr = nf90_inq_varid (ncid, "kdate", vid )
-      !call check_ncerr(ierr, "Error getting kdate id")
-      !ierr = nf90_get_var ( ncid, vid, kdate, start=(/ nrec /) )
-      !call check_ncerr(ierr, "Error getting kdate")
-      !ierr = nf90_inq_varid (ncid, "ktime", vid )
-      !call check_ncerr(ierr, "Error getting ktime id")
-      !ierr = nf90_get_var ( ncid, vid, ktime, start=(/ nrec /) )
-      !call check_ncerr(ierr, "Error getting ktime")
-      ! Get ktau from time. Really should be renamed
-      !ierr = nf90_inq_varid (ncid, "time", vid )
-      !call check_ncerr(ierr, "Error getting time id")
       ierr = nf90_get_var ( ncid, vid, ktau, start=(/ nrec /) )
       call check_ncerr(ierr, "Error getting time")
       ieof = 0
@@ -294,7 +284,8 @@ contains
       logical, intent(in)  :: skip
       integer :: k, ivar, ierr
       integer :: rad_day
-      real, dimension(pil,pjl*pnpan*lproc) :: uten, udir, dtmp, ctmp, uastmp, vastmp
+      real, dimension(pil,pjl*pnpan*lproc) :: udir, dtmp, ctmp
+      real, dimension(pil,pjl*pnpan*lproc) :: uten, uastmp, vastmp
       real, dimension(pil,pjl*pnpan*lproc) :: uten_stn, uastmp_stn, vastmp_stn      
       real, dimension(pil,pjl*pnpan*lproc) :: mrso, mrfso
       real, dimension(pil,pjl*pnpan*lproc) :: sndw, egave, dpsdt
@@ -668,7 +659,7 @@ contains
                if ( needfld(varlist(ivar)%vname) ) then
                   call savehist( varlist(ivar)%vname, uten )
                end if   
-            case ( "u10_stn", "sfcWind_stn" )
+            case ( "u10_stn" )
                call vread( "u10_stn", uten_stn )
                if ( needfld(varlist(ivar)%vname) ) then
                   call savehist( varlist(ivar)%vname, uten_stn )
@@ -1137,7 +1128,7 @@ contains
                call savehist ( "vbot", v(:,:,1) )
             end if   
             wind_norm(:,:) = sqrt(u(:,:,1)**2+v(:,:,1)**2)
-            if ( needfld("uas") .and. kk>1 ) then
+            if ( needfld("uas") ) then
                where ( wind_norm > 0. )
                   dtmp = u(:,:,1)*uten/wind_norm
                elsewhere
@@ -1145,7 +1136,7 @@ contains
                end where    
                call savehist ( "uas", dtmp )    
             end if    
-            if ( needfld("vas") .and. kk>1 ) then
+            if ( needfld("vas") ) then
                where ( wind_norm > 0. )
                   dtmp = v(:,:,1)*uten/wind_norm
                elsewhere
@@ -1153,7 +1144,7 @@ contains
                end where    
                call savehist ( "vas", dtmp )    
             end if
-            if ( needfld("uas_stn") .and. kk>1 ) then
+            if ( needfld("uas_stn") ) then
                where ( wind_norm > 0. )
                   dtmp = u(:,:,1)*uten_stn/wind_norm
                elsewhere
@@ -1161,7 +1152,7 @@ contains
                end where    
                call savehist ( "uas_stn", dtmp )    
             end if    
-            if ( needfld("vas_stn") .and. kk>1 ) then
+            if ( needfld("vas_stn") ) then
                where ( wind_norm > 0. )
                   dtmp = v(:,:,1)*uten_stn/wind_norm
                elsewhere
@@ -1169,7 +1160,7 @@ contains
                end where    
                call savehist ( "vas_stn", dtmp )    
             end if
-            if ( needfld("d10") .and. kk>1 ) then
+            if ( needfld("d10") ) then
                udir = atan2(-u(:,:,1),-v(:,:,1))*180./3.1415927
                where ( udir < 0. )
                   udir = udir + 360.
@@ -1181,13 +1172,10 @@ contains
       else        
           
          ! high-frequency output 
-        if ( (needfld("uas").and.kk<=1) .or.     &
-              (needfld("vas").and.kk<=1) .or.     &
-              (needfld("u10").and.kk<=1) .or.     &
-              (needfld("uas_stn").and.kk<=1) .or. &
-              (needfld("vas_stn").and.kk<=1) .or. &
-              (needfld("u10_stn").and.kk<=1) .or. &             
-              (needfld("d10").and.kk<=1) ) then
+        if ( needfld("uas")     .or. needfld("vas")     .or. &
+             needfld("u10")     .or. needfld("d10")     .or. &
+             needfld("uas_stn") .or. needfld("vas_stn") .or. &
+             needfld("u10_stn") ) then
             call fix_winds( uastmp, vastmp )
             if ( needfld("uas") ) then
                call savehist( "uas", uastmp )
@@ -1326,18 +1314,13 @@ contains
                   needfld("pwc") .or. needfld("qbot") .or.                  &
                   needfld("vaveuq") .or. needfld("vaveuq") .or.             &
                   needfld("prw")
-      case ( "u", "v" )
+      case ( "u", "v", "ua", "va" )
          needed = needfld("u") .or. needfld("v") .or. needfld("vaveuq") .or. &
                   needfld("vavevq") .or. needfld("vaveut") .or.              &
                   needfld("vavevt") .or. needfld("vbot") .or.                &
                   needfld("ubot")   .or. needfld("d10") .or.                 &
                   needfld("uas")    .or. needfld("vas") .or.                 &
                   needfld("uas_stn") .or. needfld("vas_stn")
-      case ( "ua", "va" )
-         needed = needfld("ua") .or. needfld("va") .or. needfld("vaveuq") .or. &
-                  needfld("vavevq") .or. needfld("vaveut") .or.                &
-                  needfld("vavevt") .or. needfld("vbot") .or.                  &
-                  needfld("ubot")
      case ( "qlg" )
          needed = needfld("qlg") .or. needfld("rh")
       case ( "qfg" )
