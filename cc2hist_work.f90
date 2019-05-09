@@ -125,9 +125,7 @@ contains
             allocate ( zstd(pil,pjl*pnpan*lproc,kl) )
          end if
       end if
-      if ( needfld("press") .or. needfld("theta") .or. needfld("rh") .or. needfld("w") .or. needfld('td') ) then
-        allocate( tmp3d(pil,pjl*pnpan*lproc,kl) )
-      end if
+      allocate( tmp3d(pil,pjl*pnpan*lproc,kl) )
       if ( use_meters ) then
          allocate( hstd(pil,pjl*pnpan*lproc,kl) )
       end if
@@ -749,7 +747,16 @@ contains
                      q = max( q, 1.e-20 )
                   end if
                   if ( needfld(varlist(ivar)%vname) ) then
-                     call vsavehist ( varlist(ivar)%vname, q )
+                     if ( varlist(ivar)%vname == "hus" ) then
+                        where ( q /= nf90_fill_float ) 
+                           tmp3d = q/(1.+q)
+                        elsewhere
+                           tmp3d = nf90_fill_float 
+                        end where    
+                        call vsavehist ( varlist(ivar)%vname, tmp3d )
+                     else
+                        call vsavehist ( varlist(ivar)%vname, q ) 
+                     end if    
                   end if   
                end if
             case ( "kmo" )
