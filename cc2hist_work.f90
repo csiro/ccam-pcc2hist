@@ -1725,6 +1725,7 @@ contains
 
 !     Have to read sig here because it's required for openhist.
       allocate ( sig(kl), dsig(kl), zsoil(ksoil), zse(ksoil) )
+      allocate ( gosig(ol) )
 
       if ( kl > 1 ) then
          ! Get sigma levels from level variable
@@ -1737,11 +1738,12 @@ contains
       end if
       call sig2ds(sig, dsig)
       if ( ol > 0 ) then
-         allocate( gosig(ol) ) 
          ierr = nf90_inq_varid (ncid, "olev", vid )
          call check_ncerr(ierr, "Error getting vid for olev")
          ierr = nf90_get_var ( ncid, vid, gosig )
          call check_ncerr(ierr, "Error getting ocean levels")
+      else
+         gosig = 1.0 
       end if
       ! Note that some initial condition files don't have zsoil
       !if ( cf_compliant ) then
@@ -2194,8 +2196,8 @@ contains
                varlist(nvars)%fixed = .false.
                varlist(nvars)%ndims = 4
             else
-                      print*, "Error, unexpected dimensions in input variable", vname
-                      stop
+               print*, "Error, unexpected dimensions in input variable", vname
+               stop
             end if
          else if ( ndims == 5 .and. procformat ) then   
             ! Should be lon, lat, lev, proc, time

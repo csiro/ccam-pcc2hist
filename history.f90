@@ -60,9 +60,6 @@
 ! This would be useful for 3D winds in the model which are available globally
 ! from the sL arrays.
 
-! Individual variables could have double row option via addfld if that was
-! useful. Could be if anything was saved from the dynamics.
-
 ! At the moment it will reuse existing monthly mean files. This could be
 ! incorrect if hbytes changes? Does it use the value in the file and does
 ! the writing check for this properly?
@@ -127,8 +124,8 @@ module history
 
 !  Private internal routines
    private :: bindex_hname, initval, sortlist, create_ncvar,            &
-              create_ncfile, oldwrite, savehist2D,                      &
-              savehist3D, hashkey, qindex_hname, savehist_work,         &
+              create_ncfile,                                            &
+              hashkey, qindex_hname, savehist_work,                     &
               gsavehist2D, gsavehist3D, gsavehist4D
    !private :: create_oldfile
 
@@ -152,21 +149,12 @@ module history
 !  Note that this hasn't yet been implemented.
    logical, public, save :: amipnames = .false.
 
-!  Flag for use of double row variables in savehist calls.
-   logical, private, save :: double = .false.
-
 !  Maximum length of names of history variables
    integer, parameter :: MAX_NAMELEN = 60
 
 !  Maximum length of string used for key generation. Names must be unique
 !  within this length.
    integer, parameter :: MAX_KEYLEN = 10
-
-!  Maximum number of history files
-   integer, parameter :: MAX_HFILES = 1
-!  Actual number of history files used
-!  Set huge value as a trap if openhist not called.
-   integer, save :: nhfiles=-huge(1)
 
 !  Maximum number of fields allowed
 !  Note that this maximum is only used for dimensioning header arrays.
@@ -176,7 +164,7 @@ module history
    integer, parameter :: nfmax = 1000
 
 !  Initialise hnames so that set_hnames can find the end of the list to append.
-   character(len=MAX_NAMELEN), dimension(nfmax,MAX_HFILES), save ::  &
+   character(len=MAX_NAMELEN), dimension(nfmax), save ::  &
          hnames = "", xnames = ""
 
 !  Integer array of keys corresponding to hnames to make searching faster.
@@ -185,18 +173,18 @@ module history
 
 !  Frequency of writing history files. This may be in either steps or minutes
 !  depending on the argument of the calling routine. 
-   integer, dimension(MAX_HFILES), save :: hfreq = 0
+   integer, save :: hfreq = 0
 
 !  Number of bytes to use for history variables
-   integer, dimension(MAX_HFILES), save :: hbytes = 4
+   integer, save :: hbytes = 4
 
 !  Default averaging type for file
-   integer, dimension(MAX_HFILES), save :: ihtype
+   integer, save :: ihtype
 
 !  Average time appropriate for time averaged files
-   real, dimension(MAX_HFILES), save :: avetime
-   real, dimension(2,MAX_HFILES), save :: avetime_bnds
-   integer, dimension(MAX_HFILES), save :: timecount
+   real, save :: avetime
+   real, dimension(2), save :: avetime_bnds
+   integer, save :: timecount
 
 !  To allow old format files to be written in another directory
    character(len=200), save :: oldprefix
@@ -219,13 +207,13 @@ module history
       integer            :: tn
 !     Scale factor for output, e.g. to convert rain from mm/step to mm/day.
       real               :: output_scale 
-      logical, dimension(MAX_HFILES) :: used
-      integer, dimension(MAX_HFILES) :: vid  ! netCDF variable identifier
-      integer, dimension(MAX_HFILES) :: ptr  ! Pointer to position in histarray
-      integer, dimension(MAX_HFILES) :: count      ! Used for scaling
-      integer, dimension(MAX_HFILES) :: ave_type   ! Type of averaging
-      real, dimension(MAX_HFILES)    :: addoff
-      real, dimension(MAX_HFILES)    :: scalef
+      logical            :: used
+      integer            :: vid  ! netCDF variable identifier
+      integer            :: ptr  ! Pointer to position in histarray
+      integer            :: count      ! Used for scaling
+      integer            :: ave_type   ! Type of averaging
+      real               :: addoff
+      real               :: scalef
       integer                        :: int_type   ! Type of interpolation
 !     Flag to force variable to be handled as multi-level even if nlevels=1.
       logical                        :: multilev
@@ -280,16 +268,16 @@ module history
 
    type (hinfo), dimension(nfmax) :: histinfo 
 !  Number of history records written
-   integer, dimension(MAX_HFILES) :: histset
+   integer :: histset
 
 !   netCDF file ID of history file
-   integer, dimension(MAX_HFILES) :: histid      
+   integer :: histid      
 
 !  Total number of fields defined (not necessarily used).
    integer, save :: totflds = 0
 
    interface savehist
-      module procedure savehist2D, savehist3D, gsavehist2D, gsavehist3D, gsavehist4D
+      module procedure gsavehist2D, gsavehist3D, gsavehist4D
    end interface
     
 !  Define parameters to identify the processing of history data: ave, max, min
@@ -371,10 +359,10 @@ contains
       integer, intent(in) :: un      ! Unit no to read namelist
 !     Controls whether errors in reading the namelist should be fatal.
       logical, intent(in), optional :: iofatal 
-      character(len=MAX_NAMELEN), dimension(MAX_HFILES) :: htype
-      integer, dimension(MAX_HFILES) :: freq
-      integer, dimension(MAX_HFILES) :: bytes
-      character(len=MAX_NAMELEN), dimension(nfmax,MAX_HFILES) ::  &
+      character(len=MAX_NAMELEN) :: htype
+      integer :: freq
+      integer :: bytes
+      character(len=MAX_NAMELEN), dimension(nfmax) ::  &
          names, namesx
 
       namelist / histnl / &
@@ -420,69 +408,54 @@ contains
          end if
       end if
 
-      do j=1,size(htype)
-         select case (htype(j))
-         case ("ave")
-            ihtype(j) = hist_ave
-         !case ("oave")
-         !   ihtype(j) = hist_oave
-         case ("max")
-            ihtype(j) = hist_max
-         case ("min")
-            ihtype(j) = hist_min
-         case ("inst")
-            ihtype(j) = hist_inst
-         case ("fixed")
-            ihtype(j) = hist_fixed
-         case ("")
-            ihtype(j) = hist_ave
-         case default
-            print*, " Error: average type set incorrectly in namelist ", &
-                    trim(htype(j))
-            stop
-         end select
-      end do
+      select case (htype)
+      case ("ave")
+         ihtype = hist_ave
+      case ("max")
+         ihtype = hist_max
+      case ("min")
+         ihtype = hist_min
+      case ("inst")
+         ihtype = hist_inst
+      case ("fixed")
+         ihtype = hist_fixed
+      case ("")
+         ihtype = hist_ave
+      case default
+         print*, " Error: average type set incorrectly in namelist ", &
+                 trim(htype)
+         stop
+      end select
 
       if ( hist_debug > 0 ) then
-         do j=1,MAX_HFILES
-            do i=1,nfmax
-               if ( len_trim(hnames(i,j)) /= 0 ) then
-                  write(*,"(2i3,1x,a)") i, j, hnames(i,j)
-               else
-                  exit
-               end if
-            end do
+         do i=1,nfmax
+            if ( len_trim(hnames(i)) /= 0 ) then
+               write(*,"(i3,1x,a)") i, hnames(i)
+            else
+               exit
+            end if
          end do
       end if
 
    end subroutine histnamelist
 
-   subroutine set_htype ( htype, ifile )
+   subroutine set_htype ( htype )
 !     Routine to allow setting htype directly without namelist.
       character(len=*), intent(in) :: htype
-      integer, intent(in), optional :: ifile
-      integer :: j
 
-      if ( present(ifile) ) then 
-         j = ifile
-      else
-         j = 1
-      end if
       select case (htype)
       case ("ave")
-         ihtype(j) = hist_ave
-      !case ("oave")
-      !   ihtype(j) = hist_oave
+         ihtype = hist_ave
       case ("max")
-         ihtype(j) = hist_max
+         ihtype = hist_max
       case ("min")
-         ihtype(j) = hist_min
+         ihtype = hist_min
       case ("inst")
-         ihtype(j) = hist_inst
+         ihtype = hist_inst
       case ("fixed")
-         ihtype(j) = hist_fixed
+         ihtype = hist_fixed
       case ("")
-         ihtype(j) = hist_ave
+         ihtype = hist_ave
       case default
          print*, " Error: average type set incorrectly in set_htype ", &
               trim(htype)
@@ -492,24 +465,17 @@ contains
    end subroutine set_htype
    
 
-   subroutine set_hnames ( name, ifile )
+   subroutine set_hnames ( name )
 !     Routine to allow adding a variable to hnames list directly without 
 !     namelist.
       character(len=*), intent(in) :: name
-      integer, intent(in), optional :: ifile
-      integer :: i, j
-
-      if ( present(ifile) ) then 
-         j = ifile
-      else
-         j = 1
-      end if
+      integer :: i
 
 !     Append this to list of hnames by searching for the first empty entry.
 !     This isn't very efficient but this routine is only used at startup.
       do i=1,nfmax
-         if ( len_trim((hnames(i,j))) == 0 ) then
-            hnames(i,j) = name
+         if ( len_trim((hnames(i))) == 0 ) then
+            hnames(i) = name
             exit
          end if
       end do
@@ -520,32 +486,18 @@ contains
 
    end subroutine set_hnames
 
-   subroutine set_hbytes ( nbyte, ifile )
+   subroutine set_hbytes ( nbyte )
 !     Routine to allow setting hbytes directly without namelist.
       integer, intent(in) :: nbyte
-      integer, intent(in), optional :: ifile
-      integer :: j
-
-      if ( present(ifile) ) then 
-         j = ifile
-      else
-         j = 1
-      end if
-      hbytes(j) = nbyte
+      
+      hbytes = nbyte
    end subroutine set_hbytes
 
-   subroutine set_hfreq ( freq, ifile )
+   subroutine set_hfreq ( freq )
 !     Routine to allow setting hfreq directly without namelist.
       integer, intent(in) :: freq
-      integer, intent(in), optional :: ifile
-      integer :: j
 
-      if ( present(ifile) ) then 
-         j = ifile
-      else
-         j = 1
-      end if
-      hfreq(j) = freq
+      hfreq = freq
    end subroutine set_hfreq
 
 !---------------------------------------------------------------------------
@@ -666,13 +618,13 @@ contains
       histinfo(totflds)%ran          = lran
       histinfo(totflds)%tn           = ltn
       histinfo(totflds)%output_scale = scale
-      histinfo(totflds)%used(:)      = .FALSE.   ! Value for now
-      histinfo(totflds)%vid(:)       = 0
-      histinfo(totflds)%ptr(:)       = 0
-      histinfo(totflds)%count(:)     = 0
-      histinfo(totflds)%ave_type(:)  = atype     ! Default if not over-ridden
-      histinfo(totflds)%addoff(:)    = 0.0
-      histinfo(totflds)%scalef(:)    = 0.0
+      histinfo(totflds)%used         = .FALSE.   ! Value for now
+      histinfo(totflds)%vid          = 0
+      histinfo(totflds)%ptr          = 0
+      histinfo(totflds)%count        = 0
+      histinfo(totflds)%ave_type     = atype     ! Default if not over-ridden
+      histinfo(totflds)%addoff       = 0.0
+      histinfo(totflds)%scalef       = 0.0
       if (present(int_type)) then
          histinfo(totflds)%int_type  = int_type
       else
@@ -723,7 +675,7 @@ contains
    
 !-------------------------------------------------------------------
    subroutine openhist ( nx, ny, nl, sig, ol, cptch, cchrt, gosig, suffix, hlon, hlat, basetime, &
-                         doublerow, year, nxout, nyout, source, histfilename,      &
+                         year, nxout, nyout, source, histfilename,      &
                          pressure, height, depth, extra_atts, hybrid_levels, anf,  &
                          bnf, p0, calendar, nsoil, zsoil )
 !
@@ -740,7 +692,6 @@ contains
       real, intent(in), dimension(:) :: hlon
       real, intent(in), dimension(:) :: hlat
       character(len=*), intent(in) :: basetime
-      logical, intent(in), optional  :: doublerow 
       integer, intent(in), optional  :: year
 !     Dimensions of array in output file if different from model resolution
       integer, intent(in), optional  :: nxout, nyout
@@ -764,7 +715,7 @@ contains
       integer :: ierr, hsize, ifld, old_mode
       character(len=200) :: filename
       type(dimarray) :: dims, dimvars
-      integer :: ncid, vid, ifile, ivar, istart, iend, ilev
+      integer :: ncid, vid, ivar, istart, iend, ilev
       character(len=80) :: longname, units
       character(len=MAX_NAMELEN) :: vname
       logical :: used, multilev, use_plevs, use_hyblevs, use_meters, use_depth
@@ -804,16 +755,6 @@ contains
       
       end if
 
-      if ( present ( doublerow ) ) then
-         double = doublerow
-      end if
-
-!     Flag for double row physics (all savehist calls use double row 
-!     variables).
-      if ( hist_debug > 0 .and. double ) then
-         print*, "Using double row option in history"
-      end if
-
       if ( hist_debug > 2 ) then
          do ivar=1,totflds
             print*, ivar, histinfo(ivar)%name, histinfo(ivar)%nlevels
@@ -832,359 +773,330 @@ contains
 !     Save this as a module variable
       filesuffix = suffix
 
-      nhfiles = 0
-      do ifile=1,MAX_HFILES
-
-         do ivar=1,totflds
-!           Go until the end of the variable list
-            if ( len_trim(hnames(ivar,ifile)) == 0 ) then
-               exit
-            end if
-            if ( hist_debug > 2 ) then
-               print*, 'Openhist', ifile,  ivar, adjustl(hnames(ivar,ifile))
-            end if 
-            
-            if ( hnames(ivar,ifile) == "all" ) then
-               histinfo(1:totflds)%used(ifile) = .true.
-               exit ! All defined so no point checking further
-                    ! Except when xnames is used.
-            else if ( hnames(ivar,ifile) == "std" ) then
-!              Use or here so as not to overwrite variables that have been
-!              set explicitly.
-               histinfo(1:totflds)%used(ifile) = &
-                histinfo(1:totflds)%used(ifile) .or. histinfo(1:totflds)%std
-            else if ( hnames(ivar,ifile) == "ran" ) then
-!              Include RAN requested variables
-               histinfo(1:totflds)%used(ifile) = &
-                histinfo(1:totflds)%used(ifile) .or. histinfo(1:totflds)%ran
-            else if ( hnames(ivar,ifile) == "pop2d" ) then
-!              Include POP 3d requested variables
-               histinfo(1:totflds)%used(ifile) = &
-                histinfo(1:totflds)%used(ifile) .or. histinfo(1:totflds)%pop2d
-            else if ( hnames(ivar,ifile) == "pop3d" ) then
-!              Include POP 3d requested variables
-               histinfo(1:totflds)%used(ifile) = &
-                histinfo(1:totflds)%used(ifile) .or. histinfo(1:totflds)%pop3d
-            else if ( hnames(ivar,ifile) == "pop4d" ) then
-!              Include POP 4d requested variables
-               histinfo(1:totflds)%used(ifile) = &
-                histinfo(1:totflds)%used(ifile) .or. histinfo(1:totflds)%pop4d
-            else if ( hnames(ivar,ifile) == "pop" ) then
-!              Include POP requested variables
-               histinfo(1:totflds)%used(ifile) = &
-                histinfo(1:totflds)%used(ifile) .or. histinfo(1:totflds)%pop2d .or.   &
-                histinfo(1:totflds)%pop3d .or. histinfo(1:totflds)%pop4d
-            else if ( hnames(ivar,ifile) == "t1_pop" ) then
-!              Include POP requested variables
-               histinfo(1:totflds)%used(ifile) = &
-                histinfo(1:totflds)%used(ifile) .or. btest(histinfo(1:totflds)%tn,0)
-            else if ( hnames(ivar,ifile) == "t2_pop" ) then
-!              Include POP requested variables
-               histinfo(1:totflds)%used(ifile) = &
-                histinfo(1:totflds)%used(ifile) .or. btest(histinfo(1:totflds)%tn,1)
-            else if ( hnames(ivar,ifile) == "t3_pop" ) then
-!              Include POP requested variables
-               histinfo(1:totflds)%used(ifile) = &
-                histinfo(1:totflds)%used(ifile) .or. btest(histinfo(1:totflds)%tn,2)
-            else if ( hnames(ivar,ifile) == "t4_pop" ) then
-!              Include POP requested variables
-               histinfo(1:totflds)%used(ifile) = &
-                histinfo(1:totflds)%used(ifile) .or. btest(histinfo(1:totflds)%tn,3)
-            else if ( hnames(ivar,ifile) == "t5_pop" ) then
-!              Include POP requested variables
-               histinfo(1:totflds)%used(ifile) = &
-                histinfo(1:totflds)%used(ifile) .or. btest(histinfo(1:totflds)%tn,4)
-            else
-!              Find the name in histinfo to set the used flag.
-               ifld = bindex_hname ( hnames(ivar,ifile), &
-                                     inames(:,1:totflds), totflds )
-               if ( ifld == 0 ) then
-                  print*, "Error - history variable ", hnames(ivar,ifile),  &
-                          " is not known. "
-                  stop
-               end if
-               histinfo(ifld)%used(ifile) = .true.
-               if ( hist_debug > 4 ) then
-                  print*,  " Setting used for ", ifld, ivar, ifile, &
-                       hnames(ivar,ifile), histinfo(ifld)%name
-               end if
-            end if
-
-         end do
-         
-!        Apply the exclusion list
-         do ivar = 1,totflds
-!           Go until the end of the variable list
-            if ( len_trim(xnames(ivar,ifile)) == 0 ) then
-               exit
-            end if
-            if ( hist_debug > 2 ) then
-               print*, 'Openhist: exclude', ifile,  ivar, adjustl(xnames(ivar,ifile))
-            end if
-            
-!           Find the name in histinfo to set the used flag.
-            ifld = bindex_hname ( xnames(ivar,ifile), inames(:,1:totflds), totflds )
-            if ( ifld == 0 ) then
-               print*, "Error - excluded history variable ", xnames(ivar,ifile)," is not known. "
-               stop
-            end if
-            histinfo(ifld)%used(ifile) = .false.
-            if ( hist_debug > 4 ) then
-               print*,  " Overriding used for ", ifld, ivar, ifile, xnames(ivar,ifile), histinfo(ifld)%name
-            end if
-
-         end do
-
-!        Exit on the first file with no variables set.
-         if ( .not. any(histinfo(1:totflds)%used(ifile)) ) then
+      do ivar=1,totflds
+!        Go until the end of the variable list
+         if ( len_trim(hnames(ivar)) == 0 ) then
             exit
          end if
+         if ( hist_debug > 2 ) then
+            print*, 'Openhist',  ivar, adjustl(hnames(ivar))
+         end if 
+            
+         if ( hnames(ivar) == "all" ) then
+            histinfo(1:totflds)%used = .true.
+            exit ! All defined so no point checking further
+                 ! Except when xnames is used.
+         else if ( hnames(ivar) == "std" ) then
+!           Use or here so as not to overwrite variables that have been
+!           set explicitly.
+            histinfo(1:totflds)%used = &
+             histinfo(1:totflds)%used .or. histinfo(1:totflds)%std
+         else if ( hnames(ivar) == "ran" ) then
+!           Include RAN requested variables
+            histinfo(1:totflds)%used = &
+             histinfo(1:totflds)%used .or. histinfo(1:totflds)%ran
+         else if ( hnames(ivar) == "pop2d" ) then
+!           Include POP 3d requested variables
+            histinfo(1:totflds)%used = &
+             histinfo(1:totflds)%used .or. histinfo(1:totflds)%pop2d
+         else if ( hnames(ivar) == "pop3d" ) then
+!           Include POP 3d requested variables
+            histinfo(1:totflds)%used = &
+             histinfo(1:totflds)%used .or. histinfo(1:totflds)%pop3d
+         else if ( hnames(ivar) == "pop4d" ) then
+!           Include POP 4d requested variables
+            histinfo(1:totflds)%used = &
+             histinfo(1:totflds)%used .or. histinfo(1:totflds)%pop4d
+         else if ( hnames(ivar) == "pop" ) then
+!           Include POP requested variables
+            histinfo(1:totflds)%used = &
+             histinfo(1:totflds)%used .or. histinfo(1:totflds)%pop2d .or.   &
+             histinfo(1:totflds)%pop3d .or. histinfo(1:totflds)%pop4d
+         else if ( hnames(ivar) == "t1_pop" ) then
+!           Include POP requested variables
+            histinfo(1:totflds)%used = &
+             histinfo(1:totflds)%used .or. btest(histinfo(1:totflds)%tn,0)
+         else if ( hnames(ivar) == "t2_pop" ) then
+!           Include POP requested variables
+            histinfo(1:totflds)%used = &
+             histinfo(1:totflds)%used .or. btest(histinfo(1:totflds)%tn,1)
+         else if ( hnames(ivar) == "t3_pop" ) then
+!           Include POP requested variables
+            histinfo(1:totflds)%used = &
+             histinfo(1:totflds)%used .or. btest(histinfo(1:totflds)%tn,2)
+         else if ( hnames(ivar) == "t4_pop" ) then
+!           Include POP requested variables
+            histinfo(1:totflds)%used = &
+             histinfo(1:totflds)%used .or. btest(histinfo(1:totflds)%tn,3)
+         else if ( hnames(ivar) == "t5_pop" ) then
+!           Include POP requested variables
+            histinfo(1:totflds)%used = &
+             histinfo(1:totflds)%used .or. btest(histinfo(1:totflds)%tn,4)
+         else
+!           Find the name in histinfo to set the used flag.
+            ifld = bindex_hname ( hnames(ivar), &
+                                  inames(:,1:totflds), totflds )
+            if ( ifld == 0 ) then
+               print*, "Error - history variable ", hnames(ivar),  &
+                       " is not known. "
+               stop
+            end if
+            histinfo(ifld)%used = .true.
+            if ( hist_debug > 4 ) then
+               print*,  " Setting used for ", ifld, ivar, &
+                    hnames(ivar), histinfo(ifld)%name
+            end if
+         end if
 
-         nhfiles = nhfiles + 1
+      end do
+         
+!     Apply the exclusion list
+      do ivar = 1,totflds
 
-!        Check the averaging type
-!        For variables for which it isn't set use the file default
-         where ( histinfo(1:totflds)%ave_type(ifile) == 0 )
-            histinfo(1:totflds)%ave_type(ifile) = ihtype(ifile)
-         endwhere
+!        Go until the end of the variable list
+         if ( len_trim(xnames(ivar)) == 0 ) then
+            exit
+         end if
+         if ( hist_debug > 2 ) then
+            print*, 'Openhist: exclude',  ivar, adjustl(xnames(ivar))
+         end if
+            
+!        Find the name in histinfo to set the used flag.
+         ifld = bindex_hname ( xnames(ivar), inames(:,1:totflds), totflds )
+         if ( ifld == 0 ) then
+            print*, "Error - excluded history variable ", xnames(ivar)," is not known. "
+            stop
+         end if
+         histinfo(ifld)%used = .false.
+         if ( hist_debug > 4 ) then
+            print*,  " Overriding used for ", ifld, ivar, xnames(ivar), histinfo(ifld)%name
+         end if
 
       end do
 
-      if ( nhfiles == 0 ) then
+!     Exit on the first file with no variables set.
+      if ( .not. any(histinfo(1:totflds)%used) ) then
          return
       end if
 
-      if ( nhfiles > 1 .and. present(histfilename) ) then
-         print*, "Warning, more than one history file used so requested name"
-         print*, "is ignored"
-      end if
+!     Check the averaging type
+!     For variables for which it isn't set use the file default
+      where ( histinfo(1:totflds)%ave_type == 0 )
+         histinfo(1:totflds)%ave_type = ihtype
+      endwhere
 
       if ( myid == 0 ) then
 
-         istart = 1
-
 !        The rest of the history files are much simpler with multilevel variables
-         do ifile = istart, nhfiles
 
-            soil_used = .false.
-            water_used = .false.
-            if ( present(histfilename) .and. nhfiles == 1 ) then
-               filename = histfilename
-            else
-               write(filename,"(a,i1,a,a)" ) "hist", ifile, trim(suffix), ".nc"
+         soil_used = .false.
+         water_used = .false.
+         if ( present(histfilename) ) then
+            filename = histfilename
+         else
+            write(filename,"(a,i1,a,a)" ) "hist", trim(suffix), ".nc"
+         end if
+!        Is it possible to do a masked maxval?
+         multilev = .false.
+         ncoords = 0
+         do ifld=1,totflds
+            if ( hist_debug > 4 ) then
+               print*, "Checking variable properties", ifld, &
+                    histinfo(ifld)%name, histinfo(ifld)%used, &
+                    histinfo(ifld)%nlevels, histinfo(ifld)%soil
             end if
-!           Is it possible to do a masked maxval?
-            multilev = .false.
-            ncoords = 0
-            do ifld=1,totflds
-               if ( hist_debug > 4 ) then
-                  print*, "Checking variable properties", ifld, &
-                       histinfo(ifld)%name, histinfo(ifld)%used(ifile), &
-                       histinfo(ifld)%nlevels, histinfo(ifld)%soil
-               end if
-               if ( .not. histinfo(ifld)%used(ifile) ) cycle
+            if ( .not. histinfo(ifld)%used ) cycle
 
-               ! From here only considering variables that are used in this file
+            ! From here only considering variables that are used in this file
 
-               multilev = multilev .or. histinfo(ifld)%nlevels > 1 .or. &
-                          histinfo(ifld)%multilev
+            multilev = multilev .or. histinfo(ifld)%nlevels > 1 .or. &
+                       histinfo(ifld)%multilev
 
-               ! Check if the file has any soil variables
-               soil_used = soil_used .or. histinfo(ifld)%soil
+            ! Check if the file has any soil variables
+            soil_used = soil_used .or. histinfo(ifld)%soil
 
-               ! Check if the file has any water variables
-               water_used = water_used .or. histinfo(ifld)%water
+             ! Check if the file has any water variables
+            water_used = water_used .or. histinfo(ifld)%water
                
-               ! Get a list of the coordinate heights if any
-               if ( histinfo(ifld)%coord_height > -huge(1.) ) then
-                  ! Check if it's already in list
-                  do kc=1,ncoords
-                     if ( nint(histinfo(ifld)%coord_height) == coord_heights(kc) ) then
-                        exit
-                     end if
-                  end do
-                  if ( kc > ncoords ) then
-                     ! Value not found
-                     ncoords = kc
-                     coord_heights(ncoords) = histinfo(ifld)%coord_height
+            ! Get a list of the coordinate heights if any
+            if ( histinfo(ifld)%coord_height > -huge(1.) ) then
+               ! Check if it's already in list
+               do kc=1,ncoords
+                  if ( nint(histinfo(ifld)%coord_height) == coord_heights(kc) ) then
+                     exit
                   end if
+               end do
+               if ( kc > ncoords ) then
+                  ! Value not found
+                  ncoords = kc
+                  coord_heights(ncoords) = histinfo(ifld)%coord_height
                end if
-            end do
+            end if
+         end do
 
-            use_plevs = .false.
-            if ( present(pressure) ) then
-               use_plevs = pressure
-            end if
-            use_meters = .false.
-            if ( present(height) ) then
-               use_meters = height
-            end if
-            use_hyblevs = .false.
-            if ( present(hybrid_levels) ) then
-               use_hyblevs = hybrid_levels
-            end if
-            use_depth = .false.
-            if ( present(depth) ) then
-               use_depth = depth 
-            end if
-            if ( ol > 0 ) then
-               osig_found = all(gosig<=1.)
-            else 
-               osig_found = .true.
-            end if    
-            !if ( soil_used ) then
-            !   ! Better to define a new local nsoil variable?
-            !   call create_ncfile ( filename, nxhis, nyhis, size(sig), ol, multilev,               &
-            !        use_plevs, use_meters, use_depth, use_hyblevs, basetime,                       &
-            !        coord_heights(1:ncoords), ncid, dims, dimvars, source, extra_atts, calendar,   &
-            !        nsoil, zsoil, osig_found )
-            !else
-               call create_ncfile ( filename, nxhis, nyhis, size(sig), ol, cptch, cchrt, multilev,               &
-                    use_plevs, use_meters, use_depth, use_hyblevs, basetime,                       &
-                    coord_heights(1:ncoords), ncid, dims, dimvars, source, extra_atts, calendar,   &
-                    nsoil, zsoil, osig_found )
-            !end if
-            histid(ifile) = ncid
+         use_plevs = .false.
+         if ( present(pressure) ) then
+            use_plevs = pressure
+         end if
+         use_meters = .false.
+         if ( present(height) ) then
+            use_meters = height
+         end if
+         use_hyblevs = .false.
+         if ( present(hybrid_levels) ) then
+            use_hyblevs = hybrid_levels
+         end if
+         use_depth = .false.
+         if ( present(depth) ) then
+            use_depth = depth 
+         end if
+         if ( ol > 0 ) then
+            osig_found = all(gosig<=1.)
+         else 
+            osig_found = .true.
+         end if    
+         call create_ncfile ( filename, nxhis, nyhis, size(sig), ol, cptch, cchrt, multilev,               &
+              use_plevs, use_meters, use_depth, use_hyblevs, basetime,                       &
+              coord_heights(1:ncoords), ncid, dims, dimvars, source, extra_atts, calendar,   &
+              nsoil, zsoil, osig_found )
+         histid = ncid
 
-            do ifld=1,totflds
-               if ( histinfo(ifld)%used(ifile) ) then
-                  call create_ncvar(histinfo(ifld), ncid, ifile, dims)
-               end if
-            end do
+         do ifld=1,totflds
+            if ( histinfo(ifld)%used ) then
+               call create_ncvar(histinfo(ifld), ncid, dims)
+            end if
+         end do
 
-!           Leave define mode
+!        Leave define mode
          
-            ierr = nf90_enddef ( ncid )
-            call check_ncerr(ierr, "Error from enddef")
+         ierr = nf90_enddef ( ncid )
+         call check_ncerr(ierr, "Error from enddef")
 
-!           Turn off the data filling to save time.
-            ierr = nf90_set_fill ( ncid, NF90_NOFILL, old_mode)
-            call check_ncerr(ierr, "Error from set_fill")
+!        Turn off the data filling to save time.
+         ierr = nf90_set_fill ( ncid, NF90_NOFILL, old_mode)
+         call check_ncerr(ierr, "Error from set_fill")
 
-            ierr = nf90_put_var ( ncid, dimvars%y, hlat )
-            call check_ncerr(ierr,"Error writing latitudes")
-            ierr = nf90_put_var ( ncid, dimvars%x, hlon )
-            call check_ncerr(ierr,"Error writing longitudes")
-            if ( cf_compliant ) then
-               ! Calculate bounds assuming a regular lat-lon grid
-               ! Perhaps have optional arguments for the other cases?
-               allocate ( lat_bnds(2,size(hlat)), lon_bnds(2,size(hlon)) )
-               ! Check if regular grid
-               if ( maxval(hlon(2:)-hlon(:nx-1)) - minval(hlon(2:)-hlon(:nx-1)) < 1e-4*maxval(hlon(2:)-hlon(:nx-1)) ) then
-                  dx = hlon(2) - hlon(1)
-                  lon_bnds(1,:) = hlon - 0.5*dx
-                  lon_bnds(2,:) = hlon + 0.5*dx
-                  ierr = nf90_put_var ( ncid, dimvars%x_b, lon_bnds )
-                  call check_ncerr(ierr,"Error writing longitude bounds")
+         ierr = nf90_put_var ( ncid, dimvars%y, hlat )
+         call check_ncerr(ierr,"Error writing latitudes")
+         ierr = nf90_put_var ( ncid, dimvars%x, hlon )
+         call check_ncerr(ierr,"Error writing longitudes")
+         if ( cf_compliant ) then
+            ! Calculate bounds assuming a regular lat-lon grid
+            ! Perhaps have optional arguments for the other cases?
+            allocate ( lat_bnds(2,size(hlat)), lon_bnds(2,size(hlon)) )
+            ! Check if regular grid
+            if ( maxval(hlon(2:)-hlon(:nx-1)) - minval(hlon(2:)-hlon(:nx-1)) < 1e-4*maxval(hlon(2:)-hlon(:nx-1)) ) then
+               dx = hlon(2) - hlon(1)
+               lon_bnds(1,:) = hlon - 0.5*dx
+               lon_bnds(2,:) = hlon + 0.5*dx
+               ierr = nf90_put_var ( ncid, dimvars%x_b, lon_bnds )
+               call check_ncerr(ierr,"Error writing longitude bounds")
+            end if
+            if ( maxval(hlat(2:)-hlat(:ny-1)) - minval(hlat(2:)-hlat(:ny-1)) < 1e-4*maxval(hlat(2:)-hlat(:ny-1)) ) then
+               dy = hlat(2) - hlat(1)
+               lat_bnds(1,:) = hlat - 0.5*dy
+               lat_bnds(2,:) = hlat + 0.5*dy
+               where ( lat_bnds < -90. ) 
+                  lat_bnds = -90.
+               end where
+               where ( lat_bnds > 90. ) 
+                  lat_bnds = 90.
+               end where
+               ierr = nf90_put_var ( ncid, dimvars%y_b, lat_bnds )
+               call check_ncerr(ierr,"Error writing latitude bounds")
+            end if
+         end if
+         if ( multilev ) then
+            ierr = nf90_put_var ( ncid, dimvars%z, sig )
+            call check_ncerr(ierr,"Error writing levels")
+            if ( use_hyblevs ) then
+               if ( .not. present(anf) ) then
+                  print*, "Error, missing anf argument"
+                  stop
                end if
-               if ( maxval(hlat(2:)-hlat(:ny-1)) - minval(hlat(2:)-hlat(:ny-1)) < 1e-4*maxval(hlat(2:)-hlat(:ny-1)) ) then
-                  dy = hlat(2) - hlat(1)
-                  lat_bnds(1,:) = hlat - 0.5*dy
-                  lat_bnds(2,:) = hlat + 0.5*dy
-                  where ( lat_bnds < -90. ) 
-                     lat_bnds = -90.
-                  end where
-                  where ( lat_bnds > 90. ) 
-                     lat_bnds = 90.
-                  end where
-                  ierr = nf90_put_var ( ncid, dimvars%y_b, lat_bnds )
-                  call check_ncerr(ierr,"Error writing latitude bounds")
+               ierr = nf90_inq_varid(ncid, "anf", vid)
+               call check_ncerr(ierr,"Error getting vid for anf")
+               ierr = nf90_put_var(ncid, vid, anf)
+               call check_ncerr(ierr,"Error writing anf")
+               if ( .not. present(bnf) ) then
+                  print*, "Error, missing bnf argument"
+                  stop
                end if
-            end if
-            if ( multilev ) then
-               ierr = nf90_put_var ( ncid, dimvars%z, sig )
-               call check_ncerr(ierr,"Error writing levels")
-               if ( use_hyblevs ) then
-                  if ( .not. present(anf) ) then
-                     print*, "Error, missing anf argument"
-                     stop
-                  end if
-                  ierr = nf90_inq_varid(ncid, "anf", vid)
-                  call check_ncerr(ierr,"Error getting vid for anf")
-                  ierr = nf90_put_var(ncid, vid, anf)
-                  call check_ncerr(ierr,"Error writing anf")
-                  if ( .not. present(bnf) ) then
-                     print*, "Error, missing bnf argument"
-                     stop
-                  end if
-                  ierr = nf90_inq_varid(ncid, "bnf", vid)
-                  call check_ncerr(ierr,"Error getting vid for bnf")
-                  ierr = nf90_put_var(ncid, vid, bnf)
-                  call check_ncerr(ierr,"Error writing bnf")
-                  if ( .not. present(p0) ) then
-                     print*, "Error, missing p0 argument"
-                     stop
-                  end if
-                  ierr = nf90_inq_varid(ncid, "P0", vid)
-                  call check_ncerr(ierr,"Error getting vid for p0")
-                  ierr = nf90_put_var(ncid, vid, p0)
-                  call check_ncerr(ierr,"Error writing p0")
+               ierr = nf90_inq_varid(ncid, "bnf", vid)
+               call check_ncerr(ierr,"Error getting vid for bnf")
+               ierr = nf90_put_var(ncid, vid, bnf)
+               call check_ncerr(ierr,"Error writing bnf")
+               if ( .not. present(p0) ) then
+                  print*, "Error, missing p0 argument"
+                  stop
                end if
+               ierr = nf90_inq_varid(ncid, "P0", vid)
+               call check_ncerr(ierr,"Error getting vid for p0")
+               ierr = nf90_put_var(ncid, vid, p0)
+               call check_ncerr(ierr,"Error writing p0")
             end if
-            if ( ol > 0 ) then
-               ierr = nf90_put_var ( ncid, dimvars%oz, gosig )
-               call check_ncerr(ierr,"Error writing olev")
-            end if
-            if ( cptch > 0 ) then
-               allocate( cabledata(cptch) )
-               do i=1,cptch
-                  cabledata(i) = real(i)
-               end do
-               ierr = nf90_put_var ( ncid, dimvars%cptch, cabledata )
-               call check_ncerr(ierr,"Error writing cable_patch")
-               deallocate( cabledata )
-            end if
-            if ( cchrt > 0 ) then
-               allocate( cabledata(cchrt) )
-               do i=1,cchrt
-                  cabledata(i) = real(i)
-               end do
-               ierr = nf90_put_var ( ncid, dimvars%cchrt, cabledata )
-               call check_ncerr(ierr,"Error writing cable_cohort")
-               deallocate( cabledata )
-            end if
-            !if ( soil_used .and. present(zsoil) ) then
-            if ( present(zsoil) .and. present(nsoil) ) then
-               if ( nsoil>0 ) then
-                  ierr = nf90_put_var ( ncid, dimvars%zsoil, zsoil )
-                  call check_ncerr(ierr,"Error writing depths")
-                  if ( cf_compliant ) then
-                     ! Soil bounds
-                     allocate(zsoil_bnds(2, nsoil))
-                     zsoil_bnds(1,1) = 0.
-                     zsoil_bnds(2,1) = 2.*zsoil(1)
-                     do k=1,nsoil
-                        ! Levels are middle of layers
-                        zsoil_bnds(2,k) = zsoil_bnds(2,k-1) + 2*(zsoil(k)-zsoil_bnds(2,k-1))
-                        zsoil_bnds(1,k) = zsoil_bnds(2,k-1)
-                     end do
-                     ierr = nf90_put_var ( ncid, dimvars%zsoil_b, zsoil_bnds )
-                     call check_ncerr(ierr,"Error writing depths")
-                     deallocate(zsoil_bnds)
-                  end if
-               end if
-            end if
-
-            do kc = 1,ncoords
-               if ( coord_heights(kc) < 10 ) then
-                  write(vname, "(a,i1.1)") "height", coord_heights(kc)
-               else
-                  write(vname, "(a,i2.2)") "height", coord_heights(kc)
-               end if
-               ierr = nf90_inq_varid(ncid, vname, vid)
-               call check_ncerr(ierr,"Error getting vid for height coord")
-               ierr = nf90_put_var ( ncid, vid, real(coord_heights(kc)))
-               call check_ncerr(ierr,"Error writing coordinate height")
+         end if
+         if ( ol > 0 ) then
+            ierr = nf90_put_var ( ncid, dimvars%oz, gosig )
+            call check_ncerr(ierr,"Error writing olev")
+         end if
+         if ( cptch > 0 ) then
+            allocate( cabledata(cptch) )
+            do i=1,cptch
+               cabledata(i) = real(i)
             end do
+            ierr = nf90_put_var ( ncid, dimvars%cptch, cabledata )
+            call check_ncerr(ierr,"Error writing cable_patch")
+            deallocate( cabledata )
+         end if
+         if ( cchrt > 0 ) then
+            allocate( cabledata(cchrt) )
+            do i=1,cchrt
+               cabledata(i) = real(i)
+            end do
+            ierr = nf90_put_var ( ncid, dimvars%cchrt, cabledata )
+            call check_ncerr(ierr,"Error writing cable_cohort")
+            deallocate( cabledata )
+         end if
+         if ( present(zsoil) .and. present(nsoil) ) then
+            if ( nsoil>0 ) then
+               ierr = nf90_put_var ( ncid, dimvars%zsoil, zsoil )
+               call check_ncerr(ierr,"Error writing depths")
+               if ( cf_compliant ) then
+                  ! Soil bounds
+                  allocate(zsoil_bnds(2, nsoil))
+                  zsoil_bnds(1,1) = 0.
+                  zsoil_bnds(2,1) = 2.*zsoil(1)
+                  do k=1,nsoil
+                     ! Levels are middle of layers
+                     zsoil_bnds(2,k) = zsoil_bnds(2,k-1) + 2*(zsoil(k)-zsoil_bnds(2,k-1))
+                     zsoil_bnds(1,k) = zsoil_bnds(2,k-1)
+                  end do
+                  ierr = nf90_put_var ( ncid, dimvars%zsoil_b, zsoil_bnds )
+                  call check_ncerr(ierr,"Error writing depths")
+                  deallocate(zsoil_bnds)
+               end if
+            end if
+          end if
+
+         do kc = 1,ncoords
+            if ( coord_heights(kc) < 10 ) then
+               write(vname, "(a,i1.1)") "height", coord_heights(kc)
+            else
+               write(vname, "(a,i2.2)") "height", coord_heights(kc)
+            end if
+            ierr = nf90_inq_varid(ncid, vname, vid)
+            call check_ncerr(ierr,"Error getting vid for height coord")
+            ierr = nf90_put_var ( ncid, vid, real(coord_heights(kc)))
+            call check_ncerr(ierr,"Error writing coordinate height")
+         end do
 
 #ifdef outsync
-!           Sync the file so that if the program crashes for some reason 
-!           there will still be useful output.
-            ierr = nf90_sync ( ncid )
-            call check_ncerr(ierr, "Error syncing history file")
+!        Sync the file so that if the program crashes for some reason 
+!        there will still be useful output.
+         ierr = nf90_sync ( ncid )
+         call check_ncerr(ierr, "Error syncing history file")
 #endif
-
-         end do  ! Loop over files
       
       end if ! myid==0
 
@@ -1192,16 +1104,14 @@ contains
 !     Calculate the size by summing the number of fields of each variable
 
       hsize = 0
-      do ifile = 1,nhfiles
-         do ifld = 1, totflds
-            if ( histinfo(ifld)%used(ifile) ) then
-               histinfo(ifld)%ptr(ifile) = hsize + 1
-               hsize = hsize + histinfo(ifld)%nlevels 
-               if ( hist_debug > 0 ) then
-                  print*, ' Fld ', ifld, 'Ptr', histinfo(ifld)%ptr(ifile)
-               end if
+      do ifld = 1, totflds
+         if ( histinfo(ifld)%used ) then
+            histinfo(ifld)%ptr = hsize + 1
+            hsize = hsize + histinfo(ifld)%nlevels 
+            if ( hist_debug > 0 ) then
+               print*, ' Fld ', ifld, 'Ptr', histinfo(ifld)%ptr
             end if
-         end do
+         end if
       end do
 
       if ( hist_debug > 0 ) then
@@ -1232,19 +1142,17 @@ contains
 
 !     Initialise the history appropriately
       histset = 0
-      do ifile = 1,nhfiles
-         avetime(ifile) = 0.0
-         ! Initialisation so min/max work
-         avetime_bnds(:,ifile) = (/huge(1.), -huge(1.)/)
-         timecount(ifile) = 0
-         do ifld = 1, totflds
-            if ( histinfo(ifld)%used(ifile) ) then
-               istart = histinfo(ifld)%ptr(ifile)
-               iend = istart + histinfo(ifld)%nlevels - 1
-               histarray(:,:,istart:iend) = &
-                  initval(histinfo(ifld)%ave_type(ifile))
-            end if
-         end do
+      avetime = 0.0
+      ! Initialisation so min/max work
+      avetime_bnds(:) = (/huge(1.), -huge(1.)/)
+      timecount = 0
+      do ifld = 1, totflds
+         if ( histinfo(ifld)%used ) then
+            istart = histinfo(ifld)%ptr
+            iend = istart + histinfo(ifld)%nlevels - 1
+            histarray(:,:,istart:iend) = &
+               initval(histinfo(ifld)%ave_type)
+         end if
       end do
       
       call END_LOG(openhist_end)
@@ -1337,12 +1245,11 @@ contains
     end function hash_gt
     
 !-------------------------------------------------------------------
-   subroutine create_ncvar(vinfo, ncid, ifile, dims)
+   subroutine create_ncvar(vinfo, ncid, dims)
 
       use mpidata_m
       type(hinfo), intent(inout) :: vinfo
       integer, intent(in) :: ncid
-      integer, intent(in) :: ifile
       type(dimarray), intent(in) :: dims
 
       character(len=MAX_NAMELEN) :: local_name, new_name
@@ -1355,7 +1262,7 @@ contains
       
       local_name = vinfo%name  
 
-      select case ( hbytes(ifile) )
+      select case ( hbytes )
       case ( 2 )
          vtype = NF90_INT2
       case ( 4 ) 
@@ -1363,12 +1270,12 @@ contains
       case ( 8 )
          vtype = NF90_DOUBLE
       case default
-         print*, " Error, unsupported value for hbytes ", hbytes(ifile)
+         print*, " Error, unsupported value for hbytes ", hbytes
          stop
       end select
          
       if ( hist_debug > 4 ) then
-         print*, "Creating variable ", local_name, vinfo%ave_type(ifile), vinfo%nlevels, vinfo%soil
+         print*, "Creating variable ", local_name, vinfo%ave_type, vinfo%nlevels, vinfo%soil
          print*, "DIMID", dims%x, dims%y, dims%z, dims%t, dims%zsoil
       end if
       if ( vinfo%nlevels > 1 .or. vinfo%multilev ) then
@@ -1384,7 +1291,7 @@ contains
          else
             zdim = dims%z
          end if
-         if ( vinfo%ave_type(ifile) == hist_fixed ) then
+         if ( vinfo%ave_type == hist_fixed ) then
             ierr = nf90_def_var ( ncid, local_name, vtype, &
                                 (/ dims%x, dims%y, zdim /), vid )
          else if ( vinfo%pop4d ) then
@@ -1395,7 +1302,7 @@ contains
                                 (/ dims%x, dims%y, zdim, dims%t /), vid )
          end if
       else
-         if ( vinfo%ave_type(ifile) == hist_fixed ) then
+         if ( vinfo%ave_type == hist_fixed ) then
             ierr = nf90_def_var ( ncid, local_name, vtype, &
                                 (/ dims%x, dims%y /), vid )
          else
@@ -1407,7 +1314,7 @@ contains
          print*, "Error creating variable ", vinfo
       end if
       call check_ncerr(ierr,"Error creating variable "// local_name)
-      vinfo%vid(ifile) = vid
+      vinfo%vid = vid
       
       if ( cordex_compliant ) then
         ierr = nf90_def_var_deflate( ncid, vid, 1, 1, 1 ) ! shuffle=1, deflate=1, deflate_level=1
@@ -1426,14 +1333,14 @@ contains
          call check_ncerr(ierr)
       end if
 
-      if ( hbytes(ifile) == 2 ) then
+      if ( hbytes == 2 ) then
          ! 32500/3200 = 1.015625, so with this scaling, end values should
          ! be exactly representable.
-         vinfo%scalef(ifile) = 1.015625 * (vinfo%valid_max - vinfo%valid_min) / float(vmax - vmin)
-         vinfo%addoff(ifile) = 0.5*(vinfo%valid_min+vinfo%valid_max)
-         ierr  = nf90_put_att ( ncid, vid, "add_offset", vinfo%addoff(ifile) )
+         vinfo%scalef = 1.015625 * (vinfo%valid_max - vinfo%valid_min) / float(vmax - vmin)
+         vinfo%addoff = 0.5*(vinfo%valid_min+vinfo%valid_max)
+         ierr  = nf90_put_att ( ncid, vid, "add_offset", vinfo%addoff )
          call check_ncerr(ierr)
-         ierr  = nf90_put_att ( ncid, vid, "scale_factor", vinfo%scalef(ifile))
+         ierr  = nf90_put_att ( ncid, vid, "scale_factor", vinfo%scalef)
          call check_ncerr(ierr)
          ierr = nf90_put_att ( ncid, vid, "valid_min", vmin )
          call check_ncerr(ierr,"Error setting valid min attribute")
@@ -1446,7 +1353,7 @@ contains
 
       ! Possibly time:point should just be left out
 
-      select case (vinfo%ave_type(ifile))
+      select case (vinfo%ave_type)
       !case (hist_ave, hist_oave)
       case (hist_ave )    
          cell_methods = "time: mean"
@@ -1478,7 +1385,7 @@ contains
          
       if ( vtype == NF90_INT2 ) then
          ! Ugly work around to ensure attributes have the correct type on SX6
-         if ( vinfo%ave_type(ifile) /= hist_fixed ) then
+         if ( vinfo%ave_type /= hist_fixed ) then
             ierr = nf90_put_att ( ncid, vid, "_FillValue", fill_short )
             call check_ncerr(ierr,"Error with INT2 fill value attribute")
             ierr = nf90_put_att ( ncid, vid, "missing_value", fill_short )
@@ -1843,43 +1750,19 @@ contains
       
       use logging_m
       
-      integer :: ierr, ifile
+      integer :: ierr
      
       call START_LOG(closehist_begin)
       
-      do ifile = 1,nhfiles
-!        The hist_oave files are closed individually in writehist.
-         !if ( ihtype(ifile) /= hist_oave ) then
-            ierr = nf90_close ( histid(ifile) )
-            call check_ncerr(ierr,"Error closing history file")
-         !end if
-      end do
+!     The hist_oave files are closed individually in writehist.
+      ierr = nf90_close ( histid )
+      call check_ncerr(ierr,"Error closing history file")
       
       call END_LOG(closehist_end)
       
    end subroutine closehist
 !-------------------------------------------------------------------
 
-   subroutine savehist2D ( name, array, jlat )
-      use logging_m
-      character(len=*), intent(in) :: name
-      real, dimension(:) :: array
-      integer, intent(in) :: jlat
-      real, dimension(size(array),1,1) :: temp
-
-      call START_LOG(savehist_begin)
-
-!     Copy to the 3D array that savehist_work expects. The extra level of
-!     subroutines is necessary to avoid multiple versions.
-!     This copying is extra work if the variable isn't actually saved.
-!     Check name first?
-      temp(:,1,1) = array
-      call savehist_work  ( name, temp, jlat, jlat )
-
-      call END_LOG(savehist_end)
-
-   end subroutine savehist2D
-   
    subroutine gsavehist2D ( name, array )
       use logging_m
       character(len=*), intent(in) :: name
@@ -1891,27 +1774,11 @@ contains
 !     Copy to the 3D array that savehist_work expects. The extra level of
 !     subroutines is necessary to avoid multiple versions.
       temp(:,:,1) = array
-      call savehist_work  ( name, temp, 1, size(array,2) )
+      call savehist_work  ( name, temp, size(array,2) )
 
       call END_LOG(savehist_end)
 
    end subroutine gsavehist2D
-   
-   subroutine savehist3D( name, array, jlat )
-      use logging_m       
-      character(len=*), intent(in) :: name
-      real, dimension(:,:) :: array
-      integer, intent(in) :: jlat
-      real, dimension(size(array,1),1,size(array,2)) :: temp
-
-      call START_LOG(savehist_begin)
-
-      temp(:,1,:) = array
-      call savehist_work  ( name, temp, jlat, jlat )
-      
-      call END_LOG(savehist_end)
-      
-   end subroutine savehist3D
    
    subroutine gsavehist3D( name, array )
       use logging_m
@@ -1922,7 +1789,7 @@ contains
       call START_LOG(savehist_begin)
 
       temp(:,:,:) = array
-      call savehist_work ( name, temp, 1, size(array,2) )
+      call savehist_work ( name, temp, size(array,2) )
 
       call END_LOG(savehist_end)
 
@@ -1937,226 +1804,138 @@ contains
       call START_LOG(savehist_begin)
 
       temp(:,:,:) = reshape(array,(/ size(array,1), size(array,2), size(array,3)*size(array,4) /) )
-      call savehist_work ( name, temp, 1, size(array,2) )
+      call savehist_work ( name, temp, size(array,2) )
 
       call END_LOG(savehist_end)
 
    end subroutine gsavehist4D
    
-   subroutine savehist_work ( name, array, jlat1, jlat2 )
+   subroutine savehist_work ( name, array, jlat2 )
 
 !     This routine actually saves the data to the history array.
       character(len=*), intent(in) :: name
       real, dimension(:,:,:) :: array
-      integer, intent(in) :: jlat1, jlat2
-      integer :: ifld, ifile, js, jn, nl, istart, iend
+      integer, intent(in) :: jlat2
+      integer :: ifld, js, jn, nl, istart, iend
       integer :: nx
       
-      if ( all( array == NF90_FILL_FLOAT ) ) return
+      if ( all( abs(array) == NF90_FILL_FLOAT ) ) return
 
 !     Check that openhist has been called to allocate the array
-!     nhfiles check is required because when no history is saved the array
-!     isn't allocated.
-      if ( nhfiles /= 0 .and. .not. allocated ( histarray ) ) then
+      if ( .not. allocated ( histarray ) ) then
          print*, " History error - must call openhist before savehist "
          stop
       end if
 
 !     Loop over history files because variable could occur in several.
-      do ifile = 1,nhfiles
 
-         ifld = qindex_hname(name,inames(:,1:totflds),totflds,ifile)
-         if ( ifld == 0 ) then
-            print*, "Error - history variable ", name, " is not known. "
+      ifld = qindex_hname(name,inames(:,1:totflds),totflds)
+      if ( ifld == 0 ) then
+         print*, "Error - history variable ", name, " is not known. "
+         stop
+      end if
+      if ( hist_debug > 5 ) then
+         print*, "SAVEHIST2D ", name, ifld, &
+                 histinfo(ifld)%used
+      end if
+      if ( .not. histinfo(ifld)%used ) then
+         return
+      end if
+
+!     Optional check on array sizes
+      if ( hist_debug > 0 ) then
+         if ( size(histarray,1) /= size(array,1) ) then
+            print*, "ERROR: History array has nlon = ", &
+                    size(histarray,1), &
+                    "Input array has nlon = ", size(array,1)
+            print*, "Variable ", trim(name)
             stop
          end if
-         if ( hist_debug > 5 ) then
-            print*, "SAVEHIST2D ", name, ifld, ifile, &
-                    histinfo(ifld)%used(ifile)
-         end if
-         if ( .not. histinfo(ifld)%used(ifile) ) then
-            cycle
-         end if
+      end if
 
-!        Optional check on array sizes
-         if ( hist_debug > 0 ) then
-            if ( double ) then
-               if ( 2*size(histarray,1) /= size(array,1) ) then
-                  print*, "ERROR (doublerow): History array has nlon = ", &
-                          size(histarray,1), &
-                          "Input array has nlon = ", size(array,1)
-                  print*, "Variable ", trim(name)
-                  stop
-               end if
+      if ( jlat2 > size(histarray,2) ) then
+         print*, "jlat out of bounds ", jlat2
+         print*, "Variable ", trim(name)
+         stop
+      end if
+
+      nl = histinfo(ifld)%nlevels
+      if ( nl /= size(array,3) ) then
+         print*, "History error, savehist called with array ", name
+         print*, "Input has ", size(array,3) , &
+                 " levels, history array has ", nl
+         print*, "Variable ", trim(name)
+         stop
+      end if
+
+      istart = histinfo(ifld)%ptr
+      iend = istart + nl - 1
+
+      select case ( histinfo(ifld)%ave_type)
+      case ( hist_ave )
+         where ( abs(array) /= nf90_fill_float .and. histarray(:,1:jlat2,istart:iend) /= nf90_fill_float ) 
+            histarray(:,1:jlat2,istart:iend) =  &
+                 histarray(:,1:jlat2,istart:iend) + array
+         elsewhere ( abs(array) /= nf90_fill_float )
+            histarray(:,1:jlat2,istart:iend) = array 
+         elsewhere
+            histarray(:,1:jlat2,istart:iend) = nf90_fill_float 
+         end where    
+      case ( hist_max ) 
+         where ( abs(array) /= nf90_fill_float .and. histarray(:,1:jlat2,istart:iend) /= nf90_fill_float )  
+            histarray(:,1:jlat2,istart:iend) =  &
+                 max ( histarray(:,1:jlat2,istart:iend), array )
+         elsewhere ( abs(array) /= nf90_fill_float )
+            histarray(:,1:jlat2,istart:iend) = array 
+         elsewhere
+            histarray(:,1:jlat2,istart:iend) = nf90_fill_float 
+         end where 
+      case ( hist_min )
+         where ( abs(array) /= nf90_fill_float .and. histarray(:,1:jlat2,istart:iend) /= nf90_fill_float )     
+            histarray(:,1:jlat2,istart:iend) =  &
+                 min ( histarray(:,1:jlat2,istart:iend), array )
+         elsewhere ( abs(array) /= nf90_fill_float )
+            histarray(:,1:jlat2,istart:iend) = array 
+         elsewhere
+            histarray(:,1:jlat2,istart:iend) = nf90_fill_float 
+         end where 
+      case ( hist_inst, hist_fixed ) 
+         where ( abs(array) /= nf90_fill_float ) 
+            histarray(:,1:jlat2,istart:iend) = array
+         elsewhere
+            histarray(:,1:jlat2,istart:iend) = nf90_fill_float 
+         end where    
+      case default
+         print*, "Internal error in history, unknown ave_type", &
+              histinfo(ifld)%ave_type
+         stop
+      end select
+
+      if ( any( abs(array) /= nf90_fill_float ) ) then
+         histinfo(ifld)%count = histinfo(ifld)%count + 1
+      end if   
+
+      if ( hist_debug >= 4 ) then
+         if ( jhdb==1 ) then
+            if ( khdb <= nl ) then
+               print*, "History at point ", name,  &
+                 histarray(ihdb,1,istart+khdb-1), array(ihdb,1,khdb)
             else
-               if ( size(histarray,1) /= size(array,1) ) then
-                  print*, "ERROR: History array has nlon = ", &
-                          size(histarray,1), &
-                          "Input array has nlon = ", size(array,1)
-                  print*, "Variable ", trim(name)
-                  stop
-               end if
+               print*, "History at point ", name,  &
+                 histarray(ihdb,1,istart), array(ihdb,1,1)
+            end if
+         else if ( jlat2 >= jhdb ) then
+            ! Global case
+            if ( khdb <= nl ) then
+               print*, "History at point ", name,  &
+                 histarray(ihdb,jhdb,istart+khdb-1), array(ihdb,jhdb,khdb)
+            else
+               print*, "History at point ", name,  &
+                 histarray(ihdb,jhdb,istart), array(ihdb,jhdb,1)
             end if
          end if
+      end if
 
-!        Need a check that if jlat1 /= jlat2 they cover the whole dimension.
-!        Allowing partial coverage has the risk of partial overlaps.
-
-         if ( jlat1 > jlat2 ) then
-            print*, "jlat out of order", jlat1, jlat2
-            stop
-         end if
-         if ( jlat1 < 1  .or. jlat2 > size(histarray,2) ) then
-            print*, "jlat out of bounds ", jlat1, jlat2
-            print*, "Variable ", trim(name)
-            stop
-         end if
-
-         if ( double .and. jlat1 /= jlat2 ) then
-            print*, "For double option must have jlat1 = jlat2", jlat1, jlat2
-            stop
-         end if
-
-         if ( double .and. size(array,2) /= 1 ) then
-            print*, "Error: double option and size(array,2) = ", size(array,2)
-            stop
-         end if
-
-         nl = histinfo(ifld)%nlevels
-         if ( nl /= size(array,3) ) then
-            print*, "History error, savehist called with array ", name
-            print*, "Input has ", size(array,3) , &
-                    " levels, history array has ", nl
-            print*, "Variable ", trim(name)
-            stop
-         end if
-
-         istart = histinfo(ifld)%ptr(ifile)
-         iend = istart+nl-1
-
-         if ( double ) then
-!           In this case the size of the second dimension must be 1
-            js = jlat1
-            jn = nyhis+1-jlat1
-            nx = size(histarray,1)
-            select case ( histinfo(ifld)%ave_type(ifile))
-            case ( hist_ave )
-               where ( abs(array(1:nx,1,:)) /= nf90_fill_float .and. histarray(:,jn,istart:iend) /= nf90_fill_float )  
-                  histarray(:,jn,istart:iend) = &
-                       histarray(:,jn,istart:iend) + array(1:nx,1,:)
-               elsewhere
-                  histarray(:,jn,istart:iend) = nf90_fill_float
-               end where
-               where ( abs(array(nx+1:,1,:)) /= nf90_fill_float .and. histarray(:,js,istart:iend) /= nf90_fill_float )
-                  histarray(:,js,istart:iend) = &
-                       histarray(:,js,istart:iend) + array(nx+1:,1,:)
-               elsewhere
-                  histarray(:,js,istart:iend) = nf90_fill_float 
-               end where    
-            case ( hist_max )
-               where ( abs(array(1:nx,1,:)) /= nf90_fill_float .and. histarray(:,jn,istart:iend) /= nf90_fill_float )
-                  histarray(:,jn,istart:iend) = &
-                     max ( histarray(:,jn,istart:iend), array(1:nx,1,:) )
-               elsewhere
-                  histarray(:,jn,istart:iend) = nf90_fill_float 
-               end where
-               where ( abs(array(nx+1:,1,:)) /= nf90_fill_float .and. histarray(:,js,istart:iend) /= nf90_fill_float )
-                  histarray(:,js,istart:iend) = &
-                     max ( histarray(:,js,istart:iend), array(nx+1:,1,:) )
-               elsewhere
-                  histarray(:,js,istart:iend) = nf90_fill_float 
-               end where    
-            case ( hist_min )
-               where ( abs(array(1:nx,1,:)) /= nf90_fill_float .and. histarray(:,jn,istart:iend) /= nf90_fill_float ) 
-                  histarray(:,jn,istart:iend) = &
-                     min ( histarray(:,jn,istart:iend), array(1:nx,1,:) )
-               elsewhere
-                  histarray(:,jn,istart:iend) = nf90_fill_float 
-               end where
-               where ( abs(array(nx+1:,1,:)) /= nf90_fill_float .and. histarray(:,js,istart:iend) /= nf90_fill_float )
-                  histarray(:,js,istart:iend) = &
-                     min ( histarray(:,js,istart:iend), array(nx+1:,1,:) )
-               elsewhere
-                  histarray(:,js,istart:iend) = nf90_fill_float 
-               end where
-            case ( hist_inst, hist_fixed ) 
-               where ( abs(array(1:nx,1,:)) /= nf90_fill_float ) 
-                  histarray(:,jn,istart:iend) = array(1:nx,1,:)
-               elsewhere
-                  histarray(:,jn,istart:iend) = nf90_fill_float
-               end where
-               where ( abs(array(nx+1:,1,:)) /= nf90_fill_float )
-                  histarray(:,js,istart:iend) = array(nx+1:,1,:)
-               elsewhere
-                  histarray(:,js,istart:iend) = nf90_fill_float 
-               end where    
-            case default
-               print*, "Internal error in history, unknown ave_type", &
-                    histinfo(ifld)%ave_type(ifile)
-               stop
-            end select
-         else
-            select case ( histinfo(ifld)%ave_type(ifile))
-            case ( hist_ave )
-               where ( abs(array) /= nf90_fill_float .and. histarray(:,jlat1:jlat2,istart:iend) /= nf90_fill_float ) 
-                  histarray(:,jlat1:jlat2,istart:iend) =  &
-                       histarray(:,jlat1:jlat2,istart:iend) + array
-               elsewhere
-                  histarray(:,jlat1:jlat2,istart:iend) = nf90_fill_float 
-               end where    
-            case ( hist_max ) 
-               where ( abs(array) /= nf90_fill_float .and. histarray(:,jlat1:jlat2,istart:iend) /= nf90_fill_float )  
-                  histarray(:,jlat1:jlat2,istart:iend) =  &
-                       max ( histarray(:,jlat1:jlat2,istart:iend), array )
-               elsewhere
-                  histarray(:,jlat1:jlat2,istart:iend) = nf90_fill_float 
-               end where 
-            case ( hist_min )
-               where ( abs(array) /= nf90_fill_float .and. histarray(:,jlat1:jlat2,istart:iend) /= nf90_fill_float )     
-                  histarray(:,jlat1:jlat2,istart:iend) =  &
-                       min ( histarray(:,jlat1:jlat2,istart:iend), array )
-               elsewhere
-                  histarray(:,jlat1:jlat2,istart:iend) = nf90_fill_float 
-               end where 
-            case ( hist_inst, hist_fixed ) 
-               where ( abs(array) /= nf90_fill_float ) 
-                  histarray(:,jlat1:jlat2,istart:iend) = array
-               elsewhere
-                  histarray(:,jlat1:jlat2,istart:iend) = nf90_fill_float 
-               end where    
-            case default
-               print*, "Internal error in history, unknown ave_type", &
-                    histinfo(ifld)%ave_type(ifile)
-               stop
-            end select
-         end if
-
-         if ( jlat1 == 1 ) then
-            histinfo(ifld)%count(ifile) = histinfo(ifld)%count(ifile) + 1
-         end if
-
-         if ( hist_debug >= 4 ) then
-            if ( jhdb==jlat1 ) then
-               if ( khdb <= nl ) then
-                  print*, "History at point ", name,  &
-                    histarray(ihdb,jlat1,istart+khdb-1), array(ihdb,1,khdb)
-               else
-                  print*, "History at point ", name,  &
-                    histarray(ihdb,jlat1,istart), array(ihdb,1,1)
-               end if
-            else if ( jlat1 == 1 .and. jlat2 >= jhdb ) then
-               ! Global case
-               if ( khdb <= nl ) then
-                  print*, "History at point ", name,  &
-                    histarray(ihdb,jhdb,istart+khdb-1), array(ihdb,jhdb,khdb)
-               else
-                  print*, "History at point ", name,  &
-                    histarray(ihdb,jhdb,istart), array(ihdb,jhdb,1)
-               end if
-            end if
-         end if
-
-      end do
    end subroutine savehist_work
 
 !-------------------------------------------------------------------
@@ -2186,7 +1965,7 @@ contains
       integer, dimension(4) :: start3D, count3D
       integer, dimension(3) :: start2D, count2D
       integer :: istart, iend
-      integer :: ave_type, nlev, ifile, count, ncid
+      integer :: ave_type, nlev, count, ncid
       integer :: k
       real :: umin, umax, addoff, sf
 !     Temporary for interpolated output
@@ -2206,569 +1985,430 @@ contains
 
       call START_LOG(writehist_begin)
 
-      do ifile = 1,nhfiles
+!     Check whether this file should be written on this step.
+      if ( hist_debug > 1 ) then
+         print*, "Checking frequency ", istep, hfreq
+      end if
 
-!        Check whether this file should be written on this step.
-         if ( hist_debug > 1 ) then
-            print*, "Checking frequency ", ifile, istep, hfreq(ifile)
-         end if
-
-!        For files containing time averages, calculate the appropriate
-!        average time value. Don't increment this on the final call when
-!        endofrun is set.
-         doinc = .true.
-         if ( present(endofrun) ) then
-            doinc = .not. endofrun
-         end if
-         if ( doinc .and. ihtype(ifile) == hist_ave .and. present(time) ) then
-            avetime(ifile) = avetime(ifile) + time
-            timecount(ifile) = timecount(ifile) + 1
-            if ( hist_debug > 0 ) then
-               print*, "AVETIME ", ifile, time, avetime(ifile), timecount(ifile)
-            end if
-         end if
-         if ( doinc .and. ihtype(ifile) == hist_ave .and. present(time_bnds) ) then
-            
-            ! Bounds for average should be the extreme bounds
-            avetime_bnds(1,ifile) = min(avetime_bnds(1,ifile), time_bnds(1))
-            avetime_bnds(2,ifile) = max(avetime_bnds(2,ifile), time_bnds(2))
-            if ( hist_debug > 0 ) then
-               print*, "AVETIME_BNDS ", ifile, time_bnds, avetime_bnds(:,ifile)
-            end if
-         end if
-
-!        Files with hfreq=0 are written once at end of run
-         if ( hfreq(ifile) == 0 ) then
-            if ( present(endofrun) ) then
-               if ( .not. endofrun ) then
-                  cycle
-               end if
-            else ! No endofrun argument
-               cycle
-            end if
-         else   ! hfreq(ifile) /= 0
-            if ( modulo(istep, hfreq(ifile) ) /= 0 ) then
-               cycle
-            end if
-!           Files for which hfreq is non-zero shouldn't be written at the end.
-            if ( present(endofrun) ) then
-               if ( endofrun ) then
-                  cycle
-               end if
-            end if
-         end if
-
+!     For files containing time averages, calculate the appropriate
+!     average time value. Don't increment this on the final call when
+!     endofrun is set.
+      doinc = .true.
+      if ( present(endofrun) ) then
+         doinc = .not. endofrun
+      end if
+      if ( doinc .and. ihtype == hist_ave .and. present(time) ) then
+         avetime = avetime + time
+         timecount = timecount + 1
          if ( hist_debug > 0 ) then
-            print*, "Writing history file ", ifile
+            print*, "AVETIME ", time, avetime, timecount
          end if
+      end if
+      if ( doinc .and. ihtype == hist_ave .and. present(time_bnds) ) then
+         ! Bounds for average should be the extreme bounds
+         avetime_bnds(1) = min(avetime_bnds(1), time_bnds(1))
+         avetime_bnds(2) = max(avetime_bnds(2), time_bnds(2))
+         if ( hist_debug > 0 ) then
+            print*, "AVETIME_BNDS ", time_bnds, avetime_bnds(:)
+         end if
+      end if
 
-         histset(ifile) = histset(ifile) + 1
+!     Files with hfreq=0 are written once at end of run
+      if ( hfreq == 0 ) then
+         if ( present(endofrun) ) then
+            if ( .not. endofrun ) then
+               return
+            end if
+         else ! No endofrun argument
+            return
+         end if
+      else   ! hfreq /= 0
+         if ( modulo(istep, hfreq ) /= 0 ) then
+            return
+         end if
+!        Files for which hfreq is non-zero shouldn't be written at the end.
+         if ( present(endofrun) ) then
+            if ( endofrun ) then
+               return
+            end if
+         end if
+      end if
 
-         if ( myid == 0 ) then
+      if ( hist_debug > 0 ) then
+         print*, "Writing history file "
+      end if
 
-            !if ( ifile == 1 .and. ihtype(ifile) == hist_oave ) then
-            !   if ( .not. ( present(year) .and. present(month) ) ) then
-            !      print*, "Error year and month arguments to writehist are "
-            !      print*, "required for old format files"
-            !      stop
-            !   end if
-!           !   Add a check. Interpolation not supported with old format.
-            !   call oldwrite(nxhis,nyhis,year,month)
-            !   cycle
-            !end if
+      histset = histset + 1
 
-            ncid = histid(ifile)
+      if ( myid == 0 ) then
 
-            ierr = nf90_inq_varid (ncid, "time", vid )
-            call check_ncerr(ierr, "Error getting time id")
-            if ( present(time) ) then
-               if ( ihtype(ifile) == hist_ave) then
-                  ierr = nf90_put_var ( ncid, vid,   &
-                       avetime(ifile)/timecount(ifile), start=(/histset(ifile)/) )
-               else
-                  ierr = nf90_put_var ( ncid, vid, time, start=(/histset(ifile)/))
-               end if
+         ncid = histid
+
+         ierr = nf90_inq_varid (ncid, "time", vid )
+         call check_ncerr(ierr, "Error getting time id")
+         if ( present(time) ) then
+            if ( ihtype == hist_ave) then
+               ierr = nf90_put_var ( ncid, vid,   &
+                    avetime/timecount, start=(/histset/) )
             else
-               ierr = nf90_put_var ( ncid, vid, &
-                                     real(histset(ifile)*hfreq(ifile)), &
-                                     start=(/histset(ifile)/) )
+               ierr = nf90_put_var ( ncid, vid, time, start=(/histset/))
             end if
-            call check_ncerr(ierr, "Error writing time")
-            if ( cf_compliant .and. present(time_bnds) ) then
-               ierr = nf90_inq_varid (ncid, "time_bnds", vid )
-               call check_ncerr(ierr, "Error getting time_bnds id")
-               if ( ihtype(ifile) == hist_ave) then
-                  ierr = nf90_put_var ( ncid, vid, avetime_bnds(:,ifile), start=(/1,histset(ifile)/))
-               else
-                  ierr = nf90_put_var ( ncid, vid, time_bnds, start=(/1,histset(ifile)/))
-               end if
-               call check_ncerr(ierr, "Error writing time_bnds")
-            end if
-
-            start2D = (/ 1, 1, histset(ifile) /)
-            count2D = (/ nxhis, nyhis, 1 /)
-            count3D = (/ nxhis, nyhis, 1, 1 /)
-            count4D = (/ nxhis, nyhis, 1, 1, 1 /)
-         
+         else
+            ierr = nf90_put_var ( ncid, vid, &
+                                  real(histset*hfreq), &
+                                  start=(/histset/) )
          end if
+         call check_ncerr(ierr, "Error writing time")
+         if ( cf_compliant .and. present(time_bnds) ) then
+            ierr = nf90_inq_varid (ncid, "time_bnds", vid )
+            call check_ncerr(ierr, "Error getting time_bnds id")
+            if ( ihtype == hist_ave) then
+               ierr = nf90_put_var ( ncid, vid, avetime_bnds(:), start=(/1,histset/))
+            else
+               ierr = nf90_put_var ( ncid, vid, time_bnds, start=(/1,histset/))
+            end if
+            call check_ncerr(ierr, "Error writing time_bnds")
+         end if
+
+         start2D = (/ 1, 1, histset /)
+         count2D = (/ nxhis, nyhis, 1 /)
+         count3D = (/ nxhis, nyhis, 1, 1 /)
+         count4D = (/ nxhis, nyhis, 1, 1, 1 /)
+         
+      end if
 
 #ifdef usempi3
-         cnt = 0
-!        first pass
-!        find total number of levels to store
-         do ifld = 1,totflds
-            if ( .not. histinfo(ifld)%used(ifile) ) then
-               cycle
-            end if
-            ave_type = histinfo(ifld)%ave_type(ifile)
-            nlev = histinfo(ifld)%nlevels
-            count = histinfo(ifld)%count(ifile)
-
-!           Only write fixed variables in the first history set
-            if ( histset(ifile) > 1 .and. ave_type == hist_fixed ) then
-               cycle
-            end if
-
-            istart = histinfo(ifld)%ptr(ifile)
-            iend = istart + nlev - 1
-            !if ( ave_type == hist_ave .or. ave_type == hist_oave ) then
-            if ( ave_type == hist_ave ) then    
-               if ( hist_debug >= 4 ) then
-                  print*, "Raw history at point ", histinfo(ifld)%name,&
-                    histarray(ihdb,jhdb,istart+khdb-1), count
-               end if
-               where ( histarray(:,:,istart:iend) /= NF90_FILL_FLOAT )
-                  histarray(:,:,istart:iend) =   &
-                    histarray(:,:,istart:iend) / max( count, 1 )
-                end where  
-            end if
-            if ( histinfo(ifld)%output_scale /= 0 ) then
-               histarray(:,:,istart:iend) = histarray(:,:,istart:iend) * &
-                 histinfo(ifld)%output_scale
-            end if
-            if ( hist_debug >= 4 ) then
-               print*, "History written at point ", histinfo(ifld)%name,&
-                    histarray(ihdb,jhdb,istart+khdb-1)
-            end if
-
-!           Even multilevel variables are written one level at a time
-            if ( count /= 0 ) then
-              cnt = cnt + iend - istart + 1
-            end if
-               
-         end do ! Loop over fields
-
-         slab = ceiling(1.0d0*cnt/nproc)
-         maxcnt = cnt
-         interp_nproc = ceiling(1.0d0*maxcnt/slab)
-         offset = nproc - interp_nproc
-         if ( myid >= offset ) then
-            allocate( hist_a(pil,pjl*pnpan,pnproc,1+slab*(myid-offset):slab*(myid-offset+1)) )
-            allocate( hist_g(nx_g,ny_g) )
+      cnt = 0
+!     first pass
+!     find total number of levels to store
+      do ifld = 1,totflds
+         if ( .not. histinfo(ifld)%used ) then
+            cycle
          end if
-         allocate( k_indx(maxcnt) )
+         ave_type = histinfo(ifld)%ave_type
+         nlev = histinfo(ifld)%nlevels
+         count = histinfo(ifld)%count
 
-         cnt = 0
-!        second pass
-!        create the array used to index histarray
-         do ifld = 1,totflds
-            if ( .not. histinfo(ifld)%used(ifile) ) then
-               cycle
+!        Only write fixed variables in the first history set
+         if ( histset > 1 .and. ave_type == hist_fixed ) then
+            cycle
+         end if
+
+         istart = histinfo(ifld)%ptr
+         iend = istart + nlev - 1
+         if ( ave_type == hist_ave ) then    
+            if ( hist_debug >= 4 ) then
+               print*, "Raw history at point ", histinfo(ifld)%name,&
+                 histarray(ihdb,jhdb,istart+khdb-1), count
             end if
-            ave_type = histinfo(ifld)%ave_type(ifile)
-            nlev = histinfo(ifld)%nlevels
-            count = histinfo(ifld)%count(ifile)
+            where ( histarray(:,:,istart:iend) /= NF90_FILL_FLOAT )
+               histarray(:,:,istart:iend) =   &
+                 histarray(:,:,istart:iend) / max( count, 1 )
+            end where  
+         end if
+         if ( histinfo(ifld)%output_scale /= 0 ) then
+            histarray(:,:,istart:iend) = histarray(:,:,istart:iend) * &
+              histinfo(ifld)%output_scale
+         end if
+         if ( hist_debug >= 4 ) then
+            print*, "History written at point ", histinfo(ifld)%name,&
+                 histarray(ihdb,jhdb,istart+khdb-1)
+         end if
 
-!           Only write fixed variables in the first history set
-            if ( histset(ifile) > 1 .and. ave_type == hist_fixed ) then
-               cycle
+!        Even multilevel variables are written one level at a time
+         if ( count /= 0 ) then
+           cnt = cnt + iend - istart + 1
+         end if
+               
+      end do ! Loop over fields
+
+      slab = ceiling(1.0d0*cnt/nproc)
+      maxcnt = cnt
+      interp_nproc = ceiling(1.0d0*maxcnt/slab)
+      offset = nproc - interp_nproc
+      if ( myid >= offset ) then
+         allocate( hist_a(pil,pjl*pnpan,pnproc,1+slab*(myid-offset):slab*(myid-offset+1)) )
+         allocate( hist_g(nx_g,ny_g) )
+      end if
+      allocate( k_indx(maxcnt) )
+
+      cnt = 0
+!     second pass
+!     create the array used to index histarray
+      do ifld = 1,totflds
+         if ( .not. histinfo(ifld)%used ) then
+            cycle
+         end if
+         ave_type = histinfo(ifld)%ave_type
+         nlev = histinfo(ifld)%nlevels
+         count = histinfo(ifld)%count
+
+!        Only write fixed variables in the first history set
+         if ( histset > 1 .and. ave_type == hist_fixed ) then
+            cycle
+         end if
+
+         istart = histinfo(ifld)%ptr
+         iend = istart + nlev - 1
+
+!        Even multilevel variables are written one level at a time
+         if ( count /= 0 ) then
+            do k = istart,iend
+               cnt = cnt + 1
+               k_indx(cnt) = k
+            end do   ! k loop
+         end if  
+
+      end do ! Loop over fields
+
+!     now do the gather wrap
+      call gather_wrap(histarray,hist_a,slab,offset,maxcnt,k_indx)
+
+      cnt = 0
+!     third pass
+!     perform the interpolation and write the data
+      do ifld = 1,totflds
+         if ( .not. histinfo(ifld)%used ) then
+            cycle
+         end if
+         ave_type = histinfo(ifld)%ave_type
+         nlev = histinfo(ifld)%nlevels
+         count = histinfo(ifld)%count
+         vid = histinfo(ifld)%vid
+
+!        Only write fixed variables in the first history set
+         if ( histset > 1 .and. ave_type == hist_fixed ) then
+            cycle
+         end if
+
+         istart = histinfo(ifld)%ptr
+         iend = istart + nlev - 1
+
+!        Even multilevel variables are written one level at a time
+         do k = istart, iend
+
+            if ( count == 0 ) then
+               if ( hbytes == 2 ) then
+                  htemp = NF90_FILL_SHORT
+               else
+                  htemp = NF90_FILL_FLOAT
+               end if
+            else
+
+               cnt = cnt + 1
+               if ( (cnt>=(1+slab*(myid-offset))).and.(cnt<=(slab*(myid-offset+1))) ) then
+
+                  do ip = 0,pnproc-1
+                     do n = 0,pnpan-1
+                        hist_g(1+ioff(ip,n):pil+ioff(ip,n),1+joff(ip,n)+n*pil_g:pjl+joff(ip,n)+n*pil_g) = &
+                           hist_a(1:pil,1+n*pjl:(n+1)*pjl,ip+1,cnt)
+                     end do
+                  end do
+                
+                  if ( present(interp) ) then
+                     call interp ( hist_g, htemp, histinfo(ifld)%int_type )
+                  else
+                     htemp = hist_g(:,:)
+                  end if
+                  
+               end if
+
             end if
 
-            istart = histinfo(ifld)%ptr(ifile)
-            iend = istart + nlev - 1
+            call sendrecv_wrap(htemp,cnt,slab,offset)
+               
+            if ( myid == 0 ) then
 
-!           Even multilevel variables are written one level at a time
-            if ( count /= 0 ) then
-               do k = istart,iend
-                  cnt = cnt + 1
-                  k_indx(cnt) = k
-               end do   ! k loop
-            end if  
+               if ( count /= 0 ) then
+                  if ( hbytes == 2 ) then
+                     addoff = histinfo(ifld)%addoff
+                     sf = histinfo(ifld)%scalef
+                     umin = sf * vmin + addoff
+                     umax = sf * vmax + addoff
+                     where ( fpequal(htemp, nf90_fill_float) )
+                        htemp = NF90_FILL_SHORT
+                     elsewhere
+                        ! Put the scaled array back in the original and let
+                        ! netcdf take care of conversion to int2
+                        htemp = nint((max(umin,min(umax,htemp))-addoff)/sf)
+                     end where
+                  else
+                     where ( fpequal(htemp, nf90_fill_float) )
+                        htemp = missing_value_cordex 
+                     end where    
+                  end if    
+               end if
+                   
+               if ( histinfo(ifld)%pop4d ) then
+                  start4D = (/ 1, 1, mod(k+1-istart-1,cptch)+1, 1+(k+1-istart-1)/cptch,  histset /)
+                  ierr = nf90_put_var ( ncid, vid, htemp, start=start4D, count=count4D )
+               else if ( nlev > 1 .or. histinfo(ifld)%multilev ) then
+                  start3D = (/ 1, 1, k+1-istart, histset /)
+                  ierr = nf90_put_var ( ncid, vid, htemp, start=start3D, count=count3D )
+               else
+                  ierr = nf90_put_var ( ncid, vid, htemp, start=start2D, count=count2D )
+               end if
+               call check_ncerr(ierr, "Error writing history variable "//histinfo(ifld)%name )
 
-         end do ! Loop over fields
-
-!        now do the gather wrap
-         call gather_wrap(histarray,hist_a,slab,offset,maxcnt,k_indx)
-
-         cnt = 0
-!        third pass
-!        perform the interpolation and write the data
-         do ifld = 1,totflds
-            if ( .not. histinfo(ifld)%used(ifile) ) then
-               cycle
             end if
-            ave_type = histinfo(ifld)%ave_type(ifile)
-            nlev = histinfo(ifld)%nlevels
-            count = histinfo(ifld)%count(ifile)
-            vid = histinfo(ifld)%vid(ifile)
+                 
+         end do   ! k loop
+               
+!        Zero ready for next set
+         histarray(:,:,istart:iend) = initval(ave_type)
+!        Reset the count variable
+         histinfo(ifld)%count = 0
 
-!           Only write fixed variables in the first history set
-            if ( histset(ifile) > 1 .and. ave_type == hist_fixed ) then
-               cycle
+      end do ! Loop over fields
+
+      if ( myid >= offset ) then
+         deallocate(hist_a, hist_g)
+      end if
+      deallocate(k_indx)
+#else
+      if ( myid == 0 ) then
+         allocate( hist_g(nx_g,ny_g) )
+         allocate( hist_a(pil,pjl*pnpan,1,pnproc) )
+      else
+         allocate( hist_g(0,0) )
+         allocate( hist_a(0,0,0,0) )
+      end if
+
+      do ifld = 1,totflds
+         if ( .not. histinfo(ifld)%used ) then
+            cycle
+         end if
+         ave_type = histinfo(ifld)%ave_type
+         nlev = histinfo(ifld)%nlevels
+         count = histinfo(ifld)%count
+         vid = histinfo(ifld)%vid
+
+!        Only write fixed variables in the first history set
+         if ( histset > 1 .and. ave_type == hist_fixed ) then
+            cycle
+         end if
+
+         istart = histinfo(ifld)%ptr
+         iend = istart + nlev - 1
+         if ( ave_type == hist_ave ) then    
+            if ( hist_debug >= 4 ) then
+               print*, "Raw history at point ", histinfo(ifld)%name,&
+                 histarray(ihdb,jhdb,istart+khdb-1), count
             end if
+            where ( histarray(:,:,istart:iend) /= NF90_FILL_FLOAT )
+               histarray(:,:,istart:iend) =   &
+                 histarray(:,:,istart:iend) / max( count, 1 )
+            end where  
+         end if
+         if ( histinfo(ifld)%output_scale /= 0 ) then
+            histarray(:,:,istart:iend) = histarray(:,:,istart:iend) * &
+              histinfo(ifld)%output_scale
+         end if
+         if ( hist_debug >= 4 ) then
+            print*, "History written at point ", histinfo(ifld)%name,&
+                 histarray(ihdb,jhdb,istart+khdb-1)
+         end if
+            
+         if ( myid == 0 ) then
+            if ( size(hist_a,3) /= nlev ) then
+               deallocate( hist_a )
+               allocate( hist_a(pil,pjl*pnpan,nlev,pnproc) )
+            end if   
+         end if    
 
-            istart = histinfo(ifld)%ptr(ifile)
-            iend = istart + nlev - 1
-
+         call gather_wrap(histarray(:,:,istart:iend),hist_a)
+            
+         if ( myid == 0 ) then
+                
 !           Even multilevel variables are written one level at a time
             do k = istart, iend
 
+               do ip = 0,pnproc-1   
+                  do n = 0,pnpan-1
+                     hist_g(1+ioff(ip,n):pil+ioff(ip,n),1+joff(ip,n)+n*pil_g:pjl+joff(ip,n)+n*pil_g) = &
+                        hist_a(1:pil,1+n*pjl:(n+1)*pjl,k-istart+1,ip+1)
+                  end do
+               end do
+  
                if ( count == 0 ) then
-                  if ( hbytes(ifile) == 2 ) then
+                  if ( hbytes == 2 ) then
                      htemp = NF90_FILL_SHORT
                   else
                      htemp = NF90_FILL_FLOAT
                   end if
                else
 
-                  cnt = cnt + 1
-                  if ( (cnt>=(1+slab*(myid-offset))).and.(cnt<=(slab*(myid-offset+1))) ) then
-
-                     do ip = 0,pnproc-1
-                        do n = 0,pnpan-1
-                           hist_g(1+ioff(ip,n):pil+ioff(ip,n),1+joff(ip,n)+n*pil_g:pjl+joff(ip,n)+n*pil_g) = &
-                              hist_a(1:pil,1+n*pjl:(n+1)*pjl,ip+1,cnt)
-                        end do
-                     end do
-                
-                     if ( present(interp) ) then
-                        call interp ( hist_g, htemp, histinfo(ifld)%int_type )
-                     else
-                        htemp = hist_g(:,:)
-                     end if
-                  
-                  end if
-
-               end if
-
-               call sendrecv_wrap(htemp,cnt,slab,offset)
-               
-               if ( myid == 0 ) then
-
-                  if ( count /= 0 ) then
-                     if ( hbytes(ifile) == 2 ) then
-                       addoff = histinfo(ifld)%addoff(ifile)
-                       sf = histinfo(ifld)%scalef(ifile)
-                       umin = sf * vmin + addoff
-                       umax = sf * vmax + addoff
-                       where ( fpequal(htemp, nf90_fill_float) )
-                          htemp = NF90_FILL_SHORT
-                       elsewhere
-                          ! Put the scaled array back in the original and let
-                          ! netcdf take care of conversion to int2
-                          htemp = nint((max(umin,min(umax,htemp))-addoff)/sf)
-                       end where
-                     else
-                       where ( fpequal(htemp, nf90_fill_float) )
-                          htemp = missing_value_cordex 
-                       end where    
-                     end if    
-                  end if
-                   
-                  if ( histinfo(ifld)%pop4d ) then
-                     start4D = (/ 1, 1, mod(k+1-istart-1,cptch)+1, 1+(k+1-istart-1)/cptch,  histset(ifile) /)
-                     ierr = nf90_put_var ( ncid, vid, htemp, start=start4D, count=count4D )
-                  else if ( nlev > 1 .or. histinfo(ifld)%multilev ) then
-                     start3D = (/ 1, 1, k+1-istart, histset(ifile) /)
-                     ierr = nf90_put_var ( ncid, vid, htemp, start=start3D, count=count3D )
+                  if ( present(interp) ) then
+                     call interp ( hist_g, htemp, histinfo(ifld)%int_type )
                   else
-                     ierr = nf90_put_var ( ncid, vid, htemp, start=start2D, count=count2D )
+                     htemp = hist_g
                   end if
-                  call check_ncerr(ierr, "Error writing history variable "//histinfo(ifld)%name )
 
+                  if ( hbytes == 2 ) then
+                     addoff = histinfo(ifld)%addoff
+                     sf = histinfo(ifld)%scalef
+                     umin = sf * vmin + addoff
+                     umax = sf * vmax + addoff
+                     where ( fpequal(htemp, nf90_fill_float) )
+                        htemp = NF90_FILL_SHORT
+                     elsewhere
+                        ! Put the scaled array back in the original and let
+                        ! netcdf take care of conversion to int2
+                        htemp = nint((max(umin,min(umax,htemp))-addoff)/sf)
+                     end where
+                  else
+                     where ( fpequal(htemp, nf90_fill_float) )
+                        htemp = missing_value_cordex
+                     end where  
+                  end if
+                  
                end if
+
+               if ( histinfo(ifld)%pop4d ) then
+                  start4D = (/ 1, 1, mod(k+1-istart-1,cptch)+1, 1+(k+1-istart-1)/cptch,  histset /)
+                  ierr = nf90_put_var ( ncid, vid, htemp, start=start4D, count=count4D )
+               else if ( nlev > 1 .or. histinfo(ifld)%multilev ) then
+                  start3D = (/ 1, 1, k+1-istart, histset /)
+                  ierr = nf90_put_var ( ncid, vid, htemp, start=start3D, count=count3D )
+               else
+                  ierr = nf90_put_var ( ncid, vid, htemp, start=start2D, count=count2D )
+               end if
+               call check_ncerr( ierr, "Error writing history variable "//histinfo(ifld)%name )
                  
             end do   ! k loop
                
-!           Zero ready for next set
-            histarray(:,:,istart:iend) = initval(ave_type)
-!           Reset the count variable
-            histinfo(ifld)%count(ifile) = 0
-
-         end do ! Loop over fields
-
-         if ( myid >= offset ) then
-            deallocate(hist_a, hist_g)
-         end if
-         deallocate(k_indx)
-#else
-         if ( myid == 0 ) then
-            allocate( hist_g(nx_g,ny_g) )
-            allocate( hist_a(pil,pjl*pnpan,1,pnproc) )
-         else
-            allocate( hist_g(0,0) )
-            allocate( hist_a(0,0,0,0) )
-         end if
-
-         do ifld = 1,totflds
-            if ( .not. histinfo(ifld)%used(ifile) ) then
-               cycle
-            end if
-            ave_type = histinfo(ifld)%ave_type(ifile)
-            nlev = histinfo(ifld)%nlevels
-            count = histinfo(ifld)%count(ifile)
-            vid = histinfo(ifld)%vid(ifile)
-
-!           Only write fixed variables in the first history set
-            if ( histset(ifile) > 1 .and. ave_type == hist_fixed ) then
-               cycle
-            end if
-
-            istart = histinfo(ifld)%ptr(ifile)
-            iend = istart + nlev - 1
-            !if ( ave_type == hist_ave .or. ave_type == hist_oave ) then
-            if ( ave_type == hist_ave ) then    
-               if ( hist_debug >= 4 ) then
-                  print*, "Raw history at point ", histinfo(ifld)%name,&
-                    histarray(ihdb,jhdb,istart+khdb-1), count
-               end if
-               where ( histarray(:,:,istart:iend) /= NF90_FILL_FLOAT )
-                  histarray(:,:,istart:iend) =   &
-                    histarray(:,:,istart:iend) / max( count, 1 )
-                end where  
-            end if
-            if ( histinfo(ifld)%output_scale /= 0 ) then
-               histarray(:,:,istart:iend) = histarray(:,:,istart:iend) * &
-                 histinfo(ifld)%output_scale
-            end if
-            if ( hist_debug >= 4 ) then
-               print*, "History written at point ", histinfo(ifld)%name,&
-                    histarray(ihdb,jhdb,istart+khdb-1)
-            end if
-            
-            if ( myid == 0 ) then
-               if ( size(hist_a,3)/=nlev ) then
-                  deallocate(hist_a)
-                  allocate( hist_a(pil,pjl*pnpan,nlev,pnproc) )
-               end if   
-            end if    
-
-            call gather_wrap(histarray(:,:,istart:iend),hist_a)
-            
-            if ( myid == 0 ) then
-                
-!              Even multilevel variables are written one level at a time
-               do k = istart, iend
-
-                  do ip = 0,pnproc-1   
-                     do n = 0,pnpan-1
-                        hist_g(1+ioff(ip,n):pil+ioff(ip,n),1+joff(ip,n)+n*pil_g:pjl+joff(ip,n)+n*pil_g) = &
-                           hist_a(1:pil,1+n*pjl:(n+1)*pjl,k-istart+1,ip+1)
-                     end do
-                  end do
-  
-                  if ( count == 0 ) then
-                     if ( hbytes(ifile) == 2 ) then
-                        htemp = NF90_FILL_SHORT
-                     else
-                        htemp = NF90_FILL_FLOAT
-                     end if
-                  else
-
-                     if ( present(interp) ) then
-                        call interp ( hist_g, htemp, histinfo(ifld)%int_type )
-                     else
-                        htemp = hist_g
-                     end if
-
-                     if ( hbytes(ifile) == 2 ) then
-                        addoff = histinfo(ifld)%addoff(ifile)
-                        sf = histinfo(ifld)%scalef(ifile)
-                        umin = sf * vmin + addoff
-                        umax = sf * vmax + addoff
-                        where ( fpequal(htemp, nf90_fill_float) )
-                           htemp = NF90_FILL_SHORT
-                        elsewhere
-                           ! Put the scaled array back in the original and let
-                           ! netcdf take care of conversion to int2
-                           htemp = nint((max(umin,min(umax,htemp))-addoff)/sf)
-                        end where
-                     else
-                        where ( fpequal(htemp, nf90_fill_float) )
-                           htemp = missing_value_cordex
-                        end where  
-                     end if
-                  
-                  end if
-
-                  if ( histinfo(ifld)%pop4d ) then
-                     start4D = (/ 1, 1, mod(k+1-istart-1,cptch)+1, 1+(k+1-istart-1)/cptch,  histset(ifile) /)
-                     ierr = nf90_put_var ( ncid, vid, htemp, start=start4D, count=count4D )
-                  else if ( nlev > 1 .or. histinfo(ifld)%multilev ) then
-                     start3D = (/ 1, 1, k+1-istart, histset(ifile) /)
-                     ierr = nf90_put_var ( ncid, vid, htemp, start=start3D, count=count3D )
-                  else
-                     ierr = nf90_put_var ( ncid, vid, htemp, start=start2D, count=count2D )
-                  end if
-                  call check_ncerr( ierr, "Error writing history variable "//histinfo(ifld)%name )
-                 
-               end do   ! k loop
-               
-            end if ! myid == 0
+         end if ! myid == 0
            
-!           Zero ready for next set
-            histarray(:,:,istart:iend) = initval(ave_type)
-!           Reset the count variable
-            histinfo(ifld)%count(ifile) = 0
+!        Zero ready for next set
+         histarray(:,:,istart:iend) = initval(ave_type)
+!        Reset the count variable
+         histinfo(ifld)%count = 0
 
-         end do ! Loop over fields
+      end do ! Loop over fields
          
-         deallocate( hist_a, hist_g )
+      deallocate( hist_a, hist_g )
 #endif
 
-         avetime(ifile) = 0.0
-         ! Initialisation so min/max work
-         avetime_bnds(:,ifile) = (/huge(1.), -huge(1.)/)
-         timecount(ifile) = 0
+      avetime = 0.0
+      ! Initialisation so min/max work
+      avetime_bnds(:) = (/huge(1.), -huge(1.)/)
+      timecount = 0
 
-!        Sync the file so that if the program crashes for some reason 
-!        there will still be useful output.
+!     Sync the file so that if the program crashes for some reason 
+!     there will still be useful output.
 #ifdef outsync
-         if ( myid == 0 ) then
-            ierr = nf90_sync ( ncid )
-            call check_ncerr(ierr, "Error syncing history file")
-         end if
+      if ( myid == 0 ) then
+         ierr = nf90_sync ( ncid )
+         call check_ncerr(ierr, "Error syncing history file")
+      end if
 #endif
-
-      end do ! Loop over files
 
       call END_LOG(writehist_end)
 
    end subroutine writehist
-!-------------------------------------------------------------------
-   subroutine oldwrite(nxhis, nyhis, year, month )
-
-      use mpidata_m
-
-!  Write old format files containing only a single field at a single level
-      integer, intent(in) :: nxhis, nyhis, year, month
-      integer :: ierr, vid, ifld, ilev, yrid
-      integer, dimension(4) :: astart, acount
-      integer :: istart
-      integer :: ave_type, nlev, ifile, count, ncid
-      character(len=200) :: filename
-      character(len=MAX_NAMELEN) :: vname
-      integer, dimension(nxhis,nyhis) :: imat
-      real :: addoff, sf, umin, umax
-      real, dimension(nxhis,nyhis) :: rmat
-      integer :: year1
-
-      if ( myid /= 0 ) return
-
-      ifile = 1
-      do ifld = 1, totflds
-
-         if ( .not. histinfo(ifld)%used(ifile) ) then
-            cycle
-         end if
-
-         ave_type = histinfo(ifld)%ave_type(ifile)
-         nlev = histinfo(ifld)%nlevels
-         count = histinfo(ifld)%count(ifile)
-         if ( count == 0 ) then
-            print*, "Error: history variable ", &
-                    trim(histinfo(ifld)%name), &
-                    " has never been set, skipping"
-            cycle
-         end if
-         do ilev = 1,nlev
-            if ( nlev == 1 ) then
-               vname = histinfo(ifld)%name
-            else
-               write(vname,"(a,i2.2)") trim(histinfo(ifld)%name), ilev
-            end if
-            write(filename,"(a,a,a,a)" ) trim(oldprefix), trim(vname), &
-                                         trim(filesuffix), ".nc"
-
-            if ( hist_debug > 0 ) then
-               print*, "Opening ", filename
-            end if
-            ierr = nf90_open(filename, NF90_WRITE, ncid)
-            call check_ncerr ( ierr, "Error opening history file "//filename )
-            ierr = nf90_inq_varid (ncid, vname, vid )
-            call check_ncerr(ierr, "Error getting variable name "//vname)
-
-            istart = histinfo(ifld)%ptr(ifile) + ilev - 1
-
-            if ( ave_type == hist_ave ) then
-               where( histarray(:,:,istart) /= NF90_FILL_FLOAT ) 
-                  histarray(:,:,istart) = histarray(:,:,istart) / count
-               end where   
-            end if
-            if ( histinfo(ifld)%output_scale /= 0 ) then
-               histarray(:,:,istart) = histarray(:,:,istart) * &
-                   histinfo(ifld)%output_scale
-            end if
-            if ( hist_debug >= 4 ) then
-               print*, "History written at point ", vname, &
-                    histarray(ihdb,jhdb,istart)
-            end if
-
-            ierr = nf90_inq_varid (ncid, "year", yrid )
-            call check_ncerr(ierr, "Error getting year id")
-            ierr = nf90_get_att (ncid, yrid, "valid_min", year1 )
-            call check_ncerr(ierr,"Error getting year valid min attribute")
-            astart = (/ 1, 1, month, year+1-year1 /)
-            acount = (/ nxhis, nyhis, 1, 1 /)
-
-!           Note that this routine can only be called on the first file
-            if ( hbytes(1) == 2 ) then
-               ierr = nf90_get_att (ncid, vid, "add_offset", addoff )
-               call check_ncerr(ierr,"Error getting add_offset attribute")
-               ierr = nf90_get_att (ncid, vid, "scale_factor", sf )
-               call check_ncerr(ierr,"Error getting scale_factor attribute")
-               umin = sf * vmin + addoff
-               umax = sf * vmax + addoff
-               where ( fpequal(histarray(:,:,istart), nf90_fill_float) )
-                  imat = NF90_FILL_SHORT
-               elsewhere
-                  imat = &
-                   nint((max(umin,min(umax,histarray(:,:,istart)))-addoff)/sf)
-               endwhere
-!              Use nf_put_vara_int and let netcdf itself convert to int2.
-!              This should be more portable than using integer*2 in f90.
-               ierr = nf90_put_var ( ncid, vid, imat, start=astart, &
-                                     count=acount )
-            else
-               where ( fpequal(histarray(:,:,istart), nf90_fill_float) )
-                  rmat = missing_value_cordex
-               elsewhere
-                  rmat = histarray(:,:,istart)
-               end where   
-               ierr = nf90_put_var ( ncid, vid, rmat, start=astart, &
-                                     count=acount )
-            end if
-            call check_ncerr(ierr, &
-                 "Error writing history variable "//vname )
-
-!           Zero ready for next set
-            histarray(:,:,istart) = initval(ave_type)
-!           Reset the count variable
-            histinfo(ifld)%count(ifile) = 0
-
-!           Write the year 
-            ierr = nf90_put_var ( ncid, yrid, year, start=(/year+1-year1/) )
-            call check_ncerr(ierr, "Error writing year")
-
-            ierr = nf90_close(ncid)
-            call check_ncerr(ierr,"Error closing file "//filename)
-
-         end do ! Loop over levels
-      end do ! Loop over fields
-
-   end subroutine oldwrite
 
 !-------------------------------------------------------------------
+
    function initval ( ave_type ) result (val)
       integer, intent(in) :: ave_type
       real :: val
@@ -2776,7 +2416,6 @@ contains
       select case ( ave_type)
       case ( hist_inst, hist_fixed )
          val = NF90_FILL_FLOAT
-      !case ( hist_ave, hist_oave )
       case ( hist_ave )    
          val = 0.0
       case (hist_max)
@@ -2797,30 +2436,27 @@ contains
 
       integer :: ifld
       integer :: istart, iend
-      integer :: ave_type, nlev, ifile
+      integer :: ave_type, nlev
 
       if ( hist_debug > 0 ) then
          print*, "Resetting history"
       end if
-      do ifile=1,nhfiles
 
-         do ifld = 1,totflds
-            if ( .not. histinfo(ifld)%used(ifile) ) then
-               cycle
-            end if
-            ave_type = histinfo(ifld)%ave_type(ifile)
-            nlev = histinfo(ifld)%nlevels
-            istart = histinfo(ifld)%ptr(ifile)
-            iend = istart+nlev-1
+      do ifld = 1,totflds
+         if ( .not. histinfo(ifld)%used ) then
+            cycle
+         end if
+         ave_type = histinfo(ifld)%ave_type
+         nlev = histinfo(ifld)%nlevels
+         istart = histinfo(ifld)%ptr
+         iend = istart + nlev - 1
 
-!           Zero ready for next set
-            histarray(:,:,istart:iend) = initval(ave_type)
-!           Reset the count variable
-            histinfo(ifld)%count(ifile) = 0
+!        Zero ready for next set
+         histarray(:,:,istart:iend) = initval(ave_type)
+!        Reset the count variable
+         histinfo(ifld)%count = 0
 
-         end do ! Loop over fields
-
-      end do ! Loop over files
+      end do ! Loop over fields
 
    end subroutine clearhist
 
@@ -2929,6 +2565,7 @@ contains
             end do
          end do
       end if
+      call MPI_Barrier(comm_world,ierr) ! avoids crashes on some systems
       call END_LOG(gatherwrap_end)
       
    end subroutine gather_wrap
@@ -2939,21 +2576,17 @@ contains
    function needfld ( name ) result (needed)
       character(len=*), intent(in) :: name
       logical :: needed
-      integer :: ifld, ifile
+      integer :: ifld
 
 !     Check if name is in the list for any of the history files
       needed = .false.
-      do ifile=1,nhfiles
-         ifld = qindex_hname ( name, inames(:,1:totflds), totflds, ifile)
-         if ( ifld == 0 ) then
-            ! Name not known at all in this case
-            needed = .false.
-            exit
-         else if ( histinfo(ifld)%used(ifile) ) then
-            needed = .true.
-            exit   ! No need to check any further.
-         end if
-      end do
+      ifld = qindex_hname ( name, inames(:,1:totflds), totflds)
+      if ( ifld == 0 ) then
+         ! Name not known at all in this case
+         needed = .false.
+      else if ( histinfo(ifld)%used ) then
+         needed = .true.
+      end if
    end function needfld
    
 !-------------------------------------------------------------------
@@ -3004,25 +2637,24 @@ contains
 
    end function bindex_hname
 !-------------------------------------------------------------------
-   function qindex_hname ( name, table, nflds, ifile ) result(ifld)
+   function qindex_hname ( name, table, nflds ) result(ifld)
       character(len=*), intent(in)    :: name
       integer, intent(in) :: nflds
       integer ( bigint ), intent(in), dimension(MAX_KEYINDEX,nflds) :: table
-      integer, intent(in) :: ifile
       integer :: ifld
 !     Both of these are initially set to one because this is a safe value.
 !     It doesn't matter that this points to the wrong thing because it's
 !     always checked.
 !     Index of the previously found name
-      integer, save, dimension(MAX_HFILES) :: prev = 1
+      integer, save :: prev = 1
 !     Index of the successor of a given index
-      integer, save, dimension(nfmax,MAX_HFILES) :: successor = 1
+      integer, save, dimension(nfmax) :: successor = 1
 
 !     First check the successor of the previous name. This will generally 
 !     work because things are done in a fixed order. It will only break on
 !     the first latitude of the radiation step.
 
-      ifld = successor(prev(ifile),ifile)
+      ifld = successor(prev)
       if ( histinfo(ifld)%name /= name ) then
          ifld = bindex_hname ( name, table, nflds )
          if ( ifld == 0 ) then
@@ -3030,11 +2662,11 @@ contains
             return
          end if
 !        Redefine the successor.
-         successor(prev(ifile),ifile) = ifld
+         successor(prev) = ifld
       end if
 
 !     Set this for next time
-      prev(ifile) = ifld
+      prev = ifld
          
 
    end function qindex_hname
