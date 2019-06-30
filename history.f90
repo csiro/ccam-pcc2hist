@@ -28,8 +28,6 @@
 ! Also useful in diagnostic programs, anything that has to write a time 
 ! series of lat/lon data to a netcdf file.
 
-! GrADS limitations. Single vertical dimension.
-
 !**********************************************************************
 !***   WARNING: No user serviceable parts inside.
 !***   Opening the case will invalidate warranty.
@@ -48,45 +46,9 @@
 ! At the moment there's no way to specify an integer field like a land
 ! sea mask.
 
-! Each variable has average_type. They should also have interp_type as 
-! an attribute, at least where it differs from the file default.
-! The file default should be a global attribute. Is this appropriate for the
-! cell_methods attribute?
-
-! Have an option in the interpolation to also apply a land-sea mask?
-
-! The routines to save full global field at once would be better if they
-! had an option to write instantaneously without requiring the histarray.
-! This would be useful for 3D winds in the model which are available globally
-! from the sL arrays.
-
-! At the moment it will reuse existing monthly mean files. This could be
-! incorrect if hbytes changes? Does it use the value in the file and does
-! the writing check for this properly?
-
-! Need to be able to cope with the monthly mean daily maximum temperature
-! and the extreme monthly temperature. Max and min need both an averaging 
-! period and a reset period. This might not require any special handling 
-! if the daily max is calculated in the rest of the model and savefld called
-! just once per day.
-
 ! One disadvantage of this scheme is that extra arrays are required to
 ! hold the instantaneous winds. In the old scheme these are just taken 
 ! from the standard model arrays required for the SLT.
-
-! Should values outside the valid range be trucated to the range or set
-! missing. Should there be separate scale ranges and valid ranges?
-
-! groice is added to twice per step, in seaice and surfupl. Add a check on
-! whether a variable has been updated already this step and don't increment
-! count.
-! With the ice routines need to be careful of the jlat==1 test for updating
-! count. There may not be ice there. In this case savefld will only be called
-! at some latitudes. If ice retreats over a month might it be called at 
-! a different number of latitudes? This has to be avoided (must be avoided 
-! at the moment?? )
-
-! Add an accumulated type for these, groice and redice???
 
 ! Should it be an error to call savehist on a field which is not in the 
 ! variable list or should it just be a warning. A warning might allow more
@@ -214,21 +176,21 @@ module history
       integer            :: ave_type   ! Type of averaging
       real               :: addoff
       real               :: scalef
-      integer                        :: int_type   ! Type of interpolation
+      integer            :: int_type   ! Type of interpolation
 !     Flag to force variable to be handled as multi-level even if nlevels=1.
-      logical                        :: multilev
+      logical            :: multilev
 !     For multilevel land surface variables
-      logical                        :: soil
+      logical            :: soil
 !     For multilevel ocean variables
-      logical                        :: water
+      logical            :: water
 !     For 2d pop variables
-      logical                        :: pop2d
+      logical            :: pop2d
 !     For 3d pop variables
-      logical                        :: pop3d
+      logical            :: pop3d
 !     For 4d pop variables
-      logical                        :: pop4d
+      logical            :: pop4d
       ! For CF coordinate attribute
-      real                           :: coord_height
+      real               :: coord_height
       ! cell_methods appropriate for variable before any history processing is done
       character(len=30)  :: cell_methods
    end type hinfo
@@ -332,7 +294,7 @@ contains
       ! identify the creation of the history file
    
       character(len=*), intent(out) :: hstr
-      character(len=100) :: logname, hostname
+      !character(len=100) :: logname, hostname
       integer, dimension(8) :: idatetime
       character(len=1000) :: str
    
@@ -473,7 +435,7 @@ contains
 
 !     Append this to list of hnames by searching for the first empty entry.
 !     This isn't very efficient but this routine is only used at startup.
-      do i=1,nfmax
+      do i = 1,nfmax
          if ( len_trim((hnames(i))) == 0 ) then
             hnames(i) = name
             exit
@@ -489,14 +451,12 @@ contains
    subroutine set_hbytes ( nbyte )
 !     Routine to allow setting hbytes directly without namelist.
       integer, intent(in) :: nbyte
-      
       hbytes = nbyte
    end subroutine set_hbytes
 
    subroutine set_hfreq ( freq )
 !     Routine to allow setting hfreq directly without namelist.
       integer, intent(in) :: freq
-
       hfreq = freq
    end subroutine set_hfreq
 
@@ -961,7 +921,7 @@ contains
               nsoil, zsoil, osig_found )
          histid = ncid
 
-         do ifld=1,totflds
+         do ifld = 1,totflds
             if ( histinfo(ifld)%used ) then
                call create_ncvar(histinfo(ifld), ncid, dims)
             end if
@@ -1258,7 +1218,7 @@ contains
       
       integer(kind=2), parameter :: fill_short = NF90_FILL_SHORT
 
-      if ( myid /=0 ) return
+      if ( myid /= 0 ) return
       
       local_name = vinfo%name  
 
@@ -1876,8 +1836,6 @@ contains
          where ( abs(array) /= nf90_fill_float .and. histarray(:,1:jlat2,istart:iend) /= nf90_fill_float ) 
             histarray(:,1:jlat2,istart:iend) =  &
                  histarray(:,1:jlat2,istart:iend) + array
-         elsewhere ( abs(array) /= nf90_fill_float )
-            histarray(:,1:jlat2,istart:iend) = array 
          elsewhere
             histarray(:,1:jlat2,istart:iend) = nf90_fill_float 
          end where    
@@ -1885,8 +1843,6 @@ contains
          where ( abs(array) /= nf90_fill_float .and. histarray(:,1:jlat2,istart:iend) /= nf90_fill_float )  
             histarray(:,1:jlat2,istart:iend) =  &
                  max ( histarray(:,1:jlat2,istart:iend), array )
-         elsewhere ( abs(array) /= nf90_fill_float )
-            histarray(:,1:jlat2,istart:iend) = array 
          elsewhere
             histarray(:,1:jlat2,istart:iend) = nf90_fill_float 
          end where 
@@ -1894,8 +1850,6 @@ contains
          where ( abs(array) /= nf90_fill_float .and. histarray(:,1:jlat2,istart:iend) /= nf90_fill_float )     
             histarray(:,1:jlat2,istart:iend) =  &
                  min ( histarray(:,1:jlat2,istart:iend), array )
-         elsewhere ( abs(array) /= nf90_fill_float )
-            histarray(:,1:jlat2,istart:iend) = array 
          elsewhere
             histarray(:,1:jlat2,istart:iend) = nf90_fill_float 
          end where 
