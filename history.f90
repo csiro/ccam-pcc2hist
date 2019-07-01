@@ -1779,7 +1779,7 @@ contains
       integer :: ifld, js, jn, nl, istart, iend
       integer :: nx
       
-      if ( all( abs(array) == NF90_FILL_FLOAT ) ) return
+      if ( all( array == NF90_FILL_FLOAT ) ) return
 
 !     Check that openhist has been called to allocate the array
       if ( .not. allocated ( histarray ) ) then
