@@ -290,6 +290,7 @@ contains
       real, dimension(pil,pjl*pnpan*lproc) :: tauxtmp, tauytmp
       real, dimension(pil,pjl*pnpan*lproc) :: rgn, rgd, sgn, sgd
       real, dimension(pil,pjl*pnpan*lproc) :: wind_norm
+      real, dimension(pil,pjl*pnpan*lproc) :: u10max, v10max, u10max_stn, v10max_stn
       real, dimension(1) :: rlong_a, rlat_a, cos_zen, frac
       real :: fjd, bpyear, r1, dlt, alp, slag, dhr
       character(len=10) :: name
@@ -310,6 +311,10 @@ contains
       
       mrso = 0.  ! total soil moisture
       mrfso = 0. ! total soil ice
+      u10max = nf90_fill_float     ! daily
+      v10max = nf90_fill_float     ! daily
+      u10max_stn = nf90_fill_float ! daily
+      v10max_stn = nf90_fill_float ! daily
       
       do ivar=1,nvars
          ! Just write the input with no further processing
@@ -661,11 +666,19 @@ contains
                call vread( "u10_stn", uten_stn )
                if ( needfld(varlist(ivar)%vname) ) then
                   call savehist( varlist(ivar)%vname, uten_stn )
-               end if  	       
+               end if
+            case ( "u10max" )
+               call vread( "u10max", u10max ) 
+            case ( "u10max_stn" )
+               call vread( "u10max_stn", u10max_stn ) 
             case ( "uas" )
                 call vread( "uas", uastmp )         ! only for high-frequency output
             case ( "uas_stn" )
                 call vread( "uas_stn", uastmp_stn ) ! only for high-frequency output
+            case ( "v10max" )
+               call vread( "v10max", v10max ) 
+            case ( "v10max_stn" )
+               call vread( "v10max_stn", v10max_stn ) 
             case ( "vas" )
                 call vread( "vas", vastmp )         ! only for high-frequency output
             case ( "vas_stn" )
@@ -1024,7 +1037,47 @@ contains
             call savehist( "tauy", tauytmp )
          end if 
       end if    
-      
+
+      if ( needfld("u10max") .or. needfld("v10max") .or. &
+           needfld("sfcWindmax") ) then
+         call fix_winds(u10max, v10max)
+         if ( needfld("u10max") ) then
+            call savehist( "u10max", u10max )
+         end if
+         if ( needfld("v10max") ) then
+            call savehist( "v10max", v10max )
+         end if
+         if ( needfld("sfcWindmax") ) then
+            where ( u10max/=nf90_fill_float .and. &
+                    v10max/=nf90_fill_float )
+               dtmp = sqrt(u10max**2 + v10max**2)
+            elsewhere
+               dtmp = nf90_fill_float
+            end where
+            call savehist( "sfcWindmax", dtmp )
+         end if
+      end if
+
+      if ( needfld("u10max_stn") .or. needfld("v10max_stn") .or. &
+           needfld("sfcWindmax_stn") ) then
+         call fix_winds(u10max_stn, v10max_stn)
+         if ( needfld("u10max_stn") ) then
+            call savehist( "u10max_stn", u10max_stn )
+         end if
+         if ( needfld("v10max_stn") ) then
+            call savehist( "v10max_stn", v10max_stn )
+         end if
+         if ( needfld("sfcWindmax_stn") ) then
+            where ( u10max_stn/=nf90_fill_float .and. &
+                    v10max_stn/=nf90_fill_float ) 
+               dtmp = sqrt(u10max_stn**2 + v10max_stn**2)
+            elsewhere
+               dtmp = nf90_fill_float
+            end where   
+            call savehist( "sfcWindmax_stn", dtmp )
+         end if
+      end if
+                
       if ( kk>1 ) then
          
          if ( needfld("qbot") ) then
@@ -1059,7 +1112,7 @@ contains
             dtmp = 100.*psl/grav * dtmp
             call savehist ( "pwc", dtmp )
          end if
-         
+                  
          if ( needfld("td") ) then
             call calc_td ( t, q, ql, qf, psl, sig, tmp3d )
             call vsavehist( "td", tmp3d ) 
@@ -1179,10 +1232,8 @@ contains
       else        
           
          ! high-frequency output 
-        if ( needfld("uas")     .or. needfld("vas")     .or. &
-             needfld("u10")     .or. needfld("d10")     .or. &
-             needfld("uas_stn") .or. needfld("vas_stn") .or. &
-             needfld("u10_stn") ) then
+         if ( needfld("uas")     .or. needfld("vas")     .or. &
+              needfld("u10")     .or. needfld("d10") ) then
             call fix_winds( uastmp, vastmp )
             if ( needfld("uas") ) then
                call savehist( "uas", uastmp )
@@ -1191,9 +1242,29 @@ contains
                call savehist( "vas", vastmp )
             end if  
             if ( needfld("u10") ) then
-               uten = sqrt( uastmp*uastmp + vastmp*vastmp )
-               call savehist( "u10", uten )
+               where ( uastmp/=nf90_fill_float .and. &
+                       vastmp/=nf90_fill_float )
+                  dtmp = sqrt( uastmp*uastmp + vastmp*vastmp )
+               elsewhere
+                  dtmp = nf90_fill_float
+               end where  
+               call savehist( "u10", dtmp )
             end if
+            if ( needfld("d10") ) then
+               where ( uastmp/=nf90_fill_float .and. &
+                       vastmp/=nf90_fill_float )
+                  dtmp = atan2(-uastmp,-vastmp)*180./3.1415927
+               elsewhere
+                  dtmp = nf90_fill_float
+               end where
+               where ( dtmp<0. .and. dtmp/=nf90_fill_float )
+                  dtmp = dtmp + 360.
+               end where
+               call savehist( "d10", dtmp )
+            end if
+         end if
+         if ( needfld("uas_stn") .or. needfld("vas_stn") .or. &
+              needfld("u10_stn") ) then            
             call fix_winds( uastmp_stn, vastmp_stn )
             if ( needfld("uas_stn") ) then
                call savehist( "uas_stn", uastmp_stn )
@@ -1202,18 +1273,15 @@ contains
                call savehist( "vas_stn", vastmp_stn )
             end if  
             if ( needfld("u10_stn") ) then
-               uten_stn = sqrt( uastmp_stn**2 + vastmp**2 )
-               call savehist( "u10_stn", uten_stn )
-            end if
-            if ( needfld("d10") ) then
-               udir = atan2(-uastmp,-vastmp)*180./3.1415927
-               where ( udir < 0. )
-                  udir = udir + 360.
-               end where
-               call savehist( "d10", udir )
+               where ( uastmp_stn/=nf90_fill_float .and. &
+                       vastmp_stn/=nf90_fill_float )
+                  dtmp = sqrt( uastmp_stn**2 + vastmp**2 )
+               elsewhere
+                  dtmp = nf90_fill_float         
+               end where            
+               call savehist( "u10_stn", dtmp )
             end if
          end if
-
           
       end if       
       
@@ -2003,11 +2071,14 @@ contains
       if ( need_rotate .or. needfld("u") .or. needfld("v") .or.   &
            needfld("taux") .or. needfld("tauy") .or.              &
            needfld("tauu") .or. needfld("tauv") .or.              &
-           needfld("u10max") .or. needfld("v10max") .or.          &
            needfld("uas") .or. needfld("vas") .or.                &
            needfld("uas_stn") .or. needfld("vas_stn") .or.        &
            needfld("u10") .or. needfld("d10") .or.                &
-           needfld("ubot") .or. needfld("vbot") ) then
+           needfld("u10_stn") .or.                                &
+           needfld("ubot") .or. needfld("vbot") .or.              &
+           needfld("u10max") .or. needfld("v10max") .or.          &
+           needfld("u10max_stn") .or. needfld("v10max_stn") .or.  &
+           needfld("sfcWindmax") .or. needfld("sfcWindmax_stn") ) then
 
          allocate ( costh(pil,pjl*pnpan*lproc), sinth(pil,pjl*pnpan*lproc) )
          
@@ -2173,6 +2244,10 @@ contains
          !else
             ierr = nf90_inquire_variable (ncid, ivar, name=vname, ndims=ndims, dimids=dimids, xtype=xtype)
             call check_ncerr(ierr, "nf90_inquire_variable error")
+            if ( vname == "sfcWindmax" .or. vname == "sfcWindmax_stn" ) then
+               ! remove old sfcWindmax data
+               cycle
+            end if   
             !if ( use_plevs .and. vname == "psf" ) then
             !   ! This has already been handled above
             !   cycle
@@ -2480,9 +2555,6 @@ contains
          if ( ierr == 0 ) then
             varlist(ivar)%daily = valid_att == "daily"
          end if
-	 if ( varlist(ivar)%vname == "sfcWindmax" ) then
-	    varlist(ivar)%daily = .false. ! patch for CCAM bug
-	 end if
 
          ! Is this really simpler than a string of if tests?
          if ( match ( varlist(ivar)%vname, &
@@ -2509,9 +2581,9 @@ contains
                (/ "cape_ave  ", "cape_max  ", "cbas_ave  ", "cfrac     ", "cld       ", "clh       ", "cll       ", &
                   "clm       ", "convh_ave ", "ctop_ave  ", "lwp_ave   ", "maxrnd    ", "omega     ", "pblh      ", &
                   "pmsl      ", "psl       ", "qfg       ", "qgrg      ", "qgscrn    ", "qlg       ", "qrg       ", &
-                  "qsng      ", "rfrac     ", "rhscrn    ", "rnc       ", "rnd       ", "rnd24     ", "sfcWindmax", &
-                  "sunhours  ", "temp      ", "tscrn     ", "tsu       ", "u         ", "u10       ", "u10max    ", &
-                  "uscrn     ", "v         ", "v10max    ", "zolnd     ", "zht       " /)) ) then
+                  "qsng      ", "rfrac     ", "rhscrn    ", "rnc       ", "rnd       ", "rnd24     ", "sunhours  ", &
+                  "temp      ", "tscrn     ", "tsu       ", "u         ", "u10       ", "u10max    ", "uscrn     ", &
+                  "v         ", "v10max    ", "zolnd     ", "zht       " /)) ) then
             ran_type = .true.
          else
             ran_type = .false.
@@ -2799,7 +2871,9 @@ contains
          call addfld ( "uas", "x-component 10m wind", "m/s", -100.0, 100.0, 1, ran_type=.true. )
          call addfld ( "vas", "y-component 10m wind", "m/s", -100.0, 100.0, 1, ran_type=.true. )
          call addfld ( "uas_stn", "x-component 10m wind", "m/s", -100.0, 100.0, 1, ran_type=.false. )
-         call addfld ( "vas_stn", "y-component 10m wind", "m/s", -100.0, 100.0, 1, ran_type=.false. )	 
+         call addfld ( "vas_stn", "y-component 10m wind", "m/s", -100.0, 100.0, 1, ran_type=.false. )
+         call addfld ( "sfcWindmax", "Maximum 10m wind speed", "m/s", 0.0, 200.0, 1, ran_type=.true. )
+         call addfld ( "sfcWindmax_stn", "Maximum 10m wind speed (station)", "m/s", 0.0, 200.0, 1, ran_type=.false. ) 
          ! Packing is not going to work well in this case
          ! For height, estimate the height of the top level and use that
          ! for scaling
@@ -2862,6 +2936,7 @@ contains
          ! high-frequency output
          call addfld ( "u10", "10m wind speed", "m/s", 0., 100.0, 1, ran_type=.true. ) 
          call addfld ( "d10", "10m wind direction", "deg", 0.0, 360.0, 1, ran_type=.true. )
+         call addfld ( "u10_stn", "10m wind speed (station)", "m/s", 0., 100.0, 1, ran_type=.false. ) 
          call addfld ( "rlus", "Upwelling Longwave radiation", "W/m2", -1000., 1000., 1 )
          call addfld ( "rsus", "Upwelling Shortwave radiation", "W/m2", -1000., 1000., 1 ) 
       end if
@@ -3503,7 +3578,7 @@ contains
             write(6,'(x,a,i0)') "WARNING: Using pcc2hist with the following number of processes: ",nproc
          end if
 
-         if (myid < nproc ) then
+         if ( myid < nproc ) then
             colour = 0
          else
             colour = 1
