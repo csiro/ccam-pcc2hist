@@ -2480,6 +2480,9 @@ contains
          if ( ierr == 0 ) then
             varlist(ivar)%daily = valid_att == "daily"
          end if
+	 if ( varlist(ivar)%vname == "sfcWindmax" ) then
+	    varlist(ivar)%daily = .false. ! patch for CCAM bug
+	 end if
 
          ! Is this really simpler than a string of if tests?
          if ( match ( varlist(ivar)%vname, &
