@@ -2460,6 +2460,7 @@ contains
               varlist(ivar)%vname == "tasmin" .or.          &
               varlist(ivar)%vname == "maxrnd" .or.          &
               varlist(ivar)%vname == "prmax" .or.           &
+              varlist(ivar)%vname == "prhmax" .or.          &
               varlist(ivar)%vname == "rhmaxscr" .or.        &
               varlist(ivar)%vname == "rhminscr" .or.        &
               varlist(ivar)%vname == "u10max" .or.          &
