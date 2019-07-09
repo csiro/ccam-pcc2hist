@@ -2873,10 +2873,8 @@ contains
          call addfld ( "vas", "y-component 10m wind", "m/s", -100.0, 100.0, 1, ran_type=.true. )
          call addfld ( "uas_stn", "x-component 10m wind", "m/s", -100.0, 100.0, 1, ran_type=.false. )
          call addfld ( "vas_stn", "y-component 10m wind", "m/s", -100.0, 100.0, 1, ran_type=.false. )
-         call addfld ( "sfcWindmax", "Maximum 10m wind speed", "m/s", 0.0, 200.0, 1,                &
-                       int_type = int_nearest, ran_type=.true. )
-         call addfld ( "sfcWindmax_stn", "Maximum 10m wind speed (station)", "m/s", 0.0, 200.0, 1,  &
-                       int_type = int_nearest, ran_type=.false. ) 
+         call addfld ( "sfcWindmax", "Maximum 10m wind speed", "m/s", 0.0, 200.0, 1, ran_type=.true. )
+         call addfld ( "sfcWindmax_stn", "Maximum 10m wind speed (station)", "m/s", 0.0, 200.0, 1, ran_type=.false. ) 
          ! Packing is not going to work well in this case
          ! For height, estimate the height of the top level and use that
          ! for scaling
