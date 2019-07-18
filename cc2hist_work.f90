@@ -2938,8 +2938,6 @@ contains
          call addfld ( "u10", "10m wind speed", "m/s", 0., 100.0, 1, ran_type=.true. ) 
          call addfld ( "d10", "10m wind direction", "deg", 0.0, 360.0, 1, ran_type=.true. )
          call addfld ( "u10_stn", "10m wind speed (station)", "m/s", 0., 100.0, 1, ran_type=.false. ) 
-         call addfld ( "rlus", "Upwelling Longwave radiation", "W/m2", -1000., 1000., 1 )
-         call addfld ( "rsus", "Upwelling Shortwave radiation", "W/m2", -1000., 1000., 1 ) 
       end if
       
       if ( ok > 1 ) then
