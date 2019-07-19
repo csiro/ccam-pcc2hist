@@ -59,6 +59,8 @@ module work
    real, allocatable, dimension(:), public, save :: hlon, hlat
    integer, public, save :: nxhis, nyhis
    real, dimension(:,:), allocatable, private :: costh, sinth
+   real, dimension(:,:), allocatable, private :: rlong_l, rlat_l
+   real, dimension(:,:), allocatable, private :: rlong_g, rlat_g
 
    public :: initialise, fix_winds, final_init, check_cc2histfile
    public :: paraopen, paraclose, cc2hist_work_close
@@ -288,10 +290,12 @@ contains
       real, dimension(pil,pjl*pnpan*lproc) :: mrso, mrfso
       real, dimension(pil,pjl*pnpan*lproc) :: sndw, egave, dpsdt
       real, dimension(pil,pjl*pnpan*lproc) :: tauxtmp, tauytmp
-      real, dimension(pil,pjl*pnpan*lproc) :: rgn, rgd, sgn, sgd
+      real, dimension(pil,pjl*pnpan*lproc) :: rgn, rgd, sgn, sgd, fbeam
       real, dimension(pil,pjl*pnpan*lproc) :: wind_norm
       real, dimension(pil,pjl*pnpan*lproc) :: u10max, v10max, u10max_stn, v10max_stn
-      real, dimension(1) :: rlong_a, rlat_a, cos_zen, frac
+      real, dimension(pil,pjl*pnpan*lproc) :: tscrn, qgscrn
+      real, dimension(pil,pjl*pnpan*lproc) :: tscrn_stn, qgscrn_stn
+      real, dimension(pil*pjl*pnpan*lproc) :: rlong_a, rlat_a, cos_zen, frac
       real :: fjd, bpyear, r1, dlt, alp, slag, dhr
       character(len=10) :: name
       logical :: validvar
@@ -436,6 +440,13 @@ contains
                   end where   
                   call savehist ( "evspsblpot", dtmp )
                end if   
+            case ( "fbeam_ave" )
+               if ( needfld("fbeam_ave") .or. needfld("dni") ) then
+                  call vread( "fbeam_ave", fbeam )
+                  if ( needfld("fbeam_ave") ) then
+                     call savehist ( "fbeam_ave", fbeam )  
+                  end if    
+               end if   
             case ( "hfls" )
                if ( needfld("hfls") .or. needfld("evspsbl") ) then 
                   call vread( "eg_ave", egave )
@@ -447,13 +458,17 @@ contains
                call readsave2 (varlist(ivar)%vname, input_name="fg_ave")
             case ( "hurs" )
                call readsave2 (varlist(ivar)%vname, input_name="rhscrn")
-            case ( "huss" )
-               if ( needfld("huss") ) then 
-                  call vread( "qgscrn", dtmp )
-                  where ( dtmp /= nf90_fill_float )
-                     dtmp = dtmp/(dtmp+1.)
-                  end where  
-                  call savehist ( "huss", dtmp )
+            case ( "huss", "qgscrn" )
+               if ( needfld("huss") .or. needfld("qgscrn") .or. needfld("tdscrn") ) then 
+                  call vread( "qgscrn", qgscrn )
+                  if ( needfld("huss") ) then
+                     where ( qgscrn /= nf90_fill_float )
+                        dtmp = qgscrn/(qgscrn+1.)
+                     end where  
+                     call savehist ( "huss", dtmp )
+                  else if ( needfld("qgscrn") ) then
+                     call savehist ( "qgscrn", qgscrn ) 
+                  end if    
                end if 
             case ( "mrro" )
                if ( needfld("mrro") ) then 
@@ -546,6 +561,13 @@ contains
                end if   
                ! This relies on surface pressure coming before the 3D variables
                if ( use_plevs ) call sitop_setup(sig, plevs(1:nplevs), psl, maxlev, minlev)
+            case ( "qgscrn_stn" )
+               if ( needfld("qgscrn_stn") .or. needfld("tdscrn_stn") ) then 
+                  call vread( "qgscrn_stn", qgscrn_stn )
+                  if ( needfld("qgscrn_stn") ) then
+                     call savehist ( "qgscrn_stn", qgscrn_stn ) 
+                  end if    
+               end if 
             case ( "rgdn_ave", "rlds" )
                if ( needfld("rgdn") .or. needfld("rlds") .or. needfld("rlus") ) then 
                   call vread( "rgdn_ave", rgd )
@@ -575,7 +597,7 @@ contains
                   call savehist( "sic", dtmp )
                end if   
             case ( "sgdn_ave", "rsds" )
-               if ( needfld("sgdn_ave") .or. needfld("rsds") .or. needfld("rsus") ) then 
+               if ( needfld("sgdn_ave") .or. needfld("rsds") .or. needfld("rsus") .or. needfld("dni") ) then 
                   call vread( "sgdn_ave", sgd )
                   if ( needfld(varlist(ivar)%vname) ) then
                      call savehist( varlist(ivar)%vname, sgd )
@@ -618,8 +640,13 @@ contains
                   end where   
                   call savehist ( "sund", dtmp )
                end if   
-            case ( "tas" )
-               call readsave2 (varlist(ivar)%vname, input_name="tscrn")
+            case ( "tas", "tscrn" )
+               if ( needfld("tas") .or. needfld("tscrn") .or. needfld("tdscrn") ) then 
+                  call vread( "tscrn", tscrn )
+                  if ( needfld(varlist(ivar)%vname) ) then
+                     call savehist(varlist(ivar)%vname, tscrn)
+                  end if   
+               end if   
             case ( "tasmax" )
                call readsave2 (varlist(ivar)%vname, input_name="tmaxscr")
             case ( "tasmin" )
@@ -657,6 +684,13 @@ contains
                      call savehist ( "tsea", ctmp )
                   end if   
                end if
+            case ( "tscrn_stn" )
+               if ( needfld("tscrn_stn") .or. needfld("tdscrn_stn") ) then 
+                  call vread( "tscrn_stn", tscrn_stn )
+                  if ( needfld(varlist(ivar)%vname) ) then
+                     call savehist(varlist(ivar)%vname, tscrn_stn)
+                  end if   
+               end if  
             case ( "u10", "sfcWind" )
                call vread( "u10", uten )
                if ( needfld(varlist(ivar)%vname) ) then
@@ -1077,6 +1111,35 @@ contains
             call savehist( "sfcWindmax_stn", dtmp )
          end if
       end if
+           
+      if ( needfld("tdscrn") ) then
+         call calc_tdscrn( tscrn, qgscrn, psl, dtmp )
+         call savehist( "tdscrn", dtmp )
+      end if
+      
+      if ( needfld("tdscrn_stn") ) then
+         call calc_tdscrn( tscrn_stn, qgscrn_stn, psl, dtmp )
+         call savehist( "tdscrn_stn", dtmp )          
+      end if
+      
+      if ( needfld("dni") ) then
+         ! calculate zenith angle
+         dhr = 1./3600.
+         fjd = float(mod(mins, 525600))/1440. ! restrict to 365 day calendar
+         ierr = nf90_get_att(ncid, nf90_global, "bpyear", bpyear )
+         if ( ierr/=nf90_noerr ) bpyear = 0.
+         call solargh(fjd,bpyear,r1,dlt,alp,slag)
+         rlat_a = reshape( rlat_l, (/ size(rlat_a) /) )
+         rlong_a = reshape( rlong_l, (/ size(rlong_a) /) )
+         call zenith(fjd,r1,dlt,slag,rlat_a,rlong_a,dhr,size(cos_zen),cos_zen,frac)
+         ctmp = reshape( cos_zen, (/ size(ctmp,1), size(ctmp,2) /) )
+         where ( ctmp>0. )
+            dtmp = sgd*fbeam/ctmp
+         elsewhere
+            dtmp = nf90_fill_float
+         end where    
+         call savehist( "dni", dtmp )
+      end if
                 
       if ( kk>1 ) then
          
@@ -1354,7 +1417,7 @@ contains
          call solargh(fjd,bpyear,r1,dlt,alp,slag)
          rlat_a(1) = rlat0
          rlong_a(1) = rlong0
-         call zenith(fjd,r1,dlt,slag,rlat_a,rlong_a,dhr,1,cos_zen,frac)
+         call zenith(fjd,r1,dlt,slag,rlat_a(1:1),rlong_a(1:1),dhr,1,cos_zen(1:1),frac(1:1))
          dtmp(:,:) = cos_zen(1)
          call savehist( "cos_zen", dtmp )
       end if
@@ -2067,6 +2130,20 @@ contains
             exit
          end if
       end do
+      
+      allocate( rlong_l(pil,pjl*pnpan*lproc), rlat_l(pil,pjl*pnpan*lproc) )
+      
+      if ( myid == 0 ) then
+         allocate( rlong_g(il,jl), rlat_g(il,jl) )
+         rlat_g(:,:) = reshape( rlat, (/ il, jl /) )
+         rlong_g(:,:) = reshape( rlong, (/ il, jl /) )
+         call ccmpi_scatter(rlat_l,rlat_g)
+         call ccmpi_scatter(rlong_l,rlong_g)     
+         deallocate( rlong_g, rlat_g )
+      else
+         call ccmpi_scatter(rlat_l)
+         call ccmpi_scatter(rlong_l)
+      end if    
 
       if ( need_rotate .or. needfld("u") .or. needfld("v") .or.   &
            needfld("taux") .or. needfld("tauy") .or.              &
@@ -2825,6 +2902,8 @@ contains
          call addfld ( "grid", "Grid resolution", "km", 0., 1000., 1, ave_type="fixed" )
          call addfld ( "tsea", "Sea surface temperature", "K", 150., 350., 1, &
                         std_name="sea_surface_temperature", ran_type=.true. )
+         call addfld ( "tdscrn", "Dew point screen temperature", "K", 100.0, 400.0, 1 )
+         call addfld ( "tdscrn_stn", "Dew point screen temperature (station)", "K", 100.0, 400.0, 1 )
          if ( cordex_compliant ) then
             call addfld ( "evspsbl", "Evaporation", "kg/m2/s", 0., 0.001, 1, std_name="water_evaporation_flux" )
             if ( int_type /= int_none ) then
@@ -2855,8 +2934,7 @@ contains
             end if
             call addfld ( "snc",  "Snow area fraction", "%", 0., 6.5, 1 )
             call addfld ( "snw",  "Surface Snow Amount", "kg m-2", 0., 6.5, 1 )
-         else
-            call addfld ( "d10", "10m wind direction", "deg", 0.0, 360.0, 1, ran_type=.true. )          
+         else          
             if ( int_type /= int_none ) then
                call addfld ( "land_mask", "Land-sea mask", "",  0.0, 1.0, 1, &
                               ave_type="fixed", int_type=int_nearest, ran_type=.true. )
@@ -2869,6 +2947,8 @@ contains
             call addfld ( "pwc", "Precipitable water column", "kg/m2", 0.0, 100.0, 1, &
                           std_name="atmosphere_water_vapor_content", ran_type=.true. )           
          end if
+         call addfld ( "dni", "Direct normal irradiance", "W/m2", -1000., 1000., 1 )
+         call addfld ( "d10", "10m wind direction", "deg", 0.0, 360.0, 1, ran_type=.true. )
          call addfld ( "uas", "x-component 10m wind", "m/s", -100.0, 100.0, 1, ran_type=.true. )
          call addfld ( "vas", "y-component 10m wind", "m/s", -100.0, 100.0, 1, ran_type=.true. )
          call addfld ( "uas_stn", "x-component 10m wind", "m/s", -100.0, 100.0, 1, ran_type=.false. )
@@ -2935,9 +3015,19 @@ contains
 
       else
          ! high-frequency output
+         ierr = nf90_inq_varid (ncid, "psf", ivar )
+         if ( ierr/=nf90_noerr ) then
+            call addfld ( "tdscrn", "Dew point screen temperature", "K", 100.0, 400.0, 1 )
+            call addfld ( "tdscrn_stn", "Dew point screen temperature (station)", "K", 100.0, 400.0, 1 )
+            call addfld ( "ps", "Surface pressure", "hPa", 0., 1200., 1, std_name="surface_air_pressure", ran_type=.true. ) 
+         end if
+         ierr = nf90_inq_varid (ncid, "fbeam_ave", ivar )
+         if ( ierr/=nf90_noerr ) then
+            call addfld ( "dni", "Direct normal irradiance", "W/m2", -1000., 1000., 1 )
+         end if   
          call addfld ( "u10", "10m wind speed", "m/s", 0., 100.0, 1, ran_type=.true. ) 
-         call addfld ( "d10", "10m wind direction", "deg", 0.0, 360.0, 1, ran_type=.true. )
          call addfld ( "u10_stn", "10m wind speed (station)", "m/s", 0., 100.0, 1, ran_type=.false. ) 
+         call addfld ( "d10", "10m wind direction", "deg", 0.0, 360.0, 1, ran_type=.true. )
       end if
       
       if ( ok > 1 ) then
@@ -3109,6 +3199,29 @@ contains
       end do
       
    end subroutine calc_td
+   
+   subroutine calc_tdscrn ( t_in, q_in, psl_in, td )
+      real, dimension(pil,pjl*pnpan*lproc), intent(out) :: td
+      real, dimension(pil,pjl*pnpan*lproc), intent(in) :: t_in, q_in, psl_in
+      real, dimension(pil,pjl*pnpan*lproc) :: p, es
+      real, dimension(pil,pjl*pnpan*lproc) :: ws, el, cl
+      real, dimension(pil,pjl*pnpan*lproc) :: t, q
+      
+      p = min( max( 100.*psl_in, 1.e3), 1.e7) ! p is Pa
+      t = min( max( t_in, 100.), 400.)
+      q = min( max( q_in, 1.e-10), 1.)
+      es = 611.2*exp(17.67*(t-273.15)/(t-29.65)) 
+      ws = (287.09/461.5)*es/max(p-es,0.1)
+      el = es*q/ws
+      cl = log(el/611.2)
+      where ( t_in/=NF90_FILL_FLOAT .and. q_in/=NF90_FILL_FLOAT .and.   &
+              psl_in/=NF90_FILL_FLOAT )
+         td = (17.67*273.15-29.65*cl)/(17.67-cl) 
+      elsewhere
+         td = NF90_FILL_FLOAT
+      end where
+      
+   end subroutine calc_tdscrn
    
    subroutine check_cc2histfile()
       ! Check whether the input file was created by cc2hist. Without this
