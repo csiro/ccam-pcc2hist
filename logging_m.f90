@@ -1,6 +1,6 @@
 ! Conformal Cubic Atmospheric Model
     
-! Copyright 2015 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+! Copyright 2015-2019 Commonwealth Scientific Industrial Research Organisation (CSIRO)
     
 ! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
 !
@@ -59,13 +59,11 @@ private
    integer, public, save :: mpigather_begin, mpigather_end
    integer, public, save :: gatherwrap_begin, gatherwrap_end
    integer, public, save :: getdate_begin, getdate_end
-   integer, public, save :: writehistput_begin, writehistput_end
-   integer, public, save :: gathervwrap_begin, gathervwrap_end
-   integer, public, save :: mpigatherv_begin, mpigatherv_end
+   integer, public, save :: mpisendrecv_begin, mpisendrecv_end
 #ifdef simple_timer
    public :: simple_timer_finalize
 #endif
-   integer, parameter :: nevents = 26
+   integer, parameter :: nevents = 24
    real(kind=8), dimension(nevents), save :: tot_time = 0., start_time
    character(len=15), dimension(nevents), save :: event_name
 
@@ -212,17 +210,9 @@ contains
       getdate_end =  getdate_begin
       event_name(getdate_begin) = "Getdate"
 
-      writehistput_begin = 24
-      writehistput_end =  writehistput_begin
-      event_name(writehistput_begin) = "WritehistPut"
-
-      gathervwrap_begin = 25
-      gathervwrap_end =  gathervwrap_begin
-      event_name(gathervwrap_begin) = "Gathervwrap"
-
-      mpigatherv_begin = 26
-      mpigatherv_end =  mpigatherv_begin
-      event_name(mpigatherv_begin) = "MPIGatherv"
+      mpisendrecv_begin = 24
+      mpisendrecv_end =  mpisendrecv_begin
+      event_name(mpisendrecv_begin) = "MPISendRecv"
 
    end subroutine log_setup
 
