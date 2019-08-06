@@ -2319,10 +2319,6 @@ contains
                end if
 
                
-if ( histinfo(ifld)%name=="sfcWindmax" ) then
-print *,"historyA sfcWindmax ",ifld,maxval(htemp),minval(htemp)
-print *,"histset ",histset
-end if
                if ( histinfo(ifld)%pop4d ) then
                   start4D = (/ 1, 1, mod(k+1-istart-1,cptch)+1, 1+(k+1-istart-1)/cptch,  histset /)
                   ierr = nf90_put_var ( ncid, vid, htemp, start=start4D, count=count4D )
