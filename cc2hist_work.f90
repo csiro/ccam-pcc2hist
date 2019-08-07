@@ -286,7 +286,8 @@ contains
       integer :: rad_day
       real, dimension(pil,pjl*pnpan*lproc) :: udir, dtmp, ctmp
       real, dimension(pil,pjl*pnpan*lproc) :: uten, uastmp, vastmp
-      real, dimension(pil,pjl*pnpan*lproc) :: uten_stn, uastmp_stn, vastmp_stn      
+      real, dimension(pil,pjl*pnpan*lproc) :: uten_stn, uastmp_stn, vastmp_stn   
+      real, dimension(pil,pjl*pnpan*lproc) :: ua150tmp, va150tmp, ua250tmp, va250tmp
       real, dimension(pil,pjl*pnpan*lproc) :: mrso, mrfso
       real, dimension(pil,pjl*pnpan*lproc) :: sndw, egave, dpsdt
       real, dimension(pil,pjl*pnpan*lproc) :: tauxtmp, tauytmp
@@ -705,6 +706,10 @@ contains
                call vread( "u10max", u10max ) 
             case ( "u10max_stn" )
                call vread( "u10max_stn", u10max_stn ) 
+            case ( "ua150" )
+                call vread( "ua150", ua150tmp )     ! only for high-frequency output
+            case ( "ua250" )
+                call vread( "ua250", ua250tmp )     ! only for high-frequency output
             case ( "uas" )
                 call vread( "uas", uastmp )         ! only for high-frequency output
             case ( "uas_stn" )
@@ -713,6 +718,10 @@ contains
                call vread( "v10max", v10max ) 
             case ( "v10max_stn" )
                call vread( "v10max_stn", v10max_stn ) 
+            case ( "va150" )
+                call vread( "va150", va150tmp )     ! only for high-frequency output
+            case ( "va250" )
+                call vread( "va250", va250tmp )     ! only for high-frequency output
             case ( "vas" )
                 call vread( "vas", vastmp )         ! only for high-frequency output
             case ( "vas_stn" )
@@ -1345,7 +1354,68 @@ contains
                call savehist( "u10_stn", dtmp )
             end if
          end if
-          
+         if ( needfld("ua150")     .or. needfld("va150")     .or. &
+              needfld("u150")     .or. needfld("d150") ) then
+            call fix_winds( ua150tmp, va150tmp )
+            if ( needfld("ua150") ) then
+               call savehist( "ua150", ua150tmp )
+            end if
+            if ( needfld("va150") ) then
+               call savehist( "va150", va150tmp )
+            end if  
+            if ( needfld("u150") ) then
+               where ( ua150tmp/=nf90_fill_float .and. &
+                       va150tmp/=nf90_fill_float )
+                  dtmp = sqrt( ua150tmp**2 + va150tmp**2 )
+               elsewhere
+                  dtmp = nf90_fill_float
+               end where  
+               call savehist( "u150", dtmp )
+            end if
+            if ( needfld("d150") ) then
+               where ( ua150tmp/=nf90_fill_float .and. &
+                       va150tmp/=nf90_fill_float )
+                  dtmp = atan2(-ua150tmp,-va150tmp)*180./3.1415927
+               elsewhere
+                  dtmp = nf90_fill_float
+               end where
+               where ( dtmp<0. .and. dtmp/=nf90_fill_float )
+                  dtmp = dtmp + 360.
+               end where
+               call savehist( "d150", dtmp )
+            end if
+         end if
+         if ( needfld("ua250")     .or. needfld("va250")     .or. &
+              needfld("u250")     .or. needfld("d250") ) then
+            call fix_winds( ua250tmp, va250tmp )
+            if ( needfld("ua250") ) then
+               call savehist( "ua250", ua250tmp )
+            end if
+            if ( needfld("va250") ) then
+               call savehist( "va250", va250tmp )
+            end if  
+            if ( needfld("u250") ) then
+               where ( ua250tmp/=nf90_fill_float .and. &
+                       va250tmp/=nf90_fill_float )
+                  dtmp = sqrt( ua250tmp**2 + va250tmp**2 )
+               elsewhere
+                  dtmp = nf90_fill_float
+               end where  
+               call savehist( "u250", dtmp )
+            end if
+            if ( needfld("d250") ) then
+               where ( ua250tmp/=nf90_fill_float .and. &
+                       va250tmp/=nf90_fill_float )
+                  dtmp = atan2(-ua250tmp,-va250tmp)*180./3.1415927
+               elsewhere
+                  dtmp = nf90_fill_float
+               end where
+               where ( dtmp<0. .and. dtmp/=nf90_fill_float )
+                  dtmp = dtmp + 360.
+               end where
+               call savehist( "d250", dtmp )
+            end if
+         end if
       end if       
       
       ! Note that these are just vertical averages, not vertical integrals
@@ -2124,7 +2194,7 @@ contains
 !     list. Check all names to see if any vector fields are set
 !     Still require the test on names for non-netcdf inputs.
       need_rotate = .false.
-      do ivar=1,nvars
+      do ivar = 1,nvars
          if ( varlist(ivar)%vector .and. needfld(varlist(ivar)%vname) ) then
             need_rotate = .true.
             exit
@@ -3028,6 +3098,13 @@ contains
          call addfld ( "u10", "10m wind speed", "m/s", 0., 100.0, 1, ran_type=.true. ) 
          call addfld ( "u10_stn", "10m wind speed (station)", "m/s", 0., 100.0, 1, ran_type=.false. ) 
          call addfld ( "d10", "10m wind direction", "deg", 0.0, 360.0, 1, ran_type=.true. )
+         ierr = nf90_inq_varid (ncid, "ua150", ivar )
+         if ( ierr/=nf90_noerr ) then
+           call addfld ( "u150", "150m wind speed", "m/s", 0., 100.0, 1, ran_type=.false. )
+           call addfld ( "d150", "150m wind direction", "deg", 0., 360.0, 1, ran_type=.false. )
+           call addfld ( "u250", "250m wind speed", "m/s", 0., 100.0, 1, ran_type=.false. )
+           call addfld ( "d250", "250m wind direction", "deg", 0., 360.0, 1, ran_type=.false. )
+         end if    
       end if
       
       if ( ok > 1 ) then
