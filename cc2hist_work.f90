@@ -1142,10 +1142,12 @@ contains
          rlong_a = reshape( rlong_l, (/ size(rlong_a) /) )
          call zenith(fjd,r1,dlt,slag,rlat_a,rlong_a,dhr,size(cos_zen),cos_zen,frac)
          ctmp = reshape( cos_zen, (/ size(ctmp,1), size(ctmp,2) /) )
-         where ( ctmp>0. )
+         where ( sgd==nf90_fill_float .or. fbeam==nf90_fill_float )
+            dtmp = nf90_fill_float
+         elsewhere ( ctmp>0. )
             dtmp = sgd*fbeam/ctmp
          elsewhere
-            dtmp = nf90_fill_float
+            dtmp = 0.
          end where    
          call savehist( "dni", dtmp )
       end if
