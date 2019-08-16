@@ -3088,13 +3088,13 @@ contains
       else
          ! high-frequency output
          ierr = nf90_inq_varid (ncid, "psf", ivar )
-         if ( ierr/=nf90_noerr ) then
+         if ( ierr==nf90_noerr ) then
             call addfld ( "tdscrn", "Dew point screen temperature", "K", 100.0, 400.0, 1 )
             call addfld ( "tdscrn_stn", "Dew point screen temperature (station)", "K", 100.0, 400.0, 1 )
             call addfld ( "ps", "Surface pressure", "hPa", 0., 1200., 1, std_name="surface_air_pressure", ran_type=.true. ) 
          end if
          ierr = nf90_inq_varid (ncid, "fbeam_ave", ivar )
-         if ( ierr/=nf90_noerr ) then
+         if ( ierr==nf90_noerr ) then
             call addfld ( "dni", "Direct normal irradiance", "W/m2", -1000., 1000., 1 )
          end if   
          call addfld ( "u10", "10m wind speed", "m/s", 0., 100.0, 1, ran_type=.true. ) 
