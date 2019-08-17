@@ -3101,7 +3101,7 @@ contains
          call addfld ( "u10_stn", "10m wind speed (station)", "m/s", 0., 100.0, 1, ran_type=.false. ) 
          call addfld ( "d10", "10m wind direction", "deg", 0.0, 360.0, 1, ran_type=.true. )
          ierr = nf90_inq_varid (ncid, "ua150", ivar )
-         if ( ierr/=nf90_noerr ) then
+         if ( ierr==nf90_noerr ) then
            call addfld ( "u150", "150m wind speed", "m/s", 0., 100.0, 1, ran_type=.false. )
            call addfld ( "d150", "150m wind direction", "deg", 0., 360.0, 1, ran_type=.false. )
            call addfld ( "u250", "250m wind speed", "m/s", 0., 100.0, 1, ran_type=.false. )
