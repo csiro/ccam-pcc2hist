@@ -6,13 +6,16 @@ FHOST = -xHost
 ifeq ($(BROADWELL),yes)
 FHOST = -xCORE-AVX2
 endif
+ifeq ($(SKYLAKE),yes)
+FHOST = -xSKYLAKE-AVX512
+endif
 ifeq ($(NOMPI3),yes)
 MPIFLAG =
 else
 MPIFLAG = -Dusempi3
 MPIFLAG =
 endif
-FFLAGS = -O $(FHOST) -ftz -fp-model precise -traceback $(MPIFLAG)
+FFLAGS = -O3 $(FHOST) -ftz -fp-model precise -traceback $(MPIFLAG)
 INC = -I $(NETCDF_ROOT)/include
 LIBS = -L $(NETCDF_ROOT)/lib -lnetcdf
 ifneq ($(NCCLIB),yes)
