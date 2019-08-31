@@ -2429,7 +2429,7 @@ contains
       integer, dimension(maxcnt), intent(in) :: k_indx
       real, dimension(:,:,:), intent(in) :: histarray
       real, dimension(size(histarray,1),size(histarray,2),slab) :: histarray_tmp
-      real, dimension(:,:,:,:), pointer, contiguous, intent(out) :: hist_a
+      real, dimension(:,:,:,:), pointer, contiguous, intent(inout) :: hist_a
       real, dimension(pil*pjl*pnpan*lproc*slab*nproc), target :: hist_a_tmp
       real, dimension(:,:,:,:), pointer, contiguous :: hist_a_remap, hist_a_tmp_remap
    
