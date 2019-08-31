@@ -63,7 +63,7 @@ module work
    real, dimension(:,:), allocatable, private :: rlong_g, rlat_g
 
    public :: initialise, fix_winds, final_init, check_cc2histfile
-   public :: paraopen, paraclose, cc2hist_work_close
+   public :: paraopen, paraclose
    private :: need3dfld, need4dfld, fill_cc
    interface fix_winds
       module procedure fix_winds2, fix_winds3
