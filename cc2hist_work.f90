@@ -297,7 +297,7 @@ contains
       real, dimension(pil,pjl*pnpan*lproc) :: tscrn, qgscrn
       real, dimension(pil,pjl*pnpan*lproc) :: tscrn_stn, qgscrn_stn
       real, dimension(pil*pjl*pnpan*lproc) :: rlong_a, rlat_a, cos_zen, frac
-      real :: fjd, bpyear, r1, dlt, alp, slag, dhr
+      real :: fjd, bpyear, r1, dlt, alp, slag, dhr, csolar
       character(len=10) :: name
       logical :: validvar
       real, parameter :: spval   = 999.
@@ -1137,6 +1137,8 @@ contains
          fjd = float(mod(mins, 525600))/1440. ! restrict to 365 day calendar
          ierr = nf90_get_att(ncid, nf90_global, "bpyear", bpyear )
          if ( ierr/=nf90_noerr ) bpyear = 0.
+         ierr = nf90_get_att(ncid, nf90_global, "csolar", csolar )
+         if ( ierr/=nf90_noerr ) csolar = 1365.
          call solargh(fjd,bpyear,r1,dlt,alp,slag)
          rlat_a = reshape( rlat_l, (/ size(rlat_a) /) )
          rlong_a = reshape( rlong_l, (/ size(rlong_a) /) )
@@ -1145,7 +1147,7 @@ contains
          where ( sgd==nf90_fill_float .or. fbeam==nf90_fill_float )
             dtmp = nf90_fill_float
          elsewhere ( ctmp>0. )
-            dtmp = sgd*fbeam/ctmp
+            dtmp = fbeam*min(sgd/ctmp,csolar)
          elsewhere
             dtmp = 0.
          end where    
