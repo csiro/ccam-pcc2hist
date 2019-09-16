@@ -853,7 +853,8 @@ contains
                   ! psl will not be used in height
                   call height( t, q, zs, psl, sig, hstd )
                   do k = 1,size(hstd,dim=3)
-                     hstd(:,:,k) = mlevs(nplevs)*(hstd(:,:,k) - zs)/(mlevs(nplevs)-zs)
+                     !hstd(:,:,k) = mlevs(nplevs)*(hstd(:,:,k) - zs)/(mlevs(nplevs)-zs)
+                     hstd(:,:,k) = hstd(:,:,k) - zs
                   end do
                   call mitop_setup( sig, mlevs(1:nplevs), hstd, zs, t, q, maxlev, minlev )
                   if ( needfld(varlist(ivar)%vname) ) then

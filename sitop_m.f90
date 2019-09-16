@@ -443,13 +443,15 @@ contains
             ii = 1
             do k = 1,nprlvs
                if ( mtrlvs(k) < height(i,j,1) ) then
-                  mtrphys = mtrlvs(k)/mtrlvs(nprlvs)*(mtrlvs(nprlvs)-zs(i,j)) + zs(i,j) 
+                  !mtrphys = mtrlvs(k)/mtrlvs(nprlvs)*(mtrlvs(nprlvs)-zs(i,j)) + zs(i,j)
+                  mtrphys = mtrlvs(k)
                   sig(i,nprlvs+1-k,j) = (grav*mtrphys/(tv(i,1)*z)+1.)**(-z/rdry)
                else
                   do while ( height(i,j,ii+1)<mtrlvs(k) .and. ii<nsgm1 )
                      ii = ii + 1
                   end do
-                  mtrphys = (mtrlvs(k)-height(i,j,ii))/mtrlvs(nprlvs)*(mtrlvs(nprlvs)-zs(i,j))
+                  !mtrphys = (mtrlvs(k)-height(i,j,ii))/mtrlvs(nprlvs)*(mtrlvs(nprlvs)-zs(i,j))
+                  mtrphys = mtrlvs(k) - height(i,j,ii)
                   sig(i,nprlvs+1-k,j) = siglvs(nsglvs-ii+1) &
                       *exp(-2.*grav/rdry*mtrphys/(tv(i,ii)+tv(i,ii+1)))
                end if
