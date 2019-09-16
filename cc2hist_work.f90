@@ -3062,7 +3062,11 @@ contains
          if ( ierr==nf90_noerr ) then
             call addfld ( "tdscrn", "Dew point screen temperature", "K", 100.0, 400.0, 1 )
             call addfld ( "tdscrn_stn", "Dew point screen temperature (station)", "K", 100.0, 400.0, 1 )
-            call addfld ( "ps", "Surface pressure", "hPa", 0., 1200., 1, std_name="surface_air_pressure", ran_type=.true. ) 
+            if ( cordex_compliant ) then
+               call addfld ( "ps", "Surface pressure", "Pa", 0., 120000., 1, std_name="surface_air_pressure", ran_type=.true. ) 
+            else    
+               call addfld ( "ps", "Surface pressure", "hPa", 0., 1200., 1, std_name="surface_air_pressure", ran_type=.true. )
+            end if
          end if
          call addfld ( "u10", "10m wind speed", "m/s", 0., 100.0, 1, ran_type=.true. ) 
          call addfld ( "u10_stn", "10m wind speed (station)", "m/s", 0., 100.0, 1, ran_type=.false. ) 
