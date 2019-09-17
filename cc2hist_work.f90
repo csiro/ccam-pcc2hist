@@ -391,7 +391,7 @@ contains
                   call vread( "clh", dtmp )
                   if ( cordex_compliant ) then
                      where ( dtmp /= nf90_fill_float )
-                        dtmp = dtmp*100.
+                        dtmp = max(dtmp*100.,0.)
                      end where  
                   end if
                   call savehist ( "clh", dtmp )
@@ -401,7 +401,7 @@ contains
                   call vread( "cll", dtmp )
                   if ( cordex_compliant ) then
                      where ( dtmp /= nf90_fill_float ) 
-                        dtmp = dtmp*100.
+                        dtmp = max(dtmp*100.,0.)
                      end where
                   end if
                   call savehist ( "cll", dtmp )
@@ -411,7 +411,7 @@ contains
                   call vread( "clm", dtmp )
                   if ( cordex_compliant ) then
                      where ( dtmp /= nf90_fill_float ) 
-                        dtmp = dtmp*100.
+                        dtmp = max(dtmp*100.,0.)
                      end where   
                   end if
                   call savehist ( "clm", dtmp )
@@ -420,7 +420,7 @@ contains
                if ( needfld("clt") ) then 
                   call vread( "cld", dtmp )
                   where ( dtmp /= nf90_fill_float )
-                     dtmp = dtmp*100.
+                     dtmp = max(dtmp*100.,0.)
                   end where   
                   call savehist ( "clt", dtmp )
                end if   
