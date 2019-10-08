@@ -4271,27 +4271,27 @@ contains
 
    end subroutine proc_setup_dix
 
-!   subroutine cc2hist_work_close
-!   
-!   use interp_m
-!#ifdef usempi3   
-!   use shdata_m 
-!#endif
-!
-!#ifdef usempi3
-!   call freeshdata(xg_win)
-!   call freeshdata(yg_win)
-!   call freeshdata(nface_win)
-!   nullify(xg,yg)
-!   nullify(nface)
-!#else
-!   if ( allocated(xg) ) then
-!      deallocate(xg,yg)
-!      deallocate(nface)
-!   end if   
-!#endif
-!   
-!   end subroutine cc2hist_work_close
+   subroutine cc2hist_work_close
+   
+   use interp_m
+#ifdef usempi3   
+   use shdata_m 
+#endif
+
+#ifdef usempi3
+   call freeshdata(xg_win)
+   call freeshdata(yg_win)
+   call freeshdata(nface_win)
+   nullify(xg,yg)
+   nullify(nface)
+#else
+   if ( allocated(xg) ) then
+      deallocate(xg,yg)
+      deallocate(nface)
+   end if   
+#endif
+   
+   end subroutine cc2hist_work_close
 
    subroutine ccmpi_scatter_1d_r4_host(data_l,data_g)
    

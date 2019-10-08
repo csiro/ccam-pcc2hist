@@ -732,7 +732,7 @@ program cc2hist
       call finishbanner
    end if
 
-   !call cc2hist_work_close
+   call cc2hist_work_close
    
    call MPI_Finalize(ierr)
 
