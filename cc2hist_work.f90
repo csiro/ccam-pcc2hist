@@ -464,6 +464,18 @@ contains
                      call savehist ( "qgscrn", qgscrn ) 
                   end if    
                end if 
+            case ( "huss_stn", "qgscrn_stn" )
+               if ( needfld("huss_stn") .or. needfld("qgscrn_stn") .or. needfld("tdscrn_stn") ) then 
+                  call vread( "qgscrn_stn", qgscrn_stn )
+                  if ( needfld("huss_stn") ) then
+                     where ( qgscrn_stn /= nf90_fill_float )
+                        dtmp = qgscrn_stn/(qgscrn_stn+1.)
+                     end where  
+                     call savehist ( "huss_stn", dtmp )
+                  else if ( needfld("qgscrn_stn") ) then
+                     call savehist ( "qgscrn_stn", qgscrn_stn ) 
+                  end if    
+               end if 
             case ( "mrro" )
                if ( needfld("mrro") ) then 
                   call vread( "runoff", dtmp )
@@ -555,13 +567,6 @@ contains
                end if   
                ! This relies on surface pressure coming before the 3D variables
                if ( use_plevs ) call sitop_setup(sig, plevs(1:nplevs), psl, maxlev, minlev)
-            case ( "qgscrn_stn" )
-               if ( needfld("qgscrn_stn") .or. needfld("tdscrn_stn") ) then 
-                  call vread( "qgscrn_stn", qgscrn_stn )
-                  if ( needfld("qgscrn_stn") ) then
-                     call savehist ( "qgscrn_stn", qgscrn_stn ) 
-                  end if    
-               end if 
             case ( "rgdn_ave", "rlds" )
                if ( needfld("rgdn") .or. needfld("rlds") .or. needfld("rlus") ) then 
                   call vread( "rgdn_ave", rgd )
@@ -2795,6 +2800,12 @@ contains
                xmax = 120000.
             else if ( varlist(ivar)%vname == "qgscrn" ) then
                varlist(ivar)%vname = "huss"
+               varlist(ivar)%units = "none"
+               varlist(ivar)%long_name = "2m specific humidity"
+               xmin = 0.
+               xmax = 0.06
+            else if ( varlist(ivar)%vname == "qgscrn_stn" ) then
+               varlist(ivar)%vname = "huss_stn"
                varlist(ivar)%units = "none"
                varlist(ivar)%long_name = "2m specific humidity"
                xmin = 0.

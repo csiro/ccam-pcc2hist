@@ -9,11 +9,13 @@ endif
 ifeq ($(SKYLAKE),yes)
 FHOST = -xSKYLAKE-AVX512
 endif
+ifeq ($(CASCADELAKE),yes)
+FHOST = -xCASCADELAKE
+endif
 ifeq ($(NOMPI3),yes)
 MPIFLAG =
 else
 MPIFLAG = -Dusempi3
-MPIFLAG =
 endif
 FFLAGS = -O3 $(FHOST) -ftz -fp-model precise -traceback $(MPIFLAG)
 INC = -I $(NETCDF_ROOT)/include
