@@ -1,6 +1,6 @@
 ! Conformal Cubic Atmospheric Model
     
-! Copyright 2015-2019 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+! Copyright 2015-2020 Commonwealth Scientific Industrial Research Organisation (CSIRO)
     
 ! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
 !
@@ -2693,10 +2693,11 @@ contains
                   "so2so4_ave          ", "so4e_ave            ", "so4dd_ave           ", "so4wd_ave           ", &
                   "bce_ave             ", "bcdd_ave            ", "bcwd_ave            ", "oce_ave             ", &
                   "ocdd_ave            ", "ocwd_ave            ", "duste_ave           ", "dustdd_ave          ", &
-                  "dustwd_ave          ", "wb?_ave             ", "climate_biome       ", "climate_ivegt       ", &
-                  "climate_min20       ", "climate_max20       ", "climate_alpha20     ", "climate_agdd5       ", &
-                  "climate_gmd         ", "climate_dmoist_min20", "climate_dmoist_max20", "urbant              ", &
-                  "u10max              ", "v10max              ", "u10max_stn          ", "v10max_stn          "  &
+                  "dustwd_ave          ", "salte_ave           ", "saltdd_ave          ", "saltwd_ave          ", &
+                  "wb?_ave             ", "climate_biome       ", "climate_ivegt       ", "climate_min20       ", &
+                  "climate_max20       ", "climate_alpha20     ", "climate_agdd5       ", "climate_gmd         ", &
+                  "climate_dmoist_min20", "climate_dmoist_max20", "urbant              ", "u10max              ", &
+                  "v10max              ", "u10max_stn          ", "v10max_stn          "  &
                /)) .and. int_default /= int_none ) then
             int_type = int_nearest
          else if ( match ( varlist(ivar)%vname, (/ "t?_pop_grid_patch_id              ", "t?_pop_grid_patch_layer1_cohort_id" /)) &
