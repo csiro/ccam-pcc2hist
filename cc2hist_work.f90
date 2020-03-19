@@ -1041,12 +1041,12 @@ contains
       end if   
 
       if ( needfld("rlus") ) then
-         dtmp = rgn - rgd
+         dtmp = rgd + rgn ! rgn +ve is up
          call savehist( "rlus", dtmp )
       end if
 
       if ( needfld("rsus") ) then
-         dtmp = sgn - sgd
+         dtmp = sgd - sgn ! sgn +ve is down
          call savehist( "rsus", dtmp )
       end if
       
