@@ -384,8 +384,6 @@ contains
 
          if ( varlist(ivar)%ndims == 2 ) then
             select case ( varlist(ivar)%vname )
-            case ( "clivi" )
-               call readsave2 (varlist(ivar)%vname, input_name="iwp_ave")
             case ( "clh" )
                if ( needfld("clh") ) then 
                   call vread( "clh", dtmp )
@@ -424,8 +422,6 @@ contains
                   end where   
                   call savehist ( "clt", dtmp )
                end if   
-            case ( "clwvi" )
-               call readsave2 (varlist(ivar)%vname, input_name="lwp_ave")
             case ( "dpsdt" )
                 if ( needfld("dpsdt") .or. needfld("w") ) then
                    call vread( "dpsdt", dpsdt )
@@ -613,14 +609,7 @@ contains
                if ( needfld("snd") .or. needfld("snc") .or. needfld("snw") ) then
                   call vread( "snd", sndw )
                   if ( needfld("snd") ) then
-                     if ( cordex_compliant ) then
-                        where ( sndw /= nf90_fill_float )  
-                           dtmp = sndw*10. ! change from equiv water to equiv snow
-                        end where   
-                     else
-                        dtmp = sndw
-                     end if
-                     call savehist ( "snd", dtmp )
+                     call savehist ( "snd", sndw )
                   end if   
                end if   
             case ( "snm" )
@@ -1060,7 +1049,10 @@ contains
       end if
       
       if ( needfld("snw") ) then
-         call savehist( "snw", sndw )
+         where ( sndw /= nf90_fill_float )  
+            dtmp = sndw*10. ! change from equiv water to equiv snow
+         end where   
+         call savehist( "snw", dtmp )
       end if   
       
       if ( needfld("tauu") .or. needfld("tauv") .or. &
@@ -1154,6 +1146,24 @@ contains
             end do
             dtmp = 100.*psl/grav * dtmp
             call savehist ( "prw", dtmp )
+         end if
+         
+         if ( needfld("clwvi") ) then
+            dtmp = 0.0
+            do k = 1,kk
+               dtmp = dtmp + dsig(k)*ql(:,:,k)
+            end do
+            dtmp = 100.*psl/grav * dtmp
+            call savehist ( "clwvi", dtmp )
+         end if
+         
+         if ( needfld("clivi") ) then
+            dtmp = 0.0
+            do k = 1,kk
+               dtmp = dtmp + dsig(k)*qf(:,:,k)
+            end do
+            dtmp = 100.*psl/grav * dtmp
+            call savehist ( "clivi", dtmp )
          end if
          
          if ( needfld("pwc") ) then
@@ -1509,10 +1519,10 @@ contains
                   needfld("ubot")   .or. needfld("d10") .or.                 &
                   needfld("uas")    .or. needfld("vas") .or.                 &
                   needfld("uas_stn") .or. needfld("vas_stn")
-     case ( "qlg" )
-         needed = needfld("qlg") .or. needfld("rh")
+      case ( "qlg" )
+         needed = needfld("qlg") .or. needfld("rh") .or. needfld('clwvi')
       case ( "qfg" )
-         needed = needfld("qfg") .or. needfld("rh")
+         needed = needfld("qfg") .or. needfld("rh") .or. needfld('clivi')
       case ( "qsng" )
          needed = needfld("qsng")
       case ( "qgrg" )
@@ -2781,10 +2791,6 @@ contains
                varlist(ivar)%long_name = "Sea Ice Area Fraction"
                xmin = 0.
                xmax = 100.
-            else if ( varlist(ivar)%vname == "iwp_ave" ) then
-               varlist(ivar)%vname = "clivi"
-            else if ( varlist(ivar)%vname == "lwp_ave" ) then
-               varlist(ivar)%vname = "clwvi"
             else if ( varlist(ivar)%vname == "mixr" ) then
                varlist(ivar)%vname = "hus"
             else if ( varlist(ivar)%vname == "mrros" ) then
@@ -2869,8 +2875,10 @@ contains
                xmax = 86400.
             else if ( varlist(ivar)%vname == "taux" ) then
                varlist(ivar)%vname = "tauu"
+               varlist(ivar)%units = "Pa"
             else if ( varlist(ivar)%vname == "tauy" ) then
                varlist(ivar)%vname = "tauv"
+               varlist(ivar)%units = "Pa"
             else if ( varlist(ivar)%vname == "temp" ) then
                varlist(ivar)%vname = "ta"
             else if ( varlist(ivar)%vname == "tmaxscr" ) then
@@ -2976,6 +2984,10 @@ contains
             end if    
             call addfld ( "prw", "Precipitable water column", "kg/m2", 0.0, 100.0, 1,  &
                            std_name="atmosphere_water_vapor_content", ran_type=.true. )
+            call addfld ( "clwvi", "Liquid water column", "kg/m2", 0.0, 100.0, 1,  &
+                           std_name="atmosphere_cloud_condensed_water_content", ran_type=.false. )
+            call addfld ( "clivi", "Frozen water column", "kg/m2", 0.0, 100.0, 1,  &
+                           std_name="atmosphere_cloud_condensed_ice_content", ran_type=.false. )
             call addfld ( "ps", "Surface pressure", "Pa", 0., 120000., 1, &
                            std_name="surface_air_pressure", ran_type=.true. )
             call addfld ( "rlus", "Upwelling Longwave radiation", "W/m2", -1000., 1000., 1 )
