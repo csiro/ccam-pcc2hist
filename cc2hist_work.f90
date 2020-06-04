@@ -286,15 +286,16 @@ contains
       integer :: rad_day
       real, dimension(pil,pjl*pnpan*lproc) :: udir, dtmp, ctmp
       real, dimension(pil,pjl*pnpan*lproc) :: uten, uastmp, vastmp
-      real, dimension(pil,pjl*pnpan*lproc) :: uten_stn, uastmp_stn, vastmp_stn   
       real, dimension(pil,pjl*pnpan*lproc) :: ua150tmp, va150tmp, ua250tmp, va250tmp
       real, dimension(pil,pjl*pnpan*lproc) :: mrso, mrfso
       real, dimension(pil,pjl*pnpan*lproc) :: sndw, egave, dpsdt
       real, dimension(pil,pjl*pnpan*lproc) :: tauxtmp, tauytmp
       real, dimension(pil,pjl*pnpan*lproc) :: rgn, rgd, sgn, sgd
       real, dimension(pil,pjl*pnpan*lproc) :: wind_norm
-      real, dimension(pil,pjl*pnpan*lproc) :: u10max, v10max, u10max_stn, v10max_stn
+      real, dimension(pil,pjl*pnpan*lproc) :: u10max, v10max 
       real, dimension(pil,pjl*pnpan*lproc) :: tscrn, qgscrn
+      real, dimension(pil,pjl*pnpan*lproc) :: uten_stn, uastmp_stn, vastmp_stn
+      real, dimension(pil,pjl*pnpan*lproc) :: u10max_stn, v10max_stn
       real, dimension(pil,pjl*pnpan*lproc) :: tscrn_stn, qgscrn_stn
       real, dimension(1) :: rlong_a, rlat_a, cos_zen, frac
       real :: fjd, bpyear, r1, dlt, alp, slag, dhr
@@ -2707,7 +2708,8 @@ contains
                   "wb?_ave             ", "climate_biome       ", "climate_ivegt       ", "climate_min20       ", &
                   "climate_max20       ", "climate_alpha20     ", "climate_agdd5       ", "climate_gmd         ", &
                   "climate_dmoist_min20", "climate_dmoist_max20", "urbant              ", "u10max              ", &
-                  "v10max              ", "u10max_stn          ", "v10max_stn          "  &
+                  "v10max              ", "u10max_stn          ", "v10max_stn          ", "fracice             ", &
+                  "siced               " &
                /)) .and. int_default /= int_none ) then
             int_type = int_nearest
          else if ( match ( varlist(ivar)%vname, (/ "t?_pop_grid_patch_id              ", "t?_pop_grid_patch_layer1_cohort_id" /)) &
@@ -2968,7 +2970,6 @@ contains
          call addfld ( "tsea", "Sea surface temperature", "K", 150., 350., 1, &
                         std_name="sea_surface_temperature", ran_type=.true. )
          call addfld ( "tdscrn", "Dew point screen temperature", "K", 100.0, 400.0, 1 )
-         call addfld ( "tdscrn_stn", "Dew point screen temperature (station)", "K", 100.0, 400.0, 1 )
          if ( cordex_compliant ) then
             call addfld ( "evspsbl", "Evaporation", "kg/m2/s", 0., 0.001, 1, std_name="water_evaporation_flux" )
             if ( int_type /= int_none ) then
@@ -3019,10 +3020,7 @@ contains
          call addfld ( "d10", "10m wind direction", "deg", 0.0, 360.0, 1, ran_type=.true. )
          call addfld ( "uas", "x-component 10m wind", "m/s", -100.0, 100.0, 1, ran_type=.true. )
          call addfld ( "vas", "y-component 10m wind", "m/s", -100.0, 100.0, 1, ran_type=.true. )
-         call addfld ( "uas_stn", "x-component 10m wind", "m/s", -100.0, 100.0, 1, ran_type=.false. )
-         call addfld ( "vas_stn", "y-component 10m wind", "m/s", -100.0, 100.0, 1, ran_type=.false. )
          call addfld ( "sfcWindmax", "Maximum 10m wind speed", "m/s", 0.0, 200.0, 1, ran_type=.true. )
-         call addfld ( "sfcWindmax_stn", "Maximum 10m wind speed (station)", "m/s", 0.0, 200.0, 1, ran_type=.false. ) 
          ! Packing is not going to work well in this case
          ! For height, estimate the height of the top level and use that
          ! for scaling
@@ -3080,13 +3078,20 @@ contains
          if ( int_default == int_tapm ) then
             call addfld('cos_zen', 'Cosine of solar zenith angle', 'none', -1., 1., 1 )
          end if
+         
+         ierr = nf90_inq_varid (ncid, "u10_stn", ivar )
+         if ( ierr==nf90_noerr ) then
+           call addfld ( "tdscrn_stn", "Dew point screen temperature (station)", "K", 100.0, 400.0, 1 )
+           call addfld ( "uas_stn", "x-component 10m wind", "m/s", -100.0, 100.0, 1, ran_type=.false. )
+           call addfld ( "vas_stn", "y-component 10m wind", "m/s", -100.0, 100.0, 1, ran_type=.false. )
+           call addfld ( "sfcWindmax_stn", "Maximum 10m wind speed (station)", "m/s", 0.0, 200.0, 1, ran_type=.false. ) 
+         end if    
 
       else
          ! high-frequency output
          ierr = nf90_inq_varid (ncid, "psf", ivar )
          if ( ierr==nf90_noerr ) then
             call addfld ( "tdscrn", "Dew point screen temperature", "K", 100.0, 400.0, 1 )
-            call addfld ( "tdscrn_stn", "Dew point screen temperature (station)", "K", 100.0, 400.0, 1 )
             if ( cordex_compliant ) then
                call addfld ( "ps", "Surface pressure", "Pa", 0., 120000., 1, std_name="surface_air_pressure", ran_type=.true. ) 
             else    
@@ -3094,7 +3099,6 @@ contains
             end if
          end if
          call addfld ( "u10", "10m wind speed", "m/s", 0., 100.0, 1, ran_type=.true. ) 
-         call addfld ( "u10_stn", "10m wind speed (station)", "m/s", 0., 100.0, 1, ran_type=.false. ) 
          call addfld ( "d10", "10m wind direction", "deg", 0.0, 360.0, 1, ran_type=.true. )
          ierr = nf90_inq_varid (ncid, "ua150", ivar )
          if ( ierr==nf90_noerr ) then
@@ -3110,7 +3114,16 @@ contains
          call addfld( "vos", "y-component surface current", "m/s", -100., 100., 1 )
          call addfld( "sos", "Surface ocean salinity", "PSU", 0., 100., 1 )
          call addfld( "tos", "Surface ocean temperature", "K", 150., 350., 1 )
-      end if    
+      end if
+
+      ierr = nf90_inq_varid (ncid, "uas_stn", ivar )
+      if ( ierr==nf90_noerr ) then
+         call addfld ( "u10_stn", "10m wind speed (station)", "m/s", 0., 100.0, 1, ran_type=.false. ) 
+         ierr = nf90_inq_varid (ncid, "psf", ivar )
+         if ( ierr==nf90_noerr ) then
+            call addfld ( "tdscrn_stn", "Dew point screen temperature (station)", "K", 100.0, 400.0, 1 )
+         end if
+      end if      
 
    end subroutine get_var_list
 
