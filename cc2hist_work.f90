@@ -685,14 +685,14 @@ contains
                if ( needfld(varlist(ivar)%vname) ) then
                   call savehist( varlist(ivar)%vname, uten )
                end if   
-            case ( "u10_stn" )
+            case ( "u10_stn" ) ! to be depreciated
                call vread( "u10_stn", uten_stn )
                if ( needfld(varlist(ivar)%vname) ) then
                   call savehist( varlist(ivar)%vname, uten_stn )
                end if
             case ( "u10max" )
                call vread( "u10max", u10max ) 
-            case ( "u10max_stn" )
+            case ( "u10max_stn" ) ! to be depreciated
                call vread( "u10max_stn", u10max_stn ) 
             case ( "ua150" )
                 call vread( "ua150", ua150tmp )     ! only for high-frequency output
@@ -1093,6 +1093,7 @@ contains
          end if
       end if
 
+      ! to be depreciated      
       if ( needfld("u10max_stn") .or. needfld("v10max_stn") .or. &
            needfld("sfcWindmax_stn") ) then
          call fix_winds(u10max_stn, v10max_stn)
@@ -1118,6 +1119,7 @@ contains
          call savehist( "tdscrn", dtmp )
       end if
       
+      ! to be depreciated      
       if ( needfld("tdscrn_stn") ) then
          call calc_tdscrn( tscrn_stn, qgscrn_stn, psl, dtmp )
          call savehist( "tdscrn_stn", dtmp )          
@@ -1295,8 +1297,9 @@ contains
       else        
           
          ! high-frequency output 
-         if ( needfld("uas")     .or. needfld("vas")     .or. &
-              needfld("u10")     .or. needfld("d10") ) then
+         if ( needfld("uas") .or. needfld("vas") .or. &
+              needfld("u10") .or. needfld("d10") .or. &
+              needfld("sfcWind") ) then
             call fix_winds( uastmp, vastmp )
             if ( needfld("uas") ) then
                call savehist( "uas", uastmp )
@@ -1304,14 +1307,18 @@ contains
             if ( needfld("vas") ) then
                call savehist( "vas", vastmp )
             end if  
-            if ( needfld("u10") ) then
+            if ( needfld("u10") .or. needfld("sfcWind") ) then
                where ( uastmp/=nf90_fill_float .and. &
                        vastmp/=nf90_fill_float )
                   dtmp = sqrt( uastmp*uastmp + vastmp*vastmp )
                elsewhere
                   dtmp = nf90_fill_float
                end where  
-               call savehist( "u10", dtmp )
+               if ( needfld("sfcWind") ) then
+                  call savehist( "sfcWind", dtmp )
+               else if ( needfld("u10") ) then  
+                  call savehist( "u10", dtmp )
+               end if   
             end if
             if ( needfld("d10") ) then
                where ( uastmp/=nf90_fill_float .and. &
@@ -1326,6 +1333,7 @@ contains
                call savehist( "d10", dtmp )
             end if
          end if
+         ! to be depreciated     
          if ( needfld("uas_stn") .or. needfld("vas_stn") .or. &
               needfld("u10_stn") ) then            
             call fix_winds( uastmp_stn, vastmp_stn )
@@ -2212,7 +2220,7 @@ contains
            needfld("uas") .or. needfld("vas") .or.                &
            needfld("uas_stn") .or. needfld("vas_stn") .or.        &
            needfld("u10") .or. needfld("d10") .or.                &
-           needfld("u10_stn") .or.                                &
+           needfld("sfcWind") .or. needfld("u10_stn") .or.        &
            needfld("ubot") .or. needfld("vbot") .or.              &
            needfld("u10max") .or. needfld("v10max") .or.          &
            needfld("u10max_stn") .or. needfld("v10max_stn") .or.  &
@@ -2722,9 +2730,9 @@ contains
                (/ "cape_ave  ", "cape_max  ", "cbas_ave  ", "cfrac     ", "cld       ", "clh       ", "cll       ", &
                   "clm       ", "convh_ave ", "ctop_ave  ", "lwp_ave   ", "maxrnd    ", "omega     ", "pblh      ", &
                   "pmsl      ", "psl       ", "qfg       ", "qgrg      ", "qgscrn    ", "qlg       ", "qrg       ", &
-                  "qsng      ", "rfrac     ", "rhscrn    ", "rnc       ", "rnd       ", "rnd24     ", "sunhours  ", &
-                  "temp      ", "tscrn     ", "tsu       ", "u         ", "u10       ", "u10max    ", "uscrn     ", &
-                  "v         ", "v10max    ", "zolnd     ", "zht       " /)) ) then
+                  "qsng      ", "rfrac     ", "rhscrn    ", "rnc       ", "rnd       ", "rnd24     ", "sfcWind   ", &
+                  "sunhours  ", "temp      ", "tscrn     ", "tsu       ", "u         ", "u10       ", "u10max    ", &
+                  "uscrn     ", "v         ", "v10max    ", "zolnd     ", "zht       " /)) ) then
             ran_type = .true.
          else
             ran_type = .false.
@@ -3079,6 +3087,7 @@ contains
             call addfld('cos_zen', 'Cosine of solar zenith angle', 'none', -1., 1., 1 )
          end if
          
+         ! to be depreciated
          ierr = nf90_inq_varid (ncid, "u10_stn", ivar )
          if ( ierr==nf90_noerr ) then
            call addfld ( "tdscrn_stn", "Dew point screen temperature (station)", "K", 100.0, 400.0, 1 )
@@ -3098,7 +3107,11 @@ contains
                call addfld ( "ps", "Surface pressure", "hPa", 0., 1200., 1, std_name="surface_air_pressure", ran_type=.true. )
             end if
          end if
-         call addfld ( "u10", "10m wind speed", "m/s", 0., 100.0, 1, ran_type=.true. ) 
+         if ( cordex_compliant ) then
+            call addfld ( "sfcWind", "10m wind speed", "m/s", 0., 100.0, 1, ran_type=.true. )  
+         else    
+            call addfld ( "u10", "10m wind speed", "m/s", 0., 100.0, 1, ran_type=.true. ) 
+         end if   
          call addfld ( "d10", "10m wind direction", "deg", 0.0, 360.0, 1, ran_type=.true. )
          ierr = nf90_inq_varid (ncid, "ua150", ivar )
          if ( ierr==nf90_noerr ) then
@@ -3116,6 +3129,7 @@ contains
          call addfld( "tos", "Surface ocean temperature", "K", 150., 350., 1 )
       end if
 
+      ! to be depreciated
       ierr = nf90_inq_varid (ncid, "uas_stn", ivar )
       if ( ierr==nf90_noerr ) then
          call addfld ( "u10_stn", "10m wind speed (station)", "m/s", 0., 100.0, 1, ran_type=.false. ) 
