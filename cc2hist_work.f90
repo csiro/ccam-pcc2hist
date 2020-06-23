@@ -259,7 +259,8 @@ contains
       if ( basetime(1:13) == "minutes since" ) then
          mtimer = kt
       else if ( basetime(1:13) == "seconds since" ) then
-         mtimer = kt/60 
+         !mtimer = kt/60
+         mtimer = kt ! kta,ktb,ktc unit must be seconds
       else
          write(6,*) "ERROR: Unknown time unit in input file"
          stop
