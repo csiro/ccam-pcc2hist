@@ -1748,8 +1748,7 @@ contains
 
       call START_LOG(savehist_begin)
 
-      temp(:,:,:) = array
-      call savehist_work ( name, temp, size(array,2) )
+      call savehist_work ( name, array, size(array,2) )
 
       call END_LOG(savehist_end)
 
@@ -2081,8 +2080,8 @@ contains
       interp_nproc = ceiling(1.0d0*maxcnt/slab)
       offset = nproc - interp_nproc
       if ( myid >= offset ) then
-         allocate( hist_a(pil,pjl*pnpan,pnproc,1+slab*(myid-offset):slab*(myid-offset+1)) )
          allocate( hist_g(nx_g,ny_g) )
+         allocate( hist_a(pil,pjl*pnpan,pnproc,1+slab*(myid-offset):slab*(myid-offset+1)) ) 
       end if
       allocate( k_indx(maxcnt) )
 
@@ -2147,6 +2146,7 @@ contains
                else
                   htemp = NF90_FILL_FLOAT
                end if
+        
             else
 
                cnt = cnt + 1
@@ -2222,7 +2222,6 @@ contains
 #else
       if ( myid == 0 ) then
          allocate( hist_g(nx_g,ny_g) )
-         allocate( hist_a(pil,pjl*pnpan,1,pnproc) )
       else
          allocate( hist_g(0,0) )
          allocate( hist_a(0,0,0,0) )
@@ -2264,10 +2263,14 @@ contains
          end if
             
          if ( myid == 0 ) then
-            if ( size(hist_a,3) /= nlev ) then
-               deallocate( hist_a )
+            if ( allocated(hist_a) ) then 
+               if ( size(hist_a,3) /= nlev ) then
+                  deallocate( hist_a )
+                  allocate( hist_a(pil,pjl*pnpan,nlev,pnproc) )
+               end if
+            else
                allocate( hist_a(pil,pjl*pnpan,nlev,pnproc) )
-            end if   
+            end if    
          end if    
 
          call gather_wrap(histarray(:,:,istart:iend),hist_a)
@@ -2318,7 +2321,6 @@ contains
                   
                end if
 
-               
                if ( histinfo(ifld)%pop4d ) then
                   start4D = (/ 1, 1, mod(k+1-istart-1,cptch)+1, 1+(k+1-istart-1)/cptch,  histset /)
                   ierr = nf90_put_var ( ncid, vid, htemp, start=start4D, count=count4D )
@@ -2425,13 +2427,14 @@ contains
       include 'mpif.h'
 #endif 
       integer, intent(in) :: slab, offset, maxcnt
-      integer :: istart, iend, ip, k, n, ierr
+      integer :: istart, iend, ip, k, n, ierr, lsize, lp
       integer, dimension(maxcnt), intent(in) :: k_indx
       real, dimension(:,:,:), intent(in) :: histarray
-      real, dimension(size(histarray,1),size(histarray,2),slab) :: histarray_tmp
+      real, dimension(pil,pjl*pnpan*lproc,slab) :: histarray_tmp
       real, dimension(:,:,:,:), pointer, contiguous, intent(inout) :: hist_a
-      real, dimension(pil*pjl*pnpan*lproc*slab*nproc), target :: hist_a_tmp
-      real, dimension(:,:,:,:), pointer, contiguous :: hist_a_remap, hist_a_tmp_remap
+      !real, dimension(pil*pjl*pnpan*lproc*slab*nproc), target :: hist_a_tmp
+      real, dimension(pil,pjl*pnpan,lproc,slab,nproc) :: hist_a_tmp
+      !real, dimension(:,:,:,:), pointer, contiguous :: hist_a_remap, hist_a_tmp_remap
    
       call START_LOG(gatherwrap_begin)
       
@@ -2444,8 +2447,8 @@ contains
                histarray_tmp(:,:,k-istart+1) = histarray(:,:,k_indx(k))
             end do   
             call START_LOG(mpigather_begin)
-            call MPI_Gather(histarray_tmp(:,:,:), pil*pjl*pnpan*lproc*(iend-istart+1), MPI_REAL,    &
-                            hist_a_tmp, pil*pjl*pnpan*lproc*(iend-istart+1), MPI_REAL,              &
+            lsize = pil*pjl*pnpan*lproc*(iend-istart+1)
+            call MPI_Gather(histarray_tmp(:,:,:), lsize, MPI_REAL, hist_a_tmp, lsize, MPI_REAL,  &
                             ip, comm_world, ierr)
             call MPI_Barrier(comm_world,ierr) ! avoids crashes on some systems
             call END_LOG(mpigather_end)
@@ -2456,23 +2459,26 @@ contains
       if ( istart > 0 ) then
          iend = slab*(myid-offset+1)
          iend = min( iend, maxcnt )          
-         hist_a_remap(1:pil,1:pjl*pnpan*lproc,1:nproc,istart:iend) => hist_a
-         hist_a_tmp_remap(1:pil,1:pjl*pnpan*lproc,istart:iend,1:nproc) =>    &
-             hist_a_tmp(1:pil*pjl*pnpan*lproc*(iend-istart+1)*nproc)
+         !hist_a_remap(1:pil,1:pjl*pnpan*lproc,1:nproc,istart:iend) => hist_a
+         !hist_a_tmp_remap(1:pil,1:pjl*pnpan*lproc,istart:iend,1:nproc) =>    &
+         !    hist_a_tmp(1:pil*pjl*pnpan*lproc*(iend-istart+1)*nproc)
          do n = 1,nproc
             do k = istart,iend 
-               hist_a_remap(:,:,n,k) = hist_a_tmp_remap(:,:,k,n)
+               !hist_a_remap(:,:,n,k) = hist_a_tmp_remap(:,:,k,n)
+               do lp = 0,lproc-1 
+                  hist_a(:,:,lp+(n-1)*lproc+1,k) = hist_a_tmp(:,:,lp+1,k-istart+1,n)
+               end do
             end do
          end do
-      end if          
+      end if   
      
-      !call MPI_Barrier(comm_world,ierr) ! avoids crashes on some systems
       call END_LOG(gatherwrap_end)
    
    end subroutine gather_wrap
    
    subroutine sendrecv_wrap(htemp,cnt,slab,offset)
       use mpidata_m, only : nproc, lproc, myid, comm_world
+      use logging_m
 #ifdef usempi_mod
       use mpi
 #else
@@ -2482,6 +2488,8 @@ contains
       integer, intent(in) :: cnt, slab, offset
       integer :: rrank, sizehis, ierr
    
+      call START_LOG(mpisendrecv_begin)
+      
       rrank = ceiling(1.0d0*cnt/slab) - 1 + offset
       if ( rrank /= 0 ) then
          if ( myid == 0 ) then
@@ -2492,6 +2500,8 @@ contains
             call MPI_Send(htemp,sizehis,MPI_REAL,0,1,comm_world,ierr)
          end if
       end if
+      
+      call END_LOG(mpisendrecv_end)
        
    end subroutine sendrecv_wrap
 #else

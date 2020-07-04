@@ -44,13 +44,14 @@ contains
       integer(kind=MPI_ADDRESS_KIND), intent(in) :: ssize
       integer, dimension(:), intent(in) :: sshape
       integer, intent(out) :: win
-      integer(kind=MPI_ADDRESS_KIND) :: qsize
+      integer(kind=MPI_ADDRESS_KIND) :: qsize, lsize
       integer :: disp_unit,ierr,tsize
       type(c_ptr) :: baseptr
 
 !     allocted a single shared memory region on each node
       call MPI_Type_size(MPI_REAL,tsize,ierr)
-      call MPI_Win_allocate_shared( ssize*tsize, 1, MPI_INFO_NULL, node_comm, baseptr, win, ierr)
+      lsize = ssize*tsize
+      call MPI_Win_allocate_shared( lsize, 1, MPI_INFO_NULL, node_comm, baseptr, win, ierr)
       if ( node_myid /= 0 ) call MPI_Win_shared_query(win, 0, qsize, disp_unit, baseptr, ierr)
       call c_f_pointer(baseptr, pdata, sshape)
 
@@ -68,13 +69,14 @@ contains
       integer(kind=MPI_ADDRESS_KIND), intent(in) :: ssize
       integer, dimension(:), intent(in) :: sshape
       integer, intent(out) :: win
-      integer(kind=MPI_ADDRESS_KIND) :: qsize
+      integer(kind=MPI_ADDRESS_KIND) :: qsize, lsize
       integer :: disp_unit,ierr,tsize
       type(c_ptr) :: baseptr
 
 !     allocted a single shared memory region on each node
       call MPI_Type_size(MPI_REAL,tsize,ierr)
-      call MPI_Win_allocate_shared( ssize*tsize, 1, MPI_INFO_NULL, node_comm, baseptr, win, ierr)
+      lsize = ssize*tsize
+      call MPI_Win_allocate_shared( lsize, 1, MPI_INFO_NULL, node_comm, baseptr, win, ierr)
       if ( node_myid /= 0 ) call MPI_Win_shared_query(win, 0, qsize, disp_unit, baseptr, ierr)
       call c_f_pointer(baseptr, pdata, sshape)
 
@@ -92,13 +94,14 @@ contains
       integer(kind=MPI_ADDRESS_KIND), intent(in) :: ssize
       integer, dimension(:), intent(in) :: sshape
       integer, intent(out) :: win
-      integer(kind=MPI_ADDRESS_KIND) :: qsize
+      integer(kind=MPI_ADDRESS_KIND) :: qsize, lsize
       integer :: disp_unit,ierr,tsize
       type(c_ptr) :: baseptr
 
 !     allocted a single shared memory region on each node
       call MPI_Type_size(MPI_INTEGER,tsize,ierr)
-      call MPI_Win_allocate_shared( ssize*tsize, 1, MPI_INFO_NULL, node_comm, baseptr, win, ierr)
+      lsize = ssize*tsize
+      call MPI_Win_allocate_shared( lsize, 1, MPI_INFO_NULL, node_comm, baseptr, win, ierr)
       if ( node_myid /= 0 ) call MPI_Win_shared_query(win, 0, qsize, disp_unit, baseptr, ierr)
       call c_f_pointer(baseptr, pdata, sshape)
 
@@ -116,13 +119,14 @@ contains
       integer(kind=MPI_ADDRESS_KIND), intent(in) :: ssize
       integer, dimension(:), intent(in) :: sshape
       integer, intent(out) :: win
-      integer(kind=MPI_ADDRESS_KIND) :: qsize
+      integer(kind=MPI_ADDRESS_KIND) :: qsize, lsize
       integer :: disp_unit,ierr,tsize
       type(c_ptr) :: baseptr
 
 !     allocted a single shared memory region on each node
       call MPI_Type_size(MPI_INTEGER,tsize,ierr)
-      call MPI_Win_allocate_shared( ssize*tsize, 1, MPI_INFO_NULL, node_comm, baseptr, win, ierr)
+      lsize = ssize*tsize
+      call MPI_Win_allocate_shared( lsize, 1, MPI_INFO_NULL, node_comm, baseptr, win, ierr)
       if ( node_myid /= 0 ) call MPI_Win_shared_query(win, 0, qsize, disp_unit, baseptr, ierr)
       call c_f_pointer(baseptr, pdata, sshape)
 

@@ -1614,11 +1614,9 @@ contains
       ! Routine to read a variable from either a fortran binary or netcdf file. 
       character(len=*), intent(in) :: name
       real, dimension(:,:,:), intent(out) :: var
-      integer :: pkl
 
       call START_LOG(vread_begin)
-      pkl = size(var,3)
-      call paravar3a(name,var,nrec,pkl)
+      call paravar3a(name,var,nrec)
       call END_LOG(vread_end)
 
    end subroutine vread3
@@ -1629,12 +1627,9 @@ contains
       ! Routine to read a variable from either a fortran binary or netcdf file. 
       character(len=*), intent(in) :: name
       real, dimension(:,:,:,:), intent(out) :: var
-      integer :: pkl, pll
 
       call START_LOG(vread_begin)
-      pkl = size(var,3)
-      pll = size(var,4)
-      call paravar4a(name,var,nrec,pkl,pll)
+      call paravar4a(name,var,nrec)
       call END_LOG(vread_end)
 
    end subroutine vread4
@@ -4077,18 +4072,20 @@ contains
    
    end subroutine paravar2a
 
-   subroutine paravar3a(name,var,nrec,pkl)
+   subroutine paravar3a(name,var,nrec)
       use s2p_m, only : minlev, maxlev
       use logging_m
-      integer, intent(in) :: nrec, pkl
-      integer ip, n, vid, ierr, vartyp, k
+      integer, intent(in) :: nrec
+      integer ip, n, vid, ierr, vartyp, k, pkl
       real, dimension(:,:,:), intent(out) :: var
-      real, dimension(pil,pjl*pnpan,pkl) :: inarray3
+      real, dimension(pil,pjl*pnpan,size(var,3)) :: inarray3
       real addoff, sf
       character(len=*), intent(in) :: name
 
       call START_LOG(paravar3a_begin)
 
+      pkl = size(var,3)
+      
       do ip = 0,lproc-1
 
          ierr = nf90_inq_varid ( ncid_in(ip), name, vid )
@@ -4124,17 +4121,20 @@ contains
    
    end subroutine paravar3a
 
-   subroutine paravar4a(name,var,nrec,pkl,pll)
+   subroutine paravar4a(name,var,nrec)
       use s2p_m, only : minlev, maxlev
       use logging_m
-      integer, intent(in) :: nrec, pkl, pll
-      integer ip, n, vid, ierr, vartyp, k
+      integer, intent(in) :: nrec
+      integer ip, n, vid, ierr, vartyp, k, pkl, pll
       real, dimension(:,:,:,:), intent(out) :: var
-      real, dimension(pil,pjl*pnpan,pkl,pll) :: inarray4
+      real, dimension(pil,pjl*pnpan,size(var,3),size(var,4)) :: inarray4
       real addoff, sf
       character(len=*), intent(in) :: name
 
       call START_LOG(paravar4a_begin)
+      
+      pkl = size(var,3)
+      pll = size(var,4)
 
       do ip = 0,lproc-1
 

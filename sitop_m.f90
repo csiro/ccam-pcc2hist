@@ -511,7 +511,7 @@ contains
          end do
 
 !        Calculate jaa, the index of the lowest sigma level above the
-!        given pressure level.
+!        given height level.
          do kp = 1,nprlvs 
             jaa(:,kp,j) = search_fgt(siglvs(:nsgm1),sig(:,kp,j),nsgm1,ix)
          end do
