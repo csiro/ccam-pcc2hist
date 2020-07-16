@@ -1863,7 +1863,7 @@ contains
               histinfo(ifld)%ave_type
          stop
       end select
-
+     
       if ( any( abs(array) /= nf90_fill_float ) ) then
          histinfo(ifld)%count = histinfo(ifld)%count + 1
       end if   
@@ -2116,7 +2116,7 @@ contains
 
 !     now do the gather wrap
       call gather_wrap(histarray,hist_a,slab,offset,maxcnt,k_indx)
-
+ 
       cnt = 0
 !     third pass
 !     perform the interpolation and write the data
@@ -2430,10 +2430,10 @@ contains
       integer :: istart, iend, ip, k, n, ierr, lsize, lp
       integer, dimension(maxcnt), intent(in) :: k_indx
       real, dimension(:,:,:), intent(in) :: histarray
-      real, dimension(pil,pjl*pnpan*lproc,slab) :: histarray_tmp
+      real, dimension(pil,pjl*pnpan,lproc,slab) :: histarray_tmp
       real, dimension(:,:,:,:), pointer, contiguous, intent(inout) :: hist_a
       !real, dimension(pil*pjl*pnpan*lproc*slab*nproc), target :: hist_a_tmp
-      real, dimension(pil,pjl*pnpan,lproc,slab,nproc) :: hist_a_tmp
+      real, dimension(:,:,:,:,:), allocatable :: hist_a_tmp
       !real, dimension(:,:,:,:), pointer, contiguous :: hist_a_remap, hist_a_tmp_remap
    
       call START_LOG(gatherwrap_begin)
@@ -2443,12 +2443,15 @@ contains
          if ( istart > 0 ) then
             iend = istart + slab - 1
             iend = min( iend, maxcnt )
+            if ( ip == myid ) then
+              allocate( hist_a_tmp(pil,pjl*pnpan,lproc,iend-istart+1,nproc) )  
+            end if    
             do k = istart,iend
-               histarray_tmp(:,:,k-istart+1) = histarray(:,:,k_indx(k))
+               histarray_tmp(:,:,:,k-istart+1) = reshape( histarray(:,:,k_indx(k)), (/ pil,pjl*pnpan,lproc /) )
             end do   
             call START_LOG(mpigather_begin)
             lsize = pil*pjl*pnpan*lproc*(iend-istart+1)
-            call MPI_Gather(histarray_tmp(:,:,:), lsize, MPI_REAL, hist_a_tmp, lsize, MPI_REAL,  &
+            call MPI_Gather(histarray_tmp, lsize, MPI_REAL, hist_a_tmp, lsize, MPI_REAL,  &
                             ip, comm_world, ierr)
             call MPI_Barrier(comm_world,ierr) ! avoids crashes on some systems
             call END_LOG(mpigather_end)
@@ -2471,7 +2474,11 @@ contains
             end do
          end do
       end if   
-     
+      
+      if ( allocated( hist_a_tmp ) ) then
+        deallocate( hist_a_tmp )
+      end if  
+      
       call END_LOG(gatherwrap_end)
    
    end subroutine gather_wrap
