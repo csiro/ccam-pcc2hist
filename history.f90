@@ -2427,13 +2427,13 @@ contains
       include 'mpif.h'
 #endif 
       integer, intent(in) :: slab, offset, maxcnt
-      integer :: istart, iend, ip, k, n, ierr, lsize, lp
+      integer :: istart, iend, ip, k, n, ierr, lsize, lp, iq
       integer, dimension(maxcnt), intent(in) :: k_indx
       real, dimension(:,:,:), intent(in) :: histarray
       real, dimension(pil,pjl*pnpan,lproc,slab) :: histarray_tmp
       real, dimension(:,:,:,:), pointer, contiguous, intent(inout) :: hist_a
       !real, dimension(pil*pjl*pnpan*lproc*slab*nproc), target :: hist_a_tmp
-      real, dimension(:,:,:,:,:), allocatable :: hist_a_tmp
+      real, dimension(pil*pjl*pnpan*lproc*slab*nproc) :: hist_a_tmp
       !real, dimension(:,:,:,:), pointer, contiguous :: hist_a_remap, hist_a_tmp_remap
    
       call START_LOG(gatherwrap_begin)
@@ -2443,9 +2443,6 @@ contains
          if ( istart > 0 ) then
             iend = istart + slab - 1
             iend = min( iend, maxcnt )
-            if ( ip == myid ) then
-              allocate( hist_a_tmp(pil,pjl*pnpan,lproc,iend-istart+1,nproc) )  
-            end if    
             do k = istart,iend
                histarray_tmp(:,:,:,k-istart+1) = reshape( histarray(:,:,k_indx(k)), (/ pil,pjl*pnpan,lproc /) )
             end do   
@@ -2469,15 +2466,12 @@ contains
             do k = istart,iend 
                !hist_a_remap(:,:,n,k) = hist_a_tmp_remap(:,:,k,n)
                do lp = 0,lproc-1 
-                  hist_a(:,:,lp+(n-1)*lproc+1,k) = hist_a_tmp(:,:,lp+1,k-istart+1,n)
+                  iq = lp*pil*pjl*pnpan + (k-istart)*pil*pjl*pnpan*lproc + (n-1)*pil*pjl*pnpan*lproc*(iend-istart+1)
+                  hist_a(:,:,lp+(n-1)*lproc+1,k) = reshape( hist_a_tmp(iq+1:iq+pil*pjl*pnpan), (/ pil, pjl*pnpan /) )
                end do
             end do
          end do
       end if   
-      
-      if ( allocated( hist_a_tmp ) ) then
-        deallocate( hist_a_tmp )
-      end if  
       
       call END_LOG(gatherwrap_end)
    
