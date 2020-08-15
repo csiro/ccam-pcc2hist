@@ -288,7 +288,7 @@ contains
       real, dimension(pil,pjl*pnpan*lproc) :: uten, uastmp, vastmp
       real, dimension(pil,pjl*pnpan*lproc) :: ua150tmp, va150tmp, ua250tmp, va250tmp
       real, dimension(pil,pjl*pnpan*lproc) :: mrso, mrfso
-      real, dimension(pil,pjl*pnpan*lproc) :: sndw, egave, dpsdt
+      real, dimension(pil,pjl*pnpan*lproc) :: sndw, dpsdt
       real, dimension(pil,pjl*pnpan*lproc) :: tauxtmp, tauytmp
       real, dimension(pil,pjl*pnpan*lproc) :: rgn, rgd, sgn, sgd
       real, dimension(pil,pjl*pnpan*lproc) :: wind_norm
@@ -439,12 +439,7 @@ contains
                   call savehist ( "evspsblpot", dtmp )
                end if   
             case ( "hfls" )
-               if ( needfld("hfls") .or. needfld("evspsbl") ) then 
-                  call vread( "eg_ave", egave )
-                  if ( needfld("hfls") ) then
-                     call savehist( "hfls", egave )
-                  end if   
-               end if   
+               call readsave2 (varlist(ivar)%vname, input_name="eg_ave") 
             case ( "hfss" )
                call readsave2 (varlist(ivar)%vname, input_name="fg_ave")
             case ( "hurs" )
@@ -1012,11 +1007,6 @@ contains
          end if
 
       end do
-
-      if ( needfld("evspsbl") ) then
-         dtmp = egave/2.501e6 ! Latent heat of vaporisation (J kg^-1)
-         call savehist( "evspsbl", dtmp )
-      end if
 
       if ( needfld("mrfso") ) then
          ierr = nf90_inq_varid (ncid, "wbice1_ave", ivar )
@@ -2072,7 +2062,7 @@ contains
 #endif
 
 #ifdef usempi3
-      if ( node_myid==0 ) then
+      if ( node_myid == 0 ) then
 #else
       if ( myid==0 ) then
 #endif
@@ -2137,6 +2127,10 @@ contains
 !        These aren't needed now.
          deallocate ( xx4, yy4 )
 
+      else   
+         
+         allocate( hlon(0), hlat(0) )  
+          
       end if   
 
 #ifdef usempi3
@@ -2974,7 +2968,7 @@ contains
                         std_name="sea_surface_temperature", ran_type=.true. )
          call addfld ( "tdscrn", "Dew point screen temperature", "K", 100.0, 400.0, 1 )
          if ( cordex_compliant ) then
-            call addfld ( "evspsbl", "Evaporation", "kg/m2/s", 0., 0.001, 1, std_name="water_evaporation_flux" )
+            !call addfld ( "evspsbl", "Evaporation", "kg/m2/s", 0., 0.001, 1, std_name="water_evaporation_flux" )
             if ( int_type /= int_none ) then
                call addfld ( "mrso", "Total soil moisture content", "kg/m2", 0., 100.0, 1, std_name="soil_moisture_content", &
                              int_type = int_nearest )          
