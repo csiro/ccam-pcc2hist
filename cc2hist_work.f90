@@ -430,6 +430,14 @@ contains
                       call savehist ( "dpsdt", dpsdt )
                    end if   
                 end if 
+            case ( "evspsbl" )
+               if ( needfld("evspsbl") ) then
+                  call vread( "evspsbl", dtmp )  
+                  if ( cordex_compliant ) then
+                     dtmp = dtmp/86400.
+                  end if
+                  call savehist ( "evspsbl", dtmp )
+               end if    
             case ( "evspsblpot" )
                if ( needfld("evspsblpot") ) then 
                   call vread( "epot_ave", dtmp )
@@ -2782,6 +2790,10 @@ contains
                varlist(ivar)%long_name = "Potential Surface Evaporation"
                xmin = 0.
                xmax = 0.001
+            else if ( varlist(ivar)%vname == "evspsbl" ) then
+               varlist(ivar)%units = "kg/m2/s"
+               xmin = -0.001
+               xmax = 0.001
             else if ( varlist(ivar)%vname == "fg_ave" ) then
                varlist(ivar)%vname = "hfss"
             else if ( varlist(ivar)%vname == "fracice" ) then
@@ -2968,7 +2980,6 @@ contains
                         std_name="sea_surface_temperature", ran_type=.true. )
          call addfld ( "tdscrn", "Dew point screen temperature", "K", 100.0, 400.0, 1 )
          if ( cordex_compliant ) then
-            !call addfld ( "evspsbl", "Evaporation", "kg/m2/s", 0., 0.001, 1, std_name="water_evaporation_flux" )
             if ( int_type /= int_none ) then
                call addfld ( "mrso", "Total soil moisture content", "kg/m2", 0., 100.0, 1, std_name="soil_moisture_content", &
                              int_type = int_nearest )          
