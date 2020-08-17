@@ -282,7 +282,7 @@ contains
       type(input_var), dimension(:) :: varlist
       integer, intent(in) :: nvars, mins
       logical, intent(in)  :: skip
-      integer :: k, ivar, ierr
+      integer :: k, ivar, ierr, var_dum
       integer :: rad_day
       real, dimension(pil,pjl*pnpan*lproc) :: udir, dtmp, ctmp
       real, dimension(pil,pjl*pnpan*lproc) :: uten, uastmp, vastmp
@@ -447,7 +447,18 @@ contains
                   call savehist ( "evspsblpot", dtmp )
                end if   
             case ( "hfls" )
-               call readsave2 (varlist(ivar)%vname, input_name="eg_ave") 
+               ierr = nf90_inq_varid (ncid, "evspsbl", var_dum )
+               if ( needfld("hfls") .or. (needfld("evspsbl").and.ierr/=nf90_noerr) ) then
+                  call vread( "eg_ave", dtmp )
+                  if ( needfld("hfls") ) then
+                     call savehist( "hfls", dtmp )
+                  end if
+                  if ( needfld("evspsbl").and.ierr/=nf90_noerr ) then
+                     dtmp = dtmp/2.501e6 ! Laten heat of vaporisation (J kg^-1)
+                     ! only apply if evspsbl not provided by CCAM
+                     call savehist( "evspsbl", dtmp )
+                  end if
+               end if   
             case ( "hfss" )
                call readsave2 (varlist(ivar)%vname, input_name="fg_ave")
             case ( "hurs" )
@@ -2980,6 +2991,10 @@ contains
                         std_name="sea_surface_temperature", ran_type=.true. )
          call addfld ( "tdscrn", "Dew point screen temperature", "K", 100.0, 400.0, 1 )
          if ( cordex_compliant ) then
+            ierr = nf90_inq_varid (ncid, "evspsbl", ivar )
+            if ( ierr /= nf90_noerr ) then
+              call addfld ( "evspsbl", "Evaporation", "kg/m2/s", 0., 0.001, 1, std_name="water_evaporation_flux" )  
+            end if    
             if ( int_type /= int_none ) then
                call addfld ( "mrso", "Total soil moisture content", "kg/m2", 0., 100.0, 1, std_name="soil_moisture_content", &
                              int_type = int_nearest )          
