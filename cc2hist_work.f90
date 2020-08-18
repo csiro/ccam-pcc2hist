@@ -598,6 +598,14 @@ contains
                call readsave2 (varlist(ivar)%vname, input_name="sint_ave")
             case ( "rsut" )
                call readsave2 (varlist(ivar)%vname, input_name="sot_ave") 
+            case ( "sbl" )
+               if ( needfld("sbl") ) then
+                  call vread( "sbl", dtmp )  
+                  if ( cordex_compliant ) then
+                     dtmp = dtmp/86400.
+                  end if
+                  call savehist ( "sbl", dtmp )
+               end if 
             case ( "sic" )
                if ( needfld("sic") ) then 
                   call vread2( "fracice", dtmp )
@@ -2870,6 +2878,10 @@ contains
                xmax = 0.013
             else if ( varlist(ivar)%vname == "rtu_ave" ) then
                varlist(ivar)%vname = "rlut"
+            else if ( varlist(ivar)%vname == "sbl" ) then
+               varlist(ivar)%units = "kg/m2/s"
+               xmin = -0.001
+               xmax = 0.001
             else if ( varlist(ivar)%vname == "sgdn_ave" ) then
                varlist(ivar)%vname = "rsds"
             else if ( varlist(ivar)%vname == "sint_ave" ) then
