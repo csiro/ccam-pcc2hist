@@ -1023,17 +1023,17 @@ contains
       ! clean-up rh if necessary
       call fix_rh(t, q, ql, qf, psl, sig)
       
-      if ( needfld("hus") .or. needfld("mixr") ) then
-         if ( varlist(ivar)%vname == "hus" ) then
-            where ( q /= nf90_fill_float ) 
-               tmp3d = q/(1.+q)
-            elsewhere
-               tmp3d = nf90_fill_float 
-            end where    
-            call vsavehist ( varlist(ivar)%vname, tmp3d )
-         else
-            call vsavehist ( varlist(ivar)%vname, q ) 
-         end if    
+      if ( needfld("hus") ) then
+         where ( q /= nf90_fill_float ) 
+            tmp3d = q/(1.+q)
+         elsewhere
+            tmp3d = nf90_fill_float 
+         end where    
+         call vsavehist ( "hus", tmp3d )
+      end if
+      
+      if ( needfld("mixr") ) then
+         call vsavehist ( "mixr", q ) 
       end if       
       
       if ( needfld("qlg") ) then
