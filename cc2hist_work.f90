@@ -317,6 +317,9 @@ contains
       
       mrso = 0.  ! total soil moisture
       mrfso = 0. ! total soil ice
+      q = 0.
+      ql = 0.
+      qf = 0.
       u10max = nf90_fill_float     ! daily
       v10max = nf90_fill_float     ! daily
       u10max_stn = nf90_fill_float ! daily
@@ -811,19 +814,7 @@ contains
                   if ( .not. use_meters ) then
                      call vread( "mixr", q )
                      q = max( q, 1.e-20 )
-                  end if
-                  if ( needfld(varlist(ivar)%vname) ) then
-                     if ( varlist(ivar)%vname == "hus" ) then
-                        where ( q /= nf90_fill_float ) 
-                           tmp3d = q/(1.+q)
-                        elsewhere
-                           tmp3d = nf90_fill_float 
-                        end where    
-                        call vsavehist ( varlist(ivar)%vname, tmp3d )
-                     else
-                        call vsavehist ( varlist(ivar)%vname, q ) 
-                     end if    
-                  end if   
+                  end if 
                end if
             case ( "kmo" )
                if ( need3dfld("kmo") ) then
@@ -908,17 +899,11 @@ contains
                if ( need3dfld("qlg")) then
                   call vread( "qlg", ql )
                   ql = max( ql, 0. )
-                  if ( needfld("qlg") ) then
-                     call vsavehist ( "qlg", ql )
-                  end if   
                end if
             case ( "qfg" )
                if ( need3dfld("qfg")) then
                   call vread( "qfg", qf )
                   qf = max( qf, 0. )
-                  if ( needfld("qfg") ) then
-                     call vsavehist ( "qfg", qf )
-                  end if   
                end if
             case ( "qsng" )
                if ( need3dfld("qsng")) then
@@ -1035,6 +1020,30 @@ contains
 
       end do
 
+      ! clean-up rh if necessary
+      call fix_rh(t, q, ql, qf, psl, sig)
+      
+      if ( needfld("hus") .or. needfld("mixr") ) then
+         if ( varlist(ivar)%vname == "hus" ) then
+            where ( q /= nf90_fill_float ) 
+               tmp3d = q/(1.+q)
+            elsewhere
+               tmp3d = nf90_fill_float 
+            end where    
+            call vsavehist ( varlist(ivar)%vname, tmp3d )
+         else
+            call vsavehist ( varlist(ivar)%vname, q ) 
+         end if    
+      end if       
+      
+      if ( needfld("qlg") ) then
+         call vsavehist ( "qlg", ql )
+      end if         
+      
+      if ( needfld("qfg") ) then
+         call vsavehist ( "qfg", qf )
+      end if         
+      
       if ( needfld("mrfso") ) then
          ierr = nf90_inq_varid (ncid, "wbice1_ave", ivar )
          if ( ierr/=nf90_noerr ) then
@@ -3279,6 +3288,52 @@ contains
       end do
    end subroutine calc_rh
 
+   subroutine fix_rh ( t, q, ql, qf, psl, sig )
+      use moistfuncs
+      real, dimension(pil,pjl*pnpan*lproc,kk), intent(inout) :: t, q, ql, qf
+      real, dimension(pil,pjl*pnpan*lproc), intent(in) :: psl
+      real, dimension(kk), intent(in) :: sig
+      real, dimension(pil,pjl*pnpan*lproc) :: p, tliq, fice, qsw, qc, qtot
+      real, dimension(pil,pjl*pnpan*lproc) :: qsi, qsl, deles
+      real, dimension(pil,pjl*pnpan*lproc) :: hlrvap, dqsdt, al
+      real, parameter :: tfrz  = 273.1
+      real, parameter :: tice  = 233.15
+      real, parameter :: cp    = 1004.64
+      real, parameter :: hl    = 2.5104e6
+      real, parameter :: hlf   = 3.36e5
+      real, parameter :: epsil = 0.622
+      real, parameter :: rvap  = 461.
+      integer :: k
+
+      do k = 1,kk
+         p = 100.*sig(k)*psl  ! p in Pa.
+         qc = qf(:,:,k) + ql(:,:,k)
+         where (qf(:,:,k)>1.E-12)
+            fice = min(qf(:,:,k)/qc,1.)
+         elsewhere
+            fice = 0.
+         end where
+         tliq = t(:,:,k) - hl/cp*qc - hlf/cp*qf(:,:,k)
+         qsi = qsati(p,tliq)
+         deles = esdiffx(tliq)
+         qsl = qsi + epsil*deles/p
+         qsw = fice*qsi + (1.-fice)*qsl
+         
+         qtot = q(:,:,k) + qc
+         hlrvap = (hl+fice*hlf)/rvap
+         dqsdt = qsw*hlrvap/tliq**2
+         al = 1./(1.+(hl+fice*hlf)/cp*dqsdt)
+         qc = max( al*(qtot - qsw), qc )
+         !where ( t(:,:,k)>=tice )
+           qf(:,:,k) = max( fice*qc, 0. )
+           ql(:,:,k) = max( qc - qf(:,:,k), 0. )
+         !end where
+         
+         q(:,:,k) = max( qtot - ql(:,:,k) - qf(:,:,k), 0. )
+         t(:,:,k) = tliq + hl/cp*qc + hlf/cp*qf(:,:,k)
+      end do
+   end subroutine fix_rh   
+   
    subroutine calc_td ( t_in, q_in, ql_in, qf_in, psl_in, sig, td )
       real, dimension(pil,pjl*pnpan*lproc,kk), intent(out) :: td
       real, dimension(pil,pjl*pnpan*lproc,kk), intent(in) :: t_in, q_in, ql_in, qf_in
