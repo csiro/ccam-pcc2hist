@@ -3273,11 +3273,7 @@ contains
       do k = 1,kk
          p = 100.*sig(k)*psl  ! p in Pa.
          qc = qf(:,:,k) + ql(:,:,k)
-         where (qf(:,:,k)>1.E-12)
-            fice = min(qf(:,:,k)/qc,1.)
-         elsewhere
-            fice = 0.
-         end where
+         fice = min(qf(:,:,k)/max(qc,1.e-12),1.)
          tliq = t(:,:,k) - hl/cp*qc - hlf/cp*qf(:,:,k)
          qsi = qsati(p,tliq)
          deles = esdiffx(tliq)

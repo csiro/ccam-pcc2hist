@@ -139,12 +139,12 @@ contains
    elemental real function qsat(p,t)
       real, intent(in) :: p, t  ! p in Pa, t in K
 !      qsat = epsil*establ(t)/p !Consistent with V4-5 to V4-7
-      qsat = epsil*establ(t)/max(p-establ(t),0.1) ! MJT bug fix from JJK
+      qsat = epsil*establ(t)/max(p-establ(t),1.e-10)
    end function qsat
 
    elemental real function qsati(p,t)
       real, intent(in) :: p, t  ! p in Pa, t in K
-      qsati = epsil*estabi(t)/max(p-estabi(t),0.1)
+      qsati = epsil*estabi(t)/max(p-estabi(t),1.e-10)
    end function qsati
    
    elemental real function relhum(p,q,t)
