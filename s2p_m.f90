@@ -191,7 +191,8 @@ contains
          else
             call sitop ( array, parray, sig, plevs(1:nplevs), psl, vextrap )
          end if
-         if ( name=="qlg" .or. name=="qfg" .or. name=="mixr" .or. name=="hus" ) then
+         if ( name=="qlg" .or. name=="qfg" .or. name=="mixr" .or. name=="hus" .or. &
+              name=="rh" ) then
             ! special fix 
             parray = max( parray, 0. )
          end if    
@@ -213,7 +214,8 @@ contains
          else
             call mitop ( array, parray, vextrap )
          end if
-         if ( name=="qlg" .or. name=="qfg" .or. name=="mixr" .or. name=="hus" ) then
+         if ( name=="qlg" .or. name=="qfg" .or. name=="mixr" .or. name=="hus" .or. &
+              name=="rh" ) then
             ! special fix 
             parray = max( parray, 0. )
          end if     

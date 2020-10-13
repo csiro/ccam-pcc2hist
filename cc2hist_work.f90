@@ -3304,26 +3304,23 @@ contains
       do k = 1,kk
          p = 100.*sig(k)*psl  ! p in Pa.
          qc = qf(:,:,k) + ql(:,:,k)
-         where (qf(:,:,k)>1.E-12)
-            fice = min(qf(:,:,k)/qc,1.)
-         elsewhere
-            fice = 0.
-         end where
+         fice = min(qf(:,:,k)/max(qc,1.e-12),1.)
          tliq = t(:,:,k) - hl/cp*qc - hlf/cp*qf(:,:,k)
+         qtot = q(:,:,k) + qc
          qsi = qsati(p,tliq)
          deles = esdiffx(tliq)
          qsl = qsi + epsil*deles/p
          qsw = fice*qsi + (1.-fice)*qsl
-         
-         qtot = q(:,:,k) + qc
-         hlrvap = (hl+fice*hlf)/rvap
-         dqsdt = qsw*hlrvap/tliq**2
-         al = 1./(1.+(hl+fice*hlf)/cp*dqsdt)
-         qc = max( al*(qtot - qsw), qc )
-         !where ( t(:,:,k)>=tice )
-           qf(:,:,k) = max( fice*qc, 0. )
-           ql(:,:,k) = max( qc - qf(:,:,k), 0. )
-         !end where
+
+         ! simple cloud microphysics
+         !hlrvap = (hl+fice*hlf)/rvap
+         !dqsdt = qsw*hlrvap/tliq**2
+         !al = 1./(1.+(hl+fice*hlf)/cp*dqsdt)
+         !qc = max( al*(qtot - qsw), qc, 0. )
+         qc = max( qtot - qsw, qc, 0. )
+
+         qf(:,:,k) = max( fice*qc, 0. )
+         ql(:,:,k) = max( qc - qf(:,:,k), 0. )
          
          q(:,:,k) = max( qtot - ql(:,:,k) - qf(:,:,k), 0. )
          t(:,:,k) = tliq + hl/cp*qc + hlf/cp*qf(:,:,k)
