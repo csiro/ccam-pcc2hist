@@ -191,10 +191,12 @@ contains
          else
             call sitop ( array, parray, sig, plevs(1:nplevs), psl, vextrap )
          end if
-         if ( name=="qlg" .or. name=="qfg" .or. name=="mixr" .or. name=="hus" .or. &
-              name=="rh" ) then
+         if ( name=="qlg" .or. name=="qfg" .or. name=="mixr" .or. name=="hus" ) then
             ! special fix 
             parray = max( parray, 0. )
+         else if ( name=="rh" ) then
+            ! special fix 
+            parray = min( max( parray, 0. ), 100. )
          end if    
          call savehist ( name, parray )
       else if ( use_meters ) then
@@ -214,11 +216,13 @@ contains
          else
             call mitop ( array, parray, vextrap )
          end if
-         if ( name=="qlg" .or. name=="qfg" .or. name=="mixr" .or. name=="hus" .or. &
-              name=="rh" ) then
+         if ( name=="qlg" .or. name=="qfg" .or. name=="mixr" .or. name=="hus" ) then
             ! special fix 
             parray = max( parray, 0. )
-         end if     
+         else if ( name=="rh" ) then
+            ! special fix 
+            parray = min( max( parray, 0. ), 100. )
+         end if    
          call savehist ( name, parray )
       else
 !        Save the sigma level values directly.
