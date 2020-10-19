@@ -2639,7 +2639,7 @@ contains
                ind = index(varlist(ivar)%long_name,"y-comp")
                if ( ind /= 0 ) then
                   ind = index(varlist(ivar)%long_name," ")
-                  varlist(ivar)%long_name = "Meridional"// varlist(ivar)%long_name(ind:len_trim(varlist(ivar)%long_name))
+                  varlist(ivar)%long_name = "Meridional"//varlist(ivar)%long_name(ind:len_trim(varlist(ivar)%long_name))
                   !write( varlist(ivar)%long_name, "(a,a)" ) "Meridional",  &
                   !     varlist(ivar)%long_name(ind:len_trim(varlist(ivar)%long_name))
                end if
@@ -3158,6 +3158,11 @@ contains
            call addfld ( "u250", "250m wind speed", "m/s", 0., 100.0, 1, ran_type=.false. )
            call addfld ( "d250", "250m wind direction", "deg", 0., 360.0, 1, ran_type=.false. )
          end if    
+         ierr = nf90_inq_varid (ncid, "sgn_ave", ivar )
+         if ( ierr==nf90_noerr ) then
+            call addfld ( "rlus", "Upwelling Longwave radiation", "W/m2", -1000., 1000., 1 )
+            call addfld ( "rsus", "Upwelling Shortwave radiation", "W/m2", -1000., 1000., 1 ) 
+         end if
       end if
       
       if ( ok > 1 ) then
