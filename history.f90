@@ -2085,6 +2085,7 @@ contains
       end if
       allocate( k_indx(maxcnt) )
 
+
       cnt = 0
 !     second pass
 !     create the array used to index histarray
