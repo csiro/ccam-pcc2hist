@@ -2628,16 +2628,12 @@ contains
          if ( varlist(ivar)%vector ) then
             if ( varlist(ivar)%xcmpnt ) then
                ind = index(varlist(ivar)%long_name,"x-comp")
-               print *,"ivar,long_name,ind ",ivar,trim(varlist(ivar)%long_name),ind
                if ( ind /= 0 ) then
                   ! Search for space so that x-compt and x-component both work
                   ind = index(varlist(ivar)%long_name," ")
-                  print *,"space,ind ",ind
-                  print *,"extension ",varlist(ivar)%long_name(ind:len_trim(varlist(ivar)%long_name))
                   varlist(ivar)%long_name = "Zonal"//varlist(ivar)%long_name(ind:len_trim(varlist(ivar)%long_name))
                   !write( varlist(ivar)%long_name, "(a,a)" ) "Zonal",  &
                   !     varlist(ivar)%long_name(ind:len_trim(varlist(ivar)%long_name))
-                  print *,"newname ",trim(varlist(ivar)%long_name)
                end if
             else
                ind = index(varlist(ivar)%long_name,"y-comp")
