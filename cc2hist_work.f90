@@ -3037,26 +3037,28 @@ contains
                            std_name="atmosphere_cloud_condensed_ice_content", ran_type=.false. )
             call addfld ( "ps", "Surface pressure", "Pa", 0., 120000., 1, &
                            std_name="surface_air_pressure", ran_type=.true. )
-            call addfld ( "rlus", "Upwelling Longwave radiation", "W/m2", -1000., 1000., 1 )
-            call addfld ( "rsus", "Upwelling Shortwave radiation", "W/m2", -1000., 1000., 1 ) 
+            call addfld ( "rlus", "Upwelling Longwave radiation", "W/m2", -1000., 1000., 1, &
+                          std_name="surface_upwelling_shortwave_flux_in_air" )
+            call addfld ( "rsus", "Upwelling Shortwave radiation", "W/m2", -1000., 1000., 1, &
+                          std_name="surface_upwelling_longwave_flux_in_air" ) 
             if ( int_type /= int_none ) then
                call addfld ( "sftlf", "Land-sea mask", "%",  0.0, 100.0, 1, &
                               ave_type="fixed", int_type=int_nearest,       &
-                              ran_type=.true. )
+                              std_name="land_area_fraction", ran_type=.true. )
             else
                call addfld ( "sftlf", "Land-sea mask", "%",  0.0, 100.0, 1, &
                               ave_type="fixed", int_type=int_none,          &
-                              ran_type=.true. )
+                              std_name="land_area_fraction", ran_type=.true. )
             end if
-            call addfld ( "snc",  "Snow area fraction", "%", 0., 6.5, 1 )
-            call addfld ( "snw",  "Surface Snow Amount", "kg m-2", 0., 6.5, 1 )
+            call addfld ( "snc",  "Snow area fraction", "%", 0., 6.5, 1, std_name="surface_snow_area_fraction" )
+            call addfld ( "snw",  "Surface Snow Amount", "kg m-2", 0., 6.5, 1, std_name="surface_snow_amount" )
          else          
             if ( int_type /= int_none ) then
                call addfld ( "land_mask", "Land-sea mask", "",  0.0, 1.0, 1, &
-                              ave_type="fixed", int_type=int_nearest, ran_type=.true. )
+                              ave_type="fixed", int_type=int_nearest, std_name="land_area_fraction", ran_type=.true. )
             else
                call addfld ( "land_mask", "Land-sea mask", "",  0.0, 1.0, 1, &
-                              ave_type="fixed", int_type=int_none, ran_type=.true. )
+                              ave_type="fixed", int_type=int_none, std_name="land_area_fraction", ran_type=.true. )
             end if
             call addfld ( "ps", "Surface pressure", "hPa", 0., 1200., 1, &
                            std_name="surface_air_pressure", ran_type=.true. )
@@ -3064,9 +3066,9 @@ contains
                           std_name="atmosphere_water_vapor_content", ran_type=.true. )           
          end if
          call addfld ( "d10", "10m wind direction", "deg", 0.0, 360.0, 1, ran_type=.true. )
-         call addfld ( "uas", "x-component 10m wind", "m/s", -100.0, 100.0, 1, ran_type=.true. )
-         call addfld ( "vas", "y-component 10m wind", "m/s", -100.0, 100.0, 1, ran_type=.true. )
-         call addfld ( "sfcWindmax", "Maximum 10m wind speed", "m/s", 0.0, 200.0, 1, ran_type=.true. )
+         call addfld ( "uas", "x-component 10m wind", "m/s", -100.0, 100.0, 1, std_name="eastward_wind", ran_type=.true. )
+         call addfld ( "vas", "y-component 10m wind", "m/s", -100.0, 100.0, 1, std_name="northward_wind", ran_type=.true. )
+         call addfld ( "sfcWindmax", "Maximum 10m wind speed", "m/s", 0.0, 200.0, 1, std_name="wind_speed", ran_type=.true. )
          ! Packing is not going to work well in this case
          ! For height, estimate the height of the top level and use that
          ! for scaling
@@ -3101,11 +3103,11 @@ contains
          
          ! If the output uses pressure levels save the lowest sigma level of
          ! the basic fields.
-         call addfld ( "tbot", "Air temperature at lowest sigma level", "K", 100., 400., 1 )
-         call addfld ( "ubot", "Eastward wind at lowest sigma level", "m/s", -100., 100., 1)
-         call addfld ( "vbot", "Northward wind at lowest sigma level", "m/s", -100., 100., 1)
+         call addfld ( "tbot", "Air temperature at lowest sigma level", "K", 100., 400., 1, std_name="air_temperature" )
+         call addfld ( "ubot", "Eastward wind at lowest sigma level", "m/s", -100., 100., 1, std_name="eastward_wind" )
+         call addfld ( "vbot", "Northward wind at lowest sigma level", "m/s", -100., 100., 1, std_name="northward_wind" )
          call addfld ( "qbot", "Specific humidity at lowest sigma level", "kg/kg", 0., 0.1, 1, &
-                       ran_type=.true. )
+                       std_name="specific_humidity", ran_type=.true. )
 
          ! Vertical averaged fluxes. Note that these are NOT vertical integrals
          call addfld ( "vaveuq", "Vertical average of zonal humidity flux", "m/s kg/kg", -0.5, 0.5, 1, std_name=std_name )
@@ -3128,10 +3130,10 @@ contains
          ! to be depreciated
          ierr = nf90_inq_varid (ncid, "u10_stn", ivar )
          if ( ierr==nf90_noerr ) then
-           call addfld ( "tdscrn_stn", "Dew point screen temperature (station)", "K", 100.0, 400.0, 1 )
-           call addfld ( "uas_stn", "x-component 10m wind", "m/s", -100.0, 100.0, 1, ran_type=.false. )
-           call addfld ( "vas_stn", "y-component 10m wind", "m/s", -100.0, 100.0, 1, ran_type=.false. )
-           call addfld ( "sfcWindmax_stn", "Maximum 10m wind speed (station)", "m/s", 0.0, 200.0, 1, ran_type=.false. ) 
+           call addfld ( "tdscrn_stn", "Dew point screen temperature (station)", "K", 100.0, 400.0, 1, std_name="air_temperature" )
+           call addfld ( "uas_stn", "x-component 10m wind", "m/s", -100.0, 100.0, 1, std_name="wind_speed", ran_type=.false. )
+           call addfld ( "vas_stn", "y-component 10m wind", "m/s", -100.0, 100.0, 1, std_name="wind_speed", ran_type=.false. )
+           call addfld ( "sfcWindmax_stn", "Maximum 10m wind speed (station)", "m/s", 0.0, 200.0, 1, std_name="wind_speed", ran_type=.false. ) 
          end if    
 
       else
@@ -3146,22 +3148,22 @@ contains
             end if
          end if
          if ( cordex_compliant ) then
-            call addfld ( "sfcWind", "10m wind speed", "m/s", 0., 100.0, 1, ran_type=.true. )  
+            call addfld ( "sfcWind", "10m wind speed", "m/s", 0., 100.0, 1, std_name="wind_speed", ran_type=.true. )  
          else    
-            call addfld ( "u10", "10m wind speed", "m/s", 0., 100.0, 1, ran_type=.true. ) 
+            call addfld ( "u10", "10m wind speed", "m/s", 0., 100.0, 1, std_name="wind_speed", ran_type=.true. ) 
          end if   
          call addfld ( "d10", "10m wind direction", "deg", 0.0, 360.0, 1, ran_type=.true. )
          ierr = nf90_inq_varid (ncid, "ua150", ivar )
          if ( ierr==nf90_noerr ) then
-           call addfld ( "u150", "150m wind speed", "m/s", 0., 100.0, 1, ran_type=.false. )
-           call addfld ( "d150", "150m wind direction", "deg", 0., 360.0, 1, ran_type=.false. )
-           call addfld ( "u250", "250m wind speed", "m/s", 0., 100.0, 1, ran_type=.false. )
-           call addfld ( "d250", "250m wind direction", "deg", 0., 360.0, 1, ran_type=.false. )
+           call addfld ( "u150", "150m wind speed", "m/s", 0., 100.0, 1, std_name="wind_speed", ran_type=.false. )
+           call addfld ( "d150", "150m wind direction", "deg", 0., 360.0, 1, std_name="wind_speed", ran_type=.false. )
+           call addfld ( "u250", "250m wind speed", "m/s", 0., 100.0, 1, std_name="wind_speed", ran_type=.false. )
+           call addfld ( "d250", "250m wind direction", "deg", 0., 360.0, 1, std_name="wind_speed", ran_type=.false. )
          end if    
          ierr = nf90_inq_varid (ncid, "sgn_ave", ivar )
          if ( ierr==nf90_noerr ) then
-            call addfld ( "rlus", "Upwelling Longwave radiation", "W/m2", -1000., 1000., 1 )
-            call addfld ( "rsus", "Upwelling Shortwave radiation", "W/m2", -1000., 1000., 1 ) 
+            call addfld ( "rlus", "Upwelling Longwave radiation", "W/m2", -1000., 1000., 1, std_name="surface_upwelling_shortwave_flux_in_air" )
+            call addfld ( "rsus", "Upwelling Shortwave radiation", "W/m2", -1000., 1000., 1, std_name="surface_upwelling_longwave_flux_in_air" ) 
          end if
       end if
       
@@ -3441,7 +3443,7 @@ contains
 
       stdname = ""
       cell_methods = ""
-      if ( .not. cf_compliant ) return
+      !if ( .not. cf_compliant ) return
       ! Would some sort of external table be better
       ! Also return preferred variable name and units?
       vname = vinfo%vname
@@ -3530,6 +3532,9 @@ contains
       case ("prc")
          stdname = "convective_precipitation_flux"
          cell_methods = "time: mean"
+      case ("prmax")
+         stdname = "precipitation_flux" 
+         cell_methods = "time: maximum"
       case ("prhmax")
          stdname = "precipitation_flux" 
          cell_methods = "time: maximum"
