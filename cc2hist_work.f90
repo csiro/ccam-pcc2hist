@@ -467,7 +467,7 @@ contains
             case ( "hurs" )
                call readsave2 (varlist(ivar)%vname, input_name="rhscrn")
             case ( "huss", "qgscrn" )
-               if ( needfld("huss") .or. needfld("qgscrn") .or. needfld("tdscrn") ) then 
+               if ( needfld("huss") .or. needfld("qgscrn") .or. needfld("tdew") ) then 
                   call vread( "qgscrn", qgscrn )
                   if ( needfld("huss") ) then
                      where ( qgscrn /= nf90_fill_float )
@@ -655,7 +655,7 @@ contains
                   call savehist ( "sund", dtmp )
                end if   
             case ( "tas", "tscrn" )
-               if ( needfld("tas") .or. needfld("tscrn") .or. needfld("tdscrn") ) then 
+               if ( needfld("tas") .or. needfld("tscrn") .or. needfld("tdew") ) then 
                   call vread( "tscrn", tscrn )
                   if ( needfld(varlist(ivar)%vname) ) then
                      call savehist(varlist(ivar)%vname, tscrn)
@@ -1140,9 +1140,9 @@ contains
          end if
       end if
            
-      if ( needfld("tdscrn") ) then
+      if ( needfld("tdew") ) then
          call calc_tdscrn( tscrn, qgscrn, psl, dtmp )
-         call savehist( "tdscrn", dtmp )
+         call savehist( "tdew", dtmp )
       end if
       
       ! to be depreciated      
@@ -3012,7 +3012,7 @@ contains
          call addfld ( "grid", "Grid resolution", "km", 0., 1000., 1, ave_type="fixed" )
          call addfld ( "tsea", "Sea surface temperature", "K", 150., 350., 1, &
                         std_name="sea_surface_temperature", ran_type=.true. )
-         call addfld ( "tdscrn", "Dew point screen temperature", "K", 100.0, 400.0, 1 )
+         call addfld ( "tdew", "Dew point screen temperature", "K", 100.0, 400.0, 1 )
          if ( cordex_compliant ) then
             ierr = nf90_inq_varid (ncid, "evspsbl", ivar )
             if ( ierr /= nf90_noerr ) then
@@ -3138,7 +3138,7 @@ contains
          ! high-frequency output
          ierr = nf90_inq_varid (ncid, "psf", ivar )
          if ( ierr==nf90_noerr ) then
-            call addfld ( "tdscrn", "Dew point screen temperature", "K", 100.0, 400.0, 1 )
+            call addfld ( "tdew", "Dew point screen temperature", "K", 100.0, 400.0, 1 )
             if ( cordex_compliant ) then
                call addfld ( "ps", "Surface pressure", "Pa", 0., 120000., 1, std_name="surface_air_pressure", ran_type=.true. ) 
             else    
@@ -3446,34 +3446,116 @@ contains
       ! Also return preferred variable name and units?
       vname = vinfo%vname
       select case (vname)
-      case("ps")
-         stdname = "surface_air_pressure"
-      case("psl")
-         stdname = "air_pressure_at_sea_level"
-      case("u")
-         stdname = "eastward_wind"
-      case("v")
-         stdname = "northward_wind"
-      case("eg")
-         stdname = "surface_upward_latent_heat_flux"
-         cell_methods = "time: mean"
-      case("fg")
-         stdname = "surface_upward_sensible_heat_flux"
-         cell_methods = "time: mean"
-      case("zg")
-         stdname = "geopotential_height"
-      case ("zs")
-         stdname = "surface_altitude"
       case ("alb")
          stdname = "surface_albedo"
+      case ("areacella")
+         stdname = "cell_area" 
+      case ("cbas_ave")
+         stdname = "air_pressure_at_cloud_base"
       case ("cld")
          stdname = "cloud_area_fraction"
+      case ("clivi")
+         stdname = "atmosphere_cloud_ice_content"
+      case ("cll")
+         stdname = "cloud_area_fraction"         
+      case ("clm")
+         stdname = "cloud_area_fraction"
+      case ("clt")
+         stdname = "cloud_area_fraction"
+      case ("clwvi")
+         stdname = "atmosphere_cloud_condensed_water_content"
       case ("cfrac")
          stdname = "cloud_area_fraction_in_atmosphere_layer"
+      case ("ctop_ave")
+         stdname = "air_pressure_at_cloud_top"
+      case ("dni")
+         stdname = "surface_downwelling_shortwave_flux_in_air"
+         cell_methods = "time: mean"
+      case ("eg")
+         stdname = "surface_upward_latent_heat_flux"
+         cell_methods = "time: mean"
+      case ("evap")
+         ! Over what period?
+         stdname = "water_evaporation_amount"
+      case ("evspsbl")
+         stdname = "water_evaporation_flux" 
+         cell_methods = "time: mean"
+      case ("evspsblpot")
+         stdname = "water_potential_evaporation_flux" 
+         cell_methods = "time: mean"
+      case ("fg")
+         stdname = "surface_upward_sensible_heat_flux"
+         cell_methods = "time: mean"
+      case ("hfls")
+         stdname = "surface_upward_latent_heat_flux"
+         cell_methods = "time: mean"
+      case ("hfss")
+         stdname = "surface_upward_sensible_heat_flux"
+         cell_methods = "time: mean"
+      case ("hus")
+         stdname = "specific_humidity"
+      case ("hus200")
+         stdname = "specific_humidity"
+      case ("hus500")
+         stdname = "specific_humidity"
+      case ("hus850")
+         stdname = "specific_humidity"
+      case ("huss")
+         stdname = "specific_humidity"
+      case ("hurs")
+         stdname = "relative_humidity" 
+      case ("mixr")
+         stdname = "humidity_mixing_ratio"
+      case ("mrro")
+         stdname = "runoff_flux" 
+         cell_methods = "time: mean"
+      case ("mrso")
+         stdname = "soil_moisture_content" 
+      case ("mrsofc")
+         stdname = "soil_moisture_content_at_field_capacity" 
+      case ("mrfso")
+         stdname = "soil_frozen_water_content" 
+      case ("mrros")
+         stdname = "surface_runoff_flux" 
+         cell_methods = "time: mean"
+      case ("orog")
+         stdname = "surface_altitude" 
+      case ("omega")
+         stdname = "lagrangian_tendency_of_air_pressure"
+      case ("pblh")
+         stdname = "atmosphere_boundary_layer_thickness"
+      case ("pr")
+         stdname = "precipitation_flux" 
+         cell_methods = "time: mean"
+      case ("prc")
+         stdname = "convective_precipitation_flux"
+         cell_methods = "time: mean"
+      case ("prhmax")
+         stdname = "precipitation_flux" 
+         cell_methods = "time: maximum"
+      case ("prw")
+         stdname = "atmosphere_water_vapor_content"
+      case ("ps")
+         stdname = "surface_air_pressure"
+      case ("prsn")
+         stdname = "snowfall_flux" 
+      case ("psl")
+         stdname = "air_pressure_at_sea_level"
       case ("qfg")
          stdname = "mass_fraction_of_cloud_ice_in_air"
       case ("qlg")
          stdname = "mass_fraction_of_cloud_liquid_water_in_air"
+      case ("rgdn_ave")
+         stdname = "surface_downwelling_longwave_flux_in_air"
+      case ("rlds")
+         stdname = "surface_downwelling_longwave_flux_in_air"
+         cell_methods = "time: mean"
+      case ("rlus")
+         stdname = "surface_upwelling_longwave_flux_in_air"
+         cell_methods = "time: mean"
+      case ("rlut")
+         stdname = "toa_outgoing_longwave_flux"
+         cell_methods = "time: mean"
       case ("rnc")
          stdname = "convective_precipitation_flux"
          cell_methods = "time: mean"
@@ -3483,64 +3565,144 @@ contains
       case ("rnd24")
          stdname = "precipitation_flux"
          cell_methods = "time: mean"
-      case ("snd")
-         stdname = "SNOW ???????????????"
-      case ("sno")
-         stdname = "snowfall_flux"
-      case ("tsu")
-         stdname = "surface_temperature" 
-      case ("u10")
-         ! Perhaps poor choice in the model. This is wind speed rather than
-         ! a component.
+      case ("rootd")
+         stdname = "root_depth" 
+      case ("rsds")
+         stdname = "surface_downwelling_shortwave_flux_in_air"
+         cell_methods = "time: mean"
+      case ("rsdt")
+         stdname = "toa_incomming_shortwave_flux"
+         cell_methods = "time: mean"
+      case ("rsus")
+         stdname = "surface_upwelling_shortwave_flux_in_air"
+         cell_methods = "time: mean"         
+      case ("rsut")
+         stdname = "toa_outgoing_shortwave_flux"
+         cell_methods = "time: mean"
+      case ("runoff")
+         stdname = "surface_runoff_flux"
+      case ("sfcWind")
          stdname = "wind_speed"
-      case ("evap")
-         ! Over what period?
-         stdname = "water_evaporation_amount"
-      case ("mixr")
-         stdname = "humidity_mixing_ratio"
-      case ("pblh")
-         stdname = "atmosphere_boundary_layer_thickness"
-      case ("taux")
-         stdname = "surface_downward_eastward_stress"
-      case ("tauy")
-         stdname = "surface_downward_northward_stress"
-      case ("temp")
-         stdname = "air_temperature"
-      case ("omega")
-         stdname = "lagrangian_tendency_of_air_pressure"
+      case ("sfcWindmax")
+         stdname = "wind_speed"
+         cell_methods = "time: maximum"
+      case ("sftlf")
+         stdname = "land_area_fraction" 
+      case ("sftgif")
+         stdname = "land_ice_area_fraction" 
+      case ("sgdn_ave")
+         stdname = "surface_downwelling_shortwave_flux_in_air"
+      case ("sgn_ave")
+         stdname = "surface_net_downward_shortwave_flux"
+      case ("sic")
+         stdname = "sea_ice_area_fraction" 
       case ("siced")
          stdname = "sea_ice_thickness"
       case ("sigmf")
          stdname = "vegetation_area_fraction"
-      case ("tscrn")
-         stdname = "air_temperature" 
+      case ("sint_ave")
+         stdname = "toa_incoming_shortwave_flux"
+      case ("snc")
+         stdname = "surface_snow_area_fraction"
+      case ("snd")
+         stdname = "surface_snow_thickness"
+      case ("snm")
+         stdname = "surface_snow_melt_flux"   
+      case ("sno")
+         stdname = "snowfall_flux"
+      case ("snw")
+         stdname = "surface_snow_amount"
+      case ("sund")
+         stdname = "duration_of_sunshine"
+      case ("ta")
+        stdname = "air_temperature"  
+      case ("ta200")
+        stdname = "air_temperature"  
+      case ("ta500")
+        stdname = "air_temperature"  
+      case ("ta850")
+        stdname = "air_temperature"  
+      case ("tsu")
+         stdname = "surface_temperature" 
+      case ("u")
+         stdname = "eastward_wind"
+      case ("u10")
+         ! Perhaps poor choice in the model. This is wind speed rather than
+         ! a component.
+         stdname = "wind_speed"
+      case ("ua150")
+         stdname = "eastward_wind" 
+      case ("ua200")
+         stdname = "eastward_wind"          
+      case ("ua250")
+         stdname = "eastward_wind" 
+      case ("ua500")
+         stdname = "eastward_wind"          
+      case ("ua850")
+         stdname = "eastward_wind" 
+      case ("uas")
+         stdname = "eastward_wind"
+      case ("uscrn")
+         stdname = "wind_speed"
+      case ("v")
+         stdname = "northward_wind"
+      case ("va150")
+         stdname = "northward_wind" 
+      case ("va200")
+         stdname = "northward_wind" 
+      case ("va250")
+         stdname = "northward_wind" 
+      case ("va500")
+         stdname = "northward_wind" 
+      case ("va850")
+         stdname = "northward_wind" 
+      case ("vas")
+         stdname = "northward_wind" 
+      case ("tas")
+         stdname = "air_temperature"
+      case ("tasmax")
+         stdname = "air_temperature"
+         cell_methods = "time: maximum"
+      case ("tasmin")
+         stdname = "air_temperature"
+         cell_methods = "time: minimum"
       case ("tminscr")
          stdname = "air_temperature" 
          cell_methods = "time: minimum"
       case ("tmaxscr")
          stdname = "air_temperature" 
          cell_methods = "time: maximum"
+      case ("ts")
+         stdname = "surface_temperature" 
       case ("tscr_ave")
          stdname = "air_temperature" 
          cell_methods = "time: mean"
-      case ("uscrn")
-         stdname = "wind_speed" 
+      case ("tscrn")
+         stdname = "air_temperature" 
+      case ("tauu")
+         stdname = "surface_downward_eastward_stress"
+      case ("tauv")
+         stdname = "surface_downward_northward_stress"
+      case ("taux")
+         stdname = "surface_downward_eastward_stress"
+      case ("tauy")
+         stdname = "surface_downward_northward_stress"
+      case ("temp")
+         stdname = "air_temperature"
+      case ("zg")
+         stdname = "geopotential_height"
+      case ("zg200")
+         stdname = "geopotential_height"
+      case ("zg500")
+         stdname = "geopotential_height"
+      case ("zg850")
+         stdname = "geopotential_height"
+      case ("zmla")
+         stdname = "atnosphere_boundary_layer_thickness" 
       case ("zolnd")
          stdname = "surface_roughness_length" 
-      case ("runoff")
-         stdname = "surface_runoff_flux"
-      case ("rgdn_ave")
-         stdname = "surface_downwelling_longwave_flux_in_air"
-      case ("sgdn_ave")
-         stdname = "surface_downwelling_shortwave_flux_in_air"
-      case ("sgn_ave")
-         stdname = "surface_net_downward_shortwave_flux"
-      case ("sint_ave")
-         stdname = "toa_incoming_shortwave_flux"
-      case ("cbas_ave")
-         stdname = "air_pressure_at_cloud_base"
-      case ("ctop_ave")
-         stdname = "air_pressure_at_cloud_top"
+      case ("zs")
+         stdname = "surface_altitude"
       end select
 
       if ( vinfo%daily ) then
