@@ -3654,10 +3654,6 @@ contains
         stdname = "air_temperature"  
       case ("ta850")
         stdname = "air_temperature"  
-      case ("tsu")
-         stdname = "surface_temperature" 
-      case ("ta")
-         stdname = "air_temperature"         
       case ("tas")
          stdname = "air_temperature"
       case ("tasmax")
@@ -3666,6 +3662,14 @@ contains
       case ("tasmin")
          stdname = "air_temperature"
          cell_methods = "time: minimum"
+      case ("tauu")
+         stdname = "surface_downward_eastward_stress"
+      case ("tauv")
+         stdname = "surface_downward_northward_stress"
+      case ("taux")
+         stdname = "surface_downward_eastward_stress"
+      case ("tauy")
+         stdname = "surface_downward_northward_stress"
       case ("tdew")
          stdname = "dew_point_temperature" 
       case ("thetao")
@@ -3685,14 +3689,8 @@ contains
          cell_methods = "time: mean"
       case ("tscrn")
          stdname = "air_temperature" 
-      case ("tauu")
-         stdname = "surface_downward_eastward_stress"
-      case ("tauv")
-         stdname = "surface_downward_northward_stress"
-      case ("taux")
-         stdname = "surface_downward_eastward_stress"
-      case ("tauy")
-         stdname = "surface_downward_northward_stress"
+      case ("tsu")
+         stdname = "surface_temperature"          
       case ("temp")
          stdname = "air_temperature"
       case ("u")
