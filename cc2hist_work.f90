@@ -3450,8 +3450,17 @@ contains
       select case (vname)
       case ("alb")
          stdname = "surface_albedo"
+      case ("anth_ave")
+         stdname = "surface_upward_heat_flux_in_air"
+         cell_methods = "time: mean"
       case ("areacella")
          stdname = "cell_area" 
+      case ("cape_ave")
+         stdname = "atmosphere_convective_available_potential_energy"
+         cell_methods = "time: mean"
+      case ("cape_max")
+         stdname = "atmosphere_convective_available_potential_energy"
+         cell_methods = "time: maximum"
       case ("cbas_ave")
          stdname = "air_pressure_at_cloud_base"
       case ("cld")
@@ -3470,6 +3479,12 @@ contains
          stdname = "cloud_area_fraction_in_atmosphere_layer"
       case ("ctop_ave")
          stdname = "air_pressure_at_cloud_top"
+      case ("d10")
+         stdname = "wind_from_direction" 
+      case ("d150")
+         stdname = "wind_from_direction" 
+      case ("d250")
+         stdname = "wind_from_direction" 
       case ("dni")
          stdname = "surface_downwelling_shortwave_flux_in_air"
          cell_methods = "time: mean"
@@ -3520,6 +3535,8 @@ contains
       case ("mrros")
          stdname = "surface_runoff_flux" 
          cell_methods = "time: mean"
+      case ("ocheight")
+         stdname = "sea_surface_height_above_sea_level" 
       case ("orog")
          stdname = "surface_altitude" 
       case ("omega")
@@ -3552,6 +3569,10 @@ contains
          stdname = "mass_fraction_of_cloud_liquid_water_in_air"
       case ("rgdn_ave")
          stdname = "surface_downwelling_longwave_flux_in_air"
+      case ("rhmaxscr")
+         stdname = "relative_humidity"
+      case ("rhminscr")
+         stdname = "relative_humidity"
       case ("rlds")
          stdname = "surface_downwelling_longwave_flux_in_air"
          cell_methods = "time: mean"
@@ -3605,6 +3626,8 @@ contains
          stdname = "sea_ice_thickness"
       case ("sigmf")
          stdname = "vegetation_area_fraction"
+      case ("sigmu")
+         stdname = "area_fraction"
       case ("sint_ave")
          stdname = "toa_incoming_shortwave_flux"
       case ("snc")
@@ -3617,6 +3640,10 @@ contains
          stdname = "snowfall_flux"
       case ("snw")
          stdname = "surface_snow_amount"
+      case ("so")
+         stdname = "sea_water_salinity"
+      case ("sos")
+         stdname = "sea_surface_salinity"
       case ("sund")
          stdname = "duration_of_sunshine"
       case ("ta")
@@ -3629,40 +3656,8 @@ contains
         stdname = "air_temperature"  
       case ("tsu")
          stdname = "surface_temperature" 
-      case ("u")
-         stdname = "eastward_wind"
-      case ("u10")
-         ! Perhaps poor choice in the model. This is wind speed rather than
-         ! a component.
-         stdname = "wind_speed"
-      case ("ua150")
-         stdname = "eastward_wind" 
-      case ("ua200")
-         stdname = "eastward_wind"          
-      case ("ua250")
-         stdname = "eastward_wind" 
-      case ("ua500")
-         stdname = "eastward_wind"          
-      case ("ua850")
-         stdname = "eastward_wind" 
-      case ("uas")
-         stdname = "eastward_wind"
-      case ("uscrn")
-         stdname = "wind_speed"
-      case ("v")
-         stdname = "northward_wind"
-      case ("va150")
-         stdname = "northward_wind" 
-      case ("va200")
-         stdname = "northward_wind" 
-      case ("va250")
-         stdname = "northward_wind" 
-      case ("va500")
-         stdname = "northward_wind" 
-      case ("va850")
-         stdname = "northward_wind" 
-      case ("vas")
-         stdname = "northward_wind" 
+      case ("ta")
+         stdname = "air_temperature"         
       case ("tas")
          stdname = "air_temperature"
       case ("tasmax")
@@ -3673,12 +3668,16 @@ contains
          cell_methods = "time: minimum"
       case ("tdew")
          stdname = "dew_point_temperature" 
+      case ("thetao")
+         stdname = "sea_water_potential_temperature" 
       case ("tminscr")
          stdname = "air_temperature" 
          cell_methods = "time: minimum"
       case ("tmaxscr")
          stdname = "air_temperature" 
          cell_methods = "time: maximum"
+      case ("tos")
+         stdname = "sea_surface_temperature" 
       case ("ts")
          stdname = "surface_temperature" 
       case ("tscr_ave")
@@ -3696,6 +3695,52 @@ contains
          stdname = "surface_downward_northward_stress"
       case ("temp")
          stdname = "air_temperature"
+      case ("u")
+         stdname = "eastward_wind"
+      case ("u10")
+         ! Perhaps poor choice in the model. This is wind speed rather than
+         ! a component.
+         stdname = "wind_speed"
+      case ("ua")
+         stdname = "eastward_wind"
+      case ("ua150")
+         stdname = "eastward_wind" 
+      case ("ua200")
+         stdname = "eastward_wind"          
+      case ("ua250")
+         stdname = "eastward_wind" 
+      case ("ua500")
+         stdname = "eastward_wind"          
+      case ("ua850")
+         stdname = "eastward_wind" 
+      case ("uas")
+         stdname = "eastward_wind"
+      case ("uo")
+         stdname = "eastward_sea_water_velocity" 
+      case ("uos")
+         stdname = "eastward_sea_water_velocity"
+      case ("uscrn")
+         stdname = "wind_speed"
+      case ("v")
+         stdname = "northward_wind"
+      case ("va")
+         stdname = "northward_wind"
+      case ("va150")
+         stdname = "northward_wind" 
+      case ("va200")
+         stdname = "northward_wind" 
+      case ("va250")
+         stdname = "northward_wind" 
+      case ("va500")
+         stdname = "northward_wind" 
+      case ("va850")
+         stdname = "northward_wind" 
+      case ("vas")
+         stdname = "northward_wind" 
+      case ("vo")
+         stdname = "northward_sea_water_velocity" 
+      case ("vos")
+         stdname = "northward_sea_water_velocity"
       case ("zg")
          stdname = "geopotential_height"
       case ("zg200")
