@@ -3703,7 +3703,7 @@ contains
       case ("zg850")
          stdname = "geopotential_height"
       case ("zmla")
-         stdname = "atnosphere_boundary_layer_thickness" 
+         stdname = "atmosphere_boundary_layer_thickness" 
       case ("zolnd")
          stdname = "surface_roughness_length" 
       case ("zs")
