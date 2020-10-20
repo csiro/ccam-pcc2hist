@@ -3671,6 +3671,8 @@ contains
       case ("tasmin")
          stdname = "air_temperature"
          cell_methods = "time: minimum"
+      case ("tdew")
+         stdname = "dew_point_temperature" 
       case ("tminscr")
          stdname = "air_temperature" 
          cell_methods = "time: minimum"
