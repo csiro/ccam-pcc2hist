@@ -3231,8 +3231,8 @@ contains
          end if    
          ierr = nf90_inq_varid (ncid, "sgn_ave", ivar )
          if ( ierr==nf90_noerr ) then
-            call addfld ( "rlus", "Surface Upwelling Longwave Radiation", "W m-2", -1000., 1000., 1, std_name="surface_upwelling_shortwave_flux_in_air" )
-            call addfld ( "rsus", "Surface Upwelling Shortwave Radiation", "W m-2", -1000., 1000., 1, std_name="surface_upwelling_longwave_flux_in_air" ) 
+            call addfld ( "rlus", "Surface Upwelling Longwave Radiation", "W m-2", -1000., 1000., 1, std_name="surface_upwelling_longwave_flux_in_air" )
+            call addfld ( "rsus", "Surface Upwelling Shortwave Radiation", "W m-2", -1000., 1000., 1, std_name="surface_upwelling_shortwave_flux_in_air" ) 
          end if
          if ( cordex_compliant ) then    
             call addfld ( "sfcWind", "Near-Surface Wind Speed", "m s-1", 0., 100.0, 1, std_name="wind_speed", ran_type=.true. )  
