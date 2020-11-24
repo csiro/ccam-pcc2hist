@@ -3066,7 +3066,7 @@ contains
          if ( cordex_compliant ) then
             ierr = nf90_inq_varid (ncid, "evspsbl", ivar )
             if ( ierr /= nf90_noerr ) then
-              call addfld ( "evspsbl", "Evaporation", "kg/m2/s", 0., 0.001, 1, std_name="water_evaporation_flux" )  
+              call addfld ( "evspsbl", "Evaporation", "kg m-2 s-1", 0., 0.001, 1, std_name="water_evaporation_flux" )  
             end if    
             if ( int_type /= int_none ) then
                call addfld ( "mrso", "Total soil moisture content", "kg m-2", 0., 100.0, 1, std_name="soil_moisture_content", &
