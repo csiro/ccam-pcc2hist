@@ -1,6 +1,6 @@
 ! Conformal Cubic Atmospheric Model
     
-! Copyright 2015-2020 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+! Copyright 2015-2021 Commonwealth Scientific Industrial Research Organisation (CSIRO)
     
 ! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
 !
@@ -529,6 +529,14 @@ contains
                   end where   
                   call savehist ( "prc", dtmp )
                end if   
+            case ( "prgr" )
+               if ( needfld("prgr") ) then 
+                  call vread( "grpl", dtmp )
+                  where ( dtmp /= nf90_fill_float )
+                     dtmp = dtmp/86400.
+                  end where   
+                  call savehist ( "prgr", dtmp )
+               end if 
             case ( "prmax" )
                if ( needfld("prmax") ) then 
                   call vread( "maxrnd", dtmp )
@@ -576,7 +584,7 @@ contains
                         dtmp = 100.*psl     ! Pa
                      end where   
                   else    
-                     dtmp = psl          ! hPa
+                     dtmp = psl             ! hPa
                   end if
                   call savehist ( "ps", dtmp )
                end if   
@@ -2825,6 +2833,7 @@ contains
                xmax = 100.
             else if ( varlist(ivar)%vname == "eg_ave" ) then
                varlist(ivar)%vname = "hfls"
+               varlist(ivar)%units = "kg m-2 s-1"
                varlist(ivar)%long_name = "Surface Upward Latent Heat Flux"
             else if ( varlist(ivar)%vname == "epot_ave" ) then
                varlist(ivar)%vname = "evspsblpot"
@@ -2839,6 +2848,7 @@ contains
                xmax = 0.001
             else if ( varlist(ivar)%vname == "fg_ave" ) then
                varlist(ivar)%vname = "hfss"
+               varlist(ivar)%units = "kg m-2 s-1"
                varlist(ivar)%long_name = "Surface Upward Sensible Heat Flux"
             else if ( varlist(ivar)%vname == "fracice" ) then
                varlist(ivar)%vname = "sic"
@@ -2846,6 +2856,10 @@ contains
                varlist(ivar)%long_name = "Sea Ice Area Fraction"
                xmin = 0.
                xmax = 100.
+            else if ( varlist(ivar)%vname == "grpl" ) then
+               varlist(ivar)%vname = "prgr"
+               varlist(ivar)%units = "kg m-2 s-1"
+               varlist(ivar)%long_name = "Graupelfall Flux"
             else if ( varlist(ivar)%vname == "mixr" ) then
                varlist(ivar)%vname = "hus"
                varlist(ivar)%units = "1"
@@ -2857,6 +2871,7 @@ contains
                xmax = 0.013
             else if ( varlist(ivar)%vname == "pblh" ) then
                varlist(ivar)%vname = "zmla"
+               varlist(ivar)%units = "m"
                varlist(ivar)%long_name = "Height of Boundary Layer"
             else if ( varlist(ivar)%vname == "pmsl_ave" ) then
                varlist(ivar)%vname = "psl_ave"
@@ -2877,9 +2892,11 @@ contains
                xmax = 0.06
             else if ( varlist(ivar)%vname == "rgdn_ave" ) then
                varlist(ivar)%vname = "rlds"
+               varlist(ivar)%units = "W m-2"
                varlist(ivar)%long_name = "Surface Downwelling Longwave Radiation"
             else if ( varlist(ivar)%vname == "rhscrn" ) then
                varlist(ivar)%vname = "hurs"
+               varlist(ivar)%units = "%"
                varlist(ivar)%long_name = "Near-Surface Relative Humidity"
             else if ( varlist(ivar)%vname == "rnc" ) then
                varlist(ivar)%vname = "prc"
@@ -2908,6 +2925,7 @@ contains
                xmax = 0.013
             else if ( varlist(ivar)%vname == "rtu_ave" ) then
                varlist(ivar)%vname = "rlut"
+               varlist(ivar)%units = "W m-2"
                varlist(ivar)%long_name = "TOA Outgoing Longwave Radiation"
             else if ( varlist(ivar)%vname == "sbl" ) then
                varlist(ivar)%units = "kg m-2 s-1"
@@ -2915,6 +2933,7 @@ contains
                xmax = 0.001
             else if ( varlist(ivar)%vname == "sgdn_ave" ) then
                varlist(ivar)%vname = "rsds"
+               varlist(ivar)%units = "W m-2"
                varlist(ivar)%long_name = "Surface Downwelling Shortwave Radiation"
             else if ( varlist(ivar)%vname == "sint_ave" ) then
                varlist(ivar)%vname = "rsdt"
@@ -2935,6 +2954,7 @@ contains
                xmax = 0.013
             else if ( varlist(ivar)%vname == "sot_ave" ) then
                varlist(ivar)%vname = "rsut"
+               varlist(ivar)%units = "W m-2"
                varlist(ivar)%long_name = "TOA Outgoing Shortwave Radiation"
             else if ( varlist(ivar)%vname == "sunhours" ) then
                varlist(ivar)%vname = "sund"
@@ -2952,48 +2972,65 @@ contains
                varlist(ivar)%long_name = "Surface Downward Northward Wind Stress"
             else if ( varlist(ivar)%vname == "temp" ) then
                varlist(ivar)%vname = "ta"
+               varlist(ivar)%units = "K"
                varlist(ivar)%long_name = "Air Temperature"
             else if ( varlist(ivar)%vname == "tmaxscr" ) then
                varlist(ivar)%vname = "tasmax"
+               varlist(ivar)%units = "K"
                varlist(ivar)%long_name = "Daily Maximum Near-Surface Air Temperature"
                varlist(ivar)%daily = .true.
             else if ( varlist(ivar)%vname == "tminscr" ) then
                varlist(ivar)%vname = "tasmin"
+               varlist(ivar)%units = "K"
                varlist(ivar)%long_name = "Daily Minimum Near-Surface Air Temperature"
                varlist(ivar)%daily = .true.
             else if ( varlist(ivar)%vname == "tscrn" ) then
                varlist(ivar)%vname = "tas"
+               varlist(ivar)%units = "K"
                varlist(ivar)%long_name = "Near-Surface Air Temperature"
             else if ( varlist(ivar)%vname == "tsu" ) then
                varlist(ivar)%vname = "ts"
+               varlist(ivar)%units = "K"
                varlist(ivar)%long_name = "Surface Temperature"
             else if ( varlist(ivar)%vname == "u10" ) then
                varlist(ivar)%vname = "sfcWind"
+               varlist(ivar)%units = "m s-1"
                varlist(ivar)%long_name = "Near-Surface Wind Speed"
             else if ( varlist(ivar)%vname == "u" ) then
                varlist(ivar)%vname = "ua"
+               varlist(ivar)%units = "m s-1"
                varlist(ivar)%long_name = "Eastward Wind"
             else if ( varlist(ivar)%vname == "uas" ) then
                varlist(ivar)%long_name = "Eastward Near-Surface Wind"
+               varlist(ivar)%units = "m s-1"
             else if ( varlist(ivar)%vname == "ua200" ) then
                varlist(ivar)%long_name = "Eastward Wind"
+               varlist(ivar)%units = "m s-1"
             else if ( varlist(ivar)%vname == "ua500" ) then
                varlist(ivar)%long_name = "Eastward Wind"
+               varlist(ivar)%units = "m s-1"
             else if ( varlist(ivar)%vname == "ua850" ) then
                varlist(ivar)%long_name = "Eastward Wind"
+               varlist(ivar)%units = "m s-1"
             else if ( varlist(ivar)%vname == "v" ) then
                varlist(ivar)%vname = "va"
+               varlist(ivar)%units = "m s-1"
                varlist(ivar)%long_name = "Northward Wind"
             else if ( varlist(ivar)%vname == "vas" ) then
                varlist(ivar)%long_name = "Northward Near-Surface Wind"
+               varlist(ivar)%units = "m s-1"
             else if ( varlist(ivar)%vname == "va200" ) then
                varlist(ivar)%long_name = "Northward Wind"               
+               varlist(ivar)%units = "m s-1"
             else if ( varlist(ivar)%vname == "va500" ) then
                varlist(ivar)%long_name = "Northward Wind"
+               varlist(ivar)%units = "m s-1"
             else if ( varlist(ivar)%vname == "va850" ) then
                varlist(ivar)%long_name = "Northward Wind"
+               varlist(ivar)%units = "m s-1"
             else if ( varlist(ivar)%vname == "zs" ) then
                varlist(ivar)%vname = "orog"
+               varlist(ivar)%units = "m"
             end if
          end if
          call cc_cfproperties(varlist(ivar), std_name, cell_methods)
