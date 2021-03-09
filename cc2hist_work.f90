@@ -735,8 +735,12 @@ contains
                call vread( "u10max_stn", u10max_stn ) 
             case ( "ua150" )
                 call vread( "ua150", ua150tmp )     ! only for high-frequency output
+            case ( "ua150m" )
+                call vread( "ua150m", ua150tmp )    ! only for high-frequency output
             case ( "ua250" )
                 call vread( "ua250", ua250tmp )     ! only for high-frequency output
+            case ( "ua250m" )
+                call vread( "ua250m", ua250tmp )    ! only for high-frequency output
             case ( "uas" )
                 call vread( "uas", uastmp )         ! only for high-frequency output
             case ( "uas_stn" )
@@ -747,8 +751,12 @@ contains
                call vread( "v10max_stn", v10max_stn ) 
             case ( "va150" )
                 call vread( "va150", va150tmp )     ! only for high-frequency output
+            case ( "va150m" )
+                call vread( "va150m", va150tmp )    ! only for high-frequency output                
             case ( "va250" )
                 call vread( "va250", va250tmp )     ! only for high-frequency output
+            case ( "va250m" )
+                call vread( "va250m", va250tmp )    ! only for high-frequency output
             case ( "vas" )
                 call vread( "vas", vastmp )         ! only for high-frequency output
             case ( "vas_stn" )
@@ -1392,70 +1400,90 @@ contains
                end where            
                call savehist( "u10_stn", dtmp )
             end if
-         end if
-         if ( needfld("ua150")     .or. needfld("va150")     .or. &
-              needfld("u150")     .or. needfld("d150") ) then
-            call fix_winds( ua150tmp, va150tmp )
-            if ( needfld("ua150") ) then
-               call savehist( "ua150", ua150tmp )
+		 end if
+			  
+         ierr = nf90_inq_varid (ncid, "ua150m", ivar )
+         if ( ierr==nf90_noerr ) then
+            if ( needfld("ua150m") .or. needfld("va150m") .or. &
+                 needfld("u150") ) then
+               call fix_winds( ua150tmp, va150tmp )
+               if ( needfld("ua150m") ) then
+                  call savehist( "ua150m", ua150tmp )
+               end if
+               if ( needfld("va150m") ) then
+                  call savehist( "va150m", va150tmp )
+               end if  
+               if ( needfld("u150") ) then
+                  where ( ua150tmp/=nf90_fill_float .and. &
+                          va150tmp/=nf90_fill_float )
+                     dtmp = sqrt( ua150tmp**2 + va150tmp**2 )
+                  elsewhere
+                     dtmp = nf90_fill_float
+                  end where  
+                  call savehist( "u150", dtmp )
+               end if
             end if
-            if ( needfld("va150") ) then
-               call savehist( "va150", va150tmp )
-            end if  
-            if ( needfld("u150") ) then
-               where ( ua150tmp/=nf90_fill_float .and. &
-                       va150tmp/=nf90_fill_float )
-                  dtmp = sqrt( ua150tmp**2 + va150tmp**2 )
-               elsewhere
-                  dtmp = nf90_fill_float
-               end where  
-               call savehist( "u150", dtmp )
+            if ( needfld("ua250m") .or. needfld("va250m") .or. &
+                 needfld("u250") ) then
+               call fix_winds( ua250tmp, va250tmp )
+               if ( needfld("ua250m") ) then
+                  call savehist( "ua250m", ua250tmp )
+               end if
+               if ( needfld("va250m") ) then
+                  call savehist( "va250m", va250tmp )
+               end if  
+               if ( needfld("u250") ) then
+                  where ( ua250tmp/=nf90_fill_float .and. &
+                          va250tmp/=nf90_fill_float )
+                     dtmp = sqrt( ua250tmp**2 + va250tmp**2 )
+                  elsewhere
+                     dtmp = nf90_fill_float
+                  end where  
+                  call savehist( "u250", dtmp )
+               end if
             end if
-            if ( needfld("d150") ) then
-               where ( ua150tmp/=nf90_fill_float .and. &
-                       va150tmp/=nf90_fill_float )
-                  dtmp = atan2(-ua150tmp,-va150tmp)*180./3.1415927
-               elsewhere
-                  dtmp = nf90_fill_float
-               end where
-               where ( dtmp<0. .and. dtmp/=nf90_fill_float )
-                  dtmp = dtmp + 360.
-               end where
-               call savehist( "d150", dtmp )
+		 else	 
+            if ( needfld("ua150")     .or. needfld("va150")     .or. &
+                 needfld("u150")  ) then
+               call fix_winds( ua150tmp, va150tmp )
+               if ( needfld("ua150") ) then
+                  call savehist( "ua150", ua150tmp )
+               end if
+               if ( needfld("va150") ) then
+                  call savehist( "va150", va150tmp )
+               end if  
+               if ( needfld("u150") ) then
+                  where ( ua150tmp/=nf90_fill_float .and. &
+                          va150tmp/=nf90_fill_float )
+                     dtmp = sqrt( ua150tmp**2 + va150tmp**2 )
+                  elsewhere
+                     dtmp = nf90_fill_float
+                  end where  
+                  call savehist( "u150", dtmp )
+               end if
             end if
-         end if
-         if ( needfld("ua250")     .or. needfld("va250")     .or. &
-              needfld("u250")     .or. needfld("d250") ) then
-            call fix_winds( ua250tmp, va250tmp )
-            if ( needfld("ua250") ) then
-               call savehist( "ua250", ua250tmp )
+            if ( needfld("ua250")     .or. needfld("va250")     .or. &
+                 needfld("u250") ) then
+               call fix_winds( ua250tmp, va250tmp )
+               if ( needfld("ua250") ) then
+                  call savehist( "ua250", ua250tmp )
+               end if
+               if ( needfld("va250") ) then
+                  call savehist( "va250", va250tmp )
+               end if  
+               if ( needfld("u250") ) then
+                  where ( ua250tmp/=nf90_fill_float .and. &
+                          va250tmp/=nf90_fill_float )
+                     dtmp = sqrt( ua250tmp**2 + va250tmp**2 )
+                  elsewhere
+                     dtmp = nf90_fill_float
+                  end where  
+                  call savehist( "u250", dtmp )
+               end if
             end if
-            if ( needfld("va250") ) then
-               call savehist( "va250", va250tmp )
-            end if  
-            if ( needfld("u250") ) then
-               where ( ua250tmp/=nf90_fill_float .and. &
-                       va250tmp/=nf90_fill_float )
-                  dtmp = sqrt( ua250tmp**2 + va250tmp**2 )
-               elsewhere
-                  dtmp = nf90_fill_float
-               end where  
-               call savehist( "u250", dtmp )
-            end if
-            if ( needfld("d250") ) then
-               where ( ua250tmp/=nf90_fill_float .and. &
-                       va250tmp/=nf90_fill_float )
-                  dtmp = atan2(-ua250tmp,-va250tmp)*180./3.1415927
-               elsewhere
-                  dtmp = nf90_fill_float
-               end where
-               where ( dtmp<0. .and. dtmp/=nf90_fill_float )
-                  dtmp = dtmp + 360.
-               end where
-               call savehist( "d250", dtmp )
-            end if
-         end if
-      end if       
+		 end if
+		 
+	  end if		  
       
       ! Note that these are just vertical averages, not vertical integrals
       ! Use the winds that have been rotatated to the true directions
@@ -2833,7 +2861,7 @@ contains
                xmax = 100.
             else if ( varlist(ivar)%vname == "eg_ave" ) then
                varlist(ivar)%vname = "hfls"
-               varlist(ivar)%units = "kg m-2 s-1"
+               varlist(ivar)%units = "W m-2"
                varlist(ivar)%long_name = "Surface Upward Latent Heat Flux"
             else if ( varlist(ivar)%vname == "epot_ave" ) then
                varlist(ivar)%vname = "evspsblpot"
@@ -2848,7 +2876,7 @@ contains
                xmax = 0.001
             else if ( varlist(ivar)%vname == "fg_ave" ) then
                varlist(ivar)%vname = "hfss"
-               varlist(ivar)%units = "kg m-2 s-1"
+               varlist(ivar)%units = "W m-2 s-1"
                varlist(ivar)%long_name = "Surface Upward Sensible Heat Flux"
             else if ( varlist(ivar)%vname == "fracice" ) then
                varlist(ivar)%vname = "sic"
@@ -3258,14 +3286,18 @@ contains
             else    
                call addfld ( "ps", "Surface Air Pressure", "hPa", 0., 1200., 1, std_name="surface_air_pressure", ran_type=.true. )
             end if
-         end if
-         ierr = nf90_inq_varid (ncid, "ua150", ivar )
+		 end if
+         ierr = nf90_inq_varid (ncid, "ua150m", ivar )
          if ( ierr==nf90_noerr ) then
-           call addfld ( "u150", "150m wind speed", "m s-1", 0., 100.0, 1, std_name="wind_speed", ran_type=.false. )
-           call addfld ( "d150", "150m wind direction", "deg", 0., 360.0, 1, std_name="wind_speed", ran_type=.false. )
-           call addfld ( "u250", "250m wind speed", "m s-1", 0., 100.0, 1, std_name="wind_speed", ran_type=.false. )
-           call addfld ( "d250", "250m wind direction", "deg", 0., 360.0, 1, std_name="wind_speed", ran_type=.false. )
-         end if    
+            call addfld ( "u150", "150m wind speed", "m s-1", 0., 100.0, 1, std_name="wind_speed", ran_type=.false. )
+            call addfld ( "u250", "250m wind speed", "m s-1", 0., 100.0, 1, std_name="wind_speed", ran_type=.false. )
+         else		   
+            ierr = nf90_inq_varid (ncid, "ua150", ivar )
+            if ( ierr==nf90_noerr ) then
+               call addfld ( "u150", "150m wind speed", "m s-1", 0., 100.0, 1, std_name="wind_speed", ran_type=.false. )
+               call addfld ( "u250", "250m wind speed", "m s-1", 0., 100.0, 1, std_name="wind_speed", ran_type=.false. )
+			end if    
+		 end if		
          ierr = nf90_inq_varid (ncid, "sgn_ave", ivar )
          if ( ierr==nf90_noerr ) then
             call addfld ( "rlus", "Surface Upwelling Longwave Radiation", "W m-2", -1000., 1000., 1, std_name="surface_upwelling_longwave_flux_in_air" )
@@ -3595,10 +3627,6 @@ contains
          stdname = "air_pressure_at_cloud_top"
       case ("d10")
          stdname = "wind_from_direction" 
-      case ("d150")
-         stdname = "wind_from_direction" 
-      case ("d250")
-         stdname = "wind_from_direction" 
       case ("dni")
          stdname = "surface_downwelling_shortwave_flux_in_air"
          cell_methods = "time: mean"
@@ -3623,13 +3651,7 @@ contains
       case ("hfss")
          stdname = "surface_upward_sensible_heat_flux"
          cell_methods = "time: mean"
-      case ("hus")
-         stdname = "specific_humidity"
-      case ("hus200")
-         stdname = "specific_humidity"
-      case ("hus500")
-         stdname = "specific_humidity"
-      case ("hus850")
+      case ("hus","hus200","hus500","hus850")
          stdname = "specific_humidity"
       case ("huss")
          stdname = "specific_humidity"
@@ -3761,13 +3783,7 @@ contains
       case ("sund")
          stdname = "duration_of_sunshine"
          cell_methods = "time: mean"
-      case ("ta")
-        stdname = "air_temperature"  
-      case ("ta200")
-        stdname = "air_temperature"  
-      case ("ta500")
-        stdname = "air_temperature"  
-      case ("ta850")
+      case ("ta","ta200","ta500","ta850")
         stdname = "air_temperature"  
       case ("tas")
          stdname = "air_temperature"
@@ -3814,17 +3830,7 @@ contains
          ! Perhaps poor choice in the model. This is wind speed rather than
          ! a component.
          stdname = "wind_speed"
-      case ("ua")
-         stdname = "eastward_wind"
-      case ("ua150")
-         stdname = "eastward_wind" 
-      case ("ua200")
-         stdname = "eastward_wind"          
-      case ("ua250")
-         stdname = "eastward_wind" 
-      case ("ua500")
-         stdname = "eastward_wind"          
-      case ("ua850")
+      case ("ua","ua150","ua200","ua250","ua500","ua850","ua150m","ua250m")
          stdname = "eastward_wind" 
       case ("uas")
          stdname = "eastward_wind"
@@ -3836,31 +3842,15 @@ contains
          stdname = "wind_speed"
       case ("v")
          stdname = "northward_wind"
-      case ("va")
+      case ("va","va150","va200","va250","va500","va850","va150m","va250m")
          stdname = "northward_wind"
-      case ("va150")
-         stdname = "northward_wind" 
-      case ("va200")
-         stdname = "northward_wind" 
-      case ("va250")
-         stdname = "northward_wind" 
-      case ("va500")
-         stdname = "northward_wind" 
-      case ("va850")
-         stdname = "northward_wind" 
       case ("vas")
          stdname = "northward_wind" 
       case ("vo")
          stdname = "northward_sea_water_velocity" 
       case ("vos")
          stdname = "northward_sea_water_velocity"
-      case ("zg")
-         stdname = "geopotential_height"
-      case ("zg200")
-         stdname = "geopotential_height"
-      case ("zg500")
-         stdname = "geopotential_height"
-      case ("zg850")
+      case ("zg","zg200","zg500","zg850")
          stdname = "geopotential_height"
       case ("zmla")
          stdname = "atmosphere_boundary_layer_thickness" 

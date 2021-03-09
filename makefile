@@ -16,7 +16,7 @@ ifeq ($(NOMPI3),yes)
 MPIFLAG =
 else
 MPIFLAG = -Dusempi3
-MPIFLAG =
+#MPIFLAG =
 endif
 FFLAGS = -O3 $(FHOST) -ftz -fp-model precise -traceback $(MPIFLAG)
 INC = -I $(NETCDF_ROOT)/include
