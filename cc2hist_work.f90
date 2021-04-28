@@ -789,25 +789,30 @@ contains
                      end where
                      call savehist(varlist(ivar)%vname,dtmp)
                   end if   
-                else
-                  if ( needfld(varlist(ivar)%vname) .or. match ( varlist(ivar)%vname, &
-                     (/ "wb?_ave   ", "wbice?_ave" /)) ) then           
+               else if ( match ( varlist(ivar)%vname, (/ "wb?_ave"/) ) ) then
+                  if ( needfld(varlist(ivar)%vname) .or. needfld("mrso") ) then                             
                      call vread( varlist(ivar)%vname, ctmp ) 
-                     validvar = .true.
                      do k = 1,size(zse)
                         write(name,'(a,i1.1,a)') 'wb', k,'_ave'
                         if ( varlist(ivar)%vname == name ) then
                            mrso = mrso + ctmp*zse(k)*1000.
                         end if
+                     end do
+                     call savehist( varlist(ivar)%vname, ctmp )
+                  end if
+               else if ( match ( varlist(ivar)%vname, (/ "wbice?_ave"/) ) ) then
+                  if ( needfld(varlist(ivar)%vname) .or. needfld("mrfso") ) then                             
+                     do k = 1,size(zse)
                         write(name,'(a,i1.1,a)') 'wbice', k,'_ave'
                         if ( varlist(ivar)%vname == name ) then
                            mrfso = mrfso + ctmp*zse(k)*330. 
-                           validvar = .false.
                         end if    
                      end do
-                     if ( validvar ) then
-                        call savehist( varlist(ivar)%vname, ctmp )
-                     end if
+                  end if
+               else
+                  if ( needfld(varlist(ivar)%vname) ) then           
+                     call vread( varlist(ivar)%vname, ctmp ) 
+                     call savehist( varlist(ivar)%vname, ctmp )
                   end if   
                end if
             end select
