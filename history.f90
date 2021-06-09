@@ -2451,7 +2451,7 @@ contains
             lsize = pil*pjl*pnpan*lproc*(iend-istart+1)
             call MPI_Gather(histarray_tmp, lsize, MPI_REAL, hist_a_tmp, lsize, MPI_REAL,  &
                             ip, comm_world, ierr)
-            call MPI_Barrier(comm_world,ierr) ! avoids crashes on some systems
+            !call MPI_Barrier(comm_world,ierr) ! avoids crashes on some systems
             call END_LOG(mpigather_end)
          end if
       end do
@@ -2534,7 +2534,7 @@ contains
             end do
          end do
       end if
-      call MPI_Barrier(comm_world,ierr) ! avoids crashes on some systems
+      !call MPI_Barrier(comm_world,ierr) ! avoids crashes on some systems
       call END_LOG(gatherwrap_end)
       
    end subroutine gather_wrap
