@@ -1,6 +1,6 @@
 ! Conformal Cubic Atmospheric Model
     
-! Copyright 2015-2019 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+! Copyright 2015-2021 Commonwealth Scientific Industrial Research Organisation (CSIRO)
     
 ! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
 !
@@ -269,6 +269,8 @@ module history
    logical, public :: cf_compliant = .false.
    
    logical, public :: cordex_compliant = .false.
+   
+   logical, public :: cf_deflate = .true.
    
 ! Save CCAM parameters
    logical, public :: save_ccam_parameters = .true.
@@ -1276,7 +1278,7 @@ contains
       call check_ncerr(ierr,"Error creating variable "// local_name)
       vinfo%vid = vid
       
-      if ( cordex_compliant ) then
+      if ( cf_deflate ) then
         ierr = nf90_def_var_deflate( ncid, vid, 1, 1, 1 ) ! shuffle=1, deflate=1, deflate_level=1
       end if
 
@@ -2084,7 +2086,6 @@ contains
          allocate( hist_a(pil,pjl*pnpan,pnproc,1+slab*(myid-offset):slab*(myid-offset+1)) ) 
       end if
       allocate( k_indx(maxcnt) )
-
 
       cnt = 0
 !     second pass

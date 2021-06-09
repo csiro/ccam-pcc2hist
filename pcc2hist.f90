@@ -1,6 +1,6 @@
 ! Conformal Cubic Atmospheric Model
     
-! Copyright 2015-2019 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+! Copyright 2015-2021 Commonwealth Scientific Industrial Research Organisation (CSIRO)
     
 ! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
 !
@@ -63,7 +63,7 @@ program cc2hist
 
    character(len=MAX_ARGLEN) :: optarg
    integer :: opt, nopt
-   type(loption), dimension(4) :: longopts
+   type(loption), dimension(5) :: longopts
    integer :: longind
    integer :: kta=0, ktb=999999, ktc=-1, ndate=-1, ntime=-1, k
    integer :: sdate=-1, edate=-1, stime=-1, etime=-1
@@ -78,7 +78,8 @@ program cc2hist
                     use_meters, mlevs, use_depth, dlevs, sdate,       &
                     edate, stime, etime, hres, debug, ifile, ofile,   &
                     int_default, vextrap, cf_compliant,               &
-                    cordex_compliant, save_ccam_parameters
+                    cordex_compliant, save_ccam_parameters,           &
+                    cf_deflate
 
    integer :: kt, kdate, ktime, ierr, ieof, ntracers
    integer :: mins
@@ -138,6 +139,7 @@ program cc2hist
    longopts(2) = loption ( "vextrap", 1, 0 )
    longopts(3) = loption ( "cf", 0, 0 )
    longopts(4) = loption ( "cordex", 0, 0 )
+   longopts(5) = loption ( "deflate", 0, 0 )
    ifile = ""
    ofile = ""
    cfile = ""
@@ -202,6 +204,8 @@ program cc2hist
             cf_compliant = .true.
          case ( 4 )
             cordex_compliant = .true.
+         case ( 5 )
+            cf_deflate = .true.
          case default
             print*, "Unexpected result processing long options", longind
             call finishbanner

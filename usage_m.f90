@@ -1,6 +1,6 @@
 ! Conformal Cubic Atmospheric Model
     
-! Copyright 2015-2019 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+! Copyright 2015-2021 Commonwealth Scientific Industrial Research Organisation (CSIRO)
     
 ! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
 !
@@ -54,7 +54,7 @@ module usage_m
 "model history file to a regular lat-lon netcdf file suitable",  &
 "for processing by other programs.", &
 "", &
-"Usage: mpirun -np nproc pcc2hist [-h] [-r res] [-v] [input_file] [output_file]",&
+"Usage: mpirun -np nproc pcc2hist [-h] [-r res] [-v] [-c nml_file] [input_file] [output_file]",&
 "", &
 "Command line options are", &
 "", &
@@ -64,6 +64,8 @@ module usage_m
 "   (Default resolution is approximately equal to model resolution).", &
 "", &
 " -v for version number", &
+"", &
+" -c for namelist file", &
 ""
 
    print*, "There are also several options controlling the horizontal interpolation"
@@ -76,6 +78,7 @@ module usage_m
    print*, " --vextrap=none    Use end values rather than extrapolation"
    print*, " --vextrap=missing Set values below surface as missing"
    print *," --cordex          Format output for CORDEX"
+   print *," --deflate         Compress output file"
    print*, "Note that the missing option only works with linear or nearest "
    print*, "horizontal interpolation. Default is to extrapolate temperature"
    print*, "below surface with standard lapse rate and to use end values for"
@@ -159,6 +162,7 @@ module usage_m
    print*, "                       4 (lapse rate)"
    print*, "cf_compliant         = true or false"
    print*, "cordex_compliant     = true or false"
+   print*, "cf_deflate           = true or false"
    print*, "save_ccam_parameters = true or false"
    print*, ""
    print*, "pcc2hist version ", trim(version)
