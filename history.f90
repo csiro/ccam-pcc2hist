@@ -270,7 +270,7 @@ module history
    
    logical, public :: cordex_compliant = .false.
    
-   logical, public :: cf_deflate = .true.
+   logical, public :: cf_deflate = .false.
    
 ! Save CCAM parameters
    logical, public :: save_ccam_parameters = .true.
