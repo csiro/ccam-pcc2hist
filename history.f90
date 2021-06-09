@@ -270,8 +270,6 @@ module history
    
    logical, public :: cordex_compliant = .false.
    
-   logical, public :: cf_deflate = .false.
-   
 ! Save CCAM parameters
    logical, public :: save_ccam_parameters = .true.
 
@@ -1278,7 +1276,7 @@ contains
       call check_ncerr(ierr,"Error creating variable "// local_name)
       vinfo%vid = vid
       
-      if ( cf_deflate ) then
+      if ( cordex_compliant ) then
         ierr = nf90_def_var_deflate( ncid, vid, 1, 1, 1 ) ! shuffle=1, deflate=1, deflate_level=1
       end if
 
