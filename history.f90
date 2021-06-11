@@ -2429,8 +2429,12 @@ contains
       integer, intent(in) :: slab, offset, maxcnt
       integer :: istart, iend, ip, k, n, ierr, lsize, lp, iq
       integer, dimension(maxcnt), intent(in) :: k_indx
+      integer :: nreq, rreq, ipr
+      integer, save :: itag = 0
+      integer, dimension(2*nproc) :: ireq
+      integer, dimension(MPI_STATUS_SIZE,2*nproc) :: status
       real, dimension(:,:,:), intent(in) :: histarray
-      real, dimension(pil,pjl*pnpan,lproc,slab) :: histarray_tmp
+      real, dimension(pil,pjl*pnpan,lproc,slab,nproc) :: histarray_tmp
       real, dimension(:,:,:,:), pointer, contiguous, intent(inout) :: hist_a
       !real, dimension(pil*pjl*pnpan*lproc*slab*nproc), target :: hist_a_tmp
       real, dimension(pil*pjl*pnpan*lproc*slab*nproc) :: hist_a_tmp
@@ -2438,25 +2442,63 @@ contains
    
       call START_LOG(gatherwrap_begin)
       
+      nreq = 0
+      rreq = 0
+      itag = itag + 1
+      
+      istart = 1 + slab*(myid-offset) 
+      if ( istart > 0 ) then
+         iend = istart + slab - 1
+         iend = min( iend, maxcnt )
+         lsize = pil*pjl*pnpan*lproc*(iend-istart+1)
+         do ipr = 0,nproc-1
+            nreq = nreq + 1
+            call START_LOG(mpigather_begin)
+            call MPI_IRecv( hist_a_tmp(lsize*ipr+1:lsize*(ipr+1)), lsize, MPI_REAL, ipr, &
+                 itag, comm_world, ireq(nreq), ierr )
+            call END_LOG(mpigather_end)
+         end do    
+      end if
+      
+      rreq = nreq
+      
       do ip = 0,nproc-1
          istart = 1 + slab*(ip-offset) 
          if ( istart > 0 ) then
             iend = istart + slab - 1
             iend = min( iend, maxcnt )
             do k = istart,iend
-               histarray_tmp(:,:,:,k-istart+1) = reshape( histarray(:,:,k_indx(k)), (/ pil,pjl*pnpan,lproc /) )
+               histarray_tmp(:,:,:,k-istart+1,ip+1) = reshape( histarray(:,:,k_indx(k)), (/ pil,pjl*pnpan,lproc /) )
             end do   
+            !call START_LOG(mpigather_begin)
+            !lsize = pil*pjl*pnpan*lproc*(iend-istart+1)
+            !call MPI_Gather(histarray_tmp(:,:,:,:,ip+1), lsize, MPI_REAL, hist_a_tmp, lsize, MPI_REAL,  &
+            !                ip, comm_world, ierr)
+            !!call MPI_Barrier(comm_world, ierr) ! avoids crashes on some systems
+            !call END_LOG(mpigather_end)
+            !call START_LOG(mpigather_begin)
+            !lsize = pil*pjl*pnpan*lproc*(iend-istart+1)
+            !nreq = nreq + 1
+            !call MPI_IGather(histarray_tmp(:,:,:,:,ip+1), lsize, MPI_REAL, hist_a_tmp, lsize, MPI_REAL,  &
+            !                ip, comm_world, ireq(nreq), ierr)
+            !if ( myid == ip ) then
+            !  rreq = nreq
+            !end if
+            !call END_LOG(mpigather_end)
             call START_LOG(mpigather_begin)
             lsize = pil*pjl*pnpan*lproc*(iend-istart+1)
-            call MPI_Gather(histarray_tmp, lsize, MPI_REAL, hist_a_tmp, lsize, MPI_REAL,  &
-                            ip, comm_world, ierr)
-            !call MPI_Barrier(comm_world,ierr) ! avoids crashes on some systems
+            nreq = nreq + 1
+            call MPI_ISend( histarray_tmp(:,:,:,:,ip+1), lsize, MPI_REAL, ip, &
+                 itag, comm_world, ireq(nreq), ierr )
             call END_LOG(mpigather_end)
          end if
       end do
       
       istart = 1 + slab*(myid-offset)
       if ( istart > 0 ) then
+         call START_LOG(mpigather_begin)
+         call MPI_Waitall( rreq, ireq, status, ierr )
+         call END_LOG(mpigather_end)          
          iend = slab*(myid-offset+1)
          iend = min( iend, maxcnt )          
          !hist_a_remap(1:pil,1:pjl*pnpan*lproc,1:nproc,istart:iend) => hist_a
@@ -2471,7 +2513,13 @@ contains
                end do
             end do
          end do
-      end if   
+      end if 
+      
+      call START_LOG(mpigather_begin)
+      call MPI_Waitall( nreq, ireq, status, ierr )
+      call END_LOG(mpigather_end)
+      
+      call MPI_Barrier(comm_world, ierr) ! avoids crashes on some systems
       
       call END_LOG(gatherwrap_end)
    
