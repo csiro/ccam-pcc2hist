@@ -2075,9 +2075,9 @@ contains
                
       end do ! Loop over fields
 
-      slab = ceiling(1.0d0*cnt/nproc)
+      slab = ceiling(real(cnt,8)/real(nproc,8))
       maxcnt = cnt
-      interp_nproc = ceiling(1.0d0*maxcnt/slab)
+      interp_nproc = ceiling(real(maxcnt,8)/real(max(slab,1),8))
       offset = nproc - interp_nproc
       if ( myid >= offset ) then
          allocate( hist_g(nx_g,ny_g) )
@@ -2193,6 +2193,7 @@ contains
                   end if    
                end if
                    
+               call START_LOG(putvar_begin)
                if ( histinfo(ifld)%pop4d ) then
                   start4D = (/ 1, 1, mod(k+1-istart-1,cptch)+1, 1+(k+1-istart-1)/cptch,  histset /)
                   ierr = nf90_put_var ( ncid, vid, htemp, start=start4D, count=count4D )
@@ -2203,6 +2204,7 @@ contains
                   ierr = nf90_put_var ( ncid, vid, htemp, start=start2D, count=count2D )
                end if
                call check_ncerr(ierr, "Error writing history variable "//histinfo(ifld)%name )
+               call END_LOG(putvar_end)
 
             end if
                  
@@ -2321,6 +2323,7 @@ contains
                   
                end if
 
+               call START_LOG(putvar_begin)
                if ( histinfo(ifld)%pop4d ) then
                   start4D = (/ 1, 1, mod(k+1-istart-1,cptch)+1, 1+(k+1-istart-1)/cptch,  histset /)
                   ierr = nf90_put_var ( ncid, vid, htemp, start=start4D, count=count4D )
@@ -2331,6 +2334,7 @@ contains
                   ierr = nf90_put_var ( ncid, vid, htemp, start=start2D, count=count2D )
                end if
                call check_ncerr( ierr, "Error writing history variable "//histinfo(ifld)%name )
+               call END_LOG(putvar_begin)
                  
             end do   ! k loop
                
@@ -2539,7 +2543,7 @@ contains
    
       call START_LOG(mpisendrecv_begin)
       
-      rrank = ceiling(1.0d0*cnt/slab) - 1 + offset
+      rrank = ceiling(real(cnt,8)/real(max(slab,1),8)) - 1 + offset
       if ( rrank /= 0 ) then
          if ( myid == 0 ) then
             sizehis = size(htemp, 1)*size(htemp, 2) 

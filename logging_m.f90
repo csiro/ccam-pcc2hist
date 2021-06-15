@@ -1,6 +1,6 @@
 ! Conformal Cubic Atmospheric Model
     
-! Copyright 2015-2019 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+! Copyright 2015-2021 Commonwealth Scientific Industrial Research Organisation (CSIRO)
     
 ! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
 !
@@ -60,10 +60,11 @@ private
    integer, public, save :: gatherwrap_begin, gatherwrap_end
    integer, public, save :: getdate_begin, getdate_end
    integer, public, save :: mpisendrecv_begin, mpisendrecv_end
+   integer, public, save :: putvar_begin, putvar_end
 #ifdef simple_timer
    public :: simple_timer_finalize
 #endif
-   integer, parameter :: nevents = 24
+   integer, parameter :: nevents = 25
    real(kind=8), dimension(nevents), save :: tot_time = 0., start_time
    character(len=15), dimension(nevents), save :: event_name
 
@@ -214,6 +215,10 @@ contains
       mpisendrecv_end =  mpisendrecv_begin
       event_name(mpisendrecv_begin) = "MPISendRecv"
 
+      putvar_begin = 25
+      putvar_end = putvar_begin
+      event_name(putvar_begin) = "Putvar"
+      
    end subroutine log_setup
 
 #ifdef simple_timer
