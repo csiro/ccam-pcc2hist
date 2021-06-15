@@ -2115,7 +2115,9 @@ contains
       end do ! Loop over fields
 
 !     now do the gather wrap
-      call gather_wrap(histarray,hist_a,slab,offset,maxcnt,k_indx)
+      if ( slab > 0 ) then
+         call gather_wrap(histarray,hist_a,slab,offset,maxcnt,k_indx)
+      end if
  
       cnt = 0
 !     third pass
@@ -2443,7 +2445,7 @@ contains
       !real, dimension(pil*pjl*pnpan*lproc*slab*nproc), target :: hist_a_tmp
       real, dimension(pil*pjl*pnpan*lproc*slab*nproc) :: hist_a_tmp
       !real, dimension(:,:,:,:), pointer, contiguous :: hist_a_remap, hist_a_tmp_remap
-   
+      
       call START_LOG(gatherwrap_begin)
       
       nreq = 0
