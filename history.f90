@@ -2437,22 +2437,15 @@ contains
       integer, dimension(maxcnt), intent(in) :: k_indx
       real, dimension(:,:,:), intent(in) :: histarray
       real, dimension(:,:,:,:), pointer, contiguous, intent(inout) :: hist_a
-      !real, dimension(pil*pjl*pnpan*lproc*slab*nproc), target :: hist_a_tmp
       real, dimension(pil*pjl*pnpan*lproc*slab*nproc) :: hist_a_tmp
-      !real, dimension(:,:,:,:), pointer, contiguous :: hist_a_remap, hist_a_tmp_remap
-#ifdef isendrecv      
       integer :: nreq, rreq, ipr
       integer, save :: itag = 0
       integer, dimension(2*nproc) :: ireq
       integer, dimension(MPI_STATUS_SIZE,2*nproc) :: status
       real, dimension(pil,pjl*pnpan,lproc,slab,nproc) :: histarray_tmp      
-#else
-      real, dimension(pil,pjl*pnpan,lproc,slab) :: histarray_tmp
-#endif
       
       call START_LOG(gatherwrap_begin)
 
-#ifdef isendrecv      
       nreq = 0
       rreq = 0
       itag = itag + 1
@@ -2470,14 +2463,12 @@ contains
          end do    
       end if
       rreq = nreq
-#endif
       
       do ip = 0,nproc-1
          istart = 1 + slab*(ip-offset) 
          if ( istart > 0 ) then
             iend = istart + slab - 1
             iend = min( iend, maxcnt )
-#ifdef isendrecv            
             do k = istart,iend
                histarray_tmp(:,:,:,k-istart+1,ip+1) = reshape( histarray(:,:,k_indx(k)), (/ pil,pjl*pnpan,lproc /) )
             end do   
@@ -2487,27 +2478,14 @@ contains
             call MPI_ISend( histarray_tmp(:,:,:,:,ip+1), lsize, MPI_REAL, ip, &
                  itag, comm_world, ireq(nreq), ierr )
             call END_LOG(mpigather_end)
-#else
-            do k = istart,iend
-               histarray_tmp(:,:,:,k-istart+1) = reshape( histarray(:,:,k_indx(k)), (/ pil,pjl*pnpan,lproc /) )
-            end do   
-            call START_LOG(mpigather_begin)
-            lsize = pil*pjl*pnpan*lproc*(iend-istart+1)
-            call MPI_Gather(histarray_tmp(:,:,:,:), lsize, MPI_REAL, hist_a_tmp, lsize, MPI_REAL,  &
-                            ip, comm_world, ierr)
-            call MPI_Barrier(comm_world, ierr) ! avoids crashes on some systems
-            call END_LOG(mpigather_end)
-#endif
          end if
       end do
       
       istart = 1 + slab*(myid-offset)
       if ( istart > 0 ) then
-#ifdef isendrecv
          call START_LOG(mpigather_begin)
          call MPI_Waitall( rreq, ireq, status, ierr )
          call END_LOG(mpigather_end)          
-#endif
          iend = slab*(myid-offset+1)
          iend = min( iend, maxcnt )          
          !hist_a_remap(1:pil,1:pjl*pnpan*lproc,1:nproc,istart:iend) => hist_a
@@ -2524,12 +2502,10 @@ contains
          end do
       end if 
       
-#ifdef isendrecv
       call START_LOG(mpigather_begin)
       call MPI_Waitall( nreq, ireq, status, ierr )
+      call MPI_Barrier( comm_world, ierr ) ! avoids crashes on some systems
       call END_LOG(mpigather_end)
-      call MPI_Barrier(comm_world, ierr) ! avoids crashes on some systems
-#endif
       
       call END_LOG(gatherwrap_end)
    
@@ -2591,7 +2567,7 @@ contains
             end do
          end do
       end if
-      !call MPI_Barrier(comm_world,ierr) ! avoids crashes on some systems
+      call MPI_Barrier(comm_world,ierr) ! avoids crashes on some systems
       call END_LOG(gatherwrap_end)
       
    end subroutine gather_wrap

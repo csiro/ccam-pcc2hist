@@ -15,7 +15,7 @@ endif
 ifeq ($(NOMPI3),yes)
 MPIFLAG =
 else
-MPIFLAG = -Dusempi3
+MPIFLAG = -Dusempi3 -Disendrecv
 #MPIFLAG =
 endif
 FFLAGS = -O3 $(FHOST) -ftz -fp-model precise -traceback $(MPIFLAG)
