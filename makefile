@@ -15,7 +15,7 @@ endif
 ifeq ($(NOMPI3),yes)
 MPIFLAG =
 else
-MPIFLAG = -Dusempi3 -Disendrecv
+MPIFLAG = -Dusempi3
 #MPIFLAG =
 endif
 FFLAGS = -O3 $(FHOST) -ftz -fp-model precise -traceback $(MPIFLAG)
@@ -44,6 +44,18 @@ FFLAGS = -h noomp -Dusenc_mod
 PPFLAG90 = -eZ
 DEBUGFLAG =
 endif
+
+ifeq ($(MAUI),yes)
+FC = ftn
+FHOST = -xSKYLAKE-AVX512
+MPIFLAG = -Dusempi3
+FFLAGS = -O3 $(FHOST) -ftz -fp-model precise -traceback $(MPIFLAG)
+INC = -I $(NETCDF_ROOT)/include
+LIBS = -L $(NETCDF_ROOT)/lib -lnetcdf -lnetcdff
+PPFLAG90 = -fpp
+DEBUGFLAG = -check all -debug all -fpe0
+endif
+
 
 # Options for building with VAMPIRTrace
 ifeq ($(VT),yes)
