@@ -3227,7 +3227,8 @@ contains
            call addfld ( "tdscrn_stn", "Dew point screen temperature (station)", "K", 100.0, 400.0, 1, std_name="air_temperature" )
            call addfld ( "uas_stn", "x-component 10m wind", "m s-1", -100.0, 100.0, 1, std_name="wind_speed", ran_type=.false. )
            call addfld ( "vas_stn", "y-component 10m wind", "m s-1", -100.0, 100.0, 1, std_name="wind_speed", ran_type=.false. )
-           call addfld ( "sfcWindmax_stn", "Maximum 10m wind speed (station)", "m s-1", 0.0, 200.0, 1, std_name="wind_speed", ran_type=.false. ) 
+           call addfld ( "sfcWindmax_stn", "Maximum 10m wind speed (station)", "m s-1", 0.0, 200.0, 1, std_name="wind_speed", &
+                         ran_type=.false. ) 
          end if    
 
       else
@@ -3244,7 +3245,8 @@ contains
                                  ave_type="fixed", int_type=int_none,          &
                                  std_name="land_area_fraction", ran_type=.true. )
                end if
-               call addfld ( "sfcWindmax", "Maximum 10m wind speed", "m s-1", 0.0, 200.0, 1, std_name="wind_speed", ran_type=.true. )
+               call addfld ( "sfcWindmax", "Maximum 10m wind speed", "m s-1", 0.0, 200.0, 1, std_name="wind_speed", &
+                             ran_type=.true. )
                call addfld ( "snc",  "Snow area fraction", "%", 0., 6.5, 1, std_name="surface_snow_area_fraction" )
                call addfld ( "snw",  "Surface Snow Amount", "kg m-2", 0., 6.5, 1, std_name="surface_snow_amount" ) 
             else
@@ -3275,8 +3277,10 @@ contains
          end if    
          ierr = nf90_inq_varid (ncid, "sgn_ave", ivar )
          if ( ierr==nf90_noerr ) then
-            call addfld ( "rlus", "Surface Upwelling Longwave Radiation", "W m-2", -1000., 1000., 1, std_name="surface_upwelling_longwave_flux_in_air" )
-            call addfld ( "rsus", "Surface Upwelling Shortwave Radiation", "W m-2", -1000., 1000., 1, std_name="surface_upwelling_shortwave_flux_in_air" ) 
+            call addfld ( "rlus", "Surface Upwelling Longwave Radiation", "W m-2", -1000., 1000., 1, &
+                          std_name="surface_upwelling_longwave_flux_in_air" )
+            call addfld ( "rsus", "Surface Upwelling Shortwave Radiation", "W m-2", -1000., 1000., 1, &
+                          std_name="surface_upwelling_shortwave_flux_in_air" ) 
          end if
          if ( cordex_compliant ) then    
             call addfld ( "sfcWind", "Near-Surface Wind Speed", "m s-1", 0., 100.0, 1, std_name="wind_speed", ran_type=.true. )  
