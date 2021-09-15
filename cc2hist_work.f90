@@ -844,7 +844,7 @@ contains
                      where ( soilt > 0.5 )
                         ocn_tmp(:,:,k) = -nf90_fill_float ! flag for land
                      end where
-                  end do   
+                  end do
                   if ( needfld("kmo") ) then
                      call osavehist( "kmo", ocn_tmp )
                   end if   
@@ -1189,13 +1189,18 @@ contains
             call vsavehist( "press", tmp3d )
          end if
 
-         if ( needfld("prw") ) then
+         if ( needfld("prw") .or. needfld("pwc") ) then
             dtmp = 0.0
             do k = 1,kk
                dtmp = dtmp + dsig(k)*q(:,:,k)
             end do
             dtmp = 100.*psl/grav * dtmp
-            call savehist ( "prw", dtmp )
+            if ( needfld("prw") ) then
+              call savehist ( "prw", dtmp )
+            end if
+            if ( needfld("pwc") ) then
+              call savehist ( "pwc", dtmp )
+            end if
          end if
          
          if ( needfld("clwvi") ) then
@@ -1214,15 +1219,6 @@ contains
             end do
             dtmp = 100.*psl/grav * dtmp
             call savehist ( "clivi", dtmp )
-         end if
-         
-         if ( needfld("pwc") ) then
-            dtmp = 0.0
-            do k = 1,kk
-               dtmp = dtmp + dsig(k)*q(:,:,k)
-            end do
-            dtmp = 100.*psl/grav * dtmp
-            call savehist ( "pwc", dtmp )
          end if
                   
          if ( needfld("td") ) then
@@ -1553,21 +1549,35 @@ contains
       case ( "temp" )
          needed = needfld("temp") .or. needfld("zg") .or. needfld("rh") .or. &
                   needfld("tbot") .or. needfld("vaveut") .or.                &
-                  needfld("vaveut") .or. needfld("theta") .or. needfld("w")
+                  needfld("vaveut") .or. needfld("theta") .or.               &
+                  needfld("w") .or. needfld("mixr") .or. needfld("qlg") .or. &
+                  needfld("qfg") .or. needfld("hus") .or.                    &
+                  needfld("qbot") .or. needfld("prw") .or.                   &
+                  needfld("clwvi") .or. needfld("clivi") .or.                &
+                  needfld("pwc") .or. needfld("td")
       case ( "ta" )
-         needed = needfld("ta") .or. needfld("zg") .or. needfld("rh") .or.  &
-                  needfld("tbot") .or. needfld("vaveut") .or.               &
-                  needfld("vaveut") .or. needfld("theta") .or. needfld("w")
+         needed = needfld("ta") .or. needfld("zg") .or. needfld("rh") .or.   &
+                  needfld("tbot") .or. needfld("vaveut") .or.                &
+                  needfld("vaveut") .or. needfld("theta") .or.               &
+                  needfld("w") .or. needfld("mixr") .or. needfld("qlg") .or. &
+                  needfld("qfg") .or. needfld("hus") .or.                    &
+                  needfld("qbot") .or. needfld("prw") .or.                   &
+                  needfld("clwvi") .or. needfld("clivi") .or.                &
+                  needfld("pwc") .or. needfld("td")
       case ( "mixr" )
          needed = needfld("mixr") .or. needfld("zg") .or. needfld("rh") .or. &
                   needfld("pwc") .or. needfld("qbot") .or.                   &
                   needfld("vaveuq") .or. needfld("vaveuq") .or.              &
-                  needfld("prw")
+                  needfld("prw") .or. needfld("qlg") .or.                    &
+                  needfld("qfg") .or. needfld("clwvi") .or.                  &
+                  needfld("clivi") .or. needfld("td")
       case ( "hus" )
          needed = needfld("hus") .or. needfld("zg") .or. needfld("rh") .or. &
                   needfld("pwc") .or. needfld("qbot") .or.                  &
                   needfld("vaveuq") .or. needfld("vaveuq") .or.             &
-                  needfld("prw")
+                  needfld("prw") .or. needfld("qlg") .or.                   &
+                  needfld("qfg") .or. needfld("clwvi") .or.                 &
+                  needfld("clivi") .or. needfld("td")
       case ( "u", "v", "ua", "va" )
          needed = needfld("u") .or. needfld("v") .or. needfld("vaveuq") .or. &
                   needfld("vavevq") .or. needfld("vaveut") .or.              &
@@ -1576,9 +1586,17 @@ contains
                   needfld("uas")    .or. needfld("vas") .or.                 &
                   needfld("uas_stn") .or. needfld("vas_stn")
       case ( "qlg" )
-         needed = needfld("qlg") .or. needfld("rh") .or. needfld('clwvi')
+         needed = needfld("qlg") .or. needfld("rh") .or.                    &
+                  needfld('clwvi') .or. needfld("hus") .or.                 &
+                  needfld("mixr") .or. needfld("qfg") .or.                  &
+                  needfld("qbot") .or. needfld("prw") .or.                  &
+                  needfld("clivi") .or. needfld("td") .or. needfld("zg")
       case ( "qfg" )
-         needed = needfld("qfg") .or. needfld("rh") .or. needfld('clivi')
+         needed = needfld("qfg") .or. needfld("rh") .or.                    &
+                  needfld('clivi') .or. needfld("hus") .or.                 &
+                  needfld("mixr") .or. needfld("qlg") .or.                  &
+                  needfld("qbot") .or. needfld("prw") .or.                  &
+                  needfld("clwvi") .or. needfld("td") .or. needfld("zg")
       case ( "qsng" )
          needed = needfld("qsng")
       case ( "qgrg" )
