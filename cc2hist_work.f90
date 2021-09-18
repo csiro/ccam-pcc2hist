@@ -593,7 +593,7 @@ contains
                ! This relies on surface pressure coming before the 3D variables
                if ( use_plevs ) call sitop_setup(sig, plevs(1:nplevs), psl, maxlev, minlev)
             case ( "rgdn_ave", "rlds" )
-               if ( needfld("rgdn") .or. needfld("rlds") .or. needfld("rlus") ) then 
+               if ( needfld("rgdn_ave") .or. needfld("rlds") .or. needfld("rlus") ) then 
                   call vread( "rgdn_ave", rgd )
                   if ( needfld(varlist(ivar)%vname) ) then
                      call savehist( varlist(ivar)%vname, rgd )
