@@ -12,6 +12,10 @@ endif
 ifeq ($(CASCADELAKE),yes)
 FHOST = -xCASCADELAKE
 endif
+ifeq ($(MAGNUS),yes)
+FC = ftn
+FHOST = -xHost
+endif
 ifeq ($(NOMPI3),yes)
 MPIFLAG =
 else
