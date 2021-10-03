@@ -1956,26 +1956,11 @@ contains
          write(*,'("kdate",i10," ktime",i6," ktau",i6)') kdate, ktime, ktau
          write(*,'("il",i4," jl",i4," kl",i4)') il, jl, kl
          write(*,'("nsd",i2," nqg",i3," ntrac",i3)') nsd, nqg, ntrac 
-!          m,nsd,meso,nx1,nps  &
-!         ,mex,mup,nem,nx2,nmi,ndt,npsav,rundate,nhor,nkuo,khdif,kwt         &
-!         ,nx3,nx4,timer,timeg,dslocal,nvad,nqg                              &
-!         ,nx5,nrun,nrunx,khor,ksc,kountr,ndiur,nhort,nhorps,nsoil           &
-!         ,ms,ntsur,nrad,kuocb,nvmix,ntsea,nonl,nextout,ilt,ntrac         &
-!         ,difknbd,rhkuo,du,tanl,
          write(*,'("rlong0",f8.2," rlat0",f8.2," schmidt",f6.3)') &
                rlong0, rlat0, schmidt
       end if
-      !if ( nqg >= 8 ) then
-         ksoil = ms
-      !else
-      !   ksoil = 2
-      !end if
-      !if ( nqg >= 11 ) then
-         kice = ms
-      !else
-      !   kice = 0
-      !end if
-
+      ksoil = ms
+      kice = ms
 
       if ( ilt > 1 ) then
          ntracers = ntrac
@@ -2116,6 +2101,39 @@ contains
          deallocate ( f, fu, fv, dmdx, dmdy, dmdxv, dmdyu )
       end if
       
+      allocate ( hlon(nxhis), hlat(nyhis) )
+      if ( int_default == int_none ) then
+         hlat = (/ ( real(j), j=1,nyhis ) /)
+         hlon = (/ ( real(i), i=1,nxhis ) /)
+      else if ( int_default == int_tapm ) then
+         jc = 0.5*real(ly+1) 
+         ic = 0.5*real(lx+1)
+         hlat = (/ ( (real(j)-jc)*dy, j=1,nyhis ) /) ! Y coordinate (not latitude)
+         hlon = (/ ( (real(i)-ic)*dx, i=1,nxhis ) /) ! X coordinate (not longitude)
+      else
+         !     Set lats and longs
+         if ( nyhis == 1 ) then
+            hlat(1) = minlat
+         else  
+            do j = 1,nyhis
+               hlat(j) = minlat + (j-1)*(maxlat-minlat)/(nyhis-1)
+            end do
+         end if   
+         if ( maxlon - minlon == 360.0 ) then
+            do i = 1,nxhis
+               hlon(i) = minlon + (i-1)*(maxlon-minlon)/nxhis
+            end do
+         else
+            if ( nxhis == 1 ) then
+               hlon(1) = minlon 
+            else    
+               do i = 1,nxhis
+                  hlon(i) = minlon + (i-1)*(maxlon-minlon)/(nxhis-1)
+               end do
+            end if   
+         end if
+      end if  
+
 #ifdef usempi3
       if ( node_myid == 0 ) then
          ssize = nxhis*nyhis
@@ -2135,21 +2153,13 @@ contains
          allocate ( xg(nxhis,nyhis), yg(nxhis,nyhis) )
       end if   
 #endif
-
+      
 #ifdef usempi3
       if ( node_myid == 0 ) then
 #else
       if ( myid==0 ) then
 #endif
-         allocate ( hlon(nxhis), hlat(nyhis) )
-         if ( int_default == int_none ) then
-            hlat = (/ ( real(j), j=1,nyhis ) /)
-            hlon = (/ ( real(i), i=1,nxhis ) /)
-         else if ( int_default == int_tapm ) then
-            jc = 0.5*real(ly+1) 
-            ic = 0.5*real(lx+1)
-            hlat = (/ ( (real(j)-jc)*dy, j=1,nyhis ) /) ! Y coordinate (not latitude)
-            hlon = (/ ( (real(i)-ic)*dx, i=1,nxhis ) /) ! X coordinate (not longitude)
+         if ( int_default == int_tapm ) then
             hlat_dy = 1./(6.37e6*3.1415927/180.)
             hlon_dx = hlat_dy/cos(rlat0*3.1415927/180.)
             do j = 1,nyhis
@@ -2170,42 +2180,17 @@ contains
             enddo 
          else
             !     Set lats and longs
-            if ( nyhis == 1 ) then
-               hlat(1) = minlat
-            else  
-               do j = 1,nyhis
-                  hlat(j) = minlat + (j-1)*(maxlat-minlat)/(nyhis-1)
-               end do
-            end if   
-            if ( maxlon - minlon == 360.0 ) then
-               do i = 1,nxhis
-                  hlon(i) = minlon + (i-1)*(maxlon-minlon)/nxhis
-               end do
-            else
-               if ( nxhis == 1 ) then
-                  hlon(1) = minlon 
-               else    
-                  do i = 1,nxhis
-                     hlon(i) = minlon + (i-1)*(maxlon-minlon)/(nxhis-1)
-                  end do
-               end if   
-            end if
             do j = 1,nyhis
                do i = 1,nxhis
                   call latltoij ( hlon(i), hlat(j), xg(i,j), yg(i,j), nface(i,j),&
                                   rlong0, rlat0, schmidt, schm13 )
                enddo
             enddo
-
          end if
 
 !        These aren't needed now.
          deallocate ( xx4, yy4 )
 
-      else   
-         
-         allocate( hlon(0), hlat(0) )  
-          
       end if   
 
 #ifdef usempi3
@@ -3028,6 +3013,9 @@ contains
             else if ( varlist(ivar)%vname == "uas" ) then
                varlist(ivar)%long_name = "Eastward Near-Surface Wind"
                varlist(ivar)%units = "m s-1"
+            else if ( varlist(ivar)%vname == "ua100m" ) then
+               varlist(ivar)%long_name = "Eastward Wind at 100m"
+               varlist(ivar)%units = "m s-1"
             else if ( varlist(ivar)%vname == "ua200" ) then
                varlist(ivar)%long_name = "Eastward Wind"
                varlist(ivar)%units = "m s-1"
@@ -3043,6 +3031,9 @@ contains
                varlist(ivar)%long_name = "Northward Wind"
             else if ( varlist(ivar)%vname == "vas" ) then
                varlist(ivar)%long_name = "Northward Near-Surface Wind"
+               varlist(ivar)%units = "m s-1"
+            else if ( varlist(ivar)%vname == "va100m" ) then
+               varlist(ivar)%long_name = "Northward Wind at 100m"               
                varlist(ivar)%units = "m s-1"
             else if ( varlist(ivar)%vname == "va200" ) then
                varlist(ivar)%long_name = "Northward Wind"               
@@ -3845,6 +3836,8 @@ contains
          stdname = "wind_speed"
       case ("ua")
          stdname = "eastward_wind"
+      case ("ua100m")
+         stdname = "eastward_wind" 
       case ("ua150")
          stdname = "eastward_wind" 
       case ("ua200")
@@ -3867,6 +3860,8 @@ contains
          stdname = "northward_wind"
       case ("va")
          stdname = "northward_wind"
+      case ("va100m")
+         stdname = "northward_wind" 
       case ("va150")
          stdname = "northward_wind" 
       case ("va200")
@@ -4195,7 +4190,7 @@ contains
             end if   
          end if
 
-      end if
+      end if ! myid==0
       
       call START_LOG(mpibcast_begin)
       if ( myid==0 ) then
@@ -4259,11 +4254,13 @@ contains
       call MPI_Comm_rank(node_comm, node_myid, ierr)  ! Find local processor id on node
 #endif
 
-      lproc = pnproc/nproc !number of files each mpi_proc will work on      
+      lproc = pnproc/nproc !number of input files each mpi_proc will work on      
       allocate( ncid_in(0:lproc-1) )
       allocate( fown_in(0:lproc-1) )    
       allocate( inputfilename(0:lproc-1) )
-      if ( myid==0 ) inputfilename(0)=pfile  
+      if ( myid==0 ) then
+         inputfilename(0) = pfile  
+      end if  
       fown_in(:) = .false.
             
       allocate( ioff(0:pnproc-1,0:5), joff(0:pnproc-1,0:5) )
@@ -4332,7 +4329,7 @@ contains
          end if
          ncid = ncid_in(0) 
       
-      else
+      else ! myid/=0 ..else..
       
          ncid_in(0) = ncid
          fown_in(0) = .true.
@@ -4434,7 +4431,7 @@ contains
          jdum(4) = pil_g
          jdum(5) = pjl_g
       
-      end if
+      end if ! myid/=0 ..else..
       
       call START_LOG(mpibcast_begin)
       call MPI_Bcast(ioff(0:pnproc-1,0:5),pnproc*6,MPI_INTEGER,0,comm_world,ierr)

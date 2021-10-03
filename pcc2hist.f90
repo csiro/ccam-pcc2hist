@@ -63,7 +63,7 @@ program cc2hist
 
    character(len=MAX_ARGLEN) :: optarg
    integer :: opt, nopt
-   type(loption), dimension(4) :: longopts
+   type(loption), dimension(5) :: longopts
    integer :: longind
    integer :: kta=0, ktb=999999, ktc=-1, ndate=-1, ntime=-1, k
    integer :: sdate=-1, edate=-1, stime=-1, etime=-1
@@ -138,6 +138,7 @@ program cc2hist
    longopts(2) = loption ( "vextrap", 1, 0 )
    longopts(3) = loption ( "cf", 0, 0 )
    longopts(4) = loption ( "cordex", 0, 0 )
+   longopts(5) = loption ( "multioutput", 0, 0 )
    ifile = ""
    ofile = ""
    cfile = ""
@@ -202,6 +203,8 @@ program cc2hist
             cf_compliant = .true.
          case ( 4 )
             cordex_compliant = .true.
+         case ( 5 )
+            single_output = .false.
          case default
             print*, "Unexpected result processing long options", longind
             call finishbanner
@@ -329,15 +332,8 @@ program cc2hist
 
 !  openhist has to be called before any data is read because it allocates
 !  the memory.
-   if ( npanels == 5 ) then
-      write(source,"(a,a,a,a)" ) "CSIRO conformal-cubic model. Input file: ",&
-             trim(ifile(scan(ifile,'/',.TRUE.)+1:)), " Processed by cc2hist ", cc2hist_revision
-   else
-      write(source,"(a,a,a,a)" ) "CSIRO conformal-octagon model. Input file: ",& 
-             trim(ifile(scan(ifile,'/',.TRUE.)+1:)), " Processed by cc2hist ", cc2hist_revision
-      print *,"conformal-octagon no longer supported"
-      stop
-   end if
+   write(source,"(a,a,a,a)" ) "CSIRO conformal-cubic model. Input file: ",&
+          trim(ifile(scan(ifile,'/',.TRUE.)+1:)), " Processed by cc2hist ", cc2hist_revision
    if ( len_trim(optionstring) /= 0 ) then
       source = trim(source) // " Options:" // trim(optionstring)
    end if
@@ -667,12 +663,6 @@ program cc2hist
             end if
          end if
 
-         !if ( myid==0 .and. nproc_orig/=nproc ) then
-         !   write(6,'(x,a,i0,a,i0,a)') "WARNING: Number of processors(",nproc_orig,&
-         !                              ") is not a factor of the number of files(",pnproc,")"
-         !   write(6,'(x,a,i0)') "WARNING: Using pcc2hist with the following number of processes: ",nproc
-         !end if
-
          if ( .not. skip ) then
             exit
          end if
@@ -717,7 +707,7 @@ program cc2hist
    call log_off()
 
    call writehist(ktau, interp=ints, time=time, endofrun=.true. )
-   if ( myid == 0 ) call closehist
+   call closehist
    call paraclose
 
    call END_LOG(model_end)

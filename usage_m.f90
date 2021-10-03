@@ -78,6 +78,7 @@ module usage_m
    print*, " --vextrap=none    Use end values rather than extrapolation"
    print*, " --vextrap=missing Set values below surface as missing"
    print *," --cordex          Format output for CORDEX"
+   print *," --multioutput     Multiple output files with one file per variable"
    print*, "Note that the missing option only works with linear or nearest "
    print*, "horizontal interpolation. Default is to extrapolate temperature"
    print*, "below surface with standard lapse rate and to use end values for"
