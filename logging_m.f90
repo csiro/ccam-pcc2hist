@@ -61,10 +61,11 @@ private
    integer, public, save :: getdate_begin, getdate_end
    integer, public, save :: mpisendrecv_begin, mpisendrecv_end
    integer, public, save :: putvar_begin, putvar_end
+   integer, public, save :: mpibarrier_begin, mpibarrier_end
 #ifdef simple_timer
    public :: simple_timer_finalize
 #endif
-   integer, parameter :: nevents = 25
+   integer, parameter :: nevents = 26
    real(kind=8), dimension(nevents), save :: tot_time = 0., start_time
    character(len=15), dimension(nevents), save :: event_name
 
@@ -218,6 +219,10 @@ contains
       putvar_begin = 25
       putvar_end = putvar_begin
       event_name(putvar_begin) = "Putvar"
+      
+      mpibarrier_begin = 26
+      mpibarrier_end = mpibarrier_begin
+      event_name(mpibarrier_begin) = "MPIBarrier"
       
    end subroutine log_setup
 

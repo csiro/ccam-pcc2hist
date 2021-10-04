@@ -956,7 +956,7 @@ contains
          i = 0
          do ifld = 1,totflds
            histinfo(ifld)%procid = 0
-           if ( histinfo(ifld)%used ) then
+           if ( histinfo(ifld)%used .and. histinfo(ifld)%procid==myid ) then
               i = i + 1 
            end if    
          end do
@@ -1986,6 +1986,11 @@ contains
       use mpidata_m
       use newmpar_m, only : cptch, cchrt
       use logging_m
+#ifdef usempi_mod
+      use mpi
+#else
+      include 'mpif.h'
+#endif       
       
       integer, intent(in) :: istep
       logical, intent(in), optional :: endofrun
@@ -2166,10 +2171,24 @@ contains
       interp_nproc = ceiling(real(maxcnt,8)/real(max(slab,1),8))
       offset = nproc - interp_nproc
       if ( myid >= offset ) then
-         allocate( hist_g(nx_g,ny_g) )
          allocate( hist_a(pil,pjl*pnpan,pnproc,1+slab*(myid-offset):slab*(myid-offset+1)) ) 
+         if ( allocated( hist_g ) ) then
+            if ( size(hist_g,1)/=nx_g .or. size(hist_g,2)/=ny_g ) then
+              deallocate( hist_g )
+            end if
+         end if
+         if ( .not.allocated( hist_g ) ) then
+            allocate( hist_g(nx_g,ny_g) )
+         end if   
       end if
-      allocate( k_indx(maxcnt) )
+      if ( allocated( k_indx ) ) then
+         if ( size(k_indx)/=maxcnt ) then
+            deallocate( k_indx )
+         end if
+      end if
+      if ( .not.allocated( k_indx ) ) then
+         allocate( k_indx(maxcnt) )
+      end if
 
       cnt = 0
 !     second pass
@@ -2298,11 +2317,14 @@ contains
          histinfo(ifld)%count = 0
 
       end do ! Loop over fields
+      
+      call START_LOG(mpibarrier_begin)
+      call MPI_Barrier(comm_world,ierr) ! avoids crashes on some systems      
+      call END_LOG(mpibarrier_end)
 
       if ( myid >= offset ) then
-         deallocate(hist_a, hist_g)
+         deallocate(hist_a)
       end if
-      deallocate(k_indx)
 #else
       if ( myid == 0 ) then
          allocate( hist_g(nx_g,ny_g) )
@@ -2429,7 +2451,11 @@ contains
          histinfo(ifld)%count = 0
 
       end do ! Loop over fields
-         
+
+      call START_LOG(mpibarrier_begin)
+      call MPI_Barrier(comm_world,ierr) ! avoids crashes on some systems      
+      call END_LOG(mpibarrier_end)
+      
       deallocate( hist_a, hist_g )
 #endif
 
@@ -2520,10 +2546,9 @@ contains
       real, dimension(:,:,:), intent(in) :: histarray
       real, dimension(:,:,:,:), pointer, contiguous, intent(inout) :: hist_a
       real, dimension(pil*pjl*pnpan*lproc*slab*nproc) :: hist_a_tmp
-      integer :: nreq, rreq, ipr
+      integer :: nreq, rreq, ipr, sreq
       integer, save :: itag = 0
       integer, dimension(2*nproc) :: ireq
-      integer, dimension(MPI_STATUS_SIZE,2*nproc) :: status
       real, dimension(pil,pjl*pnpan,lproc,slab,nproc) :: histarray_tmp      
       
       call START_LOG(gatherwrap_begin)
@@ -2531,6 +2556,7 @@ contains
       nreq = 0
       rreq = 0
       itag = itag + 1
+      
       istart = 1 + slab*(myid-offset) 
       if ( istart > 0 ) then
          iend = istart + slab - 1
@@ -2566,7 +2592,7 @@ contains
       istart = 1 + slab*(myid-offset)
       if ( istart > 0 ) then
          call START_LOG(mpigather_begin)
-         call MPI_Waitall( rreq, ireq, status, ierr )
+         call MPI_Waitall( rreq, ireq, MPI_STATUSES_IGNORE, ierr )
          call END_LOG(mpigather_end)          
          iend = slab*(myid-offset+1)
          iend = min( iend, maxcnt )          
@@ -2581,8 +2607,10 @@ contains
       end if 
       
       call START_LOG(mpigather_begin)
-      call MPI_Waitall( nreq, ireq, status, ierr )
-      call MPI_Barrier( comm_world, ierr ) ! avoids crashes on some systems
+      sreq = nreq - rreq
+      if ( sreq > 0 ) then
+         call MPI_Waitall( sreq, ireq(rreq+1:nreq), MPI_STATUSES_IGNORE, ierr )
+      end if   
       call END_LOG(mpigather_end)
       
       call END_LOG(gatherwrap_end)
@@ -2599,17 +2627,19 @@ contains
 #endif  
       real, dimension(:,:), intent(inout) :: htemp
       integer, intent(in) :: cnt, slab, offset, procid
-      integer :: rrank, sizehis, ierr
+      integer :: rrank, sizehis, ierr, ireq
+      integer, save :: itag = 1000
    
       call START_LOG(mpisendrecv_begin)
       
+      itag = itag + 1
       rrank = ceiling(real(cnt,8)/real(max(slab,1),8)) - 1 + offset
       if ( rrank /= procid ) then
          sizehis = size(htemp, 1)*size(htemp, 2)  
          if ( myid == procid ) then
-            call MPI_Recv(htemp,sizehis,MPI_REAL,rrank,1,comm_world,MPI_STATUS_IGNORE,ierr)
+            call MPI_Recv(htemp,sizehis,MPI_REAL,rrank,itag,comm_world,MPI_STATUS_IGNORE,ierr)
          else if ( myid == rrank ) then
-            call MPI_Send(htemp,sizehis,MPI_REAL,procid,1,comm_world,ierr)
+            call MPI_Send(htemp,sizehis,MPI_REAL,procid,itag,comm_world,ierr)
          end if
       end if
       
@@ -2644,7 +2674,6 @@ contains
             end do
          end do
       end if
-      call MPI_Barrier(comm_world,ierr) ! avoids crashes on some systems
       call END_LOG(gatherwrap_end)
       
    end subroutine gather_wrap

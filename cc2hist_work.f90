@@ -4794,9 +4794,9 @@ contains
 #endif
 
 #ifdef usempi3
-   call freeshdata(xg_win)
-   call freeshdata(yg_win)
-   call freeshdata(nface_win)
+   !call freeshdata(xg_win)
+   !call freeshdata(yg_win)
+   !call freeshdata(nface_win)
    nullify(xg,yg)
    nullify(nface)
 #else
