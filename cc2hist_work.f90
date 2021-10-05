@@ -211,6 +211,16 @@ contains
       ierr = nf90_get_var ( ncid, vid, ktau, start=(/ nrec /) )
       call check_ncerr(ierr, "Error getting time")
       ieof = 0
+      
+      if ( datestring(1:7)=="seconds" ) then
+         ktau = ktau/60
+      else if ( datestring(1:7)=="minutes" ) then
+         ! do nothing
+      else
+         write(6,*) "ERROR reading time units.  Unknown time units ",trim(datestring)
+         write(6,*) "Expecting seconds or minutes"
+         stop
+      end if    
             
       if ( myid == 0 ) then
          write(*,"(a,3i8)",advance="no") " kdate, ktime, ktau ", &
@@ -513,7 +523,7 @@ contains
                if ( needfld("ocheight") ) then 
                   call vread( "ocheight", dtmp )
                   where ( soilt > 0.5 )
-                     dtmp = -nf90_fill_float ! flag for land
+                     dtmp = nf90_fill_float ! flag for land
                   end where   
                   call savehist ( "ocheight", dtmp )
                end if   
@@ -823,7 +833,7 @@ contains
                   call vread( "epso", ocn_tmp )
                   do k = 1,size(ocn_tmp,3)
                      where ( soilt > 0.5 )
-                        ocn_tmp(:,:,k) = -nf90_fill_float ! flag for land
+                        ocn_tmp(:,:,k) = nf90_fill_float ! flag for land
                      end where
                   end do   
                   if ( needfld("epso") ) then
@@ -842,7 +852,7 @@ contains
                   call vread( "kmo", ocn_tmp )
                   do k = 1,size(ocn_tmp,3)
                      where ( soilt > 0.5 )
-                        ocn_tmp(:,:,k) = -nf90_fill_float ! flag for land
+                        ocn_tmp(:,:,k) = nf90_fill_float ! flag for land
                      end where
                   end do
                   if ( needfld("kmo") ) then
@@ -854,7 +864,7 @@ contains
                   call vread( "kso", ocn_tmp )
                   do k = 1,size(ocn_tmp,3)
                      where ( soilt > 0.5 )
-                        ocn_tmp(:,:,k) = -nf90_fill_float ! flag for land
+                        ocn_tmp(:,:,k) = nf90_fill_float ! flag for land
                      end where
                   end do   
                   if ( needfld("kso") ) then
@@ -909,7 +919,7 @@ contains
                   call vread( "tkeo", ocn_tmp )
                   do k = 1,size(ocn_tmp,3)
                      where ( soilt > 0.5 )
-                        ocn_tmp(:,:,k) = -nf90_fill_float ! flag for land
+                        ocn_tmp(:,:,k) = nf90_fill_float ! flag for land
                      end where
                   end do   
                   if ( needfld("tkeo") ) then
@@ -947,7 +957,7 @@ contains
                   call vread( "so", so_tmp )
                   do k = 1,size(so_tmp,3)
                      where ( soilt > 0.5 )
-                        so_tmp(:,:,k) = -nf90_fill_float ! flag for land
+                        so_tmp(:,:,k) = nf90_fill_float ! flag for land
                      end where
                   end do
                   if ( needfld("so") ) then
@@ -959,7 +969,7 @@ contains
                   call vread( "thetao", thetao_tmp )
                   do k = 1,size(thetao_tmp,3)
                      where ( soilt > 0.5 )
-                        thetao_tmp(:,:,k) = -nf90_fill_float ! flag for land
+                        thetao_tmp(:,:,k) = nf90_fill_float ! flag for land
                      end where
                   end do   
                   if ( needfld("thetao") ) then
@@ -980,7 +990,7 @@ contains
                   call vread( "uo", uo_tmp )
                   do k = 1,size(uo_tmp,3)
                      where ( soilt > 0.5 )
-                        uo_tmp(:,:,k) = -nf90_fill_float ! flag for land
+                        uo_tmp(:,:,k) = nf90_fill_float ! flag for land
                      end where
                   end do
                end if
@@ -989,7 +999,7 @@ contains
                   call vread( "vo", vo_tmp ) 
                   do k = 1,size(vo_tmp,3)
                      where ( soilt > 0.5 )
-                        vo_tmp(:,:,k) = -nf90_fill_float ! flag for land
+                        vo_tmp(:,:,k) = nf90_fill_float ! flag for land
                      end where
                   end do
                end if
@@ -1007,7 +1017,7 @@ contains
                   call vread( "wo", ocn_tmp )
                   do k = 1,size(ocn_tmp,3)
                      where ( soilt > 0.5 )
-                        ocn_tmp(:,:,k) = -nf90_fill_float ! flag for land
+                        ocn_tmp(:,:,k) = nf90_fill_float ! flag for land
                      end where
                   end do
                   if ( needfld("wo") ) then
@@ -2346,18 +2356,15 @@ contains
 
       if ( int_default == int_none ) return      
 
-      where ( abs(u) /= nf90_fill_float .and. abs(v) /= nf90_fill_float )
+      where ( u /= nf90_fill_float .and. v /= nf90_fill_float )
          uzon = costh*u - sinth*v
          vmer = sinth*u + costh*v
 !        Now save these back to the original arrays.
          u = uzon
          v = vmer
-      elsewhere ( u == nf90_fill_float .or. v == nf90_fill_float )
-         u = nf90_fill_float 
-         v = nf90_fill_float
       elsewhere
-         u = -nf90_fill_float ! local missing value
-         v = -nf90_fill_float ! local missing value
+         u = nf90_fill_float ! local missing value
+         v = nf90_fill_float ! local missing value
       end where
       
    end subroutine fix_winds2

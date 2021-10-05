@@ -341,11 +341,11 @@ contains
          case ( vextrap_missing )
             do i = 1,ix
                do ii = 1,mexup2(i,j)
-                  gp(i,ii) = -NF90_FILL_FLOAT ! local missing value 
+                  gp(i,ii) = NF90_FILL_FLOAT ! local missing value 
                end do
                if ( mexdn1(i,j)/=0 ) then
                   do ii = mexdn1(i,j),nprlvs
-                     gp(i,ii) = -NF90_FILL_FLOAT ! local missing value
+                     gp(i,ii) = NF90_FILL_FLOAT ! local missing value
                   end do
                end if
             end do
@@ -690,11 +690,11 @@ contains
          case ( vextrap_missing )
             do i = 1,ix
                do ii = 1,mexup2(i,j)
-                  gp(i,ii) = -NF90_FILL_FLOAT ! local missing value 
+                  gp(i,ii) = NF90_FILL_FLOAT ! local missing value 
                end do
                if ( mexdn1(i,j)/=0 ) then
                   do ii = mexdn1(i,j),nprlvs
-                     gp(i,ii) = -NF90_FILL_FLOAT ! local missing value
+                     gp(i,ii) = NF90_FILL_FLOAT ! local missing value
                   end do
                end if
             end do
@@ -988,7 +988,7 @@ contains
             end do
             if ( omexdn1(i,j)/=0 ) then
                do ii = omexdn1(i,j),onprlvs
-                  ogp(i,ii) = -NF90_FILL_FLOAT ! local missing value
+                  ogp(i,ii) = NF90_FILL_FLOAT ! local missing value
                end do
             end if
          end do

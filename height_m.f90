@@ -100,8 +100,8 @@ subroutine height ( tg, qg, zg, pg, sig, phistd, pstd )
    
 !     Calculate height on sigma levels
       phi(:,1) = zg(:,lg) * grav + bet(1)*tv(:,1)
-      do k=2,nl
-         phi(:,k) = phi(:,k-1)+bet(k)*tv(:,k)+betm(k)*tv(:,k-1)
+      do k = 2,nl
+         phi(:,k) = phi(:,k-1) + bet(k)*tv(:,k)+betm(k)*tv(:,k-1)
       end do  
       
 !     Now calculate the height at the standard pressure levels.
@@ -112,7 +112,7 @@ subroutine height ( tg, qg, zg, pg, sig, phistd, pstd )
             do mg=1,nx
                if ( siglev(mg)>sig(1) ) then
                   if ( vextrap == vextrap_missing ) then
-                     phistd(mg,lg,kstd) = -NF90_FILL_FLOAT ! local missing flag
+                     phistd(mg,lg,kstd) = NF90_FILL_FLOAT ! local missing flag
                   else    
                      bettemp=c*(siglev(mg)**(-rdry/c)-1.)
                      phistd(mg,lg,kstd) = (zg(mg,lg)*grav+bettemp*tv(mg,1))/grav

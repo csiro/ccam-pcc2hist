@@ -277,13 +277,9 @@ module history
 ! Save CCAM parameters
    logical, public :: save_ccam_parameters = .true.
 
-!  MPI working arrays
+!  Working arrays
    integer, private, save :: nx_g, ny_g
-#ifdef usempi3
-   real, dimension(:,:,:,:), pointer, contiguous :: hist_a
-#else
    real, dimension(:,:,:,:), allocatable, save, private :: hist_a
-#endif
 
 !  Maximum number of CABLE tiles
    integer, parameter :: maxtile=5
@@ -688,7 +684,7 @@ contains
       logical :: used, multilev, use_plevs, use_hyblevs, use_meters, use_depth
       integer, dimension(totflds) :: coord_heights
       integer :: kc, ncoords, k, pkl
-      logical :: soil_used, water_used, osig_found
+      logical :: osig_found
       real :: dx, dy
       integer :: i, j, slab
       real, dimension(:), allocatable :: cabledata
@@ -850,8 +846,6 @@ contains
 
 !     The rest of the history files are much simpler with multilevel variables
 
-      soil_used = .false.
-      water_used = .false.
       if ( present(histfilename) ) then
          filename = histfilename
       else
@@ -872,12 +866,6 @@ contains
          multilev = multilev .or. histinfo(ifld)%nlevels > 1 .or. &
                     histinfo(ifld)%multilev
 
-         ! Check if the file has any soil variables
-         soil_used = soil_used .or. histinfo(ifld)%soil
-
-         ! Check if the file has any water variables
-         water_used = water_used .or. histinfo(ifld)%water
-               
          ! Get a list of the coordinate heights if any
          if ( histinfo(ifld)%coord_height > -huge(1.) ) then
             ! Check if it's already in list
@@ -1867,8 +1855,6 @@ contains
       integer :: ifld, js, jn, nl, istart, iend
       integer :: nx
       
-      if ( all( array == NF90_FILL_FLOAT ) ) return
-
 !     Check that openhist has been called to allocate the array
       if ( .not. allocated ( histarray ) ) then
          print*, " History error - must call openhist before savehist "
@@ -1921,28 +1907,28 @@ contains
 
       select case ( histinfo(ifld)%ave_type)
       case ( hist_ave )
-         where ( abs(array) /= nf90_fill_float .and. histarray(:,1:jlat2,istart:iend) /= nf90_fill_float ) 
+         where ( array /= nf90_fill_float .and. histarray(:,1:jlat2,istart:iend) /= nf90_fill_float ) 
             histarray(:,1:jlat2,istart:iend) =  &
                  histarray(:,1:jlat2,istart:iend) + array
          elsewhere
             histarray(:,1:jlat2,istart:iend) = nf90_fill_float 
          end where    
       case ( hist_max ) 
-         where ( abs(array) /= nf90_fill_float .and. histarray(:,1:jlat2,istart:iend) /= nf90_fill_float )  
+         where ( array /= nf90_fill_float .and. histarray(:,1:jlat2,istart:iend) /= nf90_fill_float )  
             histarray(:,1:jlat2,istart:iend) =  &
                  max ( histarray(:,1:jlat2,istart:iend), array )
          elsewhere
             histarray(:,1:jlat2,istart:iend) = nf90_fill_float 
          end where 
       case ( hist_min )
-         where ( abs(array) /= nf90_fill_float .and. histarray(:,1:jlat2,istart:iend) /= nf90_fill_float )     
+         where ( array /= nf90_fill_float .and. histarray(:,1:jlat2,istart:iend) /= nf90_fill_float )     
             histarray(:,1:jlat2,istart:iend) =  &
                  min ( histarray(:,1:jlat2,istart:iend), array )
          elsewhere
             histarray(:,1:jlat2,istart:iend) = nf90_fill_float 
          end where 
       case ( hist_inst, hist_fixed ) 
-         where ( abs(array) /= nf90_fill_float ) 
+         where ( array /= nf90_fill_float ) 
             histarray(:,1:jlat2,istart:iend) = array
          elsewhere
             histarray(:,1:jlat2,istart:iend) = nf90_fill_float 
@@ -1953,7 +1939,7 @@ contains
          stop
       end select
      
-      if ( any( abs(array) /= nf90_fill_float ) ) then
+      if ( any( array /= nf90_fill_float ) ) then
          histinfo(ifld)%count = histinfo(ifld)%count + 1
       end if   
 
@@ -2151,8 +2137,10 @@ contains
             end where  
          end if
          if ( histinfo(ifld)%output_scale /= 0 ) then
-            histarray(:,:,istart:iend) = histarray(:,:,istart:iend) * &
-              histinfo(ifld)%output_scale
+            where ( histarray(:,:,istart:iend) /= NF90_FILL_FLOAT ) 
+               histarray(:,:,istart:iend) = histarray(:,:,istart:iend) * &
+                 histinfo(ifld)%output_scale
+            end where   
          end if
          if ( hist_debug >= 4 ) then
             print*, "History written at point ", histinfo(ifld)%name, &
@@ -2160,9 +2148,7 @@ contains
          end if
 
 !        Even multilevel variables are written one level at a time
-         if ( count /= 0 ) then
-           cnt = cnt + iend - istart + 1
-         end if
+         cnt = cnt + iend - istart + 1
                
       end do ! Loop over fields
 
@@ -2173,7 +2159,7 @@ contains
       if ( myid >= offset ) then
          allocate( hist_a(pil,pjl*pnpan,pnproc,1+slab*(myid-offset):slab*(myid-offset+1)) ) 
          if ( allocated( hist_g ) ) then
-            if ( size(hist_g,1)/=nx_g .or. size(hist_g,2)/=ny_g ) then
+            if ( size(hist_g,1) /= nx_g .or. size(hist_g,2) /= ny_g ) then
               deallocate( hist_g )
             end if
          end if
@@ -2182,7 +2168,7 @@ contains
          end if   
       end if
       if ( allocated( k_indx ) ) then
-         if ( size(k_indx)/=maxcnt ) then
+         if ( size(k_indx) /= maxcnt ) then
             deallocate( k_indx )
          end if
       end if
@@ -2199,7 +2185,6 @@ contains
          end if
          ave_type = histinfo(ifld)%ave_type
          nlev = histinfo(ifld)%nlevels
-         count = histinfo(ifld)%count
 
 !        Only write fixed variables in the first history set
          if ( histset > 1 .and. ave_type == hist_fixed ) then
@@ -2210,12 +2195,10 @@ contains
          iend = istart + nlev - 1
 
 !        Even multilevel variables are written one level at a time
-         if ( count /= 0 ) then
-            do k = istart,iend
-               cnt = cnt + 1
-               k_indx(cnt) = k
-            end do   ! k loop
-         end if  
+         do k = istart,iend
+            cnt = cnt + 1
+            k_indx(cnt) = k
+         end do   ! k loop
 
       end do ! Loop over fields
 
@@ -2233,7 +2216,6 @@ contains
          end if
          ave_type = histinfo(ifld)%ave_type
          nlev = histinfo(ifld)%nlevels
-         count = histinfo(ifld)%count
          vid = histinfo(ifld)%vid
 
 !        Only write fixed variables in the first history set
@@ -2247,51 +2229,41 @@ contains
 !        Even multilevel variables are written one level at a time
          do k = istart, iend
 
-            if ( count /= 0 ) then
-               cnt = cnt + 1
-               if ( (cnt>=(1+slab*(myid-offset))).and.(cnt<=(slab*(myid-offset+1))) ) then
-                  do ip = 0,pnproc-1
-                     do n = 0,pnpan-1
-                        hist_g(1+ioff(ip,n):pil+ioff(ip,n),1+joff(ip,n)+n*pil_g:pjl+joff(ip,n)+n*pil_g) = &
-                           hist_a(1:pil,1+n*pjl:(n+1)*pjl,ip+1,cnt)
-                     end do
+            cnt = cnt + 1
+            if ( cnt>=(1+slab*(myid-offset)) .and. cnt<=(slab*(myid-offset+1)) ) then
+               do ip = 0,pnproc-1
+                  do n = 0,pnpan-1
+                     hist_g(1+ioff(ip,n):pil+ioff(ip,n),1+joff(ip,n)+n*pil_g:pjl+joff(ip,n)+n*pil_g) = &
+                        hist_a(1:pil,1+n*pjl:(n+1)*pjl,ip+1,cnt)
                   end do
-                  if ( present(interp) ) then
-                     call interp ( hist_g, htemp, histinfo(ifld)%int_type )
-                  else
-                     htemp = hist_g(:,:)
-                  end if
+               end do
+               if ( present(interp) ) then
+                  call interp ( hist_g, htemp, histinfo(ifld)%int_type )
+               else
+                  htemp = hist_g(:,:)
                end if
-               call sendrecv_wrap(htemp,cnt,slab,offset,histinfo(ifld)%procid)
             end if
+            call sendrecv_wrap(htemp,cnt,slab,offset,histinfo(ifld)%procid)
 
             if ( myid == histinfo(ifld)%procid ) then
 
-               if ( count /= 0 ) then
-                  if ( hbytes == 2 ) then
-                     addoff = histinfo(ifld)%addoff
-                     sf = histinfo(ifld)%scalef
-                     umin = sf * vmin + addoff
-                     umax = sf * vmax + addoff
-                     where ( fpequal(htemp, nf90_fill_float) )
-                        htemp = NF90_FILL_SHORT
-                     elsewhere
-                        ! Put the scaled array back in the original and let
-                        ! netcdf take care of conversion to int2
-                        htemp = nint((max(umin,min(umax,htemp))-addoff)/sf)
-                     end where
-                  else
-                     where ( fpequal(htemp, nf90_fill_float) )
-                        htemp = missing_value_cordex 
-                     end where    
-                  end if    
-               else   
-                  if ( hbytes == 2 ) then
+               if ( hbytes == 2 ) then
+                  addoff = histinfo(ifld)%addoff
+                  sf = histinfo(ifld)%scalef
+                  umin = sf * vmin + addoff
+                  umax = sf * vmax + addoff
+                  where ( fpequal(htemp, nf90_fill_float) )
                      htemp = NF90_FILL_SHORT
-                  else
-                     htemp = NF90_FILL_FLOAT
-                  end if
-               end if
+                  elsewhere
+                     ! Put the scaled array back in the original and let
+                     ! netcdf take care of conversion to int2
+                     htemp = nint((max(umin,min(umax,htemp))-addoff)/sf)
+                  end where
+               else
+                  where ( fpequal(htemp, nf90_fill_float) )
+                     htemp = missing_value_cordex 
+                  end where    
+               end if    
                    
                call START_LOG(putvar_begin)
                ncid = histinfo(ifld)%ncid
@@ -2360,8 +2332,10 @@ contains
             end where  
          end if
          if ( histinfo(ifld)%output_scale /= 0 ) then
-            histarray(:,:,istart:iend) = histarray(:,:,istart:iend) * &
-              histinfo(ifld)%output_scale
+            where ( histarray(:,:,istart:iend) /= NF90_FILL_FLOAT ) 
+               histarray(:,:,istart:iend) = histarray(:,:,istart:iend) * &
+                 histinfo(ifld)%output_scale
+            end where    
          end if
          if ( hist_debug >= 4 ) then
             print*, "History written at point ", histinfo(ifld)%name,&
@@ -2393,37 +2367,29 @@ contains
                   end do
                end do
   
-               if ( count == 0 ) then
-                  if ( hbytes == 2 ) then
-                     htemp = NF90_FILL_SHORT
-                  else
-                     htemp = NF90_FILL_FLOAT
-                  end if
+               if ( present(interp) ) then
+                  call interp ( hist_g, htemp, histinfo(ifld)%int_type )
                else
+                  htemp = hist_g
+               end if
 
-                  if ( present(interp) ) then
-                     call interp ( hist_g, htemp, histinfo(ifld)%int_type )
-                  else
-                     htemp = hist_g
-                  end if
-
-                  if ( hbytes == 2 ) then
-                     addoff = histinfo(ifld)%addoff
-                     sf = histinfo(ifld)%scalef
-                     umin = sf * vmin + addoff
-                     umax = sf * vmax + addoff
-                     where ( fpequal(htemp, nf90_fill_float) )
-                        htemp = NF90_FILL_SHORT
-                     elsewhere
-                        ! Put the scaled array back in the original and let
-                        ! netcdf take care of conversion to int2
-                        htemp = nint((max(umin,min(umax,htemp))-addoff)/sf)
-                     end where
-                  else
-                     where ( fpequal(htemp, nf90_fill_float) )
-                        htemp = missing_value_cordex
-                     end where  
-                  end if
+               if ( hbytes == 2 ) then
+                  addoff = histinfo(ifld)%addoff
+                  sf = histinfo(ifld)%scalef
+                  umin = sf * vmin + addoff
+                  umax = sf * vmax + addoff
+                  where ( fpequal(htemp, nf90_fill_float) )
+                     htemp = NF90_FILL_SHORT
+                  elsewhere
+                     ! Put the scaled array back in the original and let
+                     ! netcdf take care of conversion to int2
+                     htemp = nint((max(umin,min(umax,htemp))-addoff)/sf)
+                  end where
+               else
+                  where ( fpequal(htemp, nf90_fill_float) )
+                     htemp = missing_value_cordex
+                  end where  
+               end if
                   
                end if
 
@@ -2544,12 +2510,12 @@ contains
       integer :: istart, iend, ip, k, n, ierr, lsize, lp, iq
       integer, dimension(maxcnt), intent(in) :: k_indx
       real, dimension(:,:,:), intent(in) :: histarray
-      real, dimension(:,:,:,:), pointer, contiguous, intent(inout) :: hist_a
+      real, dimension(:,:,:,:), intent(inout) :: hist_a
       real, dimension(pil*pjl*pnpan*lproc*slab*nproc) :: hist_a_tmp
       integer :: nreq, rreq, ipr, sreq
       integer, save :: itag = 0
       integer, dimension(2*nproc) :: ireq
-      real, dimension(pil,pjl*pnpan,lproc,slab,nproc) :: histarray_tmp      
+      real, dimension(pil,pjl*pnpan,lproc,slab,offset+1:nproc) :: histarray_tmp      
       
       call START_LOG(gatherwrap_begin)
 
@@ -2580,10 +2546,10 @@ contains
             do k = istart,iend
                histarray_tmp(:,:,:,k-istart+1,ip+1) = reshape( histarray(:,:,k_indx(k)), (/ pil,pjl*pnpan,lproc /) )
             end do   
-            call START_LOG(mpigather_begin)
             lsize = pil*pjl*pnpan*lproc*(iend-istart+1)
             nreq = nreq + 1
-            call MPI_ISend( histarray_tmp(:,:,:,:,ip+1), lsize, MPI_REAL, ip, &
+            call START_LOG(mpigather_begin)
+            call MPI_ISend( histarray_tmp(:,:,:,1:iend-istart+1,ip+1), lsize, MPI_REAL, ip, &
                  itag, comm_world, ireq(nreq), ierr )
             call END_LOG(mpigather_end)
          end if
@@ -2600,7 +2566,7 @@ contains
             do k = istart,iend 
                do lp = 0,lproc-1 
                   iq = lp*pil*pjl*pnpan + (k-istart)*pil*pjl*pnpan*lproc + (n-1)*pil*pjl*pnpan*lproc*(iend-istart+1)
-                  hist_a(:,:,lp+(n-1)*lproc+1,k) = reshape( hist_a_tmp(iq+1:iq+pil*pjl*pnpan), (/ pil, pjl*pnpan /) )
+                  hist_a(:,:,lp+(n-1)*lproc+1,k-istart+1) = reshape( hist_a_tmp(iq+1:iq+pil*pjl*pnpan), (/ pil, pjl*pnpan /) )
                end do
             end do
          end do
