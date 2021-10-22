@@ -195,6 +195,8 @@ module history
       real               :: coord_height
       ! cell_methods appropriate for variable before any history processing is done
       character(len=30)  :: cell_methods
+      ! for daily data
+      logical            :: daily
    end type hinfo
 
 !  For adding extra global attributes
@@ -233,9 +235,11 @@ module history
    type (hinfo), dimension(nfmax) :: histinfo 
 !  Number of history records written
    integer :: histset
+   integer :: histset_daily
 
 !   netCDF file ID of history file
-   integer, dimension(:), allocatable, save :: histid      
+   integer, dimension(:), allocatable, save :: histid
+   logical, dimension(:), allocatable, save :: histday
 
 !  Total number of fields defined (not necessarily used).
    integer, save :: totflds = 0
@@ -464,8 +468,8 @@ contains
    subroutine addfld(name, long_name, units, valid_min, valid_max,    &
                      nlevels, amip_name, ave_type, std, output_scale, &
                      int_type, multilev, std_name, soil, water,       &
-                     pop2d, pop3d, pop4d,                             &
-                     coord_height, cell_methods, ran_type, tn_type )
+                     pop2d, pop3d, pop4d, coord_height, cell_methods, &
+                     ran_type, tn_type, daily )
 !
 !     Add a field to the master list of fields that may be saved.
 !
@@ -491,6 +495,7 @@ contains
       character(len=*), intent(in), optional :: cell_methods
       logical, intent(in), optional   :: ran_type
       integer, intent(in), optional   :: tn_type
+      logical, intent(in), optional   :: daily
 
 !     Local variables corresponding to the optional arguments
       integer :: atype, ltn
@@ -631,6 +636,11 @@ contains
          histinfo(totflds)%cell_methods = cell_methods
       else
          histinfo(totflds)%cell_methods = ""
+      end if
+      if ( present(daily) ) then
+         histinfo(totflds)%daily = daily
+      else
+         histinfo(totflds)%daily = .false.
       end if
 
    end subroutine addfld
@@ -906,18 +916,19 @@ contains
          
       if ( single_output ) then
          if ( myid == 0 ) then 
-            allocate( histid(1) ) 
+            allocate( histid(1), histday(1) ) 
             call create_ncfile ( filename, nxhis, nyhis, size(sig), ol, cptch, cchrt, multilev, &
                  use_plevs, use_meters, use_depth, use_hyblevs, basetime,                       &
                  coord_heights(1:ncoords), ncid, dims, dimvars, source, extra_atts, calendar,   &
                  nsoil, zsoil, osig_found )
             histid(1) = ncid
+            histday(1) = .false.
             do ifld = 1,totflds
                histinfo(ifld)%ncid = ncid
                histinfo(ifld)%procid = 0
             end do   
          else  
-            allocate( histid(0) ) 
+            allocate( histid(0), histday(0) ) 
          end if  
       else
          ! count number of output variables 
@@ -950,7 +961,7 @@ contains
          end do
 #endif   
          ! create output files
-         allocate( histid(i) )
+         allocate( histid(i), histday(i) )
          i = 0
          do ifld = 1,totflds
             if ( histinfo(ifld)%used .and. histinfo(ifld)%procid==myid ) then 
@@ -961,6 +972,7 @@ contains
                     coord_heights(1:ncoords), ncid, dims, dimvars, source, extra_atts, calendar,          &
                     nsoil, zsoil, osig_found )
                histid(i) = ncid
+               histday(i) = histinfo(ifld)%daily
                histinfo(ifld)%ncid = ncid  
             end if   
          end do
@@ -1180,6 +1192,7 @@ contains
 
 !     Initialise the history appropriately
       histset = 0
+      histset_daily = 0
       avetime = 0.0
       ! Initialisation so min/max work
       avetime_bnds(:) = (/huge(1.), -huge(1.)/)
@@ -2006,17 +2019,18 @@ contains
       real, dimension ( nxhis, nyhis ) :: htemp
       real, dimension(:,:), allocatable, save :: hist_g
       logical :: doinc
+      logical :: endofday
 #ifdef usempi3
-      integer :: cnt,maxcnt,interp_nproc
-      integer :: slab,offset
+      integer :: cnt, maxcnt, interp_nproc
+      integer :: slab, offset
 #endif
-      
+
+      call START_LOG(writehist_begin)
+
       if ( require_interp .and. .not. present(interp) ) then
          print*, " Error, interp argument required for writehist "
          stop
       end if
-
-      call START_LOG(writehist_begin)
 
 !     Check whether this file should be written on this step.
       if ( hist_debug > 1 ) then
@@ -2072,40 +2086,77 @@ contains
       end if
 
       histset = histset + 1
+      if ( cf_compliant ) then
+         if ( present(time) ) then
+            endofday = modulo(nint(time*1440.),1440) == 0  
+         else
+            endofday = modulo(nint(real(histset)*hfreq*1440.),1440) == 0
+         end if    
+      else    
+         if ( present(time) ) then
+            endofday = modulo(nint(time),1440) == 0  
+         else
+            endofday = modulo(nint(real(histset)*hfreq),1440) == 0
+         end if    
+      end if   
+      if ( endofday ) histset_daily = histset_daily + 1  
 
       do i = 1,size(histid)
          ncid = histid(i)
          ierr = nf90_inq_varid (ncid, "time", vid )
          call check_ncerr(ierr, "Error getting time id")
-         if ( present(time) ) then
-            if ( ihtype == hist_ave) then
-               ierr = nf90_put_var ( ncid, vid,   &
-                    avetime/timecount, start=(/histset/) )
-            else
-               ierr = nf90_put_var ( ncid, vid, time, start=(/histset/))
-            end if
+         if ( histday(i) ) then
+            if ( endofday ) then
+               if ( present(time) ) then
+                  if ( ihtype == hist_ave) then
+                     ierr = nf90_put_var ( ncid, vid,   &
+                          avetime/timecount, start=(/histset_daily/) )
+                  else
+                     ierr = nf90_put_var ( ncid, vid, time, start=(/histset_daily/))
+                  end if
+               else
+                  ierr = nf90_put_var ( ncid, vid, &
+                                        real(histset*hfreq), &
+                                        start=(/histset_daily/) )
+               end if
+               call check_ncerr(ierr, "Error writing time")
+               if ( cf_compliant .and. present(time_bnds) ) then
+                  ierr = nf90_inq_varid (ncid, "time_bnds", vid )
+                  call check_ncerr(ierr, "Error getting time_bnds id")
+                  if ( ihtype == hist_ave) then
+                     ierr = nf90_put_var ( ncid, vid, avetime_bnds(:), start=(/1,histset_daily/))
+                  else
+                     ierr = nf90_put_var ( ncid, vid, time_bnds, start=(/1,histset_daily/))
+                  end if
+                  call check_ncerr(ierr, "Error writing time_bnds")
+               end if   
+            end if   
          else
-            ierr = nf90_put_var ( ncid, vid, &
-                                  real(histset*hfreq), &
-                                  start=(/histset/) )
-         end if
-         call check_ncerr(ierr, "Error writing time")
-         if ( cf_compliant .and. present(time_bnds) ) then
-            ierr = nf90_inq_varid (ncid, "time_bnds", vid )
-            call check_ncerr(ierr, "Error getting time_bnds id")
-            if ( ihtype == hist_ave) then
-               ierr = nf90_put_var ( ncid, vid, avetime_bnds(:), start=(/1,histset/))
+            if ( present(time) ) then
+               if ( ihtype == hist_ave) then
+                  ierr = nf90_put_var ( ncid, vid,   &
+                       avetime/timecount, start=(/histset/) )
+               else
+                  ierr = nf90_put_var ( ncid, vid, time, start=(/histset/))
+               end if
             else
-               ierr = nf90_put_var ( ncid, vid, time_bnds, start=(/1,histset/))
+               ierr = nf90_put_var ( ncid, vid, &
+                                     real(histset*hfreq), &
+                                     start=(/histset/) )
             end if
-            call check_ncerr(ierr, "Error writing time_bnds")
+            call check_ncerr(ierr, "Error writing time")
+            if ( cf_compliant .and. present(time_bnds) ) then
+               ierr = nf90_inq_varid (ncid, "time_bnds", vid )
+               call check_ncerr(ierr, "Error getting time_bnds id")
+               if ( ihtype == hist_ave) then
+                  ierr = nf90_put_var ( ncid, vid, avetime_bnds(:), start=(/1,histset/))
+               else
+                  ierr = nf90_put_var ( ncid, vid, time_bnds, start=(/1,histset/))
+               end if
+               call check_ncerr(ierr, "Error writing time_bnds")
+            end if   
          end if
       end do
-
-      start2D = (/ 1, 1, histset /)
-      count2D = (/ nxhis, nyhis, 1 /)
-      count3D = (/ nxhis, nyhis, 1, 1 /)
-      count4D = (/ nxhis, nyhis, 1, 1, 1 /)
 
 #ifdef usempi3
       cnt = 0
@@ -2267,15 +2318,37 @@ contains
                    
                call START_LOG(putvar_begin)
                ncid = histinfo(ifld)%ncid
-               if ( histinfo(ifld)%pop4d ) then
-                  start4D = (/ 1, 1, mod(k+1-istart-1,cptch)+1, 1+(k+1-istart-1)/cptch,  histset /)
-                  ierr = nf90_put_var ( ncid, vid, htemp, start=start4D, count=count4D )
-               else if ( nlev > 1 .or. histinfo(ifld)%multilev ) then
-                  start3D = (/ 1, 1, k+1-istart, histset /)
-                  ierr = nf90_put_var ( ncid, vid, htemp, start=start3D, count=count3D )
-               else
-                  ierr = nf90_put_var ( ncid, vid, htemp, start=start2D, count=count2D )
-               end if
+               if ( histinfo(ifld)%daily .and. single_output==.false. ) then
+                  if ( endofday ) then
+                     if ( histinfo(ifld)%pop4d ) then
+                        start4D = (/ 1, 1, mod(k+1-istart-1,cptch)+1, 1+(k+1-istart-1)/cptch,  histset_daily /)
+                        count4D = (/ nxhis, nyhis, 1, 1, 1 /)
+                        ierr = nf90_put_var ( ncid, vid, htemp, start=start4D, count=count4D )
+                     else if ( nlev > 1 .or. histinfo(ifld)%multilev ) then
+                        start3D = (/ 1, 1, k+1-istart, histset_daily /)
+                        count3D = (/ nxhis, nyhis, 1, 1 /)
+                        ierr = nf90_put_var ( ncid, vid, htemp, start=start3D, count=count3D )
+                     else
+                        start2D = (/ 1, 1, histset_daily /)
+                        count2D = (/ nxhis, nyhis, 1 /)
+                        ierr = nf90_put_var ( ncid, vid, htemp, start=start2D, count=count2D )
+                     end if
+                  end if    
+               else    
+                  if ( histinfo(ifld)%pop4d ) then
+                     start4D = (/ 1, 1, mod(k+1-istart-1,cptch)+1, 1+(k+1-istart-1)/cptch,  histset /)
+                     count4D = (/ nxhis, nyhis, 1, 1, 1 /)
+                     ierr = nf90_put_var ( ncid, vid, htemp, start=start4D, count=count4D )
+                  else if ( nlev > 1 .or. histinfo(ifld)%multilev ) then
+                     start3D = (/ 1, 1, k+1-istart, histset /)
+                     count3D = (/ nxhis, nyhis, 1, 1 /)
+                     ierr = nf90_put_var ( ncid, vid, htemp, start=start3D, count=count3D )
+                  else
+                     start2D = (/ 1, 1, histset /)
+                     count2D = (/ nxhis, nyhis, 1 /)
+                     ierr = nf90_put_var ( ncid, vid, htemp, start=start2D, count=count2D )
+                  end if
+               end if   
                call check_ncerr(ierr, "Error writing history variable "//histinfo(ifld)%name )
                call END_LOG(putvar_end)
 
@@ -2395,14 +2468,36 @@ contains
 
                call START_LOG(putvar_begin)
                ncid = histinfo(ifld)%ncid
-               if ( histinfo(ifld)%pop4d ) then
-                  start4D = (/ 1, 1, mod(k+1-istart-1,cptch)+1, 1+(k+1-istart-1)/cptch,  histset /)
-                  ierr = nf90_put_var ( ncid, vid, htemp, start=start4D, count=count4D )
-               else if ( nlev > 1 .or. histinfo(ifld)%multilev ) then
-                  start3D = (/ 1, 1, k+1-istart, histset /)
-                  ierr = nf90_put_var ( ncid, vid, htemp, start=start3D, count=count3D )
-               else
-                  ierr = nf90_put_var ( ncid, vid, htemp, start=start2D, count=count2D )
+               if ( histinfo(ifld)%daily .and. single_output==.false. ) then
+                  if ( endofday ) then
+                     if ( histinfo(ifld)%pop4d ) then
+                        start4D = (/ 1, 1, mod(k+1-istart-1,cptch)+1, 1+(k+1-istart-1)/cptch,  histset_daily /)
+                        count4D = (/ nxhis, nyhis, 1, 1, 1 /)
+                        ierr = nf90_put_var ( ncid, vid, htemp, start=start4D, count=count4D )
+                     else if ( nlev > 1 .or. histinfo(ifld)%multilev ) then
+                        start3D = (/ 1, 1, k+1-istart, histset_daily /)
+                        count3D = (/ nxhis, nyhis, 1, 1 /)
+                        ierr = nf90_put_var ( ncid, vid, htemp, start=start3D, count=count3D )
+                     else
+                        start2D = (/ 1, 1, histset_daily /)
+                        count2D = (/ nxhis, nyhis, 1 /)
+                        ierr = nf90_put_var ( ncid, vid, htemp, start=start2D, count=count2D )
+                     end if
+                  end if
+               else   
+                  if ( histinfo(ifld)%pop4d ) then
+                     start4D = (/ 1, 1, mod(k+1-istart-1,cptch)+1, 1+(k+1-istart-1)/cptch,  histset /)
+                     count4D = (/ nxhis, nyhis, 1, 1, 1 /)
+                     ierr = nf90_put_var ( ncid, vid, htemp, start=start4D, count=count4D )
+                  else if ( nlev > 1 .or. histinfo(ifld)%multilev ) then
+                     start3D = (/ 1, 1, k+1-istart, histset /)
+                     count3D = (/ nxhis, nyhis, 1, 1 /)
+                     ierr = nf90_put_var ( ncid, vid, htemp, start=start3D, count=count3D )
+                  else
+                     start2D = (/ 1, 1, histset /)
+                     count2D = (/ nxhis, nyhis, 1 /)
+                     ierr = nf90_put_var ( ncid, vid, htemp, start=start2D, count=count2D )
+                  end if   
                end if
                call check_ncerr( ierr, "Error writing history variable "//histinfo(ifld)%name )
                call END_LOG(putvar_begin)

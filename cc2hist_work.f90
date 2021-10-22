@@ -337,7 +337,7 @@ contains
       u10max_stn = nf90_fill_float ! daily
       v10max_stn = nf90_fill_float ! daily
       
-      do ivar=1,nvars
+      do ivar = 1,nvars
          ! Just write the input with no further processing
 
          ! Files with fixed type only written on first pass
@@ -350,6 +350,12 @@ contains
                   zs = zs / grav
                   if ( needfld(varlist(ivar)%vname) ) then
                      call savehist ( varlist(ivar)%vname, zs )
+                  end if
+               case ( "sfturb")
+                  if ( needfld("sfturb") ) then
+                     call vread( "sigmu", dtmp )
+                     dtmp = dtmp*100.
+                     call savehist("sfturb", dtmp)
                   end if   
                case ( "soilt" )
                   call vread( "soilt", soilt )
@@ -371,6 +377,14 @@ contains
                      end where
                      call savehist("sftlf", dtmp)
                   endif
+                  if ( needfld("sftlaf") ) then
+                     where ( soilt == -1 )
+                        dtmp = 100.  
+                     elsewhere
+                        dtmp = 0. 
+                     end where    
+                     call savehist("sftlaf", dtmp)
+                  end if
                case ( "map" )
                   if ( needfld("map") .or. needfld("grid") ) then 
                      call vread( "map", dtmp )
@@ -2604,18 +2618,12 @@ contains
          varlist(nvars)%vname = "tgg"
          varlist(nvars)%fixed = .false.
          varlist(nvars)%ndims = 4
-         !nvars = nvars+1
-         !varlist(nvars)%vname = "wb"
-         !varlist(nvars)%fixed = .false.
-         !varlist(nvars)%ndims = 4
          nvars = nvars+1
          varlist(nvars)%vname = "wetfrac"
          varlist(nvars)%fixed = .false.
          varlist(nvars)%ndims = 4
 !        Don't need to set extra parameters because there's an explicit 
 !        addfld call later.
-!         call addfld('tgg','Soil temperature','K',100.,350.,ksoil,soil=.true.)
-!         call addfld('wb','Soil moisture','frac',0.,1.,ksoil,soil=.true.)
       end if
 
 
@@ -2663,16 +2671,12 @@ contains
                   ! Search for space so that x-compt and x-component both work
                   ind = index(varlist(ivar)%long_name," ")
                   varlist(ivar)%long_name = "Zonal"//varlist(ivar)%long_name(ind:len_trim(varlist(ivar)%long_name))
-                  !write( varlist(ivar)%long_name, "(a,a)" ) "Zonal",  &
-                  !     varlist(ivar)%long_name(ind:len_trim(varlist(ivar)%long_name))
                end if
             else
                ind = index(varlist(ivar)%long_name,"y-comp")
                if ( ind /= 0 ) then
                   ind = index(varlist(ivar)%long_name," ")
                   varlist(ivar)%long_name = "Meridional"//varlist(ivar)%long_name(ind:len_trim(varlist(ivar)%long_name))
-                  !write( varlist(ivar)%long_name, "(a,a)" ) "Meridional",  &
-                  !     varlist(ivar)%long_name(ind:len_trim(varlist(ivar)%long_name))
                end if
             end if
          end if
@@ -2948,6 +2952,10 @@ contains
                varlist(ivar)%units = "kg m-2 s-1"
                xmin = -0.001
                xmax = 0.001
+            else if ( varlist(ivar)%vname == "sigmu" ) then
+               varlist(ivar)%vname = "sfturf"
+               varlist(ivar)%units = "%"
+               varlist(ivar)%long_name = "Urban Area Fraction"
             else if ( varlist(ivar)%vname == "sgdn_ave" ) then
                varlist(ivar)%vname = "rsds"
                varlist(ivar)%units = "W m-2"
@@ -3051,6 +3059,10 @@ contains
             else if ( varlist(ivar)%vname == "va850" ) then
                varlist(ivar)%long_name = "Northward Wind"
                varlist(ivar)%units = "m s-1"
+            else if ( varlist(ivar)%vname == "zolnd" ) then
+               varlist(ivar)%vname = "z0"
+               varlist(ivar)%long_name = "Surface Roughness Length"
+               varlist(ivar)%units = "m"
             else if ( varlist(ivar)%vname == "zs" ) then
                varlist(ivar)%vname = "orog"
                varlist(ivar)%units = "m"
@@ -3068,7 +3080,7 @@ contains
                call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name, &
                       varlist(ivar)%units, xmin, xmax, 1, ave_type="max",  &
                       std_name=std_name, cell_methods=cell_methods,        &
-                      ran_type=ran_type )
+                      ran_type=ran_type, daily=varlist(ivar)%daily )
             else
                ! Check for screen and 10m variables
                coord_height = -huge(1.) ! Acts as a null value
@@ -3085,7 +3097,8 @@ contains
                       varlist(ivar)%units, xmin, xmax, 1, std_name=std_name, &
                       coord_height=coord_height, cell_methods=cell_methods,  & 
                       int_type=int_type, ran_type=ran_type,                  &
-                      pop2d=varlist(ivar)%pop2d, tn_type=tn_type )
+                      pop2d=varlist(ivar)%pop2d, tn_type=tn_type,            &
+                      daily=varlist(ivar)%daily )
             end if
          else if ( varlist(ivar)%ndims == 3 ) then  
             if ( varlist(ivar)%water ) then
@@ -3093,18 +3106,20 @@ contains
                         varlist(ivar)%units, xmin, xmax, onlev, multilev=.true., &
                         std_name=std_name, water=varlist(ivar)%water,            &
                         cell_methods=cell_methods, int_type=int_type,            &
-                        ran_type=ran_type )
+                        ran_type=ran_type, daily=varlist(ivar)%daily )
             else if ( varlist(ivar)%pop3d ) then
               call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name,        &
                         varlist(ivar)%units, xmin, xmax, cptch, multilev=.true., &
                         std_name=std_name, pop3d=varlist(ivar)%pop3d,            &
                         cell_methods=cell_methods, int_type=int_type,            &
-                        ran_type=ran_type, tn_type=tn_type )
+                        ran_type=ran_type, tn_type=tn_type,                      &
+                        daily=varlist(ivar)%daily )
             else
               call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name,       &
                         varlist(ivar)%units, xmin, xmax, nlev, multilev=.true., &
                         std_name=std_name, cell_methods=cell_methods,           &
-                        int_type=int_type, ran_type=ran_type )
+                        int_type=int_type, ran_type=ran_type,                   &
+                        daily=varlist(ivar)%daily )
             end if  
          else if ( varlist(ivar)%ndims == 4 ) then  
             if ( varlist(ivar)%pop4d ) then
@@ -3112,7 +3127,7 @@ contains
                         varlist(ivar)%units, xmin, xmax, cptch*cchrt, multilev=.true., &
                         std_name=std_name, pop4d=varlist(ivar)%pop4d,                  &
                         cell_methods=cell_methods, int_type=int_type,                  &
-                        ran_type=ran_type, tn_type=tn_type )
+                        ran_type=ran_type, tn_type=tn_type, daily=varlist(ivar)%daily )
             end if
          end if
       end do
@@ -3162,6 +3177,8 @@ contains
             end if
             call addfld ( "snc",  "Snow area fraction", "%", 0., 6.5, 1, std_name="surface_snow_area_fraction" )
             call addfld ( "snw",  "Surface Snow Amount", "kg m-2", 0., 6.5, 1, std_name="surface_snow_amount" )
+            call addfld ( "sftlaf", "Lake Area Fraction", "%", 0.0, 100.0, 1, ave_type="fixed", &
+                          std_name="lake_area_fraction" )
          else          
             if ( int_type /= int_none ) then
                call addfld ( "land_mask", "Land-sea mask", "",  0.0, 1.0, 1, &
@@ -3178,7 +3195,8 @@ contains
          call addfld ( "d10", "10m wind direction", "deg", 0.0, 360.0, 1, ran_type=.true. )
          call addfld ( "uas", "Eastward Near-Surface Wind", "m s-1", -100.0, 100.0, 1, std_name="eastward_wind", ran_type=.true. )
          call addfld ( "vas", "Northward Near-Surface Wind", "m s-1", -100.0, 100.0, 1, std_name="northward_wind", ran_type=.true. )
-         call addfld ( "sfcWindmax", "Maximum 10m wind speed", "m s-1", 0.0, 200.0, 1, std_name="wind_speed", ran_type=.true. )
+         call addfld ( "sfcWindmax", "Maximum 10m wind speed", "m s-1", 0.0, 200.0, 1, std_name="wind_speed", ran_type=.true., &
+                       daily=.true. )
          ! Packing is not going to work well in this case
          ! For height, estimate the height of the top level and use that
          ! for scaling
@@ -3262,9 +3280,11 @@ contains
                                  std_name="land_area_fraction", ran_type=.true. )
                end if
                call addfld ( "sfcWindmax", "Maximum 10m wind speed", "m s-1", 0.0, 200.0, 1, std_name="wind_speed", &
-                             ran_type=.true. )
+                             ran_type=.true., daily=.true. )
                call addfld ( "snc",  "Snow area fraction", "%", 0., 6.5, 1, std_name="surface_snow_area_fraction" )
                call addfld ( "snw",  "Surface Snow Amount", "kg m-2", 0., 6.5, 1, std_name="surface_snow_amount" ) 
+               call addfld ( "sftlaf", "Lake Area Fraction", "%", 0.0, 100.0, 1, ave_type="fixed", &
+                             std_name="lake_area_fraction" )
             else
                if ( int_type /= int_none ) then
                   call addfld ( "land_mask", "Land-sea mask", "",  0.0, 1.0, 1, &
@@ -3582,7 +3602,6 @@ contains
 
       stdname = ""
       cell_methods = ""
-      !if ( .not. cf_compliant ) return
       ! Would some sort of external table be better
       ! Also return preferred variable name and units?
       vname = vinfo%vname
@@ -3771,6 +3790,10 @@ contains
          stdname = "area_fraction"
       case ("sint_ave")
          stdname = "toa_incoming_shortwave_flux"
+      case ("sftlaf")
+         stdname = "lake_area_fraction"         
+      case ("sfturb")
+         stdname = "urban_area_fraction"
       case ("snc")
          stdname = "surface_snow_area_fraction"
       case ("snd")
@@ -3885,6 +3908,8 @@ contains
          stdname = "northward_sea_water_velocity" 
       case ("vos")
          stdname = "northward_sea_water_velocity"
+      case ("z0")
+         stdname = "surface_roughness_length"          
       case ("zg")
          stdname = "geopotential_height"
       case ("zg200")

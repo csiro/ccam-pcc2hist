@@ -677,7 +677,7 @@ program cc2hist
          cycle
       end if
 
-!     Time in hours
+!     Time in mins (?)
       if  ( use_steps ) then
          time = real(ktau)
       else
