@@ -2297,6 +2297,7 @@ contains
            needfld("ubot") .or. needfld("vbot") .or.              &
            needfld("u10max") .or. needfld("v10max") .or.          &
            needfld("u10max_stn") .or. needfld("v10max_stn") .or.  &
+           needfld("vaveuq") .or. needfld("vavevq") .or.          &
            needfld("sfcWindmax") .or. needfld("sfcWindmax_stn") ) then
 
          allocate ( costh(pil,pjl*pnpan*lproc), sinth(pil,pjl*pnpan*lproc) )

@@ -2217,6 +2217,8 @@ contains
          if ( .not.allocated( hist_g ) ) then
             allocate( hist_g(nx_g,ny_g) )
          end if   
+      else
+        allocate( hist_a(0,0,0,0) )  
       end if
       if ( allocated( k_indx ) ) then
          if ( size(k_indx) /= maxcnt ) then
@@ -2367,15 +2369,12 @@ contains
       call MPI_Barrier(comm_world,ierr) ! avoids crashes on some systems      
       call END_LOG(mpibarrier_end)
 
-      if ( myid >= offset ) then
-         deallocate(hist_a)
-      end if
+      deallocate(hist_a)
 #else
       if ( myid == 0 ) then
          allocate( hist_g(nx_g,ny_g) )
       else
          allocate( hist_g(0,0) )
-         allocate( hist_a(0,0,0,0) )
       end if
 
       do ifld = 1,totflds
@@ -2416,14 +2415,9 @@ contains
          end if
             
          if ( myid == 0 ) then
-            if ( allocated(hist_a) ) then 
-               if ( size(hist_a,3) /= nlev ) then
-                  deallocate( hist_a )
-                  allocate( hist_a(pil,pjl*pnpan,nlev,pnproc) )
-               end if
-            else
-               allocate( hist_a(pil,pjl*pnpan,nlev,pnproc) )
-            end if    
+            allocate( hist_a(pil,pjl*pnpan,nlev,pnproc) )
+         else
+            allocate( hist_a(0,0,0,0) )  
          end if    
 
          call gather_wrap(histarray(:,:,istart:iend),hist_a)
