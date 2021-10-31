@@ -240,6 +240,7 @@ module history
 !   netCDF file ID of history file
    integer, dimension(:), allocatable, save :: histid
    logical, dimension(:), allocatable, save :: histday
+   logical, dimension(:), allocatable, save :: histfix
 
 !  Total number of fields defined (not necessarily used).
    integer, save :: totflds = 0
@@ -916,19 +917,20 @@ contains
          
       if ( single_output ) then
          if ( myid == 0 ) then 
-            allocate( histid(1), histday(1) ) 
+            allocate( histid(1), histday(1), histfix(1) ) 
             call create_ncfile ( filename, nxhis, nyhis, size(sig), ol, cptch, cchrt, multilev, &
                  use_plevs, use_meters, use_depth, use_hyblevs, basetime,                       &
                  coord_heights(1:ncoords), ncid, dims, dimvars, source, extra_atts, calendar,   &
                  nsoil, zsoil, osig_found )
             histid(1) = ncid
             histday(1) = .false.
+            histfix(1) = .false.
             do ifld = 1,totflds
                histinfo(ifld)%ncid = ncid
                histinfo(ifld)%procid = 0
             end do   
          else  
-            allocate( histid(0), histday(0) ) 
+            allocate( histid(0), histday(0), histfix(0) ) 
          end if  
       else
          ! count number of output variables 
@@ -961,18 +963,26 @@ contains
          end do
 #endif   
          ! create output files
-         allocate( histid(i), histday(i) )
+         allocate( histid(i), histday(i), histfix(i) )
          i = 0
          do ifld = 1,totflds
             if ( histinfo(ifld)%used .and. histinfo(ifld)%procid==myid ) then 
                i = i + 1
                singlefilename = calcfilename(histinfo(ifld)%name,filename)
-               call create_ncfile ( singlefilename, nxhis, nyhis, size(sig), ol, cptch, cchrt, multilev,  &
-                    use_plevs, use_meters, use_depth, use_hyblevs, basetime,                              &
-                    coord_heights(1:ncoords), ncid, dims, dimvars, source, extra_atts, calendar,          &
-                    nsoil, zsoil, osig_found )
+               if ( histinfo(ifld)%ave_type == hist_fixed ) then
+                  call create_ncfile ( singlefilename, nxhis, nyhis, size(sig), ol, cptch, cchrt, multilev,  &
+                       use_plevs, use_meters, use_depth, use_hyblevs, "none",                                &
+                       coord_heights(1:ncoords), ncid, dims, dimvars, source, extra_atts, calendar,          &
+                       nsoil, zsoil, osig_found )
+               else    
+                  call create_ncfile ( singlefilename, nxhis, nyhis, size(sig), ol, cptch, cchrt, multilev,  &
+                       use_plevs, use_meters, use_depth, use_hyblevs, basetime,                              &
+                       coord_heights(1:ncoords), ncid, dims, dimvars, source, extra_atts, calendar,          &
+                       nsoil, zsoil, osig_found )
+               end if
                histid(i) = ncid
                histday(i) = histinfo(ifld)%daily
+               histfix(i) = histinfo(ifld)%ave_type == hist_fixed
                histinfo(ifld)%ncid = ncid  
             end if   
          end do
@@ -1544,9 +1554,11 @@ contains
          call check_ncerr(ierr,"Error creating cable_cohort dimension")
          if ( hist_debug > 5 ) print*, "Created cable_cohort dimension, id", dims%cchrt
       end if
-      ierr = nf90_def_dim ( ncid, "time", NF90_UNLIMITED, dims%t )
-      call check_ncerr(ierr,"Error creating time dimension")
-      if ( hist_debug > 5 ) print*, "Created time dimension, id",  dims%t
+      if ( basetime /= "none" ) then
+         ierr = nf90_def_dim ( ncid, "time", NF90_UNLIMITED, dims%t )
+         call check_ncerr(ierr,"Error creating time dimension")
+         if ( hist_debug > 5 ) print*, "Created time dimension, id",  dims%t
+      end if   
       
       if ( present(source) ) then
          ierr = nf90_put_att ( ncid, NF90_GLOBAL, "source", source )
@@ -1733,24 +1745,26 @@ contains
          call check_ncerr(ierr)
       end if
 
-      ierr = nf90_def_var ( ncid, "time", NF90_FLOAT, dims%t, dimvars%t )
-      call check_ncerr(ierr)
-      ierr = nf90_put_att ( ncid, dimvars%t, "units", basetime )
-      call check_ncerr(ierr)
-      if ( present(calendar) ) then
-         ierr = nf90_put_att ( ncid, dimvars%t, "calendar", calendar )
+      if ( basetime /= "none" ) then
+         ierr = nf90_def_var ( ncid, "time", NF90_FLOAT, dims%t, dimvars%t )
          call check_ncerr(ierr)
-      end if
-      ierr = nf90_put_att ( ncid, dimvars%t, "standard_name", "time" )
-      call check_ncerr(ierr)
-      ierr = nf90_put_att ( ncid, dimvars%t, "axis", "T" )
-      call check_ncerr(ierr)
-      if ( cf_compliant ) then
-         ierr = nf90_put_att ( ncid, dimvars%t, "bounds", "time_bnds" )
+         ierr = nf90_put_att ( ncid, dimvars%t, "units", basetime )
          call check_ncerr(ierr)
-         ierr = nf90_def_var ( ncid, "time_bnds", NF90_FLOAT, (/dims%b, dims%t/), dimvars%t_b)
+         if ( present(calendar) ) then
+            ierr = nf90_put_att ( ncid, dimvars%t, "calendar", calendar )
+            call check_ncerr(ierr)
+         end if
+         ierr = nf90_put_att ( ncid, dimvars%t, "standard_name", "time" )
          call check_ncerr(ierr)
-      end if
+         ierr = nf90_put_att ( ncid, dimvars%t, "axis", "T" )
+         call check_ncerr(ierr)
+         if ( cf_compliant ) then
+            ierr = nf90_put_att ( ncid, dimvars%t, "bounds", "time_bnds" )
+            call check_ncerr(ierr)
+            ierr = nf90_def_var ( ncid, "time_bnds", NF90_FLOAT, (/dims%b, dims%t/), dimvars%t_b)
+            call check_ncerr(ierr)
+         end if
+      end if   
 
 
       if ( multilev .and. use_hyblevs ) then
@@ -2102,10 +2116,12 @@ contains
       if ( endofday ) histset_daily = histset_daily + 1  
 
       do i = 1,size(histid)
-         ncid = histid(i)
-         ierr = nf90_inq_varid (ncid, "time", vid )
-         call check_ncerr(ierr, "Error getting time id")
-         if ( histday(i) ) then
+         if ( histfix(i) ) then
+            ! do nothing 
+         else if ( histday(i) ) then
+            ncid = histid(i)
+            ierr = nf90_inq_varid (ncid, "time", vid )
+            call check_ncerr(ierr, "Error getting time id")
             if ( endofday ) then
                if ( present(time) ) then
                   if ( ihtype == hist_ave) then
@@ -2132,6 +2148,9 @@ contains
                end if   
             end if   
          else
+            ncid = histid(i)
+            ierr = nf90_inq_varid (ncid, "time", vid )
+            call check_ncerr(ierr, "Error getting time id")
             if ( present(time) ) then
                if ( ihtype == hist_ave) then
                   ierr = nf90_put_var ( ncid, vid,   &

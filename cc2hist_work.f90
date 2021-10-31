@@ -56,6 +56,10 @@ module work
    integer, save :: maxrec ! Length of record dimension.
    integer, save :: ncid  ! ID of the input file
 
+   integer, parameter :: cordex_levels=17
+   integer, dimension(cordex_levels), parameter :: cordex_level_data = &
+       (/ 1000, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100, 70, 50, 30, 20, 10 /)
+   
    real, allocatable, dimension(:), public, save :: hlon, hlat
    integer, public, save :: nxhis, nyhis
    real, dimension(:,:), allocatable, private :: costh, sinth
@@ -2405,11 +2409,12 @@ contains
       integer, intent(out) :: nvars
       integer :: ierr, ndimensions, nvariables, ndims, ivar, int_type, xtype
       integer :: londim, latdim, levdim, olevdim, procdim, timedim, vid, ihr, ind
-      integer :: cptchdim, cchrtdim, tn_type
+      integer :: cptchdim, cchrtdim, tn_type, j, press_level
       integer, dimension(nf90_max_var_dims) :: dimids
       logical :: procformat, ran_type
       character(len=10) :: substr
       character(len=60) :: vname
+      character(len=60) :: cname
       character(len=100) :: long_name, tmpname, valid_att, std_name, cell_methods
       ! Perhaps should read these from the input?
       integer, parameter :: vmin=-32500, vmax=32500
@@ -3032,15 +3037,6 @@ contains
             else if ( varlist(ivar)%vname == "ua100m" ) then
                varlist(ivar)%long_name = "Eastward Wind at 100m"
                varlist(ivar)%units = "m s-1"
-            else if ( varlist(ivar)%vname == "ua200" ) then
-               varlist(ivar)%long_name = "Eastward Wind"
-               varlist(ivar)%units = "m s-1"
-            else if ( varlist(ivar)%vname == "ua500" ) then
-               varlist(ivar)%long_name = "Eastward Wind"
-               varlist(ivar)%units = "m s-1"
-            else if ( varlist(ivar)%vname == "ua850" ) then
-               varlist(ivar)%long_name = "Eastward Wind"
-               varlist(ivar)%units = "m s-1"
             else if ( varlist(ivar)%vname == "v" ) then
                varlist(ivar)%vname = "va"
                varlist(ivar)%units = "m s-1"
@@ -3051,15 +3047,6 @@ contains
             else if ( varlist(ivar)%vname == "va100m" ) then
                varlist(ivar)%long_name = "Northward Wind at 100m"               
                varlist(ivar)%units = "m s-1"
-            else if ( varlist(ivar)%vname == "va200" ) then
-               varlist(ivar)%long_name = "Northward Wind"               
-               varlist(ivar)%units = "m s-1"
-            else if ( varlist(ivar)%vname == "va500" ) then
-               varlist(ivar)%long_name = "Northward Wind"
-               varlist(ivar)%units = "m s-1"
-            else if ( varlist(ivar)%vname == "va850" ) then
-               varlist(ivar)%long_name = "Northward Wind"
-               varlist(ivar)%units = "m s-1"
             else if ( varlist(ivar)%vname == "zolnd" ) then
                varlist(ivar)%vname = "z0"
                varlist(ivar)%long_name = "Surface Roughness Length"
@@ -3068,6 +3055,34 @@ contains
                varlist(ivar)%vname = "orog"
                varlist(ivar)%units = "m"
             end if
+            do j = 1,cordex_levels
+               press_level = cordex_level_data(j)
+               call cordex_name(cname,"ua",press_level)
+               if ( varlist(ivar)%vname == trim(cname) ) then
+                  varlist(ivar)%long_name = "Eastward Wind"
+                  varlist(ivar)%units = "m s-1"
+               end if
+               call cordex_name(cname,"va",press_level)
+               if ( varlist(ivar)%vname == trim(cname) ) then
+                  varlist(ivar)%long_name = "Northward Wind"
+                  varlist(ivar)%units = "m s-1"
+               end if
+               call cordex_name(cname,"ta",press_level)
+               if ( varlist(ivar)%vname == trim(cname) ) then
+                  varlist(ivar)%long_name = "Air Temperature"
+                  varlist(ivar)%units = "K"
+               end if
+               call cordex_name(cname,"hus",press_level)
+               if ( varlist(ivar)%vname == trim(cname) ) then
+                  varlist(ivar)%long_name = "Specific Humidity"
+                  varlist(ivar)%units = "1"
+               end if
+               call cordex_name(cname,"zg",press_level)
+               if ( varlist(ivar)%vname == trim(cname) ) then
+                  varlist(ivar)%long_name = "Geopotential Height"
+                  varlist(ivar)%units = "m"
+               end if
+            end do  
          end if
          call cc_cfproperties(varlist(ivar), std_name, cell_methods)
          if ( varlist(ivar)%fixed ) then
@@ -3594,9 +3609,10 @@ contains
    subroutine cc_cfproperties(vinfo, stdname, cell_methods)
       use history, only : cf_compliant
       type(input_var), intent(in) :: vinfo
+      integer :: j, press_level
       character(len=80), intent(out) :: stdname
       character(len=80), intent(out) :: cell_methods
-      character(len=60) :: vname
+      character(len=60) :: vname, cname
 
       ! Some fields like rnd03 can't really be made CF compliant. Their time
       ! bounds don't match those of the overall file properly.
@@ -3671,12 +3687,6 @@ contains
          stdname = "surface_upward_sensible_heat_flux"
          cell_methods = "time: mean"
       case ("hus")
-         stdname = "specific_humidity"
-      case ("hus200")
-         stdname = "specific_humidity"
-      case ("hus500")
-         stdname = "specific_humidity"
-      case ("hus850")
          stdname = "specific_humidity"
       case ("huss")
          stdname = "specific_humidity"
@@ -3814,12 +3824,6 @@ contains
          cell_methods = "time: mean"
       case ("ta")
         stdname = "air_temperature"  
-      case ("ta200")
-        stdname = "air_temperature"  
-      case ("ta500")
-        stdname = "air_temperature"  
-      case ("ta850")
-        stdname = "air_temperature"  
       case ("tas")
          stdname = "air_temperature"
       case ("tasmax")
@@ -3869,16 +3873,6 @@ contains
          stdname = "eastward_wind"
       case ("ua100m")
          stdname = "eastward_wind" 
-      case ("ua150")
-         stdname = "eastward_wind" 
-      case ("ua200")
-         stdname = "eastward_wind"          
-      case ("ua250")
-         stdname = "eastward_wind" 
-      case ("ua500")
-         stdname = "eastward_wind"          
-      case ("ua850")
-         stdname = "eastward_wind" 
       case ("uas")
          stdname = "eastward_wind"
       case ("uo")
@@ -3893,16 +3887,6 @@ contains
          stdname = "northward_wind"
       case ("va100m")
          stdname = "northward_wind" 
-      case ("va150")
-         stdname = "northward_wind" 
-      case ("va200")
-         stdname = "northward_wind" 
-      case ("va250")
-         stdname = "northward_wind" 
-      case ("va500")
-         stdname = "northward_wind" 
-      case ("va850")
-         stdname = "northward_wind" 
       case ("vas")
          stdname = "northward_wind" 
       case ("vo")
@@ -3913,12 +3897,6 @@ contains
          stdname = "surface_roughness_length"          
       case ("zg")
          stdname = "geopotential_height"
-      case ("zg200")
-         stdname = "geopotential_height"
-      case ("zg500")
-         stdname = "geopotential_height"
-      case ("zg850")
-         stdname = "geopotential_height"
       case ("zmla")
          stdname = "atmosphere_boundary_layer_thickness" 
       case ("zolnd")
@@ -3926,6 +3904,29 @@ contains
       case ("zs")
          stdname = "surface_altitude"
       end select
+      do j = 1,cordex_levels
+         press_level = cordex_level_data(j)
+         call cordex_name(cname,"ua",press_level)
+         if ( vname == trim(cname) ) then 
+            stdname = "eastward_wind" 
+         end if    
+         call cordex_name(cname,"va",press_level)
+         if ( vname == trim(cname) ) then 
+            stdname = "northward_wind" 
+         end if    
+         call cordex_name(cname,"ta",press_level)
+         if ( vname == trim(cname) ) then 
+            stdname = "air_temperature" 
+         end if  
+         call cordex_name(cname,"hus",press_level)
+         if ( vname == trim(cname) ) then 
+            stdname = "specific_humidity" 
+         end if 
+         call cordex_name(cname,"zg",press_level)
+         if ( vname == trim(cname) ) then 
+            stdname = "geopotential_height" 
+         end if  
+      end do
 
       if ( vinfo%daily ) then
          cell_methods = cell_methods(1:len_trim(cell_methods)) // " over days"
@@ -4958,6 +4959,41 @@ contains
    call END_LOG(mpiscatter_end)
    
    end subroutine ccmpi_scatter_2d_r4_proc         
-         
+
+   subroutine cordex_name(lname,stringa,press_level,stringb)
+
+   implicit none
+
+   integer, intent(in) :: press_level
+   character(len=*), intent(out) :: lname
+   character(len=*), intent(in) :: stringa
+   character(len=*), intent(in), optional :: stringb
+
+   if ( present(stringb) ) then
+      if ( press_level >= 1000 ) then
+         write(lname,'(A,I4.4,A)') trim(stringa),press_level,trim(stringb)
+      else if (press_level >= 100 ) then
+         write(lname,'(A,I3.3,A)') trim(stringa),press_level,trim(stringb)  
+      else if ( press_level >= 10 ) then
+         write(lname,'(A,I2.2,A)') trim(stringa),press_level,trim(stringb)  
+      else
+         write(6,*) "ERROR: Unexpected output pressure level in cordex_name"
+         stop
+      end if
+   else
+      if ( press_level >= 1000 ) then
+         write(lname,'(A,I4.4)') trim(stringa),press_level
+      else if (press_level >= 100 ) then
+         write(lname,'(A,I3.3)') trim(stringa),press_level
+      else if ( press_level >= 10 ) then
+         write(lname,'(A,I2.2)') trim(stringa),press_level
+      else
+         write(6,*) "ERROR: Unexpected output pressure level in cordex_name"
+         stop
+      end if
+   end if
+
+   end subroutine cordex_name
+   
          
 end module work
