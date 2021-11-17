@@ -355,11 +355,11 @@ contains
                   if ( needfld(varlist(ivar)%vname) ) then
                      call savehist ( varlist(ivar)%vname, zs )
                   end if
-               case ( "sfturb")
-                  if ( needfld("sfturb") ) then
+               case ( "sfturf")
+                  if ( needfld("sfturf") ) then
                      call vread( "sigmu", dtmp )
                      dtmp = dtmp*100.
-                     call savehist("sfturb", dtmp)
+                     call savehist("sfturf", dtmp)
                   end if   
                case ( "soilt" )
                   call vread( "soilt", soilt )
@@ -3803,7 +3803,7 @@ contains
          stdname = "toa_incoming_shortwave_flux"
       case ("sftlaf")
          stdname = "lake_area_fraction"         
-      case ("sfturb")
+      case ("sfturf")
          stdname = "urban_area_fraction"
       case ("snc")
          stdname = "surface_snow_area_fraction"
