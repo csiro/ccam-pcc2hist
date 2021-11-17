@@ -783,6 +783,11 @@ contains
                 call vread( "vas", vastmp )         ! only for high-frequency output
             case ( "vas_stn" )
                 call vread( "vas_stn", vastmp_stn ) ! only for high-frequency output
+            case ( "z0" )
+                if ( needfld("z0") ) then
+                   call vread( "zolnd", dtmp ) 
+                   call savehist( "z0", dtmp )
+                end if   
             case ( "zmla" )
                call readsave2 (varlist(ivar)%vname, input_name="pblh")
             case default
