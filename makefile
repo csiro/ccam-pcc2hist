@@ -12,6 +12,9 @@ endif
 ifeq ($(CASCADELAKE),yes)
 FHOST = -xCASCADELAKE
 endif
+ifeq ($(ZEN3),yes)
+FHOST = -axCORE-AVX2 
+endif
 ifeq ($(MAGNUS),yes)
 FC = ftn
 FHOST = -xHost
@@ -39,6 +42,9 @@ MPIF77 = gfortran
 FFLAGS = -O2 -mtune=native -march=native -fbacktrace
 PPFLAG90 = -x f95-cpp-input
 DEBUGFLAG = -g -Wall -Wextra -fbounds-check
+ifeq ($(ZEN3),yes)
+FFLAGS = -O2 -fallow-argument-mismatch -march=native -fbacktrace
+endif
 endif
 
 # Cray compiler options

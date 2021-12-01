@@ -233,6 +233,7 @@ module history
    real, dimension(:,:,:), allocatable :: histarray
 
    type (hinfo), dimension(nfmax) :: histinfo 
+   type (dimarray), dimension(nfmax) :: histdims
 !  Number of history records written
    integer :: histset
    integer :: histset_daily
@@ -241,6 +242,7 @@ module history
    integer, dimension(:), allocatable, save :: histid
    logical, dimension(:), allocatable, save :: histday
    logical, dimension(:), allocatable, save :: histfix
+   type(dimarray), dimension(:), allocatable, save :: histdimvars
 
 !  Total number of fields defined (not necessarily used).
    integer, save :: totflds = 0
@@ -917,7 +919,7 @@ contains
          
       if ( single_output ) then
          if ( myid == 0 ) then 
-            allocate( histid(1), histday(1), histfix(1) ) 
+            allocate( histid(1), histday(1), histfix(1), histdimvars(1) ) 
             call create_ncfile ( filename, nxhis, nyhis, size(sig), ol, cptch, cchrt, multilev, &
                  use_plevs, use_meters, use_depth, use_hyblevs, basetime,                       &
                  coord_heights(1:ncoords), ncid, dims, dimvars, source, extra_atts, calendar,   &
@@ -925,12 +927,14 @@ contains
             histid(1) = ncid
             histday(1) = .false.
             histfix(1) = .false.
+            histdimvars(1) = dimvars
             do ifld = 1,totflds
                histinfo(ifld)%ncid = ncid
                histinfo(ifld)%procid = 0
+               histdims(ifld) = dims
             end do   
          else  
-            allocate( histid(0), histday(0), histfix(0) ) 
+            allocate( histid(0), histday(0), histfix(0), histdimvars(0) ) 
          end if  
       else
          ! count number of output variables 
@@ -963,7 +967,7 @@ contains
          end do
 #endif   
          ! create output files
-         allocate( histid(i), histday(i), histfix(i) )
+         allocate( histid(i), histday(i), histfix(i), histdimvars(i) )
          i = 0
          do ifld = 1,totflds
             if ( histinfo(ifld)%used .and. histinfo(ifld)%procid==myid ) then 
@@ -983,7 +987,9 @@ contains
                histid(i) = ncid
                histday(i) = histinfo(ifld)%daily
                histfix(i) = histinfo(ifld)%ave_type == hist_fixed
-               histinfo(ifld)%ncid = ncid  
+               histdimvars(i) = dimvars
+               histinfo(ifld)%ncid = ncid
+               histdims(ifld) = dims
             end if   
          end do
       end if  
@@ -991,12 +997,14 @@ contains
       do ifld = 1,totflds
          if ( histinfo(ifld)%used .and. myid == histinfo(ifld)%procid ) then
             ncid = histinfo(ifld)%ncid
+            dims = histdims(ifld)
             call create_ncvar(histinfo(ifld), ncid, dims)
          end if
       end do
 
       do i = 1,size(histid) 
          ncid = histid(i) 
+         dimvars = histdimvars(i)
          !        Leave define mode 
          ierr = nf90_enddef ( ncid )
          call check_ncerr(ierr, "Error from enddef")
@@ -1020,6 +1028,7 @@ contains
             lon_bnds(2,:) = hlon + 0.5*dx
             do i = 1,size(histid)
                ncid = histid(i) 
+               dimvars = histdimvars(i)
                ierr = nf90_put_var ( ncid, dimvars%x_b, lon_bnds )
                call check_ncerr(ierr,"Error writing longitude bounds")
             end do
@@ -1036,6 +1045,7 @@ contains
             end where
             do i = 1,size(histid)
                ncid = histid(i) 
+               dimvars = histdimvars(i)
                ierr = nf90_put_var ( ncid, dimvars%y_b, lat_bnds )
                call check_ncerr(ierr,"Error writing latitude bounds")
             end do   
@@ -1044,6 +1054,7 @@ contains
       if ( multilev ) then
          do i = 1,size(histid)
             ncid = histid(i) 
+            dimvars = histdimvars(i)
             ierr = nf90_put_var ( ncid, dimvars%z, sig )
             call check_ncerr(ierr,"Error writing levels")
          end do   
@@ -1080,6 +1091,7 @@ contains
       if ( ol > 0 ) then
          do i = 1,size(histid)
             ncid = histid(i) 
+            dimvars = histdimvars(i)
             ierr = nf90_put_var ( ncid, dimvars%oz, gosig )
             call check_ncerr(ierr,"Error writing olev")
          end do   
@@ -1091,6 +1103,7 @@ contains
          end do
          do i = 1,size(histid)
             ncid = histid(i) 
+            dimvars = histdimvars(i)
             ierr = nf90_put_var ( ncid, dimvars%cptch, cabledata )
             call check_ncerr(ierr,"Error writing cable_patch")
          end do   
@@ -1103,6 +1116,7 @@ contains
          end do
          do i = 1,size(histid)
             ncid = histid(i) 
+            dimvars = histdimvars(i)
             ierr = nf90_put_var ( ncid, dimvars%cchrt, cabledata )
             call check_ncerr(ierr,"Error writing cable_cohort")
          end do   
@@ -1112,6 +1126,7 @@ contains
          if ( nsoil>0 ) then
             do i = 1,size(histid)
                ncid = histid(i) 
+               dimvars = histdimvars(i)
                ierr = nf90_put_var ( ncid, dimvars%zsoil, zsoil )
                call check_ncerr(ierr,"Error writing depths")
             end do   
@@ -1127,6 +1142,7 @@ contains
                end do
                do i = 1,size(histid)
                   ncid = histid(i)
+                  dimvars = histdimvars(i)
                   ierr = nf90_put_var ( ncid, dimvars%zsoil_b, zsoil_bnds )
                   call check_ncerr(ierr,"Error writing depths")
                end do   
@@ -1376,7 +1392,8 @@ contains
       vinfo%vid = vid
       
       if ( cordex_compliant ) then
-        ierr = nf90_def_var_deflate( ncid, vid, 1, 1, 1 ) ! shuffle=1, deflate=1, deflate_level=1
+         ierr = nf90_def_var_deflate( ncid, vid, 1, 1, 1 ) ! shuffle=1, deflate=1, deflate_level=1
+         call check_ncerr(ierr)
       end if
 
       if ( len_trim(vinfo%long_name) /= 0 ) then
@@ -1820,7 +1837,7 @@ contains
          ierr = nf90_close ( histid(i) )
          call check_ncerr(ierr,"Error closing history file")
       end do
-      deallocate( histid )
+      deallocate( histid, histday, histfix, histdimvars )
       
       call END_LOG(closehist_end)
       
