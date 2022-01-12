@@ -290,6 +290,8 @@ module history
 
 !  Maximum number of CABLE tiles
    integer, parameter :: maxtile=5
+   
+   integer, private, save :: barrier_max = 999999999
 
 contains
 
@@ -342,7 +344,8 @@ contains
            hbytes,  &
            hist_debug, & 
            ihdb, jhdb, khdb,  &
-           amipnames
+           amipnames, &
+           barrier_max
       integer :: i, j, ierr
       logical :: fatal
 
@@ -2044,8 +2047,7 @@ contains
       integer :: istart, iend
       integer :: ave_type, nlev, count, ncid
       integer :: k
-      !integer, save :: barrier_counter = 0
-      !integer, parameter :: barrier_max = 24
+      integer, save :: barrier_counter = 0
       real :: umin, umax, addoff, sf
 !     Temporary for interpolated output
       integer, dimension(:), allocatable, save :: k_indx
@@ -2403,13 +2405,13 @@ contains
 
       end do ! Loop over fields
       
-      !barrier_counter = barrier_counter + 1
-      !if ( barrier_counter >= barrier_max ) then
-      !  barrier_counter = 0  
-      !  call START_LOG(mpibarrier_begin)
-      !  call MPI_Barrier(comm_world,ierr) ! avoids crashes on some systems
-      !  call END_LOG(mpibarrier_end)
-      !end if  
+      barrier_counter = barrier_counter + 1
+      if ( barrier_counter >= barrier_max ) then
+        barrier_counter = 0  
+        call START_LOG(mpibarrier_begin)
+        call MPI_Barrier(comm_world,ierr) ! avoids crashes on some systems      
+        call END_LOG(mpibarrier_end)
+      end if  
 
       deallocate(hist_a)
 #else
@@ -2549,13 +2551,13 @@ contains
 
       end do ! Loop over fields
 
-      !barrier_counter = barrier_counter + 1
-      !if ( barrier_counter >= barrier_max ) then
-      !  barrier_counter = 0  
-      !  call START_LOG(mpibarrier_begin)
-      !  call MPI_Barrier(comm_world,ierr) ! avoids crashes on some systems
-      !  call END_LOG(mpibarrier_end)
-      !end if  
+      barrier_counter = barrier_counter + 1
+      if ( barrier_counter >= barrier_max ) then
+        barrier_counter = 0  
+        call START_LOG(mpibarrier_begin)
+        call MPI_Barrier(comm_world,ierr) ! avoids crashes on some systems      
+        call END_LOG(mpibarrier_end)
+      end if  
       
       deallocate( hist_a, hist_g )
 #endif
