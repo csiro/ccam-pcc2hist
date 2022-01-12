@@ -3056,6 +3056,10 @@ contains
                varlist(ivar)%vname = "z0"
                varlist(ivar)%long_name = "Surface Roughness Length"
                varlist(ivar)%units = "m"
+            else if ( varlist(ivar)%vname == "zolnd" ) then
+               varlist(ivar)%vname = "z0"
+               varlist(ivar)%long_name = "Surface Roughness Length"
+               varlist(ivar)%units = "m"
             else if ( varlist(ivar)%vname == "zs" ) then
                varlist(ivar)%vname = "orog"
                varlist(ivar)%units = "m"
