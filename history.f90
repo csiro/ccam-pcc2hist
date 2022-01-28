@@ -1,6 +1,6 @@
 ! Conformal Cubic Atmospheric Model
     
-! Copyright 2015-2021 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+! Copyright 2015-2022 Commonwealth Scientific Industrial Research Organisation (CSIRO)
     
 ! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
 !
@@ -197,6 +197,8 @@ module history
       character(len=30)  :: cell_methods
       ! for daily data
       logical            :: daily
+      ! for 6hr data
+      logical            :: sixhr
    end type hinfo
 
 !  For adding extra global attributes
@@ -236,12 +238,11 @@ module history
    type (dimarray), dimension(nfmax) :: histdims
 !  Number of history records written
    integer :: histset
-   integer :: histset_daily
+   integer :: histset_daily, histset_6hr
 
 !   netCDF file ID of history file
    integer, dimension(:), allocatable, save :: histid
-   logical, dimension(:), allocatable, save :: histday
-   logical, dimension(:), allocatable, save :: histfix
+   logical, dimension(:), allocatable, save :: histday, hist6hr, histfix
    type(dimarray), dimension(:), allocatable, save :: histdimvars
 
 !  Total number of fields defined (not necessarily used).
@@ -472,7 +473,7 @@ contains
                      nlevels, amip_name, ave_type, std, output_scale, &
                      int_type, multilev, std_name, soil, water,       &
                      pop2d, pop3d, pop4d, coord_height, cell_methods, &
-                     ran_type, tn_type, daily )
+                     ran_type, tn_type, daily, sixhr )
 !
 !     Add a field to the master list of fields that may be saved.
 !
@@ -499,6 +500,7 @@ contains
       logical, intent(in), optional   :: ran_type
       integer, intent(in), optional   :: tn_type
       logical, intent(in), optional   :: daily
+      logical, intent(in), optional   :: sixhr
 
 !     Local variables corresponding to the optional arguments
       integer :: atype, ltn
@@ -645,6 +647,11 @@ contains
       else
          histinfo(totflds)%daily = .false.
       end if
+      if ( present(sixhr) ) then
+         histinfo(totflds)%sixhr = sixhr
+      else
+         histinfo(totflds)%sixhr = .false.
+      end if      
 
    end subroutine addfld
    
@@ -656,6 +663,7 @@ contains
 !
 !     Create netCDF history files using information in histinfo array.
 !
+      use interp_m, only : int_none
       use mpidata_m
       use logging_m
 
@@ -919,13 +927,14 @@ contains
          
       if ( single_output ) then
          if ( myid == 0 ) then 
-            allocate( histid(1), histday(1), histfix(1), histdimvars(1) ) 
+            allocate( histid(1), histday(1), hist6hr(1), histfix(1), histdimvars(1) ) 
             call create_ncfile ( filename, nxhis, nyhis, size(sig), ol, cptch, cchrt, multilev, &
                  use_plevs, use_meters, use_depth, use_hyblevs, basetime,                       &
                  coord_heights(1:ncoords), ncid, dims, dimvars, source, extra_atts, calendar,   &
                  nsoil, zsoil, osig_found )
             histid(1) = ncid
             histday(1) = .false.
+            hist6hr(1) = .false.
             histfix(1) = .false.
             histdimvars(1) = dimvars
             do ifld = 1,totflds
@@ -934,7 +943,7 @@ contains
                histdims(ifld) = dims
             end do   
          else  
-            allocate( histid(0), histday(0), histfix(0), histdimvars(0) ) 
+            allocate( histid(0), histday(0), hist6hr(0), histfix(0), histdimvars(0) ) 
          end if  
       else
          ! count number of output variables 
@@ -967,7 +976,7 @@ contains
          end do
 #endif   
          ! create output files
-         allocate( histid(i), histday(i), histfix(i), histdimvars(i) )
+         allocate( histid(i), histday(i), hist6hr(i), histfix(i), histdimvars(i) )
          i = 0
          do ifld = 1,totflds
             if ( histinfo(ifld)%used .and. histinfo(ifld)%procid==myid ) then 
@@ -986,6 +995,7 @@ contains
                end if
                histid(i) = ncid
                histday(i) = histinfo(ifld)%daily
+               hist6hr(i) = histinfo(ifld)%sixhr
                histfix(i) = histinfo(ifld)%ave_type == hist_fixed
                histdimvars(i) = dimvars
                histinfo(ifld)%ncid = ncid
@@ -1017,12 +1027,14 @@ contains
          call check_ncerr(ierr,"Error writing longitudes")
       end do
             
-      if ( cf_compliant ) then
+      if ( cf_compliant .or. cordex_compliant ) then
          ! Calculate bounds assuming a regular lat-lon grid
          ! Perhaps have optional arguments for the other cases?
          allocate ( lat_bnds(2,size(hlat)), lon_bnds(2,size(hlon)) )
          ! Check if regular grid
-         if ( maxval(hlon(2:)-hlon(:nx-1)) - minval(hlon(2:)-hlon(:nx-1)) < 1e-4*maxval(hlon(2:)-hlon(:nx-1)) ) then
+         !if ( maxval(hlon(2:)-hlon(:nxhis-1)) - minval(hlon(2:)-hlon(:nxhis-1)) &
+         !   < 1.e-4*maxval(hlon(2:)-hlon(:nxhis-1)) ) then
+         if ( int_default /= int_none ) then
             dx = hlon(2) - hlon(1)
             lon_bnds(1,:) = hlon - 0.5*dx
             lon_bnds(2,:) = hlon + 0.5*dx
@@ -1033,7 +1045,9 @@ contains
                call check_ncerr(ierr,"Error writing longitude bounds")
             end do
          end if
-         if ( maxval(hlat(2:)-hlat(:ny-1)) - minval(hlat(2:)-hlat(:ny-1)) < 1e-4*maxval(hlat(2:)-hlat(:ny-1)) ) then
+         !if ( maxval(hlat(2:)-hlat(:nyhis-1)) - minval(hlat(2:)-hlat(:nyhis-1)) &
+         !   < 1.e-4*maxval(hlat(2:)-hlat(:nyhis-1)) ) then
+         if ( int_default /= int_none ) then
             dy = hlat(2) - hlat(1)
             lat_bnds(1,:) = hlat - 0.5*dy
             lat_bnds(2,:) = hlat + 0.5*dy
@@ -1129,15 +1143,15 @@ contains
                dimvars = histdimvars(i)
                ierr = nf90_put_var ( ncid, dimvars%zsoil, zsoil )
                call check_ncerr(ierr,"Error writing depths")
-            end do   
-            if ( cf_compliant ) then
+            end do  
+            if ( cf_compliant .or. cordex_compliant ) then
                ! Soil bounds
                allocate(zsoil_bnds(2, nsoil))
                zsoil_bnds(1,1) = 0.
                zsoil_bnds(2,1) = 2.*zsoil(1)
-               do k = 1,nsoil
+               do k = 2,nsoil
                   ! Levels are middle of layers
-                  zsoil_bnds(2,k) = zsoil_bnds(2,k-1) + 2*(zsoil(k)-zsoil_bnds(2,k-1))
+                  zsoil_bnds(2,k) = zsoil_bnds(2,k-1) + 2.*(zsoil(k)-zsoil_bnds(2,k-1))
                   zsoil_bnds(1,k) = zsoil_bnds(2,k-1)
                end do
                do i = 1,size(histid)
@@ -1219,6 +1233,7 @@ contains
 !     Initialise the history appropriately
       histset = 0
       histset_daily = 0
+      histset_6hr = 0
       avetime = 0.0
       ! Initialisation so min/max work
       avetime_bnds(:) = (/huge(1.), -huge(1.)/)
@@ -1532,7 +1547,7 @@ contains
       ierr = nf90_def_dim ( ncid, "lat", nyhis, dims%y )
       call check_ncerr(ierr,"Error creating lat dimension")
       if ( hist_debug > 5 ) print*, "Created lon dimension, id",  dims%y
-      if ( cf_compliant ) then
+      if ( cf_compliant .or. cordex_compliant ) then
          ierr = nf90_def_dim ( ncid, "bnds", 2, dims%b )
          call check_ncerr(ierr,"Error creating bnds dimension")
          if ( hist_debug > 5 ) print*, "Created bnds dimension, id",  dims%b
@@ -1581,16 +1596,14 @@ contains
          ierr = nf90_put_att ( ncid, NF90_GLOBAL, "source", source )
          call check_ncerr(ierr)
       end if
-      !if ( cf_compliant ) then
-         ierr = nf90_put_att ( ncid, NF90_GLOBAL, "Conventions", "CF-1.7" )
-         call check_ncerr(ierr)
-         ierr = nf90_put_att ( ncid, NF90_GLOBAL, "title", "CCAM simulation data" )
-         call check_ncerr(ierr)
-         ierr = nf90_put_att ( ncid, NF90_GLOBAL, "contact", "ccam@csiro.au" )
-         call check_ncerr(ierr)
-         ierr = nf90_put_att ( ncid, NF90_GLOBAL, "project", "Undefined CCAM project" )
-         call check_ncerr(ierr)
-      !end if
+      ierr = nf90_put_att ( ncid, NF90_GLOBAL, "Conventions", "CF-1.7" )
+      call check_ncerr(ierr)
+      ierr = nf90_put_att ( ncid, NF90_GLOBAL, "title", "CCAM simulation data" )
+      call check_ncerr(ierr)
+      ierr = nf90_put_att ( ncid, NF90_GLOBAL, "contact", "ccam@csiro.au" )
+      call check_ncerr(ierr)
+      ierr = nf90_put_att ( ncid, NF90_GLOBAL, "project", "Undefined CCAM project" )
+      call check_ncerr(ierr)
 !     Make sure it's a null string, otherwise len_trim won't find the end 
 !     properly.
       histstr = "" 
@@ -1628,7 +1641,7 @@ contains
       call check_ncerr(ierr)
       ierr = nf90_put_att ( ncid, dimvars%x, "units", "degrees_east" )
       call check_ncerr(ierr)
-      if ( cf_compliant ) then
+      if ( cf_compliant .or. cordex_compliant ) then
          ierr = nf90_put_att ( ncid, dimvars%x, "bounds", "lon_bnds" )
          call check_ncerr(ierr)
          ierr = nf90_def_var ( ncid, "lon_bnds", NF90_FLOAT, (/dims%b, dims%x/), dimvars%x_b)
@@ -1645,7 +1658,7 @@ contains
       call check_ncerr(ierr)
       ierr = nf90_put_att ( ncid, dimvars%y, "units", "degrees_north" )
       call check_ncerr(ierr)
-      if ( cf_compliant ) then
+      if ( cf_compliant .or. cordex_compliant ) then
          ierr = nf90_put_att ( ncid, dimvars%y, "bounds", "lat_bnds" )
          call check_ncerr(ierr)
          ierr = nf90_def_var ( ncid, "lat_bnds", NF90_FLOAT, (/dims%b, dims%y/), dimvars%y_b)
@@ -1744,7 +1757,7 @@ contains
             call check_ncerr(ierr)
             ierr = nf90_put_att ( ncid, dimvars%zsoil, "units", "m" )
             call check_ncerr(ierr)
-            if ( cf_compliant ) then
+            if ( cf_compliant .or. cordex_compliant ) then
                ierr = nf90_put_att ( ncid, dimvars%zsoil, "bounds", "depth_bnds" )
                call check_ncerr(ierr)
                ierr = nf90_def_var ( ncid, "depth_bnds", NF90_FLOAT, (/dims%b, dims%zsoil/), dimvars%zsoil_b)
@@ -1837,7 +1850,7 @@ contains
          ierr = nf90_close ( histid(i) )
          call check_ncerr(ierr,"Error closing history file")
       end do
-      deallocate( histid, histday, histfix, histdimvars )
+      deallocate( histid, histday, hist6hr, histfix, histdimvars )
       
       call END_LOG(closehist_end)
       
@@ -2050,7 +2063,7 @@ contains
       real, dimension ( nxhis, nyhis ) :: htemp
       real, dimension(:,:), allocatable, save :: hist_g
       logical :: doinc
-      logical :: endofday
+      logical :: endofday, endof6hr
 #ifdef usempi3
       integer :: cnt, maxcnt, interp_nproc
       integer :: slab, offset
@@ -2120,17 +2133,22 @@ contains
       if ( cf_compliant ) then
          if ( present(time) ) then
             endofday = modulo(nint(time*1440.),1440) == 0  
+            endof6hr = modulo(nint(time*360.),360) == 0
          else
             endofday = modulo(nint(real(histset)*hfreq*1440.),1440) == 0
+            endof6hr = modulo(nint(real(histset)*hfreq*360.),360) == 0
          end if    
       else    
          if ( present(time) ) then
             endofday = modulo(nint(time),1440) == 0  
+            endof6hr = modulo(nint(time),360) == 0
          else
             endofday = modulo(nint(real(histset)*hfreq),1440) == 0
+            endof6hr = modulo(nint(real(histset)*hfreq),360) == 0
          end if    
       end if   
       if ( endofday ) histset_daily = histset_daily + 1  
+      if ( endof6hr ) histset_6hr = histset_6hr + 1
 
       do i = 1,size(histid)
          if ( histfix(i) ) then
@@ -2163,7 +2181,36 @@ contains
                   end if
                   call check_ncerr(ierr, "Error writing time_bnds")
                end if   
-            end if   
+            end if 
+         else if ( hist6hr(i) ) then
+            ncid = histid(i)
+            ierr = nf90_inq_varid (ncid, "time", vid )
+            call check_ncerr(ierr, "Error getting time id")
+            if ( endof6hr ) then
+               if ( present(time) ) then
+                  if ( ihtype == hist_ave) then
+                     ierr = nf90_put_var ( ncid, vid,   &
+                          avetime/timecount, start=(/histset_6hr/) )
+                  else
+                     ierr = nf90_put_var ( ncid, vid, time, start=(/histset_6hr/))
+                  end if
+               else
+                  ierr = nf90_put_var ( ncid, vid, &
+                                        real(histset*hfreq), &
+                                        start=(/histset_6hr/) )
+               end if
+               call check_ncerr(ierr, "Error writing time")
+               if ( cf_compliant .and. present(time_bnds) ) then
+                  ierr = nf90_inq_varid (ncid, "time_bnds", vid )
+                  call check_ncerr(ierr, "Error getting time_bnds id")
+                  if ( ihtype == hist_ave) then
+                     ierr = nf90_put_var ( ncid, vid, avetime_bnds(:), start=(/1,histset_6hr/))
+                  else
+                     ierr = nf90_put_var ( ncid, vid, time_bnds, start=(/1,histset_6hr/))
+                  end if
+                  call check_ncerr(ierr, "Error writing time_bnds")
+               end if   
+            end if  
          else
             ncid = histid(i)
             ierr = nf90_inq_varid (ncid, "time", vid )
@@ -2372,6 +2419,22 @@ contains
                         ierr = nf90_put_var ( ncid, vid, htemp, start=start2D, count=count2D )
                      end if
                   end if    
+               else if ( histinfo(ifld)%sixhr .and. single_output==.false. ) then
+                  if ( endof6hr ) then
+                     if ( histinfo(ifld)%pop4d ) then
+                        start4D = (/ 1, 1, mod(k+1-istart-1,cptch)+1, 1+(k+1-istart-1)/cptch,  histset_6hr /)
+                        count4D = (/ nxhis, nyhis, 1, 1, 1 /)
+                        ierr = nf90_put_var ( ncid, vid, htemp, start=start4D, count=count4D )
+                     else if ( nlev > 1 .or. histinfo(ifld)%multilev ) then
+                        start3D = (/ 1, 1, k+1-istart, histset_6hr /)
+                        count3D = (/ nxhis, nyhis, 1, 1 /)
+                        ierr = nf90_put_var ( ncid, vid, htemp, start=start3D, count=count3D )
+                     else
+                        start2D = (/ 1, 1, histset_6hr /)
+                        count2D = (/ nxhis, nyhis, 1 /)
+                        ierr = nf90_put_var ( ncid, vid, htemp, start=start2D, count=count2D )
+                     end if
+                  end if  
                else    
                   if ( histinfo(ifld)%pop4d ) then
                      start4D = (/ 1, 1, mod(k+1-istart-1,cptch)+1, 1+(k+1-istart-1)/cptch,  histset /)
@@ -2510,6 +2573,22 @@ contains
                         ierr = nf90_put_var ( ncid, vid, htemp, start=start2D, count=count2D )
                      end if
                   end if
+               else if ( histinfo(ifld)%sixhr .and. single_output==.false. ) then
+                  if ( endof6hr ) then
+                     if ( histinfo(ifld)%pop4d ) then
+                        start4D = (/ 1, 1, mod(k+1-istart-1,cptch)+1, 1+(k+1-istart-1)/cptch,  histset_6hr /)
+                        count4D = (/ nxhis, nyhis, 1, 1, 1 /)
+                        ierr = nf90_put_var ( ncid, vid, htemp, start=start4D, count=count4D )
+                     else if ( nlev > 1 .or. histinfo(ifld)%multilev ) then
+                        start3D = (/ 1, 1, k+1-istart, histset_6hr /)
+                        count3D = (/ nxhis, nyhis, 1, 1 /)
+                        ierr = nf90_put_var ( ncid, vid, htemp, start=start3D, count=count3D )
+                     else
+                        start2D = (/ 1, 1, histset_6hr /)
+                        count2D = (/ nxhis, nyhis, 1 /)
+                        ierr = nf90_put_var ( ncid, vid, htemp, start=start2D, count=count2D )
+                     end if
+                  end if 
                else   
                   if ( histinfo(ifld)%pop4d ) then
                      start4D = (/ 1, 1, mod(k+1-istart-1,cptch)+1, 1+(k+1-istart-1)/cptch,  histset /)

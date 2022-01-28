@@ -1,6 +1,6 @@
 ! Conformal Cubic Atmospheric Model
     
-! Copyright 2015-2021 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+! Copyright 2015-2022 Commonwealth Scientific Industrial Research Organisation (CSIRO)
     
 ! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
 !
@@ -59,6 +59,9 @@ module work
    integer, parameter :: cordex_levels=17
    integer, dimension(cordex_levels), parameter :: cordex_level_data = &
        (/ 1000, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100, 70, 50, 30, 20, 10 /)
+   integer, parameter :: height_levels = 6
+   integer, dimension(height_levels) :: height_level_data = &
+       (/ 50, 100, 150, 200, 250, 300 /)
    
    real, allocatable, dimension(:), public, save :: hlon, hlat
    integer, public, save :: nxhis, nyhis
@@ -99,6 +102,7 @@ module work
       logical :: fixed ! Does it have time dimension
       integer :: vid   ! netcdf vid
       logical :: daily ! Is it only valid once per day?
+      logical :: sixhr ! Is it only valid every 6 hours?
       logical :: vector ! Is it a vector component?
       logical :: xcmpnt ! Is it x-component of a vector?
       logical :: water  ! Is it a multi-level ocean variable
@@ -302,11 +306,11 @@ contains
       integer :: rad_day
       real, dimension(pil,pjl*pnpan*lproc) :: udir, dtmp, ctmp
       real, dimension(pil,pjl*pnpan*lproc) :: uten, uastmp, vastmp
-      real, dimension(pil,pjl*pnpan*lproc) :: ua150tmp, va150tmp, ua250tmp, va250tmp
       real, dimension(pil,pjl*pnpan*lproc) :: mrso, mrfso
       real, dimension(pil,pjl*pnpan*lproc) :: sndw, dpsdt
       real, dimension(pil,pjl*pnpan*lproc) :: tauxtmp, tauytmp
       real, dimension(pil,pjl*pnpan*lproc) :: rgn, rgd, sgn, sgd
+      real, dimension(pil,pjl*pnpan*lproc) :: rgncs, rgdcs, sgncs, sgdcs
       real, dimension(pil,pjl*pnpan*lproc) :: wind_norm
       real, dimension(pil,pjl*pnpan*lproc) :: u10max, v10max 
       real, dimension(pil,pjl*pnpan*lproc) :: tscrn, qgscrn
@@ -413,8 +417,9 @@ contains
             cycle ! Otherwise will match the following if test as well
          end if
 
-        ! Only read these on a full day. ktau is really time in minutes
+         ! Only read these on a full day. ktau is really time in minutes
          if ( varlist(ivar)%daily .and. modulo(ktau,1440) /= 0 ) cycle
+         if ( varlist(ivar)%sixhr .and. modulo(ktau,360) /= 0 ) cycle
 
          if ( varlist(ivar)%ndims == 2 ) then
             select case ( varlist(ivar)%vname )
@@ -457,7 +462,7 @@ contains
                   call savehist ( "clt", dtmp )
                end if   
             case ( "dpsdt" )
-                if ( needfld("dpsdt") .or. needfld("w") ) then
+                if ( needfld("dpsdt") .or. needfld("w") .or. needfld("wa") ) then
                    call vread( "dpsdt", dpsdt )
                    if ( needfld("dpsdt") ) then
                       call savehist ( "dpsdt", dpsdt )
@@ -620,6 +625,20 @@ contains
                end if   
                ! This relies on surface pressure coming before the 3D variables
                if ( use_plevs ) call sitop_setup(sig, plevs(1:nplevs), psl, maxlev, minlev)
+            case ( "rgc_ave" )
+               if ( needfld("rgc_ave") .or. needfld("rluscs") ) then 
+                  call vread( "rgc_ave", rgncs )
+                  if ( needfld("rgc_ave") ) then
+                     call savehist( "rgc_ave", rgncs )
+                  end if   
+               end if   
+            case ( "rgdc_ave", "rldscs" )
+               if ( needfld("rgdc_ave") .or. needfld("rldscs") .or. needfld("rluscs") ) then 
+                  call vread( "rgdc_ave", rgdcs )
+                  if ( needfld(varlist(ivar)%vname) ) then
+                     call savehist( varlist(ivar)%vname, rgdcs )
+                  end if   
+               end if   
             case ( "rgdn_ave", "rlds" )
                if ( needfld("rgdn_ave") .or. needfld("rlds") .or. needfld("rlus") ) then 
                   call vread( "rgdn_ave", rgd )
@@ -636,10 +655,14 @@ contains
                end if   
             case ( "rlut" )
                call readsave2( varlist(ivar)%vname, input_name="rtu_ave" )
+            case ( "rlutcs" )
+               call readsave2( varlist(ivar)%vname, input_name="rtc_ave" )
             case ( "rsdt" )
                call readsave2 (varlist(ivar)%vname, input_name="sint_ave")
             case ( "rsut" )
                call readsave2 (varlist(ivar)%vname, input_name="sot_ave") 
+            case ( "rsutcs" )
+               call readsave2 (varlist(ivar)%vname, input_name="soc_ave") 
             case ( "sbl" )
                if ( needfld("sbl") ) then
                   call vread( "sbl", dtmp )  
@@ -655,6 +678,20 @@ contains
                      dtmp = dtmp*100.
                   end where   
                   call savehist( "sic", dtmp )
+               end if   
+            case ( "sgc_ave" )
+               if ( needfld("sgc_ave") .or. needfld("rsuscs") ) then 
+                  call vread( "sgc_ave", sgncs )
+                  if ( needfld("sgc_ave") ) then
+                     call savehist( "sgc_ave", sgncs )
+                  end if   
+               end if   
+            case ( "sgdc_ave", "rsdscs" )
+               if ( needfld("sgdc_ave") .or. needfld("rsdscs") .or. needfld("rsuscs") ) then 
+                  call vread( "sgdc_ave", sgdcs )
+                  if ( needfld(varlist(ivar)%vname) ) then
+                     call savehist( varlist(ivar)%vname, sgdcs )
+                  end if   
                end if   
             case ( "sgdn_ave", "rsds" )
                if ( needfld("sgdn_ave") .or. needfld("rsds") .or. needfld("rsus") ) then 
@@ -763,10 +800,6 @@ contains
                call vread( "u10max", u10max ) 
             case ( "u10max_stn" ) ! to be depreciated
                call vread( "u10max_stn", u10max_stn ) 
-            case ( "ua150" )
-                call vread( "ua150", ua150tmp )     ! only for high-frequency output
-            case ( "ua250" )
-                call vread( "ua250", ua250tmp )     ! only for high-frequency output
             case ( "uas" )
                 call vread( "uas", uastmp )         ! only for high-frequency output
             case ( "uas_stn" )
@@ -775,10 +808,6 @@ contains
                call vread( "v10max", v10max ) 
             case ( "v10max_stn" )
                call vread( "v10max_stn", v10max_stn ) 
-            case ( "va150" )
-                call vread( "va150", va150tmp )     ! only for high-frequency output
-            case ( "va250" )
-                call vread( "va250", va250tmp )     ! only for high-frequency output
             case ( "vas" )
                 call vread( "vas", vastmp )         ! only for high-frequency output
             case ( "vas_stn" )
@@ -894,6 +923,30 @@ contains
                      call osavehist( "kso", ocn_tmp )
                   end if   
                end if 
+            case ( "mrsol" )
+               if ( needfld("mrsol") ) then 
+                  ! Only in cf_compliant mode
+                  do k = 1,ksoil
+                     write(name,'(a,i1)') 'mrsol', k
+                     call vread(name,tgg(:,:,k))
+                     where ( soilt <= 0.5 ) 
+                        tgg(:,:,k) = nf90_fill_float ! water
+                     end where  
+                  end do                         
+                  call savehist("mrsol", tgg) 
+               end if
+            case ( "mrfsol" )
+               if ( needfld("mrfsol") ) then 
+                  ! Only in cf_compliant mode
+                  do k = 1,ksoil
+                     write(name,'(a,i1)') 'mrfsol', k
+                     call vread(name,tgg(:,:,k))
+                     where ( soilt <= 0.5 ) 
+                        tgg(:,:,k) = nf90_fill_float ! water
+                     end where  
+                  end do                           
+                  call savehist("mrfsol", tgg)
+               end if 
             case ( "omega" )
                if ( need3dfld("omega") ) then
                   call vread( "omega", omega )
@@ -928,14 +981,24 @@ contains
                      call vsavehist ( varlist(ivar)%vname, t )
                   end if   
                end if
-            case ( "tgg" )
-               if ( needfld("tgg") ) then 
+            case ( "tgg", "tsl" )
+               if ( needfld("tgg") .or. needfld("tsl") ) then 
                   ! Only in cf_compliant mode
                   do k = 1,ksoil
                      write(name,'(a,i1)') 'tgg', k
                      call vread(name,tgg(:,:,k))
                   end do
-                  call savehist("tgg", tgg)
+                  if ( needfld("tgg") ) then
+                     call savehist("tgg", tgg)
+                  end if
+                  if ( needfld("tsl") ) then
+                     do k = 1,ksoil
+                        where ( soilt <= 0.5 ) 
+                           tgg(:,:,k) = nf90_fill_float ! water
+                        end where  
+                     end do    
+                     call savehist("tsl", tgg) 
+                  end if
                end if   
             case ( "tkeo" )
                if ( need3dfld("tkeo") ) then
@@ -998,7 +1061,7 @@ contains
                   if ( needfld("thetao") ) then
                      call osavehist( "thetao", thetao_tmp )
                   end if   
-               end if    
+               end if   
             ! Should to u, v as above with vector flag, but this will do for now
             case ( "u", "ua" )
                if ( need3dfld(varlist(ivar)%vname) ) then
@@ -1026,12 +1089,63 @@ contains
                      end where
                   end do
                end if
+            case ( "wb" )
+               if ( needfld("wb") ) then 
+                  ! Only in cf_compliant mode
+                  do k = 1,ksoil
+                     write(name,'(a,i1)') 'wb', k
+                     call vread(name,tgg(:,:,k))
+                     where ( soilt <= 0.5 ) 
+                        tgg(:,:,k) = nf90_fill_float ! water
+                     end where                       
+                  end do
+                  call savehist("wb", tgg)
+               end if      
+            case ( "wb_ave" )
+               if ( needfld("wb_ave") ) then 
+                  ! Only in cf_compliant mode
+                  do k = 1,ksoil
+                     write(name,'(a,i1,a)') 'wb', k, '_ave'
+                     call vread(name,tgg(:,:,k))
+                     where ( soilt <= 0.5 ) 
+                        tgg(:,:,k) = nf90_fill_float ! water
+                     end where  
+                  end do
+                  call savehist("wb_ave", tgg)
+               end if                 
+            case ( "wbice" )
+               if ( needfld("wbice") ) then 
+                  ! Only in cf_compliant mode
+                  do k = 1,ksoil
+                     write(name,'(a,i1)') 'wbice', k
+                     call vread(name,tgg(:,:,k))
+                     where ( soilt <= 0.5 ) 
+                        tgg(:,:,k) = nf90_fill_float ! water
+                     end where  
+                  end do
+                  call savehist("wbice", tgg)
+               end if    
+            case ( "wbice_ave" )
+               if ( needfld("wbice_ave") ) then 
+                  ! Only in cf_compliant mode
+                  do k = 1,ksoil
+                     write(name,'(a,i1,a)') 'wbice', k, '_ave'
+                     call vread(name,tgg(:,:,k))
+                     where ( soilt <= 0.5 ) 
+                        tgg(:,:,k) = nf90_fill_float ! water
+                     end where  
+                  end do
+                  call savehist("wbice_ave", tgg)
+               end if 
             case ( "wetfrac" )
                if ( needfld("wetfrac") ) then 
                   ! Only in cf_compliant mode
                   do k = 1,ksoil
                      write(name,'(a,i1)') 'wetfrac', k
                      call vread(name,tgg(:,:,k))
+                     where ( soilt <= 0.5 ) 
+                        tgg(:,:,k) = nf90_fill_float ! water
+                     end where  
                   end do
                   call savehist("wetfrac", tgg)
                end if   
@@ -1107,13 +1221,39 @@ contains
       end if
 
       if ( needfld("rlus") ) then
-         dtmp = rgd + rgn ! rgn +ve is up
+         where ( rgd /= nf90_fill_float ) 
+            dtmp = rgd + rgn ! rgn +ve is up
+         elsewhere
+            dtmp = nf90_fill_float 
+         end where    
          call savehist( "rlus", dtmp )
+      end if
+      
+      if ( needfld("rluscs") ) then
+         where ( rgdcs /= nf90_fill_float ) 
+            dtmp = rgdcs + rgncs ! rgn +ve is up
+         elsewhere
+            dtmp = nf90_fill_float 
+         end where    
+         call savehist( "rluscs", dtmp )
       end if
 
       if ( needfld("rsus") ) then
-         dtmp = sgd - sgn ! sgn +ve is down
+         where ( sgd /= nf90_fill_float ) 
+            dtmp = sgd - sgn ! sgn +ve is down
+         elsewhere
+            dtmp = nf90_fill_float 
+         end where    
          call savehist( "rsus", dtmp )
+      end if
+      
+      if ( needfld("rsuscs") ) then
+         where ( sgdcs /= nf90_fill_float ) 
+            dtmp = sgdcs - sgncs ! sgn +ve is down
+         elsewhere
+            dtmp = nf90_fill_float 
+         end where    
+         call savehist( "rsuscs", dtmp )
       end if
       
       if ( needfld("snc") ) then
@@ -1128,6 +1268,8 @@ contains
       if ( needfld("snw") ) then
          where ( sndw /= nf90_fill_float )  
             dtmp = sndw*10. ! change from equiv water to equiv snow
+         elsewhere
+            dtmp = nf90_fill_float 
          end where   
          call savehist( "snw", dtmp )
       end if   
@@ -1277,6 +1419,14 @@ contains
                               ( omega(:,:,k) - sig(k)*dpsdt/864. ) ! Convert dpsdt to Pa/s
             end do
             call vsavehist ( "w", tmp3d )
+         end if
+
+         if ( needfld("wa") ) then
+            do k = 1,kk
+               tmp3d(:,:,k) = -(rdry/grav)*t(:,:,k)/(sig(k)*100.*psl) * &
+                              ( omega(:,:,k) - sig(k)*dpsdt/864. ) ! Convert dpsdt to Pa/s
+            end do
+            call vsavehist ( "wa", tmp3d )
          end if
          
       end if
@@ -1429,68 +1579,7 @@ contains
                call savehist( "u10_stn", dtmp )
             end if
          end if
-         if ( needfld("ua150")     .or. needfld("va150")     .or. &
-              needfld("u150")     .or. needfld("d150") ) then
-            call fix_winds( ua150tmp, va150tmp )
-            if ( needfld("ua150") ) then
-               call savehist( "ua150", ua150tmp )
-            end if
-            if ( needfld("va150") ) then
-               call savehist( "va150", va150tmp )
-            end if  
-            if ( needfld("u150") ) then
-               where ( ua150tmp/=nf90_fill_float .and. &
-                       va150tmp/=nf90_fill_float )
-                  dtmp = sqrt( ua150tmp**2 + va150tmp**2 )
-               elsewhere
-                  dtmp = nf90_fill_float
-               end where  
-               call savehist( "u150", dtmp )
-            end if
-            if ( needfld("d150") ) then
-               where ( ua150tmp/=nf90_fill_float .and. &
-                       va150tmp/=nf90_fill_float )
-                  dtmp = atan2(-ua150tmp,-va150tmp)*180./3.1415927
-               elsewhere
-                  dtmp = nf90_fill_float
-               end where
-               where ( dtmp<0. .and. dtmp/=nf90_fill_float )
-                  dtmp = dtmp + 360.
-               end where
-               call savehist( "d150", dtmp )
-            end if
-         end if
-         if ( needfld("ua250")     .or. needfld("va250")     .or. &
-              needfld("u250")     .or. needfld("d250") ) then
-            call fix_winds( ua250tmp, va250tmp )
-            if ( needfld("ua250") ) then
-               call savehist( "ua250", ua250tmp )
-            end if
-            if ( needfld("va250") ) then
-               call savehist( "va250", va250tmp )
-            end if  
-            if ( needfld("u250") ) then
-               where ( ua250tmp/=nf90_fill_float .and. &
-                       va250tmp/=nf90_fill_float )
-                  dtmp = sqrt( ua250tmp**2 + va250tmp**2 )
-               elsewhere
-                  dtmp = nf90_fill_float
-               end where  
-               call savehist( "u250", dtmp )
-            end if
-            if ( needfld("d250") ) then
-               where ( ua250tmp/=nf90_fill_float .and. &
-                       va250tmp/=nf90_fill_float )
-                  dtmp = atan2(-ua250tmp,-va250tmp)*180./3.1415927
-               elsewhere
-                  dtmp = nf90_fill_float
-               end where
-               where ( dtmp<0. .and. dtmp/=nf90_fill_float )
-                  dtmp = dtmp + 360.
-               end where
-               call savehist( "d250", dtmp )
-            end if
-         end if
+              
       end if       
       
       ! Note that these are just vertical averages, not vertical integrals
@@ -1587,7 +1676,8 @@ contains
                   needfld("qfg") .or. needfld("hus") .or.                    &
                   needfld("qbot") .or. needfld("prw") .or.                   &
                   needfld("clwvi") .or. needfld("clivi") .or.                &
-                  needfld("pwc") .or. needfld("td")
+                  needfld("pwc") .or. needfld("td") .or.                     &
+                  needfld("wa")
       case ( "ta" )
          needed = needfld("ta") .or. needfld("zg") .or. needfld("rh") .or.   &
                   needfld("tbot") .or. needfld("vaveut") .or.                &
@@ -1596,7 +1686,8 @@ contains
                   needfld("qfg") .or. needfld("hus") .or.                    &
                   needfld("qbot") .or. needfld("prw") .or.                   &
                   needfld("clwvi") .or. needfld("clivi") .or.                &
-                  needfld("pwc") .or. needfld("td")
+                  needfld("pwc") .or. needfld("td") .or.                     &
+                  needfld("wa")
       case ( "mixr" )
          needed = needfld("mixr") .or. needfld("zg") .or. needfld("rh") .or. &
                   needfld("pwc") .or. needfld("qbot") .or.                   &
@@ -1635,7 +1726,7 @@ contains
       case ( "qgrg" )
          needed = needfld("qgrg")
       case ( "omega" )
-         needed = needfld("omega") .or. needfld("w")
+         needed = needfld("omega") .or. needfld("w") .or. needfld("wa")
       case ( "epso" )
          needed = needfld("epso") 
       case ( "kmo" )
@@ -1909,6 +2000,7 @@ contains
             print*, "Error - cable_cohort cannot be zero when cable_patch is greater than zero"
             stop
          end if
+         
       else
          ! older int_header method
          ! Get integer and real headers from attibutes. First check the 
@@ -2414,7 +2506,7 @@ contains
       integer, intent(out) :: nvars
       integer :: ierr, ndimensions, nvariables, ndims, ivar, int_type, xtype
       integer :: londim, latdim, levdim, olevdim, procdim, timedim, vid, ihr, ind
-      integer :: cptchdim, cchrtdim, tn_type, j, press_level
+      integer :: cptchdim, cchrtdim, tn_type, j, press_level, height_level
       integer, dimension(nf90_max_var_dims) :: dimids
       logical :: procformat, ran_type
       character(len=10) :: substr
@@ -2462,7 +2554,7 @@ contains
       !else
          ivar_start = 1
       !end if
-      do ivar=ivar_start,nvariables
+      do ivar = ivar_start,nvariables
          !if ( ivar == 0 ) then
          !   ierr = nf90_inq_varid ( ncid, "psf", vid )
          !   call check_ncerr(ierr, "Error getting vid for psf")
@@ -2539,7 +2631,7 @@ contains
             end if
          else if ( ndims == 4 .and. procformat ) then
             ! Check for soil variables
-            if ( cf_compliant .and. is_soil_var(vname) ) then
+            if ( (cf_compliant.or.cordex_compliant) .and. is_soil_var(vname) ) then
                cycle
             end if
             if ( match( dimids(1:ndims), (/ londim, latdim, procdim, timedim /) ) ) then
@@ -2554,7 +2646,7 @@ contains
             end if
          else if ( ndims == 3 .and. .not.procformat ) then
             ! Check for soil variables
-            if ( cf_compliant .and. is_soil_var(vname) ) then
+            if ( (cf_compliant.or.cordex_compliant) .and. is_soil_var(vname) ) then
                cycle
             end if
             if ( match( dimids(1:ndims), (/ londim, latdim, timedim /) ) ) then
@@ -2625,20 +2717,77 @@ contains
       end do
 
       if ( cf_compliant ) then
-         nvars = nvars + 1
-         varlist(nvars)%vname = "tgg"
-         varlist(nvars)%fixed = .false.
-         varlist(nvars)%ndims = 4
-         nvars = nvars+1
-         varlist(nvars)%vname = "wetfrac"
-         varlist(nvars)%fixed = .false.
-         varlist(nvars)%ndims = 4
+         ierr = nf90_inq_varid (ncid, "tgg1", ivar ) 
+         if ( ierr==nf90_noerr .and. ksoil>0 ) then          
+            nvars = nvars + 1
+            varlist(nvars)%vname = "tgg"
+            varlist(nvars)%fixed = .false.
+            varlist(nvars)%ndims = 4
+         end if
+         ierr = nf90_inq_varid (ncid, "wb1", ivar ) 
+         if ( ierr==nf90_noerr .and. ksoil>0 ) then         
+            nvars = nvars + 1
+            varlist(nvars)%vname = "wb"
+            varlist(nvars)%fixed = .false.
+            varlist(nvars)%ndims = 4
+         end if   
+         ierr = nf90_inq_varid (ncid, "wbice1", ivar ) 
+         if ( ierr==nf90_noerr .and. ksoil>0 ) then
+            nvars = nvars + 1
+            varlist(nvars)%vname = "wbice"
+            varlist(nvars)%fixed = .false.
+            varlist(nvars)%ndims = 4
+         end if
+         ierr = nf90_inq_varid (ncid, "wb1_ave", ivar ) 
+         if ( ierr==nf90_noerr .and. ksoil>0 ) then
+            nvars = nvars + 1
+            varlist(nvars)%vname = "wb_ave"
+            varlist(nvars)%fixed = .false.
+            varlist(nvars)%ndims = 4      
+         end if
+         ierr = nf90_inq_varid (ncid, "wbice1_ave", ivar ) 
+         if ( ierr==nf90_noerr .and. ksoil>0 ) then
+            nvars = nvars + 1
+            varlist(nvars)%vname = "wbice_ave"
+            varlist(nvars)%fixed = .false.
+            varlist(nvars)%ndims = 4
+         end if
+         ierr = nf90_inq_varid (ncid, "wetfrac1", ivar ) 
+         if ( ierr==nf90_noerr .and. ksoil>0 ) then
+            nvars = nvars + 1
+            varlist(nvars)%vname = "wetfrac"
+            varlist(nvars)%fixed = .false.
+            varlist(nvars)%ndims = 4
+         end if   
 !        Don't need to set extra parameters because there's an explicit 
 !        addfld call later.
       end if
+      if ( cordex_compliant ) then
+         ierr = nf90_inq_varid (ncid, "tgg1", ivar ) 
+         if ( ierr==nf90_noerr .and. ksoil>0 ) then
+            nvars = nvars + 1
+            varlist(nvars)%vname = "tsl"
+            varlist(nvars)%fixed = .false.
+            varlist(nvars)%ndims = 4
+         end if
+         ierr = nf90_inq_varid (ncid, "mrsol1", ivar ) 
+         if ( ierr==nf90_noerr .and. ksoil>0 ) then
+            nvars = nvars + 1
+            varlist(nvars)%vname = "mrsol"
+            varlist(nvars)%fixed = .false.
+            varlist(nvars)%ndims = 4
+         end if
+         ierr = nf90_inq_varid (ncid, "mrfsol1", ivar ) 
+         if ( ierr==nf90_noerr .and. ksoil>0 ) then
+            nvars = nvars + 1
+            varlist(nvars)%vname = "mrfsol"
+            varlist(nvars)%fixed = .false.
+            varlist(nvars)%ndims = 4
+         end if  
+      end if    
 
 
-      do ivar=1,nvars
+      do ivar = 1,nvars
          ! Check is variable is a component of a vector
          ! For now test both x-component and x-direction. Eventually
          ! only the former should be needed but older files use the
@@ -2674,7 +2823,7 @@ contains
       ! to make sure that it doesn't muck up finding the matching component
       ! Some variables use x-compt rather than x-component which makes things
       ! more complicated.
-      do ivar=1,nvars
+      do ivar = 1,nvars
          if ( varlist(ivar)%vector ) then
             if ( varlist(ivar)%xcmpnt ) then
                ind = index(varlist(ivar)%long_name,"x-comp")
@@ -2741,6 +2890,7 @@ contains
          ! and max variables and those with 3hr, 6hr .. 24hr in their long
          ! names
          varlist(ivar)%daily = .false.
+         varlist(ivar)%sixhr = .false.
          do ihr=3,24,3
             write(substr,"(i2,a)") ihr, "hr"
             if ( index(varlist(ivar)%long_name,trim(adjustl(substr))) /= 0 ) then
@@ -2764,7 +2914,8 @@ contains
               varlist(ivar)%vname == "u2max" .or.           &
               varlist(ivar)%vname == "v2max" .or.           &
               varlist(ivar)%vname == "urbantasmax" .or.     &
-              varlist(ivar)%vname == "urbantasmin" ) then
+              varlist(ivar)%vname == "urbantasmin" .or.     &
+              varlist(ivar)%vname == "wsgsmax" ) then
             varlist(ivar)%daily = .true.
          end if
          ! Also set daily if variable has a 'valid_time' attribute with the 
@@ -2773,6 +2924,7 @@ contains
          ierr = nf90_get_att(ncid, varlist(ivar)%vid, 'valid_time',valid_att)
          if ( ierr == 0 ) then
             varlist(ivar)%daily = valid_att == "daily"
+            varlist(ivar)%sixhr = valid_att == "6hr"
          end if
 
          ! Is this really simpler than a string of if tests?
@@ -2790,7 +2942,7 @@ contains
                   "climate_max20       ", "climate_alpha20     ", "climate_agdd5       ", "climate_gmd         ", &
                   "climate_dmoist_min20", "climate_dmoist_max20", "urbant              ", "u10max              ", &
                   "v10max              ", "u10max_stn          ", "v10max_stn          ", "fracice             ", &
-                  "siced               " &
+                  "siced               ", "wb?                 ", "wbice?              ", "wbice?_ave          "  &
                /)) .and. int_default /= int_none ) then
             int_type = int_nearest
          else if ( match ( varlist(ivar)%vname, (/ "t?_pop_grid_patch_id              ", "t?_pop_grid_patch_layer1_cohort_id" /)) &
@@ -2922,6 +3074,10 @@ contains
                varlist(ivar)%long_name = "Near-Surface Specific Humidity"
                xmin = 0.
                xmax = 0.06
+            else if ( varlist(ivar)%vname == "rgdc_ave" ) then
+               varlist(ivar)%vname = "rldscs"
+               varlist(ivar)%units = "W m-2"
+               varlist(ivar)%long_name = "Surface Downwelling Clear-Sky Longwave Radiation"
             else if ( varlist(ivar)%vname == "rgdn_ave" ) then
                varlist(ivar)%vname = "rlds"
                varlist(ivar)%units = "W m-2"
@@ -2955,6 +3111,10 @@ contains
                varlist(ivar)%long_name = "Total Runoff"
                xmin = 0.
                xmax = 0.013
+            else if ( varlist(ivar)%vname == "rtc_ave" ) then
+               varlist(ivar)%vname = "rlutcs"
+               varlist(ivar)%units = "W m-2"
+               varlist(ivar)%long_name = "TOA Outgoing Clear-Sky Longwave Radiation"
             else if ( varlist(ivar)%vname == "rtu_ave" ) then
                varlist(ivar)%vname = "rlut"
                varlist(ivar)%units = "W m-2"
@@ -2967,6 +3127,10 @@ contains
                varlist(ivar)%vname = "sfturf"
                varlist(ivar)%units = "%"
                varlist(ivar)%long_name = "Urban Area Fraction"
+            else if ( varlist(ivar)%vname == "sgdc_ave" ) then
+               varlist(ivar)%vname = "rsdscs"
+               varlist(ivar)%units = "W m-2"
+               varlist(ivar)%long_name = "Surface Downwelling Clear-Sky Shortwave Radiation"
             else if ( varlist(ivar)%vname == "sgdn_ave" ) then
                varlist(ivar)%vname = "rsds"
                varlist(ivar)%units = "W m-2"
@@ -2988,6 +3152,10 @@ contains
                varlist(ivar)%long_name = "Snowfall Flux"
                xmin = 0.
                xmax = 0.013
+            else if ( varlist(ivar)%vname == "soc_ave" ) then
+               varlist(ivar)%vname = "rsutcs"
+               varlist(ivar)%units = "W m-2"
+               varlist(ivar)%long_name = "TOA Outgoing Clear-Sky Shortwave Radiation"
             else if ( varlist(ivar)%vname == "sot_ave" ) then
                varlist(ivar)%vname = "rsut"
                varlist(ivar)%units = "W m-2"
@@ -3087,7 +3255,25 @@ contains
                   varlist(ivar)%long_name = "Geopotential Height"
                   varlist(ivar)%units = "m"
                end if
+               call cordex_name(cname,"wa",press_level)
+               if ( varlist(ivar)%vname == trim(cname) ) then
+                  varlist(ivar)%long_name = "Upward Air Velocity"
+                  varlist(ivar)%units = "m s-1"
+               end if               
             end do  
+            do j = 1,height_levels
+               height_level = height_level_data(j)
+               call cordex_name(cname,"ua",height_level,"m")
+               if ( varlist(ivar)%vname == trim(cname) ) then
+                  call cordex_name(varlist(ivar)%long_name,"Eastward Wind at ",height_level,"m") 
+                  varlist(ivar)%units = "m s-1"
+               end if
+               call cordex_name(cname,"va",height_level,"m")
+               if ( varlist(ivar)%vname == trim(cname) ) then
+                  call cordex_name(varlist(ivar)%long_name,"Northward Wind at ",height_level,"m")
+                  varlist(ivar)%units = "m s-1"
+               end if
+            end do
          end if
          call cc_cfproperties(varlist(ivar), std_name, cell_methods)
          if ( varlist(ivar)%fixed ) then
@@ -3119,7 +3305,7 @@ contains
                       coord_height=coord_height, cell_methods=cell_methods,  & 
                       int_type=int_type, ran_type=ran_type,                  &
                       pop2d=varlist(ivar)%pop2d, tn_type=tn_type,            &
-                      daily=varlist(ivar)%daily )
+                      daily=varlist(ivar)%daily, sixhr=varlist(ivar)%sixhr )
             end if
          else if ( varlist(ivar)%ndims == 3 ) then  
             if ( varlist(ivar)%water ) then
@@ -3127,20 +3313,21 @@ contains
                         varlist(ivar)%units, xmin, xmax, onlev, multilev=.true., &
                         std_name=std_name, water=varlist(ivar)%water,            &
                         cell_methods=cell_methods, int_type=int_type,            &
-                        ran_type=ran_type, daily=varlist(ivar)%daily )
+                        ran_type=ran_type, daily=varlist(ivar)%daily,            &
+                        sixhr=varlist(ivar)%sixhr )
             else if ( varlist(ivar)%pop3d ) then
               call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name,        &
                         varlist(ivar)%units, xmin, xmax, cptch, multilev=.true., &
                         std_name=std_name, pop3d=varlist(ivar)%pop3d,            &
                         cell_methods=cell_methods, int_type=int_type,            &
                         ran_type=ran_type, tn_type=tn_type,                      &
-                        daily=varlist(ivar)%daily )
+                        daily=varlist(ivar)%daily, sixhr=varlist(ivar)%sixhr )
             else
               call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name,       &
                         varlist(ivar)%units, xmin, xmax, nlev, multilev=.true., &
                         std_name=std_name, cell_methods=cell_methods,           &
                         int_type=int_type, ran_type=ran_type,                   &
-                        daily=varlist(ivar)%daily )
+                        daily=varlist(ivar)%daily, sixhr=varlist(ivar)%sixhr )
             end if  
          else if ( varlist(ivar)%ndims == 4 ) then  
             if ( varlist(ivar)%pop4d ) then
@@ -3148,7 +3335,8 @@ contains
                         varlist(ivar)%units, xmin, xmax, cptch*cchrt, multilev=.true., &
                         std_name=std_name, pop4d=varlist(ivar)%pop4d,                  &
                         cell_methods=cell_methods, int_type=int_type,                  &
-                        ran_type=ran_type, tn_type=tn_type, daily=varlist(ivar)%daily )
+                        ran_type=ran_type, tn_type=tn_type, daily=varlist(ivar)%daily, &
+                        sixhr=varlist(ivar)%sixhr )
             end if
          end if
       end do
@@ -3245,8 +3433,13 @@ contains
                         ran_type=.true. )
          call addfld ( "theta", "Potential temperature", "K", 150., 1200., nlev, &
                         multilev=.true., std_name="potential_temperature" )
-         call addfld ( "w", "Vertical velocity", "m s-1", -1., 1., nlev,           &
-                        multilev=.true., std_name="vertical_velocity" )
+         if ( cordex_compliant ) then
+            call addfld ( "wa", "Upward Air Velocity", "m s-1", -1., 1., nlev,   &
+                           multilev=.true., std_name="upward_air_velocity" )
+         else
+            call addfld ( "w", "Vertical velocity", "m s-1", -1., 1., nlev,      &
+                           multilev=.true., std_name="vertical_velocity" )
+         end if
          call addfld ( "td", "Dew point temperature", "K", 100.0, 400.0, nlev,   &
                         multilev=.true., ran_type=.true. ) 
          
@@ -3266,10 +3459,28 @@ contains
 
          if ( cf_compliant ) then
             ! Define as an extra field for now
-            call addfld('tgg','Soil temperature','K',100.,350.,ksoil,soil=.true.)
+            ierr = nf90_inq_varid (ncid, "tgg1", ivar ) 
+            if ( ierr==nf90_noerr .and. ksoil>0 ) then             
+               call addfld('tgg','Soil temperature','K',100.,350.,ksoil,soil=.true.)
+            end if    
             ! Should have std_name = volume_fraction_of_water_in_soil, units=1
             ! Mentioned in Gregory email 2005-12-01. In official list?
-            !call addfld('wb','Soil moisture','frac',0.,1.,ksoil,soil=.true.)
+            ierr = nf90_inq_varid (ncid, "wb1", ivar ) 
+            if ( ierr==nf90_noerr .and. ksoil>0 ) then            
+               call addfld('wb','Soil moisture','frac',0.,1.,ksoil,soil=.true.)
+            end if
+            ierr = nf90_inq_varid (ncid, "wb1_ave", ivar ) 
+            if ( ierr==nf90_noerr .and. ksoil>0 ) then
+               call addfld('wb_ave','Avg soil moisture','frac',0.,1.,ksoil,soil=.true.)
+            end if
+            ierr = nf90_inq_varid (ncid, "wbice1", ivar ) 
+            if ( ierr==nf90_noerr .and. ksoil>0 ) then
+               call addfld('wbice','Soil ice','frac',0.,1.,ksoil,soil=.true.)
+            end if
+            ierr = nf90_inq_varid (ncid, "wbice1_ave", ivar ) 
+            if ( ierr==nf90_noerr .and. ksoil>0 ) then
+               call addfld('wbice_ave','Avg soil ice','frac',0.,1.,ksoil,soil=.true.)
+            end if   
          end if
       
          if ( int_default == int_tapm ) then
@@ -3289,7 +3500,7 @@ contains
       else
          ! high-frequency output
          ierr = nf90_inq_varid (ncid, "soilt", ivar )
-         if ( ierr==nf90_noerr ) then
+         if ( ierr == nf90_noerr ) then
             if ( cordex_compliant ) then
                if ( int_type /= int_none ) then
                   call addfld ( "sftlf", "Land-sea mask", "%",  0.0, 100.0, 1, &
@@ -3302,8 +3513,21 @@ contains
                end if
                call addfld ( "sfcWindmax", "Maximum 10m wind speed", "m s-1", 0.0, 200.0, 1, std_name="wind_speed", &
                              ran_type=.true., daily=.true. )
-               call addfld ( "snc",  "Snow area fraction", "%", 0., 6.5, 1, std_name="surface_snow_area_fraction" )
-               call addfld ( "snw",  "Surface Snow Amount", "kg m-2", 0., 6.5, 1, std_name="surface_snow_amount" ) 
+               ierr = nf90_inq_varid (ncid, "snd", ivar )
+               if ( ierr == nf90_noerr ) then
+                  ierr = nf90_get_att(ncid, ivar, 'valid_time',valid_att)
+                  if ( ierr==nf90_noerr .and. valid_att=="6hr" ) then
+                     call addfld ( "snc",  "Snow area fraction", "%", 0., 6.5, 1, &
+                                   std_name="surface_snow_area_fraction", sixhr=.true. )
+                     call addfld ( "snw",  "Surface Snow Amount", "kg m-2", 0., 6.5, 1, &
+                                   std_name="surface_snow_amount", sixhr=.true. ) 
+                  else
+                     call addfld ( "snc",  "Snow area fraction", "%", 0., 6.5, 1, &
+                                   std_name="surface_snow_area_fraction" )
+                     call addfld ( "snw",  "Surface Snow Amount", "kg m-2", 0., 6.5, 1, &
+                                   std_name="surface_snow_amount" ) 
+                  end if    
+               end if   
                call addfld ( "sftlaf", "Lake Area Fraction", "%", 0.0, 100.0, 1, ave_type="fixed", &
                              std_name="lake_area_fraction" )
             else
@@ -3325,13 +3549,6 @@ contains
                call addfld ( "ps", "Surface Air Pressure", "hPa", 0., 1200., 1, std_name="surface_air_pressure", ran_type=.true. )
             end if
          end if
-         ierr = nf90_inq_varid (ncid, "ua150", ivar )
-         if ( ierr==nf90_noerr ) then
-           call addfld ( "u150", "150m wind speed", "m s-1", 0., 100.0, 1, std_name="wind_speed", ran_type=.false. )
-           call addfld ( "d150", "150m wind direction", "deg", 0., 360.0, 1, std_name="wind_speed", ran_type=.false. )
-           call addfld ( "u250", "250m wind speed", "m s-1", 0., 100.0, 1, std_name="wind_speed", ran_type=.false. )
-           call addfld ( "d250", "250m wind direction", "deg", 0., 360.0, 1, std_name="wind_speed", ran_type=.false. )
-         end if    
          ierr = nf90_inq_varid (ncid, "sgn_ave", ivar )
          if ( ierr==nf90_noerr ) then
             call addfld ( "rlus", "Surface Upwelling Longwave Radiation", "W m-2", -1000., 1000., 1, &
@@ -3339,13 +3556,36 @@ contains
             call addfld ( "rsus", "Surface Upwelling Shortwave Radiation", "W m-2", -1000., 1000., 1, &
                           std_name="surface_upwelling_shortwave_flux_in_air" ) 
          end if
+         ierr = nf90_inq_varid (ncid, "sgc_ave", ivar )
+         if ( ierr==nf90_noerr ) then
+            call addfld ( "rluscs", "Surface Upwelling Clear-Sky Longwave Radiation", "W m-2", -1000., 1000., 1, &
+                          std_name="surface_upwelling_longwave_flux_in_air_assuming_clear_sky", daily=.true. )
+            call addfld ( "rsuscs", "Surface Upwelling Clear-Sky Shortwave Radiation", "W m-2", -1000., 1000., 1, &
+                          std_name="surface_upwelling_shortwave_flux_in_air_assuming_clear_sky", daily=.true. ) 
+         end if
          if ( cordex_compliant ) then    
             call addfld ( "sfcWind", "Near-Surface Wind Speed", "m s-1", 0., 100.0, 1, std_name="wind_speed", ran_type=.true. )  
          else 
             call addfld ( "u10", "10m wind speed", "m s-1", 0., 100.0, 1, std_name="wind_speed", ran_type=.true. ) 
          end if   
          call addfld ( "d10", "10m wind direction", "deg", 0.0, 360.0, 1, ran_type=.true. )
-      end if
+         
+         if ( cordex_compliant ) then
+            ierr = nf90_inq_varid (ncid, "tgg1", ivar ) 
+            if ( ierr==nf90_noerr .and. ksoil>0 ) then    
+               call addfld('tsl','Temperature of Soil','K',100.,350.,ksoil,soil=.true.) 
+            end if
+            ierr = nf90_inq_varid (ncid, "mrsol1", ivar ) 
+            if ( ierr==nf90_noerr .and. ksoil>0 ) then
+               call addfld('mrsol','Total Water Content of Soil Layer','kg m-2',0.,1.,ksoil,soil=.true.) 
+            end if    
+            ierr = nf90_inq_varid (ncid, "mrfsol1", ivar ) 
+            if ( ierr==nf90_noerr .and. ksoil>0 ) then
+               call addfld('mrfsol','Frozen Water Content of Soil Layer','kg m-2',0.,1.,ksoil,soil=.true.)
+            end if 
+         end if
+         
+      end if ! kk>1 ..else..
       
       if ( ok > 1 ) then
          call addfld( "uos", "x-component surface current", "m s-1", -100., 100., 1 )
@@ -3614,7 +3854,7 @@ contains
    subroutine cc_cfproperties(vinfo, stdname, cell_methods)
       use history, only : cf_compliant
       type(input_var), intent(in) :: vinfo
-      integer :: j, press_level
+      integer :: j, press_level, height_level
       character(len=80), intent(out) :: stdname
       character(len=80), intent(out) :: cell_methods
       character(len=60) :: vname, cname
@@ -3634,7 +3874,9 @@ contains
          stdname = "surface_upward_heat_flux_in_air"
          cell_methods = "time: mean"
       case ("areacella")
-         stdname = "cell_area" 
+         stdname = "cell_area"
+      case ("CAPE")   
+         stdname = "atmosphere_convective_available_potential_energy_wrt_surface" 
       case ("cape_ave")
          stdname = "atmosphere_convective_available_potential_energy"
          cell_methods = "time: mean"
@@ -3643,6 +3885,8 @@ contains
          cell_methods = "time: maximum"
       case ("cbas_ave")
          stdname = "air_pressure_at_cloud_base"
+      case ("CIN")
+         stdname = "atmosphere_convective_inhibition_wrt_surface" 
       case ("cld")
          stdname = "cloud_area_fraction"
       case ("clh")
@@ -3670,6 +3914,8 @@ contains
       case ("dni")
          stdname = "surface_downwelling_shortwave_flux_in_air"
          cell_methods = "time: mean"
+      case ("dtb")
+         stdname = "???" 
       case ("eg")
          stdname = "surface_upward_latent_heat_flux"
          cell_methods = "time: mean"
@@ -3697,6 +3943,8 @@ contains
          stdname = "specific_humidity"
       case ("hurs")
          stdname = "relative_humidity" 
+      case ("LI")
+         stdname = "temperature_difference_between_ambient_air_and_air_lifted_adiabatically_from_the_surface"
       case ("mixr")
          stdname = "humidity_mixing_ratio"
       case ("mrro")
@@ -3704,10 +3952,18 @@ contains
          cell_methods = "time: mean"
       case ("mrso")
          stdname = "soil_moisture_content" 
+      case ("mrsol")
+         stdname = "soil_moisture_content" 
+      case ("mrsos")
+         stdname = "soil_moisture_content" 
       case ("mrsofc")
          stdname = "soil_moisture_content_at_field_capacity" 
       case ("mrfso")
          stdname = "soil_frozen_water_content" 
+      case ("mrfsol")
+         stdname = "mass_content_of_water_in_soil_layer" 
+      case ("mrfsos")
+         stdname = "mass_content_of_water_in_soil_layer" 
       case ("mrros")
          stdname = "surface_runoff_flux" 
          cell_methods = "time: mean"
@@ -3752,11 +4008,20 @@ contains
       case ("rlds")
          stdname = "surface_downwelling_longwave_flux_in_air"
          cell_methods = "time: mean"
+      case ("rldscs")
+         stdname = "surface_downwelling_longwave_flux_in_air_assuming_clear_sky"
+         cell_methods = "time: mean"
       case ("rlus")
          stdname = "surface_upwelling_longwave_flux_in_air"
          cell_methods = "time: mean"
+      case ("rluscs")
+         stdname = "surface_upwelling_longwave_flux_in_air_assuming_clear_sky"
+         cell_methods = "time: mean"
       case ("rlut")
          stdname = "toa_outgoing_longwave_flux"
+         cell_methods = "time: mean"
+      case ("rlutcs")
+         stdname = "toa_outgoing_longwave_flux_assuming_clear_sky"
          cell_methods = "time: mean"
       case ("rnc")
          stdname = "convective_precipitation_flux"
@@ -3772,14 +4037,26 @@ contains
       case ("rsds")
          stdname = "surface_downwelling_shortwave_flux_in_air"
          cell_methods = "time: mean"
+      case ("rsdscs")
+         stdname = "surface_downwelling_shortwave_flux_in_air_assuming_clear_sky"
+         cell_methods = "time: mean"
+      case ("rsdsdir")
+         stdname = "surface_direct_downwelling_shortwave_flux_in_air"
+         cell_methods = "time: mean"
       case ("rsdt")
          stdname = "toa_incoming_shortwave_flux"
          cell_methods = "time: mean"
       case ("rsus")
          stdname = "surface_upwelling_shortwave_flux_in_air"
          cell_methods = "time: mean"         
+      case ("rsuscs")
+         stdname = "surface_upwelling_shortwave_flux_in_air_assuming_clear_sky"
+         cell_methods = "time: mean"         
       case ("rsut")
          stdname = "toa_outgoing_shortwave_flux"
+         cell_methods = "time: mean"
+      case ("rsutcs")
+         stdname = "toa_outgoing_shortwave_flux_assuming_clear_sky"
          cell_methods = "time: mean"
       case ("runoff")
          stdname = "surface_runoff_flux"
@@ -3792,6 +4069,10 @@ contains
          stdname = "land_area_fraction" 
       case ("sftgif")
          stdname = "land_ice_area_fraction" 
+      case ("sftlaf")
+         stdname = "lake_area_fraction"         
+      case ("sfturf")
+         stdname = "urban_area_fraction"
       case ("sgdn_ave")
          stdname = "surface_downwelling_shortwave_flux_in_air"
       case ("sgn_ave")
@@ -3806,10 +4087,6 @@ contains
          stdname = "area_fraction"
       case ("sint_ave")
          stdname = "toa_incoming_shortwave_flux"
-      case ("sftlaf")
-         stdname = "lake_area_fraction"         
-      case ("sfturf")
-         stdname = "urban_area_fraction"
       case ("snc")
          stdname = "surface_snow_area_fraction"
       case ("snd")
@@ -3826,7 +4103,6 @@ contains
          stdname = "sea_surface_salinity"
       case ("sund")
          stdname = "duration_of_sunshine"
-         cell_methods = "time: mean"
       case ("ta")
         stdname = "air_temperature"  
       case ("tas")
@@ -3859,6 +4135,8 @@ contains
          stdname = "sea_surface_temperature" 
       case ("ts")
          stdname = "surface_temperature" 
+      case ("tsl")
+         stdname = "soil_temperature" 
       case ("tscr_ave")
          stdname = "air_temperature" 
          cell_methods = "time: mean"
@@ -3876,8 +4154,6 @@ contains
          stdname = "wind_speed"
       case ("ua")
          stdname = "eastward_wind"
-      case ("ua100m")
-         stdname = "eastward_wind" 
       case ("uas")
          stdname = "eastward_wind"
       case ("uo")
@@ -3890,16 +4166,18 @@ contains
          stdname = "northward_wind"
       case ("va")
          stdname = "northward_wind"
-      case ("va100m")
-         stdname = "northward_wind" 
       case ("vas")
          stdname = "northward_wind" 
       case ("vo")
          stdname = "northward_sea_water_velocity" 
       case ("vos")
          stdname = "northward_sea_water_velocity"
+      case ("wsgsmax")
+         stdname = "wind_speed_of_gust"
+         cell_methods = "time: maximum"
       case ("z0")
-         stdname = "surface_roughness_length"          
+         stdname = "surface_roughness_length"   
+         cell_methods = "time: point"
       case ("zg")
          stdname = "geopotential_height"
       case ("zmla")
@@ -3931,6 +4209,21 @@ contains
          if ( vname == trim(cname) ) then 
             stdname = "geopotential_height" 
          end if  
+         call cordex_name(cname,"wa",press_level)
+         if ( vname == trim(cname) ) then 
+            stdname = "upward_air_velocity" 
+         end if  
+      end do
+      do j = 1,height_levels
+         height_level = height_level_data(j)
+         call cordex_name(cname,"ua",height_level,"m")
+         if ( vname == trim(cname) ) then 
+            stdname = "eastward_wind" 
+         end if    
+         call cordex_name(cname,"va",height_level,"m")
+         if ( vname == trim(cname) ) then 
+            stdname = "northward_wind" 
+         end if    
       end do
 
       if ( vinfo%daily ) then
@@ -3946,25 +4239,23 @@ contains
 
       is_soil_var = .false.
       do k = 1,ksoil
+         write(tmpname,'(a,i1)') 'mrsol', k
+         if ( vname == tmpname ) is_soil_var = .true.
+         write(tmpname,'(a,i1)') 'mrfsol', k
+         if ( vname == tmpname ) is_soil_var = .true.
          write(tmpname,'(a,i1)') 'tgg', k
-         if ( vname == tmpname ) then
-            is_soil_var = .true.
-            return
-         end if
-      end do
-      !do k=1,ksoil
-      !   write(tmpname,'(a,i1)') 'wb', k
-      !   if ( vname == tmpname ) then
-      !      is_soil_var = .true.
-      !      return
-      !   end if
-      !end do
-      do k = 1,ksoil
+         if ( vname == tmpname ) is_soil_var = .true.
+         write(tmpname,'(a,i1)') 'wb', k
+         if ( vname == tmpname ) is_soil_var = .true.
+         write(tmpname,'(a,i1)') 'wbice', k
+         if ( vname == tmpname ) is_soil_var = .true.
+         write(tmpname,'(a,i1,a)') 'wb', k,'_ave'
+         if ( vname == tmpname ) is_soil_var = .true.
+         write(tmpname,'(a,i1,a)') 'wbice', k,'_ave'
+         if ( vname == tmpname ) is_soil_var = .true.
          write(tmpname,'(a,i1)') 'wetfrac', k
-         if ( vname == tmpname ) then
-            is_soil_var = .true.
-            return
-         end if
+         if ( vname == tmpname ) is_soil_var = .true.
+         if ( is_soil_var ) return
       end do
    end function is_soil_var
 
@@ -4981,6 +5272,8 @@ contains
          write(lname,'(A,I3.3,A)') trim(stringa),press_level,trim(stringb)  
       else if ( press_level >= 10 ) then
          write(lname,'(A,I2.2,A)') trim(stringa),press_level,trim(stringb)  
+      else if ( press_level >= 1 ) then
+         write(lname,'(A,I1.1,A)') trim(stringa),press_level,trim(stringb)  
       else
          write(6,*) "ERROR: Unexpected output pressure level in cordex_name"
          stop
@@ -4992,6 +5285,8 @@ contains
          write(lname,'(A,I3.3)') trim(stringa),press_level
       else if ( press_level >= 10 ) then
          write(lname,'(A,I2.2)') trim(stringa),press_level
+      else if ( press_level >= 1 ) then
+         write(lname,'(A,I1.1)') trim(stringa),press_level
       else
          write(6,*) "ERROR: Unexpected output pressure level in cordex_name"
          stop
