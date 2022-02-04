@@ -1,6 +1,6 @@
 ! Conformal Cubic Atmospheric Model
     
-! Copyright 2015-2021 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+! Copyright 2015-2022 Commonwealth Scientific Industrial Research Organisation (CSIRO)
     
 ! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
 !
@@ -98,7 +98,7 @@ program cc2hist
    integer :: veg_int
    real :: time_prev = 0.
    integer :: natts, catts, ival, xtype, attlen, i
-   real :: rval
+   real :: rval, dtime
    character(len=80) :: cval, attname
 
    
@@ -572,7 +572,7 @@ program cc2hist
    end if
 
 !  needfld calls are only valid after openhist
-   call final_init(varlist,nvars)
+   call final_init( varlist, nvars )
 
    if ( needfld("zg") .or. use_meters ) then
       call initheight( kl, sig )
@@ -587,6 +587,8 @@ program cc2hist
       write(6,*) "ERROR: ktc must not equal zero"
       stop
    end if
+   
+   call getdtime( dtime, ktc )
    
    call log_on()
    call START_LOG(timeloop_begin)
@@ -695,10 +697,10 @@ program cc2hist
          ! Should this be the history file time increment or the increment
          ! set for cc2hist?
          time_bnds = (/time_prev,time/)
-         call writehist ( ktau, interp=ints, time=time, time_bnds=time_bnds )
+         call writehist ( ktau, interp=ints, time=time, time_bnds=time_bnds, dtime=dtime )
          time_prev = time
       else
-         call writehist ( ktau, interp=ints, time=time)
+         call writehist ( ktau, interp=ints, time=time, dtime=dtime )
       end if
 
    end do timeloop
@@ -706,7 +708,7 @@ program cc2hist
    call END_LOG(timeloop_end)
    call log_off()
 
-   call writehist(ktau, interp=ints, time=time, endofrun=.true. )
+   call writehist(ktau, interp=ints, time=time, dtime=dtime, endofrun=.true. )
    call closehist
    call paraclose
 

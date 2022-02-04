@@ -199,6 +199,8 @@ module history
       logical            :: daily
       ! for 6hr data
       logical            :: sixhr
+      ! instantaneous
+      logical            :: instant
    end type hinfo
 
 !  For adding extra global attributes
@@ -243,6 +245,7 @@ module history
 !   netCDF file ID of history file
    integer, dimension(:), allocatable, save :: histid
    logical, dimension(:), allocatable, save :: histday, hist6hr, histfix
+   logical, dimension(:), allocatable, save :: histinst
    type(dimarray), dimension(:), allocatable, save :: histdimvars
 
 !  Total number of fields defined (not necessarily used).
@@ -473,7 +476,7 @@ contains
                      nlevels, amip_name, ave_type, std, output_scale, &
                      int_type, multilev, std_name, soil, water,       &
                      pop2d, pop3d, pop4d, coord_height, cell_methods, &
-                     ran_type, tn_type, daily, sixhr )
+                     ran_type, tn_type, daily, sixhr, instant )
 !
 !     Add a field to the master list of fields that may be saved.
 !
@@ -501,6 +504,7 @@ contains
       integer, intent(in), optional   :: tn_type
       logical, intent(in), optional   :: daily
       logical, intent(in), optional   :: sixhr
+      logical, intent(in), optional   :: instant
 
 !     Local variables corresponding to the optional arguments
       integer :: atype, ltn
@@ -652,6 +656,11 @@ contains
       else
          histinfo(totflds)%sixhr = .false.
       end if      
+      if ( present(instant) ) then
+         histinfo(totflds)%instant = instant
+      else
+         histinfo(totflds)%instant = .true.
+      end if
 
    end subroutine addfld
    
@@ -927,13 +936,15 @@ contains
          
       if ( single_output ) then
          if ( myid == 0 ) then 
-            allocate( histid(1), histday(1), hist6hr(1), histfix(1), histdimvars(1) ) 
+            allocate( histid(1), histday(1), hist6hr(1), histfix(1), histdimvars(1) )
+            allocate( histinst(1) )
             call create_ncfile ( filename, nxhis, nyhis, size(sig), ol, cptch, cchrt, multilev, &
                  use_plevs, use_meters, use_depth, use_hyblevs, basetime,                       &
                  coord_heights(1:ncoords), ncid, dims, dimvars, source, extra_atts, calendar,   &
                  nsoil, zsoil, osig_found )
             histid(1) = ncid
             histday(1) = .false.
+            histinst(1) = .false.
             hist6hr(1) = .false.
             histfix(1) = .false.
             histdimvars(1) = dimvars
@@ -944,6 +955,7 @@ contains
             end do   
          else  
             allocate( histid(0), histday(0), hist6hr(0), histfix(0), histdimvars(0) ) 
+            allocate( histinst(0) )
          end if  
       else
          ! count number of output variables 
@@ -977,6 +989,7 @@ contains
 #endif   
          ! create output files
          allocate( histid(i), histday(i), hist6hr(i), histfix(i), histdimvars(i) )
+         allocate( histinst(i) )
          i = 0
          do ifld = 1,totflds
             if ( histinfo(ifld)%used .and. histinfo(ifld)%procid==myid ) then 
@@ -995,6 +1008,7 @@ contains
                end if
                histid(i) = ncid
                histday(i) = histinfo(ifld)%daily
+               histinst(i) = histinfo(ifld)%instant
                hist6hr(i) = histinfo(ifld)%sixhr
                histfix(i) = histinfo(ifld)%ave_type == hist_fixed
                histdimvars(i) = dimvars
@@ -1851,6 +1865,7 @@ contains
          call check_ncerr(ierr,"Error closing history file")
       end do
       deallocate( histid, histday, hist6hr, histfix, histdimvars )
+      deallocate( histinst )
       
       call END_LOG(closehist_end)
       
@@ -2024,7 +2039,8 @@ contains
    end subroutine savehist_work
 
 !-------------------------------------------------------------------
-   subroutine writehist ( istep, endofrun, year, month, interp, time, time_bnds )
+   subroutine writehist ( istep, endofrun, year, month, interp, time, time_bnds, &
+                          dtime )
 
       use mpidata_m
       use newmpar_m, only : cptch, cchrt
@@ -2038,7 +2054,7 @@ contains
       integer, intent(in) :: istep
       logical, intent(in), optional :: endofrun
       integer, intent(in), optional :: year, month !  For old format files
-      real, intent(in), optional :: time
+      real, intent(in), optional :: time, dtime
       real, dimension(2), intent(in), optional :: time_bnds
       interface
          subroutine interp ( a, b, flag )
@@ -2057,7 +2073,7 @@ contains
       integer :: istart, iend
       integer :: ave_type, nlev, count, ncid
       integer :: k
-      real :: umin, umax, addoff, sf
+      real :: umin, umax, addoff, sf, timeout
 !     Temporary for interpolated output
       integer, dimension(:), allocatable, save :: k_indx
       real, dimension ( nxhis, nyhis ) :: htemp
@@ -2160,15 +2176,25 @@ contains
             if ( endofday ) then
                if ( present(time) ) then
                   if ( ihtype == hist_ave) then
+                     timeout = avetime/timecount
+                     if ( cordex_compliant .and. .not.histinst(i) ) then
+                        timeout = avetime/timecount - 720. 
+                     end if   
                      ierr = nf90_put_var ( ncid, vid,   &
-                          avetime/timecount, start=(/histset_daily/) )
+                          timeout, start=(/histset_daily/) )
                   else
-                     ierr = nf90_put_var ( ncid, vid, time, start=(/histset_daily/))
+                     timeout = time 
+                     if ( cordex_compliant .and. .not.histinst(i) ) then
+                        timeout = time - 720. 
+                     end if   
+                     ierr = nf90_put_var ( ncid, vid, timeout, start=(/histset_daily/))
                   end if
                else
-                  ierr = nf90_put_var ( ncid, vid, &
-                                        real(histset*hfreq), &
-                                        start=(/histset_daily/) )
+                  timeout = real(histset*hfreq)
+                  if ( cordex_compliant .and. .not.histinst(i) ) then
+                     timeout = time - 720. 
+                  end if   
+                  ierr = nf90_put_var ( ncid, vid, timeout, start=(/histset_daily/) )
                end if
                call check_ncerr(ierr, "Error writing time")
                if ( cf_compliant .and. present(time_bnds) ) then
@@ -2189,14 +2215,25 @@ contains
             if ( endof6hr ) then
                if ( present(time) ) then
                   if ( ihtype == hist_ave) then
+                     timeout = avetime/timecount
+                     if ( cordex_compliant .and. .not.histinst(i) ) then
+                        timeout = avetime/timecount - 180.
+                     end if
                      ierr = nf90_put_var ( ncid, vid,   &
-                          avetime/timecount, start=(/histset_6hr/) )
+                          timeout, start=(/histset_6hr/) )
                   else
+                     timeout = time
+                     if ( cordex_compliant .and. .not.histinst(i) ) then
+                        timeout = time - 180.
+                     end if
                      ierr = nf90_put_var ( ncid, vid, time, start=(/histset_6hr/))
                   end if
                else
-                  ierr = nf90_put_var ( ncid, vid, &
-                                        real(histset*hfreq), &
+                  timeout = real(histset*hfreq) 
+                  if ( cordex_compliant .and. .not.histinst(i) ) then
+                     timeout = time - 180.
+                  end if
+                  ierr = nf90_put_var ( ncid, vid, timeout, &
                                         start=(/histset_6hr/) )
                end if
                call check_ncerr(ierr, "Error writing time")
@@ -2217,14 +2254,25 @@ contains
             call check_ncerr(ierr, "Error getting time id")
             if ( present(time) ) then
                if ( ihtype == hist_ave) then
+                  timeout = avetime/timecount
+                  if ( cordex_compliant .and. histinst(i) .and. present(dtime) ) then
+                     timeout = avetime/timecount - 0.5*dtime 
+                  end if
                   ierr = nf90_put_var ( ncid, vid,   &
-                       avetime/timecount, start=(/histset/) )
+                       timeout, start=(/histset/) )
                else
-                  ierr = nf90_put_var ( ncid, vid, time, start=(/histset/))
+                  timeout = time
+                  if ( cordex_compliant .and. histinst(i) .and. present(dtime) ) then
+                     timeout = time - 0.5*dtime 
+                  end if
+                  ierr = nf90_put_var ( ncid, vid, timeout, start=(/histset/))
                end if
             else
-               ierr = nf90_put_var ( ncid, vid, &
-                                     real(histset*hfreq), &
+               timeout = real(histset*hfreq)
+               if ( cordex_compliant .and. histinst(i) .and. present(dtime) ) then
+                  timeout = real(histset*hfreq) - 0.5*dtime 
+               end if
+               ierr = nf90_put_var ( ncid, vid, timeout, &
                                      start=(/histset/) )
             end if
             call check_ncerr(ierr, "Error writing time")

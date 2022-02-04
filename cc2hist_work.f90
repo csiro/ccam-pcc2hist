@@ -103,6 +103,7 @@ module work
       integer :: vid   ! netcdf vid
       logical :: daily ! Is it only valid once per day?
       logical :: sixhr ! Is it only valid every 6 hours?
+      logical :: instant ! Is it instantaneous?
       logical :: vector ! Is it a vector component?
       logical :: xcmpnt ! Is it x-component of a vector?
       logical :: water  ! Is it a multi-level ocean variable
@@ -237,6 +238,28 @@ contains
       call END_LOG(getdate_end)
 
    end subroutine getdate
+   
+   subroutine getdtime(dtime,ktc)
+
+      integer, intent(in) :: ktc
+      integer :: ierr, vid
+      real, intent(out) :: dtime
+      character(len=80) :: datestring
+   
+      ierr = nf90_inq_varid (ncid, "time", vid )
+      ierr = nf90_get_att(ncid, vid, "units", datestring )
+
+      if ( datestring(1:7)=="seconds" ) then
+         dtime = real(ktc/60)
+      else if ( datestring(1:7)=="minutes" ) then
+         dtime = real(ktc)
+      else
+         write(6,*) "ERROR reading time units.  Unknown time units ",trim(datestring)
+         write(6,*) "Expecting seconds or minutes"
+         stop
+      end if    
+   
+   end subroutine getdtime
    
    subroutine getstep(ktc)
    
@@ -2891,10 +2914,12 @@ contains
          ! names
          varlist(ivar)%daily = .false.
          varlist(ivar)%sixhr = .false.
+         varlist(ivar)%instant = .true.
          do ihr=3,24,3
             write(substr,"(i2,a)") ihr, "hr"
             if ( index(varlist(ivar)%long_name,trim(adjustl(substr))) /= 0 ) then
                varlist(ivar)%daily = .true.
+               varlist(ivar)%instant = .false.
                exit
             end if
          end do
@@ -2917,6 +2942,7 @@ contains
               varlist(ivar)%vname == "urbantasmin" .or.     &
               varlist(ivar)%vname == "wsgsmax" ) then
             varlist(ivar)%daily = .true.
+            varlist(ivar)%instant = .false.
          end if
          ! Also set daily if variable has a 'valid_time' attribute with the 
          ! value daily.
@@ -2926,6 +2952,9 @@ contains
             varlist(ivar)%daily = valid_att == "daily"
             varlist(ivar)%sixhr = valid_att == "6hr"
          end if
+         if ( varlist(ivar)%daily ) then
+            varlist(ivar)%instant = .false.
+         end if   
 
          ! Is this really simpler than a string of if tests?
          if ( match ( varlist(ivar)%vname, &
@@ -2998,104 +3027,125 @@ contains
                varlist(ivar)%vname = "clt"
                varlist(ivar)%units = "%"
                varlist(ivar)%long_name = "Total Cloud Fraction"
+               varlist(ivar)%instant = .false.
                xmin = 0.
                xmax = 100.
             else if ( varlist(ivar)%vname == "clh" ) then   
                varlist(ivar)%units = "%"
                varlist(ivar)%long_name = "High Level Cloud Fraction"
+               varlist(ivar)%instant = .false.
                xmin = 0.
                xmax = 100.
             else if ( varlist(ivar)%vname == "cll" ) then
                varlist(ivar)%units = "%"
                varlist(ivar)%long_name = "Low Level Cloud Fraction"
+               varlist(ivar)%instant = .false.
                xmin = 0.
                xmax = 100.
             else if ( varlist(ivar)%vname == "clm" ) then    
                varlist(ivar)%units = "%"
                varlist(ivar)%long_name = "Mid Level Cloud Fraction"
+               varlist(ivar)%instant = .false.
                xmin = 0.
                xmax = 100.
             else if ( varlist(ivar)%vname == "eg_ave" ) then
                varlist(ivar)%vname = "hfls"
                varlist(ivar)%units = "kg m-2 s-1"
                varlist(ivar)%long_name = "Surface Upward Latent Heat Flux"
+               varlist(ivar)%instant = .false.
             else if ( varlist(ivar)%vname == "epot_ave" ) then
                varlist(ivar)%vname = "evspsblpot"
                varlist(ivar)%units = "kg m-2 s-1"
                varlist(ivar)%long_name = "Potential Evapotranspiration"
+               varlist(ivar)%instant = .false.
                xmin = 0.
                xmax = 0.001
             else if ( varlist(ivar)%vname == "evspsbl" ) then
                varlist(ivar)%units = "kg m-2 s-1"
                varlist(ivar)%long_name = "Evaporation"
+               varlist(ivar)%instant = .false.
                xmin = -0.001
                xmax = 0.001
             else if ( varlist(ivar)%vname == "fg_ave" ) then
                varlist(ivar)%vname = "hfss"
                varlist(ivar)%units = "kg m-2 s-1"
                varlist(ivar)%long_name = "Surface Upward Sensible Heat Flux"
+               varlist(ivar)%instant = .false.
             else if ( varlist(ivar)%vname == "fracice" ) then
                varlist(ivar)%vname = "sic"
                varlist(ivar)%units = "%"
                varlist(ivar)%long_name = "Sea Ice Area Fraction"
+               varlist(ivar)%instant = .true.
                xmin = 0.
                xmax = 100.
             else if ( varlist(ivar)%vname == "grpl" ) then
                varlist(ivar)%vname = "prgr"
                varlist(ivar)%units = "kg m-2 s-1"
                varlist(ivar)%long_name = "Graupelfall Flux"
+               varlist(ivar)%instant = .true.
             else if ( varlist(ivar)%vname == "mixr" ) then
                varlist(ivar)%vname = "hus"
                varlist(ivar)%units = "1"
                varlist(ivar)%long_name = "Specific Humidity"
+               varlist(ivar)%instant = .true.
             else if ( varlist(ivar)%vname == "mrros" ) then
                varlist(ivar)%units = "kg m-2 s-1"
                varlist(ivar)%long_name = "Surface Runoff"
+               varlist(ivar)%instant = .false.
                xmin = 0.
                xmax = 0.013
             else if ( varlist(ivar)%vname == "pblh" ) then
                varlist(ivar)%vname = "zmla"
                varlist(ivar)%units = "m"
                varlist(ivar)%long_name = "Height of Boundary Layer"
+               varlist(ivar)%instant = .true.
             else if ( varlist(ivar)%vname == "pmsl_ave" ) then
                varlist(ivar)%vname = "psl_ave"
                varlist(ivar)%units = "Pa"
+               varlist(ivar)%instant = .false.
                xmin = 0.
                xmax = 120000.
             else if ( varlist(ivar)%vname == "qgscrn" ) then
                varlist(ivar)%vname = "huss"
                varlist(ivar)%units = "1"
                varlist(ivar)%long_name = "Near-Surface Specific Humidity"
+               varlist(ivar)%instant = .true.
                xmin = 0.
                xmax = 0.06
             else if ( varlist(ivar)%vname == "qgscrn_stn" ) then
                varlist(ivar)%vname = "huss_stn"
                varlist(ivar)%units = "1"
                varlist(ivar)%long_name = "Near-Surface Specific Humidity"
+               varlist(ivar)%instant = .true.
                xmin = 0.
                xmax = 0.06
             else if ( varlist(ivar)%vname == "rgdc_ave" ) then
                varlist(ivar)%vname = "rldscs"
                varlist(ivar)%units = "W m-2"
                varlist(ivar)%long_name = "Surface Downwelling Clear-Sky Longwave Radiation"
+               varlist(ivar)%instant = .false.
             else if ( varlist(ivar)%vname == "rgdn_ave" ) then
                varlist(ivar)%vname = "rlds"
                varlist(ivar)%units = "W m-2"
                varlist(ivar)%long_name = "Surface Downwelling Longwave Radiation"
+               varlist(ivar)%instant = .false.
             else if ( varlist(ivar)%vname == "rhscrn" ) then
                varlist(ivar)%vname = "hurs"
                varlist(ivar)%units = "%"
                varlist(ivar)%long_name = "Near-Surface Relative Humidity"
+               varlist(ivar)%instant = .true.
             else if ( varlist(ivar)%vname == "rnc" ) then
                varlist(ivar)%vname = "prc"
                varlist(ivar)%units = "kg m-2 s-1"
                varlist(ivar)%long_name = "Convective Precipitation"
+               varlist(ivar)%instant = .true.
                xmin = 0.
                xmax = 0.013
             else if ( varlist(ivar)%vname == "rnd" ) then
                varlist(ivar)%vname = "pr"
                varlist(ivar)%units = "kg m-2 s-1"
                varlist(ivar)%long_name = "Precipitation"
+               varlist(ivar)%instant = .false.
                xmin = 0.
                xmax = 0.013
             else if ( varlist(ivar)%vname == "maxrnd" ) then
@@ -3103,22 +3153,26 @@ contains
                varlist(ivar)%units = "kg m-2 s-1"
                varlist(ivar)%long_name = "Maximum precipitation"
                varlist(ivar)%daily = .true.
+               varlist(ivar)%instant = .false.
                xmin = 0.
                xmax = 0.013
             else if ( varlist(ivar)%vname == "runoff" ) then
                varlist(ivar)%vname = "mrro"
                varlist(ivar)%units = "kg m-2 s-1"
                varlist(ivar)%long_name = "Total Runoff"
+               varlist(ivar)%instant = .false.
                xmin = 0.
                xmax = 0.013
             else if ( varlist(ivar)%vname == "rtc_ave" ) then
                varlist(ivar)%vname = "rlutcs"
                varlist(ivar)%units = "W m-2"
                varlist(ivar)%long_name = "TOA Outgoing Clear-Sky Longwave Radiation"
+               varlist(ivar)%instant = .false.
             else if ( varlist(ivar)%vname == "rtu_ave" ) then
                varlist(ivar)%vname = "rlut"
                varlist(ivar)%units = "W m-2"
                varlist(ivar)%long_name = "TOA Outgoing Longwave Radiation"
+               varlist(ivar)%instant = .false.
             else if ( varlist(ivar)%vname == "sbl" ) then
                varlist(ivar)%units = "kg m-2 s-1"
                xmin = -0.001
@@ -3131,99 +3185,115 @@ contains
                varlist(ivar)%vname = "rsdscs"
                varlist(ivar)%units = "W m-2"
                varlist(ivar)%long_name = "Surface Downwelling Clear-Sky Shortwave Radiation"
+               varlist(ivar)%instant = .false.
             else if ( varlist(ivar)%vname == "sgdn_ave" ) then
                varlist(ivar)%vname = "rsds"
                varlist(ivar)%units = "W m-2"
                varlist(ivar)%long_name = "Surface Downwelling Shortwave Radiation"
+               varlist(ivar)%instant = .false.
             else if ( varlist(ivar)%vname == "sint_ave" ) then
                varlist(ivar)%vname = "rsdt"
                varlist(ivar)%long_name = "TOA Incident Shortwave Radiation"
+               varlist(ivar)%instant = .false.
             else if ( varlist(ivar)%vname == "snd" ) then
                varlist(ivar)%long_name = "Snow Depth"
                varlist(ivar)%units = "m"
+               varlist(ivar)%instant = .true.
             else if ( varlist(ivar)%vname == "snm" ) then
                varlist(ivar)%units = "kg m-2 s-1"
                varlist(ivar)%long_name = "Snowmelt"
+               varlist(ivar)%instant = .true.
                xmin = 0.
                xmax = 0.013
             else if ( varlist(ivar)%vname == "sno" ) then
                varlist(ivar)%vname = "prsn"
                varlist(ivar)%units = "kg m-2 s-1"
                varlist(ivar)%long_name = "Snowfall Flux"
+               varlist(ivar)%instant = .true.
                xmin = 0.
                xmax = 0.013
             else if ( varlist(ivar)%vname == "soc_ave" ) then
                varlist(ivar)%vname = "rsutcs"
                varlist(ivar)%units = "W m-2"
                varlist(ivar)%long_name = "TOA Outgoing Clear-Sky Shortwave Radiation"
+               varlist(ivar)%instant = .false.
             else if ( varlist(ivar)%vname == "sot_ave" ) then
                varlist(ivar)%vname = "rsut"
                varlist(ivar)%units = "W m-2"
                varlist(ivar)%long_name = "TOA Outgoing Shortwave Radiation"
+               varlist(ivar)%instant = .false.
             else if ( varlist(ivar)%vname == "sunhours" ) then
                varlist(ivar)%vname = "sund"
                varlist(ivar)%units = "s"
                varlist(ivar)%long_name = "Duration of Sunshine"
+               varlist(ivar)%instant = .false.
                xmin = 0.
                xmax = 86400.
             else if ( varlist(ivar)%vname == "taux" ) then
                varlist(ivar)%vname = "tauu"
                varlist(ivar)%units = "Pa"
                varlist(ivar)%long_name = "Surface Downward Eastward Wind Stress"
+               varlist(ivar)%instant = .false.
             else if ( varlist(ivar)%vname == "tauy" ) then
                varlist(ivar)%vname = "tauv"
                varlist(ivar)%units = "Pa"
                varlist(ivar)%long_name = "Surface Downward Northward Wind Stress"
+               varlist(ivar)%instant = .false.
             else if ( varlist(ivar)%vname == "temp" ) then
                varlist(ivar)%vname = "ta"
                varlist(ivar)%units = "K"
                varlist(ivar)%long_name = "Air Temperature"
+               varlist(ivar)%instant = .true.
             else if ( varlist(ivar)%vname == "tmaxscr" ) then
                varlist(ivar)%vname = "tasmax"
                varlist(ivar)%units = "K"
                varlist(ivar)%long_name = "Daily Maximum Near-Surface Air Temperature"
                varlist(ivar)%daily = .true.
+               varlist(ivar)%instant = .false.
             else if ( varlist(ivar)%vname == "tminscr" ) then
                varlist(ivar)%vname = "tasmin"
                varlist(ivar)%units = "K"
                varlist(ivar)%long_name = "Daily Minimum Near-Surface Air Temperature"
                varlist(ivar)%daily = .true.
+               varlist(ivar)%instant = .false.
             else if ( varlist(ivar)%vname == "tscrn" ) then
                varlist(ivar)%vname = "tas"
                varlist(ivar)%units = "K"
                varlist(ivar)%long_name = "Near-Surface Air Temperature"
+               varlist(ivar)%instant = .true.
             else if ( varlist(ivar)%vname == "tsu" ) then
                varlist(ivar)%vname = "ts"
                varlist(ivar)%units = "K"
                varlist(ivar)%long_name = "Surface Temperature"
+               varlist(ivar)%instant = .true.
             else if ( varlist(ivar)%vname == "u10" ) then
                varlist(ivar)%vname = "sfcWind"
                varlist(ivar)%units = "m s-1"
                varlist(ivar)%long_name = "Near-Surface Wind Speed"
+               varlist(ivar)%instant = .true.
             else if ( varlist(ivar)%vname == "u" ) then
                varlist(ivar)%vname = "ua"
                varlist(ivar)%units = "m s-1"
                varlist(ivar)%long_name = "Eastward Wind"
+               varlist(ivar)%instant = .true.
             else if ( varlist(ivar)%vname == "uas" ) then
                varlist(ivar)%long_name = "Eastward Near-Surface Wind"
                varlist(ivar)%units = "m s-1"
-            else if ( varlist(ivar)%vname == "ua100m" ) then
-               varlist(ivar)%long_name = "Eastward Wind at 100m"
-               varlist(ivar)%units = "m s-1"
+               varlist(ivar)%instant = .true.
             else if ( varlist(ivar)%vname == "v" ) then
                varlist(ivar)%vname = "va"
                varlist(ivar)%units = "m s-1"
                varlist(ivar)%long_name = "Northward Wind"
+               varlist(ivar)%instant = .true.               
             else if ( varlist(ivar)%vname == "vas" ) then
                varlist(ivar)%long_name = "Northward Near-Surface Wind"
                varlist(ivar)%units = "m s-1"
-            else if ( varlist(ivar)%vname == "va100m" ) then
-               varlist(ivar)%long_name = "Northward Wind at 100m"               
-               varlist(ivar)%units = "m s-1"
+               varlist(ivar)%instant = .true.
             else if ( varlist(ivar)%vname == "zolnd" ) then
                varlist(ivar)%vname = "z0"
                varlist(ivar)%long_name = "Surface Roughness Length"
                varlist(ivar)%units = "m"
+               varlist(ivar)%instant = .true.
             else if ( varlist(ivar)%vname == "zs" ) then
                varlist(ivar)%vname = "orog"
                varlist(ivar)%units = "m"
@@ -3234,31 +3304,37 @@ contains
                if ( varlist(ivar)%vname == trim(cname) ) then
                   varlist(ivar)%long_name = "Eastward Wind"
                   varlist(ivar)%units = "m s-1"
+                  varlist(ivar)%instant = .true.
                end if
                call cordex_name(cname,"va",press_level)
                if ( varlist(ivar)%vname == trim(cname) ) then
                   varlist(ivar)%long_name = "Northward Wind"
                   varlist(ivar)%units = "m s-1"
+                  varlist(ivar)%instant = .true.
                end if
                call cordex_name(cname,"ta",press_level)
                if ( varlist(ivar)%vname == trim(cname) ) then
                   varlist(ivar)%long_name = "Air Temperature"
                   varlist(ivar)%units = "K"
+                  varlist(ivar)%instant = .true.
                end if
                call cordex_name(cname,"hus",press_level)
                if ( varlist(ivar)%vname == trim(cname) ) then
                   varlist(ivar)%long_name = "Specific Humidity"
                   varlist(ivar)%units = "1"
+                  varlist(ivar)%instant = .true.
                end if
                call cordex_name(cname,"zg",press_level)
                if ( varlist(ivar)%vname == trim(cname) ) then
                   varlist(ivar)%long_name = "Geopotential Height"
                   varlist(ivar)%units = "m"
+                  varlist(ivar)%instant = .true.
                end if
                call cordex_name(cname,"wa",press_level)
                if ( varlist(ivar)%vname == trim(cname) ) then
                   varlist(ivar)%long_name = "Upward Air Velocity"
                   varlist(ivar)%units = "m s-1"
+                  varlist(ivar)%instant = .true.
                end if               
             end do  
             do j = 1,height_levels
@@ -3267,11 +3343,13 @@ contains
                if ( varlist(ivar)%vname == trim(cname) ) then
                   call cordex_name(varlist(ivar)%long_name,"Eastward Wind at ",height_level,"m") 
                   varlist(ivar)%units = "m s-1"
+                  varlist(ivar)%instant = .true.
                end if
                call cordex_name(cname,"va",height_level,"m")
                if ( varlist(ivar)%vname == trim(cname) ) then
                   call cordex_name(varlist(ivar)%long_name,"Northward Wind at ",height_level,"m")
                   varlist(ivar)%units = "m s-1"
+                  varlist(ivar)%instant = .true.
                end if
             end do
          end if
@@ -3287,7 +3365,8 @@ contains
                call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name, &
                       varlist(ivar)%units, xmin, xmax, 1, ave_type="max",  &
                       std_name=std_name, cell_methods=cell_methods,        &
-                      ran_type=ran_type, daily=varlist(ivar)%daily )
+                      ran_type=ran_type, daily=varlist(ivar)%daily,        &
+                      instant=varlist(ivar)%instant )
             else
                ! Check for screen and 10m variables
                coord_height = -huge(1.) ! Acts as a null value
@@ -3305,7 +3384,8 @@ contains
                       coord_height=coord_height, cell_methods=cell_methods,  & 
                       int_type=int_type, ran_type=ran_type,                  &
                       pop2d=varlist(ivar)%pop2d, tn_type=tn_type,            &
-                      daily=varlist(ivar)%daily, sixhr=varlist(ivar)%sixhr )
+                      daily=varlist(ivar)%daily, sixhr=varlist(ivar)%sixhr,  &
+                      instant=varlist(ivar)%instant )
             end if
          else if ( varlist(ivar)%ndims == 3 ) then  
             if ( varlist(ivar)%water ) then
@@ -3314,20 +3394,22 @@ contains
                         std_name=std_name, water=varlist(ivar)%water,            &
                         cell_methods=cell_methods, int_type=int_type,            &
                         ran_type=ran_type, daily=varlist(ivar)%daily,            &
-                        sixhr=varlist(ivar)%sixhr )
+                        sixhr=varlist(ivar)%sixhr, instant=varlist(ivar)%instant )
             else if ( varlist(ivar)%pop3d ) then
               call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name,        &
                         varlist(ivar)%units, xmin, xmax, cptch, multilev=.true., &
                         std_name=std_name, pop3d=varlist(ivar)%pop3d,            &
                         cell_methods=cell_methods, int_type=int_type,            &
                         ran_type=ran_type, tn_type=tn_type,                      &
-                        daily=varlist(ivar)%daily, sixhr=varlist(ivar)%sixhr )
+                        daily=varlist(ivar)%daily, sixhr=varlist(ivar)%sixhr,    &
+                        instant=varlist(ivar)%instant )
             else
               call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name,       &
                         varlist(ivar)%units, xmin, xmax, nlev, multilev=.true., &
                         std_name=std_name, cell_methods=cell_methods,           &
                         int_type=int_type, ran_type=ran_type,                   &
-                        daily=varlist(ivar)%daily, sixhr=varlist(ivar)%sixhr )
+                        daily=varlist(ivar)%daily, sixhr=varlist(ivar)%sixhr,   &
+                        instant=varlist(ivar)%instant )
             end if  
          else if ( varlist(ivar)%ndims == 4 ) then  
             if ( varlist(ivar)%pop4d ) then
@@ -3336,7 +3418,7 @@ contains
                         std_name=std_name, pop4d=varlist(ivar)%pop4d,                  &
                         cell_methods=cell_methods, int_type=int_type,                  &
                         ran_type=ran_type, tn_type=tn_type, daily=varlist(ivar)%daily, &
-                        sixhr=varlist(ivar)%sixhr )
+                        sixhr=varlist(ivar)%sixhr, instant=varlist(ivar)%instant )
             end if
          end if
       end do
@@ -3350,7 +3432,8 @@ contains
          if ( cordex_compliant ) then
             ierr = nf90_inq_varid (ncid, "evspsbl", ivar )
             if ( ierr /= nf90_noerr ) then
-              call addfld ( "evspsbl", "Evaporation", "kg m-2 s-1", 0., 0.001, 1, std_name="water_evaporation_flux" )  
+              call addfld ( "evspsbl", "Evaporation", "kg m-2 s-1", 0., 0.001, 1, std_name="water_evaporation_flux", &
+                            instant=.false. )  
             end if    
             if ( int_type /= int_none ) then
                call addfld ( "mrso", "Total soil moisture content", "kg m-2", 0., 100.0, 1, std_name="soil_moisture_content", &
@@ -3372,9 +3455,9 @@ contains
             call addfld ( "ps", "Surface Air Pressure", "Pa", 0., 120000., 1, &
                            std_name="surface_air_pressure", ran_type=.true. )
             call addfld ( "rlus", "Surface Upwelling Longwave Radiation", "W m-2", -1000., 1000., 1, &
-                          std_name="surface_upwelling_longwave_flux_in_air" )
+                          std_name="surface_upwelling_longwave_flux_in_air", instant=.false. )
             call addfld ( "rsus", "Surface Upwelling Shortwave Radiation", "W m-2", -1000., 1000., 1, &
-                          std_name="surface_upwelling_shortwave_flux_in_air" ) 
+                          std_name="surface_upwelling_shortwave_flux_in_air", instant=.false. ) 
             if ( int_type /= int_none ) then
                call addfld ( "sftlf", "Land-sea mask", "%",  0.0, 100.0, 1, &
                               ave_type="fixed", int_type=int_nearest,       &
@@ -3405,7 +3488,7 @@ contains
          call addfld ( "uas", "Eastward Near-Surface Wind", "m s-1", -100.0, 100.0, 1, std_name="eastward_wind", ran_type=.true. )
          call addfld ( "vas", "Northward Near-Surface Wind", "m s-1", -100.0, 100.0, 1, std_name="northward_wind", ran_type=.true. )
          call addfld ( "sfcWindmax", "Maximum 10m wind speed", "m s-1", 0.0, 200.0, 1, std_name="wind_speed", ran_type=.true., &
-                       daily=.true. )
+                       daily=.true., instant=.false. )
          ! Packing is not going to work well in this case
          ! For height, estimate the height of the top level and use that
          ! for scaling
@@ -3494,7 +3577,7 @@ contains
            call addfld ( "uas_stn", "x-component 10m wind", "m s-1", -100.0, 100.0, 1, std_name="wind_speed", ran_type=.false. )
            call addfld ( "vas_stn", "y-component 10m wind", "m s-1", -100.0, 100.0, 1, std_name="wind_speed", ran_type=.false. )
            call addfld ( "sfcWindmax_stn", "Maximum 10m wind speed (station)", "m s-1", 0.0, 200.0, 1, std_name="wind_speed", &
-                         ran_type=.false. ) 
+                         ran_type=.false., instant=.false. ) 
          end if    
 
       else
@@ -3512,7 +3595,7 @@ contains
                                  std_name="land_area_fraction", ran_type=.true. )
                end if
                call addfld ( "sfcWindmax", "Maximum 10m wind speed", "m s-1", 0.0, 200.0, 1, std_name="wind_speed", &
-                             ran_type=.true., daily=.true. )
+                             ran_type=.true., daily=.true., instant=.false. )
                ierr = nf90_inq_varid (ncid, "snd", ivar )
                if ( ierr == nf90_noerr ) then
                   ierr = nf90_get_att(ncid, ivar, 'valid_time',valid_att)
@@ -3552,16 +3635,18 @@ contains
          ierr = nf90_inq_varid (ncid, "sgn_ave", ivar )
          if ( ierr==nf90_noerr ) then
             call addfld ( "rlus", "Surface Upwelling Longwave Radiation", "W m-2", -1000., 1000., 1, &
-                          std_name="surface_upwelling_longwave_flux_in_air" )
+                          std_name="surface_upwelling_longwave_flux_in_air", instant=.false. )
             call addfld ( "rsus", "Surface Upwelling Shortwave Radiation", "W m-2", -1000., 1000., 1, &
-                          std_name="surface_upwelling_shortwave_flux_in_air" ) 
+                          std_name="surface_upwelling_shortwave_flux_in_air", instant=.false.  ) 
          end if
          ierr = nf90_inq_varid (ncid, "sgc_ave", ivar )
          if ( ierr==nf90_noerr ) then
             call addfld ( "rluscs", "Surface Upwelling Clear-Sky Longwave Radiation", "W m-2", -1000., 1000., 1, &
-                          std_name="surface_upwelling_longwave_flux_in_air_assuming_clear_sky", daily=.true. )
+                          std_name="surface_upwelling_longwave_flux_in_air_assuming_clear_sky", daily=.true.,    &
+                          instant=.false. )
             call addfld ( "rsuscs", "Surface Upwelling Clear-Sky Shortwave Radiation", "W m-2", -1000., 1000., 1, &
-                          std_name="surface_upwelling_shortwave_flux_in_air_assuming_clear_sky", daily=.true. ) 
+                          std_name="surface_upwelling_shortwave_flux_in_air_assuming_clear_sky", daily=.true.,    &
+                          instant=.false. ) 
          end if
          if ( cordex_compliant ) then    
             call addfld ( "sfcWind", "Near-Surface Wind Speed", "m s-1", 0., 100.0, 1, std_name="wind_speed", ran_type=.true. )  
