@@ -723,6 +723,13 @@ contains
                      call savehist( varlist(ivar)%vname, sgd )
                   end if   
                end if   
+            case ( "sgdndir_ave", "rsdsdir" )
+               if ( needfld("sgdndir_ave") .or. needfld("rsdsdir") ) then 
+                  call vread( "sgdndir_ave", sgd )
+                  if ( needfld(varlist(ivar)%vname) ) then
+                     call savehist( varlist(ivar)%vname, sgd )
+                  end if   
+               end if  
             case ( "sgn_ave" )
                if ( needfld("sgn_ave") .or. needfld("rsus") ) then 
                   call vread( "sgn_ave", sgn )
@@ -3191,6 +3198,11 @@ contains
                varlist(ivar)%units = "W m-2"
                varlist(ivar)%long_name = "Surface Downwelling Shortwave Radiation"
                varlist(ivar)%instant = .false.
+            else if ( varlist(ivar)%vname == "sgdndir_ave" ) then
+               varlist(ivar)%vname = "rsdsdir"
+               varlist(ivar)%units = "W m-2"
+               varlist(ivar)%long_name = "Surface Direct Downwelling Shortwave Radiation"
+               varlist(ivar)%instant = .false.
             else if ( varlist(ivar)%vname == "sint_ave" ) then
                varlist(ivar)%vname = "rsdt"
                varlist(ivar)%long_name = "TOA Incident Shortwave Radiation"
@@ -4160,6 +4172,8 @@ contains
          stdname = "urban_area_fraction"
       case ("sgdn_ave")
          stdname = "surface_downwelling_shortwave_flux_in_air"
+      case ("sgdndir_ave")
+         stdname = "surface_direct_downwelling_shortwave_flux_in_air"
       case ("sgn_ave")
          stdname = "surface_net_downward_shortwave_flux"
       case ("sic")
