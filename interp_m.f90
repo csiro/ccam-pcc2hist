@@ -1,6 +1,6 @@
 ! Conformal Cubic Atmospheric Model
     
-! Copyright 2015-2019 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+! Copyright 2015-2022 Commonwealth Scientific Industrial Research Organisation (CSIRO)
     
 ! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
 !
@@ -94,7 +94,10 @@ subroutine ints ( s_in, array, int_type )  ! input array (twice), output array
        deallocate(sx)
      end if
    end if
-   if (.not.allocated(sx)) allocate ( sx(-1:il+2,-1:il+2,0:npanels) )
+   if (.not.allocated(sx)) then
+      allocate ( sx(-1:il+2,-1:il+2,0:npanels) )
+      sx = 0.
+   end if   
 
 !  This is intsb           EW interps done first
 !  First extend s arrays into sx - this one -1:il+2 & -1:il+2

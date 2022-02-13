@@ -367,6 +367,10 @@ contains
       v10max = nf90_fill_float     ! daily
       u10max_stn = nf90_fill_float ! daily
       v10max_stn = nf90_fill_float ! daily
+      rgdcs = nf90_fill_float      ! daily
+      rgncs = nf90_fill_float      ! daily
+      sgdcs = nf90_fill_float      ! daily
+      sgncs = nf90_fill_float      ! daily
       
       do ivar = 1,nvars
          ! Just write the input with no further processing
@@ -1251,7 +1255,8 @@ contains
       end if
 
       if ( needfld("rlus") ) then
-         where ( rgd /= nf90_fill_float ) 
+         where ( rgd /= nf90_fill_float .or. &
+                 rgn /= nf90_fill_float ) 
             dtmp = rgd + rgn ! rgn +ve is up
          elsewhere
             dtmp = nf90_fill_float 
@@ -1260,8 +1265,9 @@ contains
       end if
       
       if ( needfld("rluscs") ) then
-         where ( rgdcs /= nf90_fill_float ) 
-            dtmp = rgdcs + rgncs ! rgn +ve is up
+         where ( rgdcs /= nf90_fill_float .or. &
+                 rgncs /= nf90_fill_float ) 
+            dtmp = rgdcs + rgncs ! rgncs +ve is up
          elsewhere
             dtmp = nf90_fill_float 
          end where    
@@ -1269,7 +1275,8 @@ contains
       end if
 
       if ( needfld("rsus") ) then
-         where ( sgd /= nf90_fill_float ) 
+         where ( sgd /= nf90_fill_float .or. &
+                 sgn /= nf90_fill_float ) 
             dtmp = sgd - sgn ! sgn +ve is down
          elsewhere
             dtmp = nf90_fill_float 
@@ -1278,8 +1285,9 @@ contains
       end if
       
       if ( needfld("rsuscs") ) then
-         where ( sgdcs /= nf90_fill_float ) 
-            dtmp = sgdcs - sgncs ! sgn +ve is down
+         where ( sgdcs /= nf90_fill_float .or. &
+                 sgncs /= nf90_fill_float ) 
+            dtmp = sgdcs - sgncs ! sgncs +ve is down
          elsewhere
             dtmp = nf90_fill_float 
          end where    
@@ -2299,9 +2307,10 @@ contains
       call allocshdata(yg,ssize,(/ nxhis, nyhis /),yg_win)
       call allocshdata(nface,ssize,(/ nxhis, nyhis /),nface_win)
 
-      call MPI_Win_fence(0,xg_win,ierr)
-      call MPI_Win_fence(0,yg_win,ierr)
-      call MPI_Win_fence(0,nface_win,ierr)
+      call MPI_Barrier(node_comm,ierr)
+      !call MPI_Win_fence(0,xg_win,ierr)
+      !call MPI_Win_fence(0,yg_win,ierr)
+      !call MPI_Win_fence(0,nface_win,ierr)
 #else
       if ( myid==0 ) then
          allocate ( nface(nxhis,nyhis) )
@@ -2349,9 +2358,10 @@ contains
       end if   
 
 #ifdef usempi3
-      call MPI_Win_fence(0,xg_win,ierr)
-      call MPI_Win_fence(0,yg_win,ierr)
-      call MPI_Win_fence(0,nface_win,ierr)
+      call MPI_Barrier(node_comm,ierr)
+      !call MPI_Win_fence(0,xg_win,ierr)
+      !call MPI_Win_fence(0,yg_win,ierr)
+      !call MPI_Win_fence(0,nface_win,ierr)
 #endif
 
 
