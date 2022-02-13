@@ -2192,7 +2192,7 @@ contains
                else
                   timeout = real(histset*hfreq)
                   if ( cordex_compliant .and. .not.histinst(i) ) then
-                     timeout = time - 720. 
+                     timeout = timeout - 720. 
                   end if   
                   ierr = nf90_put_var ( ncid, vid, timeout, start=(/histset_daily/) )
                end if
@@ -2231,7 +2231,7 @@ contains
                else
                   timeout = real(histset*hfreq) 
                   if ( cordex_compliant .and. .not.histinst(i) ) then
-                     timeout = time - 180.
+                     timeout = timeout - 180.
                   end if
                   ierr = nf90_put_var ( ncid, vid, timeout, &
                                         start=(/histset_6hr/) )
@@ -2255,22 +2255,22 @@ contains
             if ( present(time) ) then
                if ( ihtype == hist_ave) then
                   timeout = avetime/timecount
-                  if ( cordex_compliant .and. histinst(i) .and. present(dtime) ) then
+                  if ( cordex_compliant .and. .not.histinst(i) .and. present(dtime) ) then
                      timeout = avetime/timecount - 0.5*dtime 
                   end if
                   ierr = nf90_put_var ( ncid, vid,   &
                        timeout, start=(/histset/) )
                else
                   timeout = time
-                  if ( cordex_compliant .and. histinst(i) .and. present(dtime) ) then
+                  if ( cordex_compliant .and. .not.histinst(i) .and. present(dtime) ) then
                      timeout = time - 0.5*dtime 
                   end if
                   ierr = nf90_put_var ( ncid, vid, timeout, start=(/histset/))
                end if
             else
                timeout = real(histset*hfreq)
-               if ( cordex_compliant .and. histinst(i) .and. present(dtime) ) then
-                  timeout = real(histset*hfreq) - 0.5*dtime 
+               if ( cordex_compliant .and. .not.histinst(i) .and. present(dtime) ) then
+                  timeout = timeout - 0.5*dtime 
                end if
                ierr = nf90_put_var ( ncid, vid, timeout, &
                                      start=(/histset/) )
@@ -2674,6 +2674,10 @@ contains
       avetime_bnds(:) = (/huge(1.), -huge(1.)/)
       timecount = 0
 
+#ifdef safe
+      call mpi_barrier(comm_world,ierr)
+#endif
+      
 !     Sync the file so that if the program crashes for some reason 
 !     there will still be useful output.
 #ifdef outsync

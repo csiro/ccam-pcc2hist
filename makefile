@@ -17,7 +17,7 @@ FHOST = -axCORE-AVX2
 endif
 ifeq ($(MAGNUS),yes)
 FC = ftn
-FHOST = -xHost
+FHOST = -xHost -Dsafe
 endif
 ifeq ($(NOMPI3),yes)
 MPIFLAG =
