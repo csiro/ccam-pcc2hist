@@ -558,7 +558,7 @@ contains
                   call vread( "runoff", dtmp )
                   where ( dtmp /= nf90_fill_float )
                      dtmp = dtmp/86400.
-                  end where   
+                  end where
                   call savehist ( "mrro", dtmp )
                end if   
             case ( "mrros" )
@@ -3562,7 +3562,12 @@ contains
          call addfld ( "vaveut", "Vertical average of zonal temperature flux", "m s-1 K", -1e4, 1e4, 1, std_name=std_name )
          call addfld ( "vavevt", "Vertical average of meridional temperature flux", "m s-1 K", -1e4, 2e4, 1, std_name=std_name )
 
-         if ( cf_compliant ) then
+         if ( cordex_compliant ) then
+            ierr = nf90_inq_varid (ncid, "tgg1", ivar ) 
+            if ( ierr==nf90_noerr .and. ksoil>0 ) then             
+               call addfld('tsl','Soil temperature','K',100.,350.,ksoil,soil=.true.)
+            end if    
+         else if ( cf_compliant ) then
             ! Define as an extra field for now
             ierr = nf90_inq_varid (ncid, "tgg1", ivar ) 
             if ( ierr==nf90_noerr .and. ksoil>0 ) then             
