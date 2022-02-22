@@ -355,10 +355,6 @@ contains
          call alloc_indata ( ik, jk, kk, ol, cptch, cchrt, ksoil, kice )
       end if
       
-      mrso = 0.   ! total soil moisture
-      mrfso = 0.  ! total soil ice
-      mrsos = 0.  ! shallow soil moisture
-      mrfsos = 0. ! shallow soil ice
       q = 0.
       ql = 0.
       qf = 0.
@@ -882,29 +878,13 @@ contains
                      call savehist(varlist(ivar)%vname,dtmp)
                   end if   
                else if ( match ( varlist(ivar)%vname, (/ "wb?_ave"/) ) ) then
-                  if ( needfld(varlist(ivar)%vname) .or. needfld("mrso") .or. &
-                       needfld("mrsos") ) then                             
+                  if ( needfld(varlist(ivar)%vname) ) then                             
                      call vread( varlist(ivar)%vname, ctmp ) 
-                     do k = 1,size(zse)
-                        write(name,'(a,i1.1,a)') 'wb', k,'_ave'
-                        if ( varlist(ivar)%vname == name ) then
-                           mrso = mrso + ctmp*zse(k)*1000.
-                           mrsos = mrsos + ctmp*shallow_zse(k)*1000.
-                        end if
-                     end do
                      call savehist( varlist(ivar)%vname, ctmp )
                   end if
                else if ( match ( varlist(ivar)%vname, (/ "wbice?_ave"/) ) ) then
-                  if ( needfld(varlist(ivar)%vname) .or. needfld("mrfso") .or. &
-                       needfld("mrfsos") ) then
+                  if ( needfld(varlist(ivar)%vname) ) then
                      call vread( varlist(ivar)%vname, ctmp ) 
-                     do k = 1,size(zse)
-                        write(name,'(a,i1.1,a)') 'wbice', k,'_ave'
-                        if ( varlist(ivar)%vname == name ) then
-                           mrfso = mrfso + ctmp*zse(k)*330. 
-                           mrfsos = mrfsos + ctmp*shallow_zse(k)*330.
-                        end if    
-                     end do
                      call savehist( varlist(ivar)%vname, ctmp )
                   end if
                else
@@ -948,60 +928,6 @@ contains
                      end where
                   end do   
                   call osavehist( "kso", ocn_tmp )
-               end if 
-            case ( "mrsol" )
-               if ( needfld("mrsol") ) then 
-                  ! Only in cf_compliant mode
-                  ierr = nf90_inq_varid (ncid, "mrsol1", var_dum ) 
-                  if ( ierr == nf90_noerr ) then
-                     do k = 1,ksoil
-                        write(name,'(a,i1)') 'mrsol', k
-                        call vread(name,tgg(:,:,k))
-                        where ( soilt <= 0.5 ) 
-                           tgg(:,:,k) = nf90_fill_float ! water
-                        end where  
-                     end do
-                     call savehist("mrsol", tgg) 
-                  end if
-                  ierr = nf90_inq_varid (ncid, "wb1_ave", var_dum ) 
-                  if ( ierr == nf90_noerr ) then
-                     do k = 1,ksoil
-                        write(name,'(a,i1,a)') 'wb', k, '_ave'
-                        call vread(name,tgg(:,:,k))
-                        tgg(:,:,k) = tgg(:,:,k)*zse(k)*1000.
-                        where ( soilt <= 0.5 ) 
-                           tgg(:,:,k) = nf90_fill_float ! water
-                        end where  
-                     end do
-                     call savehist("mrsol", tgg) 
-                  end if    
-               end if
-            case ( "mrfsol" )
-               if ( needfld("mrfsol") ) then 
-                  ! Only in cf_compliant mode
-                  ierr = nf90_inq_varid (ncid, "mrfsol1", var_dum ) 
-                  if ( ierr == nf90_noerr ) then 
-                     do k = 1,ksoil
-                        write(name,'(a,i1)') 'mrfsol', k
-                        call vread(name,tgg(:,:,k))
-                        where ( soilt <= 0.5 ) 
-                           tgg(:,:,k) = nf90_fill_float ! water
-                        end where  
-                     end do                           
-                     call savehist("mrfsol", tgg)
-                  end if
-                  ierr = nf90_inq_varid (ncid, "wbice1_ave", var_dum ) 
-                  if ( ierr == nf90_noerr ) then
-                     do k = 1,ksoil
-                        write(name,'(a,i1,a)') 'wbice', k, '_ave'
-                        call vread(name,tgg(:,:,k))
-                        tgg(:,:,k) = tgg(:,:,k)*zse(k)*330.
-                        where ( soilt <= 0.5 ) 
-                           tgg(:,:,k) = nf90_fill_float ! water
-                        end where  
-                     end do
-                     call savehist("mrfsol", tgg)
-                  end if    
                end if 
             case ( "omega" )
                call vread( "omega", omega )
@@ -1229,14 +1155,6 @@ contains
       if ( needfld("qfg") ) then
          call vsavehist ( "qfg", qf )
       end if         
-      
-      if ( needfld("mrfso") ) then
-         ierr = nf90_inq_varid (ncid, "wbice1_ave", var_dum )
-         if ( ierr/=nf90_noerr ) then
-            mrfso = NF90_FILL_FLOAT  
-         end if
-         call savehist( "mrfso", mrfso )
-      end if
 
       if ( needfld("rlus") ) then
          where ( rgd /= nf90_fill_float .or. &
@@ -1364,13 +1282,112 @@ contains
          call calc_tdscrn( tscrn_stn, qgscrn_stn, psl, dtmp )
          call savehist( "tdscrn_stn", dtmp )          
       end if
-                      
-      if ( kk > 1 ) then
+
+      if ( needfld("mrso") .or. needfld("mrsos") .or. needfld("mrsol") ) then 
+         mrso = 0.
+         mrsos = 0.
+         ierr = nf90_inq_varid (ncid, "mrsol1", var_dum ) 
+         if ( ierr == nf90_noerr ) then
+            do k = 1,ksoil
+               write(name,'(a,i1)') 'mrsol', k
+               call vread(name,tgg(:,:,k))
+               mrso = mrso + tgg(:,:,k)
+               mrsos = mrsos + tgg(:,:,k)*shallow_zse(k)/zse(k)
+               where ( soilt <= 0.5 ) 
+                  tgg(:,:,k) = nf90_fill_float ! water
+                  mrso = nf90_fill_float
+                  mrsos = nf90_fill_float
+               end where  
+            end do
+            if ( needfld("mrso") ) then
+               call savehist("mrso", mrso)   
+            end if   
+            if ( needfld("mrsos") ) then
+               call savehist("mrsos", mrsos)   
+            end if   
+            if ( needfld("mrsol") ) then
+               call savehist("mrsol", tgg)
+            end if
+         end if
+         ierr = nf90_inq_varid (ncid, "wb1_ave", var_dum ) 
+         if ( ierr == nf90_noerr ) then
+            do k = 1,ksoil
+               write(name,'(a,i1,a)') 'wb', k, '_ave'
+               call vread(name,tgg(:,:,k))
+               mrso = mrso + tgg(:,:,k)*zse(k)*1000.
+               mrsos = mrsos + tgg(:,:,k)*shallow_zse(k)*1000.
+               tgg(:,:,k) = tgg(:,:,k)*zse(k)*1000.
+               where ( soilt <= 0.5 ) 
+                  tgg(:,:,k) = nf90_fill_float ! water
+                  mrso = nf90_fill_float
+                  mrsos = nf90_fill_float
+               end where  
+            end do
+            if ( needfld("mrso") ) then
+               call savehist("mrso", mrso)   
+            end if   
+            if ( needfld("mrsos") ) then
+               call savehist("mrsos", mrsos)   
+            end if
+            if ( needfld("mrsol") ) then
+               call savehist("mrsol", tgg)
+            end if
+         end if    
+      end if
+      if ( needfld("mrfso") .or. needfld("mrfsos") .or. needfld("mrfsol") ) then 
+         mrfso = 0.
+         mrfsos = 0.
+         ierr = nf90_inq_varid (ncid, "mrfsol1", var_dum ) 
+         if ( ierr == nf90_noerr ) then 
+            do k = 1,ksoil
+               write(name,'(a,i1)') 'mrfsol', k
+               call vread(name,tgg(:,:,k))
+               mrfso = mrfso + tgg(:,:,k)
+               mrfsos = mrfsos + tgg(:,:,k)*shallow_zse(k)/zse(k)
+               where ( soilt <= 0.5 ) 
+                  tgg(:,:,k) = nf90_fill_float ! water
+                  mrfso = nf90_fill_float
+                  mrfsos = nf90_fill_float
+               end where  
+            end do                        
+            if ( needfld("mrfso") ) then
+               call savehist("mrfso", mrfso)
+            end if  
+            if ( needfld("mrfsos") ) then
+               call savehist("mrfsos", mrfsos)
+            end if
+            if ( needfld("mrfsol") ) then
+               call savehist("mrfsol", tgg)
+            end if
+         end if
+         ierr = nf90_inq_varid (ncid, "wbice1_ave", var_dum ) 
+         if ( ierr == nf90_noerr ) then
+            do k = 1,ksoil
+               write(name,'(a,i1,a)') 'wbice', k, '_ave'
+               call vread(name,tgg(:,:,k))
+               mrfso = mrfso + tgg(:,:,k)*zse(k)*330.
+               mrfsos = mrfsos + tgg(:,:,k)*shallow_zse(k)*330.
+               tgg(:,:,k) = tgg(:,:,k)*zse(k)*330.
+               where ( soilt <= 0.5 ) 
+                  tgg(:,:,k) = nf90_fill_float ! water
+                  mrfso = nf90_fill_float
+                  mrfsos = nf90_fill_float
+               end where  
+            end do
+            if ( needfld("mrfso") ) then
+               call savehist("mrfso", mrfso)
+            end if  
+            if ( needfld("mrfsos") ) then
+               call savehist("mrfsos", mrfsos)
+            end if
+            if ( needfld("mrfsol") ) then
+               call savehist("mrfsol", tgg)
+            end if            
+         end if    
+      end if 
       
-         if ( needfld("mrso") ) then
-            call savehist( "mrso", mrso )
-         end if   
-          
+      if ( kk > 1 ) then
+         
          if ( needfld("qbot") ) then
             call savehist( "qbot", q(:,:,1))
          end if   
@@ -2714,6 +2731,13 @@ contains
             varlist(nvars)%fixed = .false.
             varlist(nvars)%ndims = 4
          end if
+         ierr = nf90_inq_varid (ncid, "wb1_ave", ivar ) 
+         if ( ierr==nf90_noerr .and. ksoil>0 ) then
+            nvars = nvars + 1
+            varlist(nvars)%vname = "mrsol"
+            varlist(nvars)%fixed = .false.
+            varlist(nvars)%ndims = 4
+         end if
          ierr = nf90_inq_varid (ncid, "mrfsol1", ivar ) 
          if ( ierr==nf90_noerr .and. ksoil>0 ) then
             nvars = nvars + 1
@@ -2721,6 +2745,13 @@ contains
             varlist(nvars)%fixed = .false.
             varlist(nvars)%ndims = 4
          end if  
+         ierr = nf90_inq_varid (ncid, "wbice1_ave", ivar ) 
+         if ( ierr==nf90_noerr .and. ksoil>0 ) then
+            nvars = nvars + 1
+            varlist(nvars)%vname = "mrfsol"
+            varlist(nvars)%fixed = .false.
+            varlist(nvars)%ndims = 4
+         end if 
       end if    
 
 
@@ -2927,8 +2958,8 @@ contains
             end if
          else if ( varlist(ivar)%vname == "psf" ) then
             cycle  ! Skip this one to avoid messages about it never being set
-         else if ( varlist(ivar)%vname(1:5) == "wbice" ) then
-            cycle  ! Skip this one to avoid messages about it never being set
+         !else if ( varlist(ivar)%vname(1:5) == "wbice" ) then
+         !   cycle  ! Skip this one to avoid messages about it never being set
          else if ( varlist(ivar)%vname == "zht" ) then
             varlist(ivar)%vname = "zs"
             varlist(ivar)%units = "m"
@@ -3477,7 +3508,7 @@ contains
             if ( ierr==nf90_noerr .and. ksoil>0 ) then
                call addfld('mrsol','Total Water Content of Soil Layer','kg m-2',0.,1.,ksoil,soil=.true.) 
             end if    
-            ierr = nf90_inq_varid (ncid, "wb1_ice", ivar ) 
+            ierr = nf90_inq_varid (ncid, "wbice1_ave", ivar ) 
             if ( ierr==nf90_noerr .and. ksoil>0 ) then
                call addfld('mrfsol','Frozen Water Content of Soil Layer','kg m-2',0.,1.,ksoil,soil=.true.)
             end if 
@@ -4345,6 +4376,7 @@ contains
    end subroutine cc_cfproperties
 
    logical function is_soil_var(vname) 
+      use history, only : cordex_compliant
       character(len=*), intent(in) :: vname
       character(len=10) :: tmpname
       integer :: k
@@ -4355,18 +4387,20 @@ contains
          if ( vname == tmpname ) is_soil_var = .true.
          write(tmpname,'(a,i1)') 'mrfsol', k
          if ( vname == tmpname ) is_soil_var = .true.
-         write(tmpname,'(a,i1)') 'tgg', k
-         if ( vname == tmpname ) is_soil_var = .true.
-         write(tmpname,'(a,i1)') 'wb', k
-         if ( vname == tmpname ) is_soil_var = .true.
-         write(tmpname,'(a,i1)') 'wbice', k
-         if ( vname == tmpname ) is_soil_var = .true.
-         write(tmpname,'(a,i1,a)') 'wb', k,'_ave'
-         if ( vname == tmpname ) is_soil_var = .true.
-         write(tmpname,'(a,i1,a)') 'wbice', k,'_ave'
-         if ( vname == tmpname ) is_soil_var = .true.
-         write(tmpname,'(a,i1)') 'wetfrac', k
-         if ( vname == tmpname ) is_soil_var = .true.
+         if ( cordex_compliant ) then
+            write(tmpname,'(a,i1)') 'tgg', k
+            if ( vname == tmpname ) is_soil_var = .true.
+            write(tmpname,'(a,i1)') 'wb', k
+            if ( vname == tmpname ) is_soil_var = .true.
+            write(tmpname,'(a,i1)') 'wbice', k
+            if ( vname == tmpname ) is_soil_var = .true.
+            write(tmpname,'(a,i1,a)') 'wb', k,'_ave'
+            if ( vname == tmpname ) is_soil_var = .true.
+            write(tmpname,'(a,i1,a)') 'wbice', k,'_ave'
+            if ( vname == tmpname ) is_soil_var = .true.
+            write(tmpname,'(a,i1)') 'wetfrac', k
+            if ( vname == tmpname ) is_soil_var = .true.
+         end if   
          if ( is_soil_var ) return
       end do
    end function is_soil_var
