@@ -574,9 +574,7 @@ program cc2hist
 !  needfld calls are only valid after openhist
    call final_init( varlist, nvars )
 
-   if ( needfld("zg") .or. use_meters ) then
-      call initheight( kl, sig )
-   end if
+   call initheight( kl, sig )
 
 !  If ktc is still -1 and ndate and ntime aren't set then process all fields
    if ( ktc == -1 ) then
