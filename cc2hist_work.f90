@@ -1589,6 +1589,7 @@ contains
             call cordex_name( cname, "zg", press_level )
             if ( needfld( cname ) ) then
                call cordex_interpolate( ctmp, hstd, press_level, psl, sig )
+               ctmp = ctmp + zs
                call savehist( cname, ctmp )
             end if
             call cordex_name( cname, "wa", press_level )
