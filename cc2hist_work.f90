@@ -3494,8 +3494,6 @@ contains
                call addfld ( cname, "Specific Humidity", "1", 0.0, 0.06, 1, instant=.true. )
                call cordex_name(cname,"zg",press_level)
                call addfld ( cname, "Geopotential Height", "m", 0.0, 130000., 1, instant=.true. )
-               call cordex_name(cname,"zg",press_level)
-               call addfld ( cname, "Geopotential Height", "m", 0.0, 130000., 1, instant=.true. )
                call cordex_name(cname,"wa",press_level)
                call addfld ( cname, "Upward Air Velocity", "m s-1", -130., 130., 1, instant=.true. )
             end do
