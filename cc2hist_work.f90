@@ -927,9 +927,8 @@ contains
                   call osavehist( "epso", ocn_tmp )
                end if  
             ! hus or mixr have been previously read with temp below   
-            !case ( "hus", "mixr" )
-            !   call vread( "mixr", q )
-            !   q = max( q, 1.e-20 )
+            case ( "hus", "mixr" )
+               cycle 
             case ( "kmo" )
                if ( needfld("kmo") ) then
                   call vread( "kmo", ocn_tmp )
