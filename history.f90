@@ -85,7 +85,7 @@ module history
    !public :: set_missval
 
 !  Private internal routines
-   private :: bindex_hname, initval, sortlist, create_ncvar,            &
+   private :: bindex_hname, sortlist, create_ncvar,                     &
               create_ncfile,                                            &
               hashkey, qindex_hname, savehist_work,                     &
               gsavehist2D, gsavehist3D, gsavehist4D
@@ -1256,8 +1256,7 @@ contains
          if ( histinfo(ifld)%used ) then
             istart = histinfo(ifld)%ptr
             iend = istart + histinfo(ifld)%nlevels - 1
-            histarray(:,:,istart:iend) = &
-               initval(histinfo(ifld)%ave_type)
+            histarray(:,:,istart:iend) = nf90_fill_float
          end if
       end do
       
@@ -1982,29 +1981,25 @@ contains
          where ( array /= nf90_fill_float .and. histarray(:,1:jlat2,istart:iend) /= nf90_fill_float ) 
             histarray(:,1:jlat2,istart:iend) =  &
                  histarray(:,1:jlat2,istart:iend) + array
-         elsewhere
-            histarray(:,1:jlat2,istart:iend) = nf90_fill_float 
+         elsewhere ( array /= nf90_fill_float )
+            histarray(:,1:jlat2,istart:iend) = array
          end where    
       case ( hist_max ) 
          where ( array /= nf90_fill_float .and. histarray(:,1:jlat2,istart:iend) /= nf90_fill_float )  
             histarray(:,1:jlat2,istart:iend) =  &
                  max ( histarray(:,1:jlat2,istart:iend), array )
-         elsewhere
-            histarray(:,1:jlat2,istart:iend) = nf90_fill_float 
+         elsewhere ( array /= nf90_fill_float )
+            histarray(:,1:jlat2,istart:iend) = array
          end where 
       case ( hist_min )
          where ( array /= nf90_fill_float .and. histarray(:,1:jlat2,istart:iend) /= nf90_fill_float )     
             histarray(:,1:jlat2,istart:iend) =  &
                  min ( histarray(:,1:jlat2,istart:iend), array )
-         elsewhere
-            histarray(:,1:jlat2,istart:iend) = nf90_fill_float 
+         elsewhere ( array /= nf90_fill_float )
+            histarray(:,1:jlat2,istart:iend) = array
          end where 
       case ( hist_inst, hist_fixed ) 
-         where ( array /= nf90_fill_float ) 
-            histarray(:,1:jlat2,istart:iend) = array
-         elsewhere
-            histarray(:,1:jlat2,istart:iend) = nf90_fill_float 
-         end where    
+         histarray(:,1:jlat2,istart:iend) = array
       case default
          print*, "Internal error in history, unknown ave_type", &
               histinfo(ifld)%ave_type
@@ -2107,6 +2102,9 @@ contains
       if ( doinc .and. ihtype == hist_ave .and. present(time) ) then
          avetime = avetime + time
          timecount = timecount + 1
+         if ( cordex_compliant .and. present(dtime) ) then
+            avetime = avetime - 0.5*dtime
+         end if
          if ( hist_debug > 0 ) then
             print*, "AVETIME ", time, avetime, timecount
          end if
@@ -2177,9 +2175,6 @@ contains
                if ( present(time) ) then
                   if ( ihtype == hist_ave) then
                      timeout = avetime/timecount
-                     if ( cordex_compliant .and. .not.histinst(i) ) then
-                        timeout = avetime/timecount - 720. 
-                     end if   
                      ierr = nf90_put_var ( ncid, vid,   &
                           timeout, start=(/histset_daily/) )
                   else
@@ -2216,9 +2211,6 @@ contains
                if ( present(time) ) then
                   if ( ihtype == hist_ave) then
                      timeout = avetime/timecount
-                     if ( cordex_compliant .and. .not.histinst(i) ) then
-                        timeout = avetime/timecount - 180.
-                     end if
                      ierr = nf90_put_var ( ncid, vid,   &
                           timeout, start=(/histset_6hr/) )
                   else
@@ -2506,7 +2498,7 @@ contains
          end do   ! k loop
                
 !        Zero ready for next set
-         histarray(:,:,istart:iend) = initval(ave_type)
+         histarray(:,:,istart:iend) = nf90_fill_float
 !        Reset the count variable
          histinfo(ifld)%count = 0
 
@@ -2660,7 +2652,7 @@ contains
          end if ! myid == 0
            
 !        Zero ready for next set
-         histarray(:,:,istart:iend) = initval(ave_type)
+         histarray(:,:,istart:iend) = nf90_fill_float
 !        Reset the count variable
          histinfo(ifld)%count = 0
 
@@ -2694,27 +2686,6 @@ contains
 
 !-------------------------------------------------------------------
 
-   function initval ( ave_type ) result (val)
-      integer, intent(in) :: ave_type
-      real :: val
-!     Set a suitable initialisation value depending on the ave_type
-      select case ( ave_type)
-      case ( hist_inst, hist_fixed )
-         val = NF90_FILL_FLOAT
-      case ( hist_ave )    
-         val = 0.0
-      case (hist_max)
-         val = -huge(1.0)
-      case (hist_min)
-         val = huge(1.0)
-      case default
-         print*, " History internal error: average type set incorrectly in initval"
-         stop
-      end select
-   end function initval
-
-!-------------------------------------------------------------------
-
    subroutine clearhist ()
 
       ! Reset the history outside the normal process
@@ -2737,7 +2708,7 @@ contains
          iend = istart + nlev - 1
 
 !        Zero ready for next set
-         histarray(:,:,istart:iend) = initval(ave_type)
+         histarray(:,:,istart:iend) = nf90_fill_float
 !        Reset the count variable
          histinfo(ifld)%count = 0
 
