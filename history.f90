@@ -2393,7 +2393,7 @@ contains
          ave_type = histinfo(ifld)%ave_type
          nlev = histinfo(ifld)%nlevels
          vid = histinfo(ifld)%vid
-
+         
 !        Only write fixed variables in the first history set
          if ( histset > 1 .and. ave_type == hist_fixed ) then
             cycle
@@ -2591,8 +2591,6 @@ contains
                   where ( fpequal(htemp, nf90_fill_float) )
                      htemp = missing_value_cordex
                   end where  
-               end if
-                  
                end if
 
                call START_LOG(putvar_begin)

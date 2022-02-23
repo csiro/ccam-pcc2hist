@@ -1633,6 +1633,17 @@ contains
                call savehist( cname, ctmp )
             end if
          end do   
+         
+         ! cordex cape and cin
+         if ( needfld("CAPE") .or. needfld("CIN") ) then
+            call capecalc( ctmp, dtmp, t, psl, sig ) 
+            if ( needfld("CAPE") ) then
+               call savehist( "CAPE", ctmp ) 
+            end if    
+            if ( needfld("CIN") ) then
+               call savehist( "CIN", dtmp ) 
+            end if             
+         end if    
 
       else        
           
@@ -3541,6 +3552,13 @@ contains
                call cordex_name(lname,"Northward Wind at ",height_level,"m")
                call addfld ( cname, lname, "m s-1", -130., 130., 1, instant=.true. )
             end do   
+            ! add CAPE and CIN
+            call addfld ( "CAPE", "Convective Available Potential Energy", "J kg-1", 0., 35., 1, &
+                       std_name="atmosphere_convective_available_potential_energy_wrt_surface",  &
+                       instant=.true. )
+            call addfld ( "CIN", "Convective Inhibition", "J kg-1", 0., 35., 1,                 &
+                       std_name="atmosphere_convective_available_potential_energy_wrt_surface", &
+                       instant=.true. )
                
          else if ( cf_compliant ) then
             ! Define as an extra field for now
@@ -3972,7 +3990,176 @@ contains
 
    end subroutine cordex_height_interpolate         
 
-   
+   subroutine capecalc(cape_d,cin_d,t,ps,sig)
+      use moistfuncs   
+      integer :: k, n, i, j, icount, nloop, ktop
+      integer, parameter :: kmax = 1 ! default for source parcel at surface
+      real, dimension(pil,pjl*pnpan*lproc,kk), intent(in) :: t
+      real, dimension(pil,pjl*pnpan*lproc,kk) :: pl, tl, pll, th, thv
+      real, dimension(pil,pjl*pnpan*lproc), intent(out) :: cape_d, cin_d
+      real, dimension(pil,pjl*pnpan*lproc), intent(in)  :: ps
+      real, dimension(pil,pjl*pnpan*lproc) :: th2, pll2, pl2, tl2, thv2, qv2, b2
+      real, dimension(pil,pjl*pnpan*lproc) :: narea, ql2, qi2, qt, capel, cinl
+      real, dimension(pil,pjl*pnpan*lproc) :: dz, frac, parea, dp, b1, qs
+      real, dimension(pil,pjl*pnpan*lproc) :: deles
+      real, dimension(kk), intent(in) :: sig
+      real pl1, tl1, th1, qv1, ql1, qi1, thv1
+      real tbarl, qvbar, qlbar, qibar, lhv, lhs, lhf
+      real rm, cpm, thlast, fliq, fice
+      !real, parameter :: pinc = 100. ! Pressure increment (Pa) - smaller is more accurate
+      real, parameter :: pinc = 1000.
+      real, parameter :: cp = 1004.64
+      real, parameter :: cpv = 1869.46
+      real, parameter :: rdry = 287.04
+      real, parameter :: rvap = 461.
+      real, parameter :: grav = 9.80616
+      real, parameter :: lv1 = 2501000. + (4190.-cpv)*273.15
+      real, parameter :: lv2 = 4190. - cpv
+      real, parameter :: ls1 = 2836017. + (2118.636-cpv)*273.15
+      real, parameter :: ls2 = 2188.636 - cpv
+      real, parameter :: epsil = 0.622      
+      logical not_converged
+
+      capel(:,:) = 0.
+      cinl(:,:) = 0.
+
+      ! Following code is based on Bryan (NCAR) citing
+      ! Bolton 1980 MWR p1046 and Bryan and Fritsch 2004 MWR p2421
+
+      ktop = 1
+      do k = 1,kk
+         if ( 1.e5*sig(k)>1.e4 ) ktop = k
+      end do
+      
+      do k = 1,ktop
+         pl(:,:,k) = ps(:,:)*sig(k)
+         tl(:,:,k) = t(:,:,k)
+         pll(:,:,k) = (pl(:,:,k)/1.e5)**(rdry/cp)
+         deles(:,:) = esdiffx(t(:,:,k))
+         qs(:,:) = epsil*deles(:,:)/pl(:,:,k)
+         th(:,:,k) = tl(:,:,k)/pll(:,:,k)
+         thv(:,:,k) = th(:,:,k)*(1.+1.61*qs(:,:))/(1.+qs(:,:))
+      end do  
+
+      ! define initial parcel properties
+      th2(:,:) = th(:,:,kmax)
+      pll2(:,:) = pll(:,:,kmax)
+      pl2(:,:) = pl(:,:,kmax)
+      tl2(:,:) = tl(:,:,kmax)
+      thv2(:,:) = thv(:,:,kmax)
+      deles(:,:) = esdiffx(tl(:,:,kmax))
+      qv2(:,:) = epsil*deles(:,:)/pl(:,:,kmax)
+      ql2(:,:) = 0.
+      qi2(:,:) = 0.
+      qt(:,:) = qv2(:,:)
+      b2(:,:) = 0.
+      narea(:,:) = 0.
+
+      ! start ascent of parcel
+      do k = kmax+1,ktop
+    
+         b1(:,:) = b2(:,:)  
+         dp(:,:) = pl(:,:,k-1) - pl(:,:,k)
+
+         nloop = 1 + int( 1.e5*(sig(k-1)-sig(k))/pinc )
+         dp(:,:) = (pl(:,:,k-1)-pl(:,:,k))/real(nloop)  
+  
+         do n = 1,nloop
+            do j = 1,pjl*pnpan*lproc
+               do i = 1,pil
+                   
+                  pl1 = pl2(i,j)
+                  tl1 = tl2(i,j)
+                  th1 = th2(i,j)
+                  qv1 = qv2(i,j)
+                  ql1 = ql2(i,j)
+                  qi1 = qi2(i,j)
+                  thv1 = thv2(i,j)
+     
+                  pl2(i,j) = pl2(i,j) - dp(i,j)
+                  pll2(i,j) = (pl2(i,j)/1.e5)**(rdry/cp)
+                  thlast = th1
+      
+                  icount = 0
+                  not_converged = .true.
+                  do while( not_converged .and. icount<51 )
+                     icount = icount + 1
+                     tl2(i,j) = thlast*pll2(i,j)
+                     fliq = max(min((tl2(i,j)-233.15)/(273.15-233.15),1.),0.)
+                     fice = 1. - fliq
+                     qv2(i,j) = min( qt(i,j), qsat(pl2(i,j),tl2(i,j)) )
+                     qi2(i,j) = max( fice*(qt(i,j)-qv2(i,j)), 0. )
+                     ql2(i,j) = max( qt(i,j)-qv2(i,j)-qi2(i,j), 0. )
+
+                     tbarl = 0.5*(tl1+tl2(i,j))
+                     qvbar = 0.5*(qv1+qv2(i,j))
+                     qlbar = 0.5*(ql1+ql2(i,j))
+                     qibar = 0.5*(qi1+qi2(i,j))
+
+                     lhv = lv1 - lv2*tbarl
+                     lhs = ls1 - ls2*tbarl
+                     lhf = lhs - lhv
+
+                     rm = rdry + rvap*qvbar
+                     cpm = cp + cpv*qvbar + 4190.*qlbar + 2118.636*qibar
+                     th2(i,j) = th1*exp(  lhv*(ql2(i,j)-ql1)/(cpm*tbarl)    &
+                                         +lhs*(qi2(i,j)-qi1)/(cpm*tbarl)    &
+                                         +(rm/cpm-rdry/cp)*alog(pl2(i,j)/pl1) )
+
+                     if ( abs(th2(i,j)-thlast)>0.0002 ) then
+                       thlast=thlast+0.2*(th2(i,j)-thlast)
+                     else
+                       not_converged = .false.
+                     end if
+                  end do ! do while not_converged
+
+                  ! pseudoadiabat
+                  qt(i,j)  = qv2(i,j)
+                  ql2(i,j) = 0.
+                  qi2(i,j) = 0.
+
+               end do   ! i loop
+            end do      ! j loop   
+         end do         ! n loop  
+
+         thv2(:,:) = th2(:,:)*(1.+1.61*qv2(:,:))/(1.+qv2(:,:)+ql2(:,:)+qi2(:,:))
+         b2(:,:) = grav*( thv2(:,:)-thv(:,:,k) )/thv(:,:,k)
+         dz(:,:) = -(cp/grav)*0.5*(thv(:,:,k)+thv(:,:,k-1))*(pll(:,:,k)-pll(:,:,k-1))
+	
+         ! calculate contributions to CAPE and CIN
+         where ( b2>=0. .and. b1<0. )
+            ! first time entering positive region
+            frac = b2/(b2-b1)
+            parea = 0.5*b2*dz*frac
+            narea = narea - 0.5*b1*dz*(1.-frac)
+            cinl = cinl + narea
+            capel = capel + max(0.,parea)
+            narea = 0.
+         elsewhere ( b2<0. .and. b1>0. )  
+            ! first time entering negative region  
+            frac = b1/(b1-b2)
+            parea = 0.5*b1*dz*frac
+            narea = -0.5*b2*dz*(1.-frac)
+            capel = capel + max(0.,parea)
+         elsewhere ( b2<0. )  
+            ! continue negative buoyancy region
+            parea = 0.
+            narea = narea - 0.5*dz*(b1+b2)
+         elsewhere
+            ! continue positive buoyancy region  
+            parea = 0.5*dz*(b1+b2)
+            narea = 0.
+            capel = capel + max(0.,parea)
+         end where
+         
+      end do ! k loop
+    
+      cape_d(:,:) = capel(:,:)
+      cin_d(:,:) = cinl(:,:)
+
+   end subroutine capecalc
+
+
    subroutine check_cc2histfile()
       ! Check whether the input file was created by cc2hist. Without this
       ! check the error message that this gives rise to is rather obscure.
