@@ -3430,6 +3430,12 @@ contains
                           std_name="surface_upwelling_longwave_flux_in_air", instant=.false. )
             call addfld ( "rsus", "Surface Upwelling Shortwave Radiation", "W m-2", -1000., 1000., 1, &
                           std_name="surface_upwelling_shortwave_flux_in_air", instant=.false. ) 
+            call addfld ( "rluscs", "Surface Upwelling Clear-Sky Longwave Radiation", "W m-2", -1000., 1000., 1, &
+                          std_name="surface_upwelling_longwave_flux_in_air_assuming_clear_sky", daily=.true.,    &
+                          instant=.false. )
+            call addfld ( "rsuscs", "Surface Upwelling Clear-Sky Shortwave Radiation", "W m-2", -1000., 1000., 1, &
+                          std_name="surface_upwelling_shortwave_flux_in_air_assuming_clear_sky", daily=.true.,    &
+                          instant=.false. ) 
             if ( int_type /= int_none ) then
                call addfld ( "sftlf", "Land-sea mask", "%",  0.0, 100.0, 1, &
                               ave_type="fixed", int_type=int_nearest,       &
