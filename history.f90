@@ -944,7 +944,7 @@ contains
                  nsoil, zsoil, osig_found )
             histid(1) = ncid
             histday(1) = .false.
-            histinst(1) = .false.
+            histinst(1) = .true.
             hist6hr(1) = .false.
             histfix(1) = .false.
             histdimvars(1) = dimvars
