@@ -2766,7 +2766,7 @@ contains
             lsize = pil*pjl*pnpan*lproc*(iend-istart+1)
             nreq = nreq + 1
             call START_LOG(mpigather_begin)
-            call MPI_ISend( histarray_tmp(:,:,:,1:iend-istart+1,ip+1), lsize, MPI_REAL, ip, &
+            call MPI_ISend( histarray_tmp(:,:,:,:,ip+1), lsize, MPI_REAL, ip, &
                  itag, comm_world, ireq(nreq), ierr )
             call END_LOG(mpigather_end)
          end if
