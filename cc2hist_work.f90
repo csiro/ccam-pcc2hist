@@ -5168,13 +5168,13 @@ contains
          if ( resprocformat ) then
             ierr = nf90_get_var ( ncid_in(ip), vid, inarray2(:,:), start=(/ 1, 1, prid_in(ip), nrec /), &
                                   count=(/ pil, pjl*pnpan, 1, 1 /) )
-            if ( ierr /= nf_noerr ) then
+            if ( ierr /= nf90_noerr ) then
                write(6,*) "error occured reading ",trim(inputfilename(ip))
             end if
             call check_ncerr(ierr, "Error getting var "//name)
          else
             ierr = nf90_get_var ( ncid_in(ip), vid, inarray2(:,:), start=(/ 1, 1, nrec /), count=(/ pil, pjl*pnpan, 1 /) )
-            if ( ierr /= nf_noerr ) then
+            if ( ierr /= nf90_noerr ) then
                write(6,*) "error occured reading ",trim(inputfilename(ip))
             end if
             call check_ncerr(ierr, "Error getting var "//name)
@@ -5228,7 +5228,7 @@ contains
             ierr = nf90_get_var ( ncid_in(ip), vid, inarray3, start=(/ 1, 1, 1, nrec /), &
                                   count=(/ pil, pjl*pnpan, pkl, 1 /) )
          end if
-         if ( ierr /= nf_noerr ) then
+         if ( ierr /= nf90_noerr ) then
             write(6,*) "error occured reading ",trim(inputfilename(ip))
          end if
          call check_ncerr(ierr, "Error getting var "//name)
@@ -5281,7 +5281,7 @@ contains
             ierr = nf90_get_var ( ncid_in(ip), vid, inarray4, start=(/ 1, 1, 1, 1, nrec /), &
                                   count=(/ pil, pjl*pnpan, pkl, pll, 1 /) )
          end if
-         if ( ierr /= nf_noerr ) then
+         if ( ierr /= nf90_noerr ) then
             write(6,*) "error occured reading ",trim(inputfilename(ip))
          end if
          call check_ncerr(ierr, "Error getting var "//name)

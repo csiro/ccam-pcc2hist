@@ -2075,6 +2075,8 @@ contains
       real, dimension(:,:), allocatable, save :: hist_g
       logical :: doinc
       logical :: endofday, endof6hr
+      integer, save :: safe_count = 0
+      integer, parameter :: safe_max = 10
 #ifdef usempi3
       integer :: cnt, maxcnt, interp_nproc
       integer :: slab, offset
@@ -2665,7 +2667,11 @@ contains
       timecount = 0
 
 #ifdef safe
-      call mpi_barrier(comm_world,ierr)
+      safe_count = safe_count + 1
+      if ( safe_count > safe_max ) then
+         call mpi_barrier(comm_world,ierr)
+         safe_count = 0
+      end if
 #endif
       
 !     Sync the file so that if the program crashes for some reason 
