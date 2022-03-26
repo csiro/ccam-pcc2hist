@@ -2076,7 +2076,7 @@ contains
       logical :: doinc
       logical :: endofday, endof6hr
       integer, save :: safe_count = 0
-      integer, parameter :: safe_max = 10
+      integer, parameter :: safe_max = 24
 #ifdef usempi3
       integer :: cnt, maxcnt, interp_nproc
       integer :: slab, offset
