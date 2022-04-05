@@ -2445,7 +2445,7 @@ contains
                    
                call START_LOG(putvar_begin)
                ncid = histinfo(ifld)%ncid
-               if ( histinfo(ifld)%daily .and. single_output==.false. ) then
+               if ( histinfo(ifld)%daily .and. .not.single_output ) then
                   if ( endofday ) then
                      if ( histinfo(ifld)%pop4d ) then
                         start4D = (/ 1, 1, mod(k+1-istart-1,cptch)+1, 1+(k+1-istart-1)/cptch,  histset_daily /)
@@ -2461,7 +2461,7 @@ contains
                         ierr = nf90_put_var ( ncid, vid, htemp, start=start2D, count=count2D )
                      end if
                   end if    
-               else if ( histinfo(ifld)%sixhr .and. single_output==.false. ) then
+               else if ( histinfo(ifld)%sixhr .and. .not.single_output ) then
                   if ( endof6hr ) then
                      if ( histinfo(ifld)%pop4d ) then
                         start4D = (/ 1, 1, mod(k+1-istart-1,cptch)+1, 1+(k+1-istart-1)/cptch,  histset_6hr /)
@@ -2597,7 +2597,7 @@ contains
 
                call START_LOG(putvar_begin)
                ncid = histinfo(ifld)%ncid
-               if ( histinfo(ifld)%daily .and. single_output==.false. ) then
+               if ( histinfo(ifld)%daily .and. .not.single_output ) then
                   if ( endofday ) then
                      if ( histinfo(ifld)%pop4d ) then
                         start4D = (/ 1, 1, mod(k+1-istart-1,cptch)+1, 1+(k+1-istart-1)/cptch,  histset_daily /)
@@ -2613,7 +2613,7 @@ contains
                         ierr = nf90_put_var ( ncid, vid, htemp, start=start2D, count=count2D )
                      end if
                   end if
-               else if ( histinfo(ifld)%sixhr .and. single_output==.false. ) then
+               else if ( histinfo(ifld)%sixhr .and. .not.single_output ) then
                   if ( endof6hr ) then
                      if ( histinfo(ifld)%pop4d ) then
                         start4D = (/ 1, 1, mod(k+1-istart-1,cptch)+1, 1+(k+1-istart-1)/cptch,  histset_6hr /)
