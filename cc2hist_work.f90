@@ -561,13 +561,13 @@ contains
                   end where   
                   call savehist ( "mrros", dtmp )
                end if   
-            case ( "ocheight" )
-               if ( needfld("ocheight") ) then 
+            case ( "ocheight", "ssh" )
+               if ( needfld("ocheight") .or. needfld("ssh") ) then 
                   call vread( "ocheight", dtmp )
                   where ( soilt > 0.5 )
                      dtmp = nf90_fill_float ! flag for land
                   end where   
-                  call savehist ( "ocheight", dtmp )
+                  call savehist ( varlist(ivar)%vname, dtmp )
                end if   
             case ( "pr" )
                if ( needfld("pr") ) then 
@@ -3133,6 +3133,11 @@ contains
                varlist(ivar)%instant = .false.
                xmin = 0.
                xmax = 0.013
+            else if ( varlist(ivar)%vname == "ocheight" ) then
+               varlist(ivar)%vname = "ssh"
+               varlist(ivar)%units = "m"
+               varlist(ivar)%long_name = "water surface height"
+               varlist(ivar)%instant = .true.               
             else if ( varlist(ivar)%vname == "runoff" ) then
                varlist(ivar)%vname = "mrro"
                varlist(ivar)%units = "kg m-2 s-1"
@@ -4458,6 +4463,8 @@ contains
          stdname = "sea_water_salinity"
       case ("sos")
          stdname = "sea_surface_salinity"
+      case ("ssh")
+         stdname = "sea_surface_height_above_sea_level"          
       case ("sund")
          stdname = "duration_of_sunshine"
       case ("ta")
