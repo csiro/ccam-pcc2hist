@@ -2736,8 +2736,10 @@ contains
       real, dimension(:,:,:,:), intent(inout) :: hist_a
       real, dimension(pil*pjl*pnpan*lproc*slab*nproc) :: hist_a_tmp
       integer :: nreq, rreq, ipr, sreq
+      integer :: ldone, rcount, jproc
       integer, save :: itag = 0
       integer, dimension(2*nproc) :: ireq
+      integer, dimension(2*nproc) :: donelist
       real, dimension(pil,pjl*pnpan,lproc,slab,offset+1:nproc) :: histarray_tmp      
       
       call START_LOG(gatherwrap_begin)
@@ -2780,18 +2782,24 @@ contains
       
       istart = 1 + slab*(myid-offset)
       if ( istart > 0 ) then
-         call START_LOG(mpigather_begin)
-         call MPI_Waitall( rreq, ireq, MPI_STATUSES_IGNORE, ierr )
-         call END_LOG(mpigather_end)          
+         rcount = rreq
          iend = slab*(myid-offset+1)
          iend = min( iend, maxcnt )          
-         do n = 1,nproc
-            do k = istart,iend 
-               do lp = 0,lproc-1 
-                  iq = lp*pil*pjl*pnpan + (k-istart)*pil*pjl*pnpan*lproc + (n-1)*pil*pjl*pnpan*lproc*(iend-istart+1)
-                  hist_a(:,:,lp+(n-1)*lproc+1,k-istart+1) = reshape( hist_a_tmp(iq+1:iq+pil*pjl*pnpan), (/ pil, pjl*pnpan /) )
+         do while ( rcount > 0 )
+            call START_LOG(mpigather_begin)
+            !call MPI_Waitall( rreq, ireq, MPI_STATUSES_IGNORE, ierr )
+            call MPI_Waitsome( rreq, ireq, ldone, donelist, MPI_STATUSES_IGNORE, ierr )
+            call END_LOG(mpigather_end)          
+            rcount = rcount - ldone
+            do jproc = 1,ldone
+               n = donelist(jproc)
+               do k = istart,iend 
+                  do lp = 0,lproc-1 
+                     iq = lp*pil*pjl*pnpan + (k-istart)*pil*pjl*pnpan*lproc + (n-1)*pil*pjl*pnpan*lproc*(iend-istart+1)
+                     hist_a(:,:,lp+(n-1)*lproc+1,k-istart+1) = reshape( hist_a_tmp(iq+1:iq+pil*pjl*pnpan), (/ pil, pjl*pnpan /) )
+                  end do
                end do
-            end do
+            end do   
          end do
       end if 
       
@@ -2800,9 +2808,6 @@ contains
       if ( sreq > 0 ) then
          call MPI_Waitall( sreq, ireq(rreq+1:nreq), MPI_STATUSES_IGNORE, ierr )
       end if   
-#ifdef safe
-      call MPI_Barrier( comm_world, ierr )
-#endif
       call END_LOG(mpigather_end)
       
       call END_LOG(gatherwrap_end)
@@ -2866,9 +2871,6 @@ contains
             end do
          end do
       end if
-#ifdef safe
-      call MPI_Barrier( comm_world, ierr )
-#endif
       call END_LOG(gatherwrap_end)
       
    end subroutine gather_wrap
