@@ -4,16 +4,16 @@ FC = mpif90
 ifneq ($(CUSTOM),yes)
 FHOST = -xHost
 ifeq ($(BROADWELL),yes)
-FHOST = -xCORE-AVX2
+FHOST = -xCORE-AVX2 -align array32byte -fimf-use-svml
 endif
 ifeq ($(SKYLAKE),yes)
-FHOST = -xSKYLAKE-AVX512
+FHOST = -xSKYLAKE-AVX512 -align array64byte -fimf-use-svml
 endif
 ifeq ($(CASCADELAKE),yes)
-FHOST = -xCASCADELAKE
+FHOST = -xCASCADELAKE -align array64byte -fimf-use-svml -Dsafe
 endif
 ifeq ($(ZEN3),yes)
-FHOST = -axCORE-AVX2 
+FHOST = -axCORE-AVX2 -align array32byte -fimf-use-svml
 endif
 ifeq ($(MAGNUS),yes)
 FC = ftn
