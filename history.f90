@@ -718,6 +718,9 @@ contains
       real :: dx, dy
       integer :: i, j, slab
       real, dimension(:), allocatable :: cabledata
+#ifdef usempi3
+      integer :: cnt, maxcnt, interp_nproc, offset, ave_type, nlev, rrank
+#endif
 
       call START_LOG(openhist_begin)
       
@@ -960,34 +963,52 @@ contains
       else
          ! count number of output variables 
 #ifdef usempi3          
-         i = 0
+         cnt = 0
          do ifld = 1,totflds
-           if ( histinfo(ifld)%used ) then
-              i = i + 1 
-           end if    
-         end do
-         slab = max( nproc/i, 1 )
-         i = 0
-         j = 0
-         do ifld = 1,totflds
-            if ( histinfo(ifld)%used ) then
-               j = j + 1
-               histinfo(ifld)%procid = mod( (j-1)*slab, nproc ) 
-               if ( histinfo(ifld)%procid == myid ) then
-                  i = i + 1
-               end if   
+            if ( .not. histinfo(ifld)%used ) then
+               cycle
             end if
-         end do   
-#else
-         i = 0
+            ave_type = histinfo(ifld)%ave_type
+            nlev = histinfo(ifld)%nlevels
+            if ( ave_type == hist_fixed ) then
+               cycle
+            end if
+            cnt = cnt + nlev
+         end do ! Loop over fields
+         slab = ceiling(real(cnt,8)/real(nproc,8))
+         maxcnt = cnt
+         interp_nproc = ceiling(real(maxcnt,8)/real(max(slab,1),8))
+         offset = nproc - interp_nproc
+         
+         cnt = 0
          do ifld = 1,totflds
-           histinfo(ifld)%procid = 0
-           if ( histinfo(ifld)%used .and. histinfo(ifld)%procid==myid ) then
-              i = i + 1 
-           end if    
+            if ( .not. histinfo(ifld)%used ) then
+               cycle
+            end if
+            ave_type = histinfo(ifld)%ave_type
+            nlev = histinfo(ifld)%nlevels
+            if ( ave_type == hist_fixed ) then
+               histinfo(ifld)%procid = 0 
+               cycle
+            end if
+            istart = histinfo(ifld)%ptr
+            iend = istart + nlev - 1
+            rrank = ceiling(real(cnt+1,8)/real(max(slab,1),8)) - 1 + offset
+            histinfo(ifld)%procid = rrank 
+            cnt = cnt + nlev
+         end do ! Loop over fields    
+#else
+         do ifld = 1,totflds
+            histinfo(ifld)%procid = 0
          end do
 #endif   
          ! create output files
+         i = 0
+         do ifld = 1,totflds
+            if ( histinfo(ifld)%used .and. histinfo(ifld)%procid==myid ) then
+               i = i + 1 
+            end if    
+         end do
          allocate( histid(i), histday(i), hist6hr(i), histfix(i), histdimvars(i) )
          allocate( histinst(i) )
          i = 0
@@ -1193,16 +1214,6 @@ contains
             call check_ncerr(ierr,"Error writing coordinate height")
          end do   
       end do
-
-#ifdef outsync
-!     Sync the file so that if the program crashes for some reason 
-!     there will still be useful output.
-      do i = 1,size(histid)
-         ncid = histid(i) 
-         ierr = nf90_sync ( ncid )
-         call check_ncerr(ierr, "Error syncing history file")
-      end do   
-#endif
       
 !     Allocate the array to hold all the history data
 !     Calculate the size by summing the number of fields of each variable
@@ -2080,6 +2091,10 @@ contains
 #ifdef usempi3
       integer :: cnt, maxcnt, interp_nproc
       integer :: slab, offset
+      integer :: rrank, sizehis, itag
+      integer :: nreq, dreq, rreq, maxdreq, maxrreq
+      integer, dimension(:), allocatable, save :: ireq, ireq_r, ireq_d
+      real, dimension(:,:,:), allocatable, save :: htemp_buff
 #endif
 
       call START_LOG(writehist_begin)
@@ -2327,7 +2342,7 @@ contains
          cnt = cnt + iend - istart + 1
                
       end do ! Loop over fields
-
+      
       slab = ceiling(real(cnt,8)/real(nproc,8))
       maxcnt = cnt
       interp_nproc = ceiling(real(maxcnt,8)/real(max(slab,1),8))
@@ -2347,13 +2362,14 @@ contains
       end if
       if ( allocated( k_indx ) ) then
          if ( size(k_indx) /= maxcnt ) then
-            deallocate( k_indx )
+            deallocate( k_indx, ireq_r, ireq_d )
          end if
       end if
       if ( .not.allocated( k_indx ) ) then
-         allocate( k_indx(maxcnt) )
+         allocate( k_indx(maxcnt), ireq_r(maxcnt), ireq_d(maxcnt) )
       end if
 
+      dreq = 0
       cnt = 0
 !     second pass
 !     create the array used to index histarray
@@ -2376,9 +2392,29 @@ contains
          do k = istart,iend
             cnt = cnt + 1
             k_indx(cnt) = k
+            rrank = ceiling(real(cnt,8)/real(max(slab,1),8)) - 1 + offset
+            if ( rrank /= histinfo(ifld)%procid ) then
+               if ( myid == histinfo(ifld)%procid ) then
+                  dreq = dreq + 1
+               else if ( myid == rrank ) then
+                  dreq = dreq + 1 
+               end if
+            else
+               dreq = dreq + 1 
+            end if
          end do   ! k loop
 
       end do ! Loop over fields
+      
+      maxdreq = dreq
+      if ( allocated( ireq ) ) then
+         if ( size(ireq) /= maxdreq ) then
+            deallocate( htemp_buff, ireq )
+         end if
+      end if
+      if ( .not.allocated( ireq ) ) then
+         allocate( htemp_buff(nxhis,nyhis,maxdreq), ireq(maxdreq) )
+      end if      
 
 !     now do the gather wrap
       if ( slab > 0 ) then
@@ -2386,8 +2422,11 @@ contains
       end if
  
       cnt = 0
+      nreq = 0
+      dreq = 0
+      sizehis = nxhis*nyhis
 !     third pass
-!     perform the interpolation and write the data
+!     perform the interpolation
       do ifld = 1,totflds
          if ( .not. histinfo(ifld)%used ) then
             cycle
@@ -2421,9 +2460,69 @@ contains
                   htemp = hist_g(:,:)
                end if
             end if
-            call sendrecv_wrap(htemp,cnt,slab,offset,histinfo(ifld)%procid)
+
+            call START_LOG(mpisendrecv_begin)
+            itag = 1000 + cnt
+            rrank = ceiling(real(cnt,8)/real(max(slab,1),8)) - 1 + offset
+            if ( rrank /= histinfo(ifld)%procid ) then
+               if ( myid == histinfo(ifld)%procid ) then
+                  dreq = dreq + 1 
+                  nreq = nreq + 1
+                  call MPI_IRecv(htemp_buff(:,:,dreq), sizehis, MPI_REAL, rrank, itag, comm_world, ireq(nreq), ierr)
+                  ireq_r(cnt) = nreq
+                  ireq_d(cnt) = dreq
+               else if ( myid == rrank ) then
+                  dreq = dreq + 1 
+                  nreq = nreq + 1 
+                  htemp_buff(:,:,dreq) = htemp
+                  call MPI_ISend(htemp_buff(:,:,dreq), sizehis, MPI_REAL, histinfo(ifld)%procid, itag, comm_world, ireq(nreq), ierr)
+               end if
+            else
+               dreq = dreq + 1 
+               htemp_buff(:,:,dreq) = htemp
+               ireq_d(cnt) = dreq
+            end if
+            call END_LOG(mpisendrecv_end)
+            
+         end do   ! k loop
+
+      end do ! Loop over fields
+      
+      cnt = 0
+!     fourth pass
+!     write the data
+      do ifld = 1,totflds
+         if ( .not. histinfo(ifld)%used ) then
+            cycle
+         end if
+         ave_type = histinfo(ifld)%ave_type
+         nlev = histinfo(ifld)%nlevels
+         vid = histinfo(ifld)%vid
+         
+!        Only write fixed variables in the first history set
+         if ( histset > 1 .and. ave_type == hist_fixed ) then
+            cycle
+         end if
+
+         istart = histinfo(ifld)%ptr
+         iend = istart + nlev - 1
+
+!        Even multilevel variables are written one level at a time
+         do k = istart, iend
+
+            cnt = cnt + 1
 
             if ( myid == histinfo(ifld)%procid ) then
+               
+               call START_LOG(mpisendrecv_begin) 
+               rrank = ceiling(real(cnt,8)/real(max(slab,1),8)) - 1 + offset
+               if ( rrank /= histinfo(ifld)%procid ) then
+                  rreq = ireq_r(cnt) 
+                  call MPI_Wait(ireq(rreq), MPI_STATUS_IGNORE, ierr)
+               end if   
+               dreq = ireq_d(cnt) 
+               htemp = htemp_buff(:,:,dreq)
+               call END_LOG(mpisendrecv_end)
 
                if ( hbytes == 2 ) then
                   addoff = histinfo(ifld)%addoff
@@ -2505,6 +2604,12 @@ contains
          histinfo(ifld)%count = 0
 
       end do ! Loop over fields
+      
+      call START_LOG(mpisendrecv_begin)
+      if ( nreq > 0 ) then
+         call MPI_Waitall(nreq, ireq, MPI_STATUSES_IGNORE, ierr )
+      end if   
+      call END_LOG(mpisendrecv_end)       
 
       deallocate(hist_a)
 #else
@@ -2669,19 +2774,21 @@ contains
 #ifdef safe
       safe_count = safe_count + 1
       if ( safe_count > safe_max ) then
+         if ( myid == 0 ) then
+            write(*,"(a)") "Clearing buffers"
+         end if    
+!        Sync the file so that if the program crashes for some reason 
+!        there will still be useful output.
+         call START_LOG(putvar_begin)
+         do i = 1,size(histid) 
+            ncid = histid(i) 
+            ierr = nf90_sync ( ncid )
+            call check_ncerr(ierr, "Error syncing history file")
+         end do 
+         call END_LOG(putvar_begin)
          call mpi_barrier(comm_world,ierr)
          safe_count = 0
       end if
-#endif
-      
-!     Sync the file so that if the program crashes for some reason 
-!     there will still be useful output.
-#ifdef outsync
-      do i = 1,size(histid) 
-         ncid = histid(i) 
-         ierr = nf90_sync ( ncid )
-         call check_ncerr(ierr, "Error syncing history file")
-      end do   
 #endif
 
       call END_LOG(writehist_end)
@@ -2737,7 +2844,7 @@ contains
       real, dimension(pil*pjl*pnpan*lproc*slab*nproc) :: hist_a_tmp
       integer :: nreq, rreq, ipr, sreq
       integer :: ldone, rcount, jproc
-      integer, save :: itag = 0
+      integer, parameter :: itag = 1
       integer, dimension(2*nproc) :: ireq
       integer, dimension(2*nproc) :: donelist
       real, dimension(pil,pjl*pnpan,lproc,slab,offset+1:nproc) :: histarray_tmp      
@@ -2746,7 +2853,6 @@ contains
 
       nreq = 0
       rreq = 0
-      itag = itag + 1
       
       istart = 1 + slab*(myid-offset) 
       if ( istart > 0 ) then
@@ -2787,7 +2893,6 @@ contains
          iend = min( iend, maxcnt )          
          do while ( rcount > 0 )
             call START_LOG(mpigather_begin)
-            !call MPI_Waitall( rreq, ireq, MPI_STATUSES_IGNORE, ierr )
             call MPI_Waitsome( rreq, ireq, ldone, donelist, MPI_STATUSES_IGNORE, ierr )
             call END_LOG(mpigather_end)          
             rcount = rcount - ldone
@@ -2813,36 +2918,6 @@ contains
       call END_LOG(gatherwrap_end)
    
    end subroutine gather_wrap
-   
-   subroutine sendrecv_wrap(htemp,cnt,slab,offset,procid)
-      use mpidata_m, only : nproc, lproc, myid, comm_world
-      use logging_m
-#ifdef usempi_mod
-      use mpi
-#else
-      include 'mpif.h'
-#endif  
-      real, dimension(:,:), intent(inout) :: htemp
-      integer, intent(in) :: cnt, slab, offset, procid
-      integer :: rrank, sizehis, ierr, ireq
-      integer, save :: itag = 1000
-   
-      call START_LOG(mpisendrecv_begin)
-      
-      itag = itag + 1
-      rrank = ceiling(real(cnt,8)/real(max(slab,1),8)) - 1 + offset
-      if ( rrank /= procid ) then
-         sizehis = size(htemp, 1)*size(htemp, 2)  
-         if ( myid == procid ) then
-            call MPI_Recv(htemp,sizehis,MPI_REAL,rrank,itag,comm_world,MPI_STATUS_IGNORE,ierr)
-         else if ( myid == rrank ) then
-            call MPI_Send(htemp,sizehis,MPI_REAL,procid,itag,comm_world,ierr)
-         end if
-      end if
-      
-      call END_LOG(mpisendrecv_end)
-       
-   end subroutine sendrecv_wrap
 #else
    subroutine gather_wrap(array_in,array_out)
       use mpidata_m, only : nproc, lproc, comm_world, myid

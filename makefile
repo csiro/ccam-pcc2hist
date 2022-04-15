@@ -13,7 +13,7 @@ ifeq ($(CASCADELAKE),yes)
 FHOST = -xCASCADELAKE -align array64byte -fimf-use-svml -Dsafe
 endif
 ifeq ($(ZEN3),yes)
-FHOST = -axCORE-AVX2 -align array32byte -fimf-use-svml
+FHOST = -axCORE-AVX2 -align array32byte -fimf-use-svml -Dsafe
 endif
 ifeq ($(MAGNUS),yes)
 FC = ftn
