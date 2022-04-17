@@ -716,10 +716,11 @@ contains
       integer :: kc, ncoords, k, pkl
       logical :: osig_found
       real :: dx, dy
-      integer :: i, j, slab
+      integer :: i, j
       real, dimension(:), allocatable :: cabledata
 #ifdef usempi3
-      integer :: cnt, maxcnt, ave_type, nlev, rrank
+      integer :: ave_type, nlev, rrank
+      integer :: cnt, maxcnt, gap, slab
 #endif
 
       call START_LOG(openhist_begin)
@@ -962,16 +963,37 @@ contains
          end if  
       else
          ! count number of output variables 
-#ifdef usempi3          
-          rrank = 0
-          cnt = max( count( histinfo(:)%used ), 1 )
-          do ifld = 1,totflds
-             if ( .not. histinfo(ifld)%used ) then
-                cycle
-             end if 
-             histinfo(ifld)%procid = rrank 
-             rrank = mod( rrank + max(nproc/cnt,1) , nproc )
-          end do   
+#ifdef usempi3
+         cnt = 0
+         do ifld = 1,totflds
+           if ( .not. histinfo(ifld)%used ) then
+               cycle
+            end if  
+            ave_type = histinfo(ifld)%ave_type
+            nlev = histinfo(ifld)%nlevels
+            if ( histset > 1 .and. ave_type == hist_fixed ) then
+               cycle
+            end if
+            cnt = cnt + nlev
+         end do  
+         maxcnt = cnt
+         slab = ceiling(real(maxcnt,8)/real(nproc,8))
+         gap = max( nproc/maxcnt, 1 )
+         cnt = 0
+         do ifld = 1,totflds
+           if ( .not. histinfo(ifld)%used ) then
+               cycle
+            end if  
+            ave_type = histinfo(ifld)%ave_type
+            nlev = histinfo(ifld)%nlevels
+            if ( histset > 1 .and. ave_type == hist_fixed ) then
+               histinfo(ifld)%procid = 0
+               cycle
+            end if
+            cnt = cnt + nlev            
+            rrank = (cnt*gap)/slab
+            histinfo(ifld)%procid = rrank
+         end do   
 #else
          do ifld = 1,totflds
             histinfo(ifld)%procid = 0
@@ -2788,7 +2810,9 @@ contains
             call check_ncerr(ierr, "Error syncing history file")
          end do 
          call END_LOG(putvar_end)
+         call START_LOG(mpibarrier_begin)
          call mpi_barrier(comm_world,ierr)
+         call END_LOG(mpibarrier_end)
          safe_count = 0
       end if
 #endif
