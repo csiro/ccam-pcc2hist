@@ -990,9 +990,9 @@ contains
                histinfo(ifld)%procid = 0
                cycle
             end if
-            cnt = cnt + nlev            
             rrank = (cnt*gap)/slab
             histinfo(ifld)%procid = rrank
+            cnt = cnt + nlev            
          end do   
 #else
          do ifld = 1,totflds
