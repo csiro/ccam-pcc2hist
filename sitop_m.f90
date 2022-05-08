@@ -972,8 +972,13 @@ contains
                   h2=1.0/(h1*h1)
                   h3=h2/h1
                   z=(ogd(i,j1)*v2*w1-ogd(i,ojaa(i,ii,j))*w2*v1)*h2
-                  ogp(i,ii) = z + (ogs(i,j1)*v2*(w1+w1+h1)+  &
-                                ogs(i,ojaa(i,ii,j))*w2*(v1+v1+h1))*h3
+                  if ( ogs(i,j1)/=NF90_FILL_FLOAT .and. &
+                       ogs(i,ojaa(i,ii,j))/=NF90_FILL_FLOAT ) then
+                     ogp(i,ii) = z + (ogs(i,j1)*v2*(w1+w1+h1)+  &
+                                 ogs(i,ojaa(i,ii,j))*w2*(v1+v1+h1))*h3
+                  else
+                     ogp(i,ii) = NF90_FILL_FLOAT
+                  end if
                end do
             end do
             

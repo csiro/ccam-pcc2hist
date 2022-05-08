@@ -2354,7 +2354,7 @@ contains
          print *, "Internal error defining slab and gap ",slab,gap
          stop
       end if
-      if ( mod( myid, gap ) == 0 .and. myid < gap*maxcnt ) then
+      if ( mod( myid, gap ) == 0 .and. myid < ceiling(real(gap*maxcnt,8)/real(slab,8)) ) then
          allocate( hist_a(pil,pjl*pnpan,pnproc,1+slab*myid/gap:slab*(myid/gap+1)) ) 
          if ( allocated( hist_g ) ) then
             if ( size(hist_g,1) /= nx_g .or. size(hist_g,2) /= ny_g ) then
@@ -2882,7 +2882,7 @@ contains
       
       istart = 1 + slab*(myid/gap) 
       iend = min( istart + slab - 1, maxcnt )
-      if ( mod( myid, gap ) == 0 .and. myid < gap*maxcnt ) then
+      if ( mod( myid, gap ) == 0 .and. myid < ceiling(real(gap*maxcnt,8)/real(slab,8)) ) then
          lsize = pil*pjl*pnpan*lproc*(iend-istart+1)
          do ipr = 0,nproc-1
             nreq = nreq + 1
@@ -2897,7 +2897,7 @@ contains
       do ip = 0,nproc-1
          istart = 1 + slab*(ip/gap) 
          iend = min( istart + slab - 1, maxcnt )
-         if ( mod( ip, gap ) == 0 .and. ip < gap*maxcnt ) then
+         if ( mod( ip, gap ) == 0 .and. ip < ceiling(real(gap*maxcnt,8)/real(slab,8)) ) then
             do k = istart,iend
                histarray_tmp(:,:,:,k-istart+1,ip+1) = reshape( histarray(:,:,k_indx(k)), (/ pil,pjl*pnpan,lproc /) )
             end do   
@@ -2912,7 +2912,7 @@ contains
       
       istart = 1 + slab*(myid/gap)
       iend = min( slab*(myid/gap+1), maxcnt )          
-      if ( mod( myid, gap ) == 0 .and. myid < gap*maxcnt ) then
+      if ( mod( myid, gap ) == 0 .and. myid < ceiling(real(gap*maxcnt,8)/real(slab,8)) ) then
          rcount = rreq
          do while ( rcount > 0 )
             call START_LOG(mpigather_begin)

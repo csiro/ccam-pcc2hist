@@ -4228,7 +4228,7 @@ contains
       ! Also return preferred variable name and units?
       vname = vinfo%vname
       select case (vname)
-      case ("od550aero")
+      case ("od550aer")
          stdname = "atmospheric_optical_thickness_due_to_ambient_aerosol_particles" 
       case ("alb")
          stdname = "surface_albedo"
