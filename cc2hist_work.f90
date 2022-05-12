@@ -332,6 +332,7 @@ contains
       real, dimension(pil,pjl*pnpan*lproc) :: rgncs, rgdcs, sgncs, sgdcs
       real, dimension(pil,pjl*pnpan*lproc) :: wind_norm
       real, dimension(pil,pjl*pnpan*lproc) :: u10max, v10max 
+      real, dimension(pil,pjl*pnpan*lproc) :: u10m_max, v10m_max
       real, dimension(pil,pjl*pnpan*lproc) :: tscrn, qgscrn
       real, dimension(pil,pjl*pnpan*lproc) :: uten_stn, uastmp_stn, vastmp_stn
       real, dimension(pil,pjl*pnpan*lproc) :: u10max_stn, v10max_stn
@@ -360,6 +361,8 @@ contains
       qf = 0.
       u10max = nf90_fill_float     ! daily
       v10max = nf90_fill_float     ! daily
+      u10m_max = nf90_fill_float   ! subdaily
+      v10m_max = nf90_fill_float   ! subdaily
       u10max_stn = nf90_fill_float ! daily
       v10max_stn = nf90_fill_float ! daily
       rgdcs = nf90_fill_float      ! daily
@@ -822,6 +825,8 @@ contains
                if ( needfld(varlist(ivar)%vname) ) then
                   call savehist( varlist(ivar)%vname, uten_stn )
                end if
+            case ( "u10m_max" )
+               call vread( "u10m_max", u10m_max ) ! subdaily
             case ( "u10max" )
                call vread( "u10max", u10max ) 
             case ( "u10max_stn" ) ! to be depreciated
@@ -830,6 +835,8 @@ contains
                 call vread( "uas", uastmp )         ! only for high-frequency output
             case ( "uas_stn" )
                 call vread( "uas_stn", uastmp_stn ) ! only for high-frequency output
+            case ( "v10m_max" )
+               call vread( "v10m_max", v10m_max ) ! subdaily
             case ( "v10max" )
                call vread( "v10max", v10max ) 
             case ( "v10max_stn" ) ! to be depreciated
@@ -1373,6 +1380,27 @@ contains
             end where
             call savehist( "sfcWindmax", dtmp )
          end if
+      end if
+           
+      ! subdaily maximum winds           
+      if ( needfld('u10m_max') .or. needfld('v10m_max') .or. &
+           needfld('sfcWind_max') ) then
+         call fix_winds(u10m_max,v10m_max)
+         if ( needfld('u10m_max') ) then
+            call savehist('u10m_max',u10m_max)
+         end if
+         if ( needfld('v10m_max') ) then
+            call savehist('v10m_max',v10m_max) 
+         end if    
+         if ( needfld('sfcWind_max') ) then
+            where ( u10m_max/=nf90_fill_float .and. &
+                    v10m_max/=nf90_fill_float )
+               dtmp = sqrt(u10m_max**2 + v10m_max**2)
+            elsewhere
+               dtmp = nf90_fill_float
+            end where
+            call savehist( "sfcWind_max", dtmp ) 
+         end if    
       end if
 
       ! to be depreciated      
@@ -3490,6 +3518,10 @@ contains
          call addfld ( "vas", "Northward Near-Surface Wind", "m s-1", -100.0, 100.0, 1, std_name="northward_wind", ran_type=.true. )
          call addfld ( "sfcWindmax", "Maximum 10m wind speed", "m s-1", 0.0, 200.0, 1, std_name="wind_speed", ran_type=.true., &
                        daily=.true., instant=.false. )
+         ierr = nf90_inq_varid (ncid, "u10m_max", ivar )
+         if ( ierr /= nf90_noerr ) then
+            call addfld ( "sfcWind_max", "Maximum 10m wind speed", "m s-1", 0.0, 200.0, 1, std_name="wind_speed" )
+         end if   
          ! Packing is not going to work well in this case
          ! For height, estimate the height of the top level and use that
          ! for scaling
@@ -3645,21 +3677,6 @@ contains
                end if
                call addfld ( "sfcWindmax", "Maximum 10m wind speed", "m s-1", 0.0, 200.0, 1, std_name="wind_speed", &
                              ran_type=.true., daily=.true., instant=.false. )
-               ierr = nf90_inq_varid (ncid, "snd", ivar )
-               if ( ierr == nf90_noerr ) then
-                  ierr = nf90_get_att(ncid, ivar, 'valid_time',valid_att)
-                  if ( ierr==nf90_noerr .and. valid_att=="6hr" ) then
-                     call addfld ( "snc",  "Snow area fraction", "%", 0., 6.5, 1, &
-                                   std_name="surface_snow_area_fraction", sixhr=.true. )
-                     call addfld ( "snw",  "Surface Snow Amount", "kg m-2", 0., 6.5, 1, &
-                                   std_name="surface_snow_amount", sixhr=.true. ) 
-                  else
-                     call addfld ( "snc",  "Snow area fraction", "%", 0., 6.5, 1, &
-                                   std_name="surface_snow_area_fraction" )
-                     call addfld ( "snw",  "Surface Snow Amount", "kg m-2", 0., 6.5, 1, &
-                                   std_name="surface_snow_amount" ) 
-                  end if    
-               end if   
                call addfld ( "sftlaf", "Lake Area Fraction", "%", 0.0, 100.0, 1, ave_type="fixed", &
                              std_name="lake_area_fraction" )
             else
@@ -3671,6 +3688,23 @@ contains
                                  ave_type="fixed", int_type=int_none, std_name="land_area_fraction", ran_type=.true. )
                end if 
             end if   
+         end if   
+         ierr = nf90_inq_varid (ncid, "snd", ivar )
+         if ( ierr == nf90_noerr ) then
+            if ( cordex_compliant ) then 
+               ierr = nf90_get_att(ncid, ivar, 'valid_time',valid_att)
+               if ( ierr==nf90_noerr .and. valid_att=="6hr" ) then
+                  call addfld ( "snc",  "Snow area fraction", "%", 0., 6.5, 1, &
+                                std_name="surface_snow_area_fraction", sixhr=.true. )
+                  call addfld ( "snw",  "Surface Snow Amount", "kg m-2", 0., 6.5, 1, &
+                                std_name="surface_snow_amount", sixhr=.true. ) 
+               else
+                  call addfld ( "snc",  "Snow area fraction", "%", 0., 6.5, 1, &
+                                std_name="surface_snow_area_fraction" )
+                  call addfld ( "snw",  "Surface Snow Amount", "kg m-2", 0., 6.5, 1, &
+                                std_name="surface_snow_amount" ) 
+               end if    
+            end if      
          end if   
          ierr = nf90_inq_varid (ncid, "psf", ivar )
          if ( ierr==nf90_noerr ) then
