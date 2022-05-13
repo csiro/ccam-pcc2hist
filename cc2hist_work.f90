@@ -3688,7 +3688,11 @@ contains
                                  ave_type="fixed", int_type=int_none, std_name="land_area_fraction", ran_type=.true. )
                end if 
             end if   
-         end if   
+         end if  
+         ierr = nf90_inq_varid (ncid, "u10m_max", ivar )
+         if ( ierr /= nf90_noerr ) then
+            call addfld ( "sfcWind_max", "Maximum 10m wind speed", "m s-1", 0.0, 200.0, 1, std_name="wind_speed" )
+         end if  
          ierr = nf90_inq_varid (ncid, "snd", ivar )
          if ( ierr == nf90_noerr ) then
             if ( cordex_compliant ) then 
