@@ -4627,7 +4627,15 @@ contains
          call cordex_name(cname,"va",height_level,"m")
          if ( vname == trim(cname) ) then 
             stdname = "northward_wind" 
-         end if    
+         end if   
+         call cordex_name(cname,"ta",height_level,"m")
+         if ( vname == trim(cname) ) then 
+            stdname = "air_temperature" 
+         end if   
+         call cordex_name(cname,"hus",height_level,"m")
+         if ( vname == trim(cname) ) then 
+            stdname = "specific_humidity" 
+         end if   
       end do
 
       if ( vinfo%daily ) then
