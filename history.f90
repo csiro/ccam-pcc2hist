@@ -201,6 +201,8 @@ module history
       logical            :: sixhr
       ! instantaneous
       logical            :: instant
+      ! all positive values
+      logical            :: all_positive
    end type hinfo
 
 !  For adding extra global attributes
@@ -476,7 +478,8 @@ contains
                      nlevels, amip_name, ave_type, std, output_scale, &
                      int_type, multilev, std_name, soil, water,       &
                      pop2d, pop3d, pop4d, coord_height, cell_methods, &
-                     ran_type, tn_type, daily, sixhr, instant )
+                     ran_type, tn_type, daily, sixhr, instant,        &
+                     all_positive )
 !
 !     Add a field to the master list of fields that may be saved.
 !
@@ -505,6 +508,7 @@ contains
       logical, intent(in), optional   :: daily
       logical, intent(in), optional   :: sixhr
       logical, intent(in), optional   :: instant
+      logical, intent(in), optional   :: all_positive
 
 !     Local variables corresponding to the optional arguments
       integer :: atype, ltn
@@ -660,6 +664,11 @@ contains
          histinfo(totflds)%instant = instant
       else
          histinfo(totflds)%instant = .true.
+      end if
+      if ( present(all_positive) ) then
+         histinfo(totflds)%all_positive = all_positive
+      else
+         histinfo(totflds)%all_positive = .false.
       end if
 
    end subroutine addfld
@@ -1064,8 +1073,6 @@ contains
          ! Perhaps have optional arguments for the other cases?
          allocate ( lat_bnds(2,size(hlat)), lon_bnds(2,size(hlon)) )
          ! Check if regular grid
-         !if ( maxval(hlon(2:)-hlon(:nxhis-1)) - minval(hlon(2:)-hlon(:nxhis-1)) &
-         !   < 1.e-4*maxval(hlon(2:)-hlon(:nxhis-1)) ) then
          if ( int_default /= int_none ) then
             dx = hlon(2) - hlon(1)
             lon_bnds(1,:) = hlon - 0.5*dx
@@ -1077,8 +1084,6 @@ contains
                call check_ncerr(ierr,"Error writing longitude bounds")
             end do
          end if
-         !if ( maxval(hlat(2:)-hlat(:nyhis-1)) - minval(hlat(2:)-hlat(:nyhis-1)) &
-         !   < 1.e-4*maxval(hlat(2:)-hlat(:nyhis-1)) ) then
          if ( int_default /= int_none ) then
             dy = hlat(2) - hlat(1)
             lat_bnds(1,:) = hlat - 0.5*dy
@@ -2479,6 +2484,9 @@ contains
                else
                   htemp = hist_g(:,:)
                end if
+               if ( histinfo(ifld)%all_positive ) then
+                  htemp = max( htemp, 0. )
+               end if                 
             end if
 
             call START_LOG(mpisendrecv_begin)
@@ -2706,6 +2714,9 @@ contains
                else
                   htemp = hist_g
                end if
+               if ( histinfo(ifld)%all_positive ) then
+                  htemp = max( htemp, 0. )
+               end if                
 
                if ( hbytes == 2 ) then
                   addoff = histinfo(ifld)%addoff

@@ -111,6 +111,7 @@ module work
       logical :: pop3d ! Is it a x-y-cptch POP dimensioned variable
       logical :: pop4d ! Is it a x-y-cptch-cchrt POP dimensioned variable
       integer :: othercmpnt ! Index of matching x or y component
+      logical :: all_positive
    end type input_var
 
 contains
@@ -548,6 +549,14 @@ contains
                      call savehist ( "qgscrn_stn", qgscrn_stn ) 
                   end if    
                end if 
+            case ( "mrfso", "mrfsos" )   
+               if ( needfld(varlist(ivar)%vname) ) then
+                  call vread(varlist(ivar)%vname, ctmp) 
+                  where ( soilt <= 0.5 )
+                     ctmp = nf90_fill_float 
+                  end where
+                  call savehist(varlist(ivar)%vname, ctmp)
+               end if 
             case ( "mrro" )
                if ( needfld("mrro") ) then 
                   call vread( "runoff", dtmp )
@@ -564,6 +573,14 @@ contains
                   end where   
                   call savehist ( "mrros", dtmp )
                end if   
+            case ( "mrso", "mrsos" )   
+               if ( needfld(varlist(ivar)%vname) ) then
+                  call vread(varlist(ivar)%vname, ctmp) 
+                  where ( soilt <= 0.5 )
+                     ctmp = nf90_fill_float 
+                  end where
+                  call savehist(varlist(ivar)%vname, ctmp)
+               end if    
             case ( "ocheight", "ssh" )
                if ( needfld("ocheight") .or. needfld("ssh") ) then 
                   call vread( "ocheight", dtmp )
@@ -935,68 +952,6 @@ contains
                      end where
                   end do   
                   call osavehist( "kso", ocn_tmp )
-               end if 
-            case ( "mrsol" )   
-               if ( needfld("mrsol") .or. (kk>1.and.(needfld("mrso").or.needfld("mrsos"))) ) then 
-                  mrso = 0.
-                  mrsos = 0.
-                  ierr = nf90_inq_varid (ncid, "mrsol1", var_dum ) 
-                  if ( ierr == nf90_noerr ) then
-                     do k = 1,ksoil
-                        write(name,'(a,i1)') 'mrsol', k
-                        call vread(name,tgg(:,:,k))
-                        where ( tgg(:,:,k)/=nf90_fill_float )
-                           mrso = mrso + tgg(:,:,k)
-                           mrsos = mrsos + tgg(:,:,k)*shallow_zse(k)/zse(k)
-                        elsewhere
-                           mrso = nf90_fill_float
-                           mrsos = nf90_fill_float
-                        end where    
-                        where ( soilt <= 0.5 ) 
-                           tgg(:,:,k) = nf90_fill_float ! water
-                           mrso = nf90_fill_float
-                           mrsos = nf90_fill_float
-                        end where  
-                     end do
-                     if ( needfld("mrso") .and. kk>1 ) then
-                        call savehist("mrso", mrso)
-                     end if
-                     if ( needfld("mrsos") .and. kk>1 ) then
-                        call savehist("mrsos", mrsos)
-                     end if
-                     if ( needfld("mrsol") ) then
-                        call savehist("mrsol", tgg) 
-                     end if   
-                  end if
-                  ierr = nf90_inq_varid (ncid, "wb1_ave", var_dum ) 
-                  if ( ierr == nf90_noerr ) then
-                     do k = 1,ksoil
-                        write(name,'(a,i1,a)') 'wb', k, '_ave'
-                        call vread(name,tgg(:,:,k))
-                        where ( tgg(:,:,k)/=nf90_fill_float )
-                           mrso = mrso + tgg(:,:,k)*zse(k)*1000.
-                           mrsos = mrsos + tgg(:,:,k)*shallow_zse(k)*1000.
-                           tgg(:,:,k) = tgg(:,:,k)*zse(k)*1000.
-                        elsewhere
-                           mrso = nf90_fill_float
-                           mrsos = nf90_fill_float
-                        end where    
-                        where ( soilt <= 0.5 ) 
-                           tgg(:,:,k) = nf90_fill_float ! water
-                           mrso = nf90_fill_float
-                           mrsos = nf90_fill_float
-                        end where  
-                     end do
-                     if ( needfld("mrso") .and. kk>1 ) then
-                        call savehist("mrso", mrso)
-                     end if
-                     if ( needfld("mrsos") .and. kk>1 ) then
-                        call savehist("mrsos", mrsos)
-                     end if
-                     if ( needfld("mrsol") ) then
-                        call savehist("mrsol", tgg) 
-                     end if   
-                  end if    
                end if
             case ( "mrfsol" )
                if ( needfld("mrfsol") .or. (kk>1.and.(needfld("mrfso").or.needfld("mrfsos"))) ) then 
@@ -1060,6 +1015,68 @@ contains
                      end if   
                   end if    
                end if 
+            case ( "mrsol" )   
+               if ( needfld("mrsol") .or. (kk>1.and.(needfld("mrso").or.needfld("mrsos"))) ) then 
+                  mrso = 0.
+                  mrsos = 0.
+                  ierr = nf90_inq_varid (ncid, "mrsol1", var_dum ) 
+                  if ( ierr == nf90_noerr ) then
+                     do k = 1,ksoil
+                        write(name,'(a,i1)') 'mrsol', k
+                        call vread(name,tgg(:,:,k))
+                        where ( tgg(:,:,k)/=nf90_fill_float )
+                           mrso = mrso + tgg(:,:,k)
+                           mrsos = mrsos + tgg(:,:,k)*shallow_zse(k)/zse(k)
+                        elsewhere
+                           mrso = nf90_fill_float
+                           mrsos = nf90_fill_float
+                        end where    
+                        where ( soilt <= 0.5 ) 
+                           tgg(:,:,k) = nf90_fill_float ! water
+                           mrso = nf90_fill_float
+                           mrsos = nf90_fill_float
+                        end where  
+                     end do
+                     if ( needfld("mrso") .and. kk>1 ) then
+                        call savehist("mrso", mrso)
+                     end if
+                     if ( needfld("mrsos") .and. kk>1 ) then
+                        call savehist("mrsos", mrsos)
+                     end if
+                     if ( needfld("mrsol") ) then
+                        call savehist("mrsol", tgg) 
+                     end if   
+                  end if
+                  ierr = nf90_inq_varid (ncid, "wb1_ave", var_dum ) 
+                  if ( ierr == nf90_noerr ) then
+                     do k = 1,ksoil
+                        write(name,'(a,i1,a)') 'wb', k, '_ave'
+                        call vread(name,tgg(:,:,k))
+                        where ( tgg(:,:,k)/=nf90_fill_float )
+                           mrso = mrso + tgg(:,:,k)*zse(k)*1000.
+                           mrsos = mrsos + tgg(:,:,k)*shallow_zse(k)*1000.
+                           tgg(:,:,k) = tgg(:,:,k)*zse(k)*1000.
+                        elsewhere
+                           mrso = nf90_fill_float
+                           mrsos = nf90_fill_float
+                        end where    
+                        where ( soilt <= 0.5 ) 
+                           tgg(:,:,k) = nf90_fill_float ! water
+                           mrso = nf90_fill_float
+                           mrsos = nf90_fill_float
+                        end where  
+                     end do
+                     if ( needfld("mrso") .and. kk>1 ) then
+                        call savehist("mrso", mrso)
+                     end if
+                     if ( needfld("mrsos") .and. kk>1 ) then
+                        call savehist("mrsos", mrsos)
+                     end if
+                     if ( needfld("mrsol") ) then
+                        call savehist("mrsol", tgg) 
+                     end if   
+                  end if    
+               end if
             case ( "omega" )
                call vread( "omega", omega )
                if ( needfld("omega") ) then
@@ -2907,6 +2924,14 @@ contains
       end do   
       
       do ivar = 1,nvars
+         if ( varlist(ivar)%vname == "u10" .or. varlist(ivar)%vname == "uscrn" ) then
+            varlist(ivar)%all_positive = .true. 
+         else 
+            varlist(ivar)%all_positive = .false. 
+         end if
+      end do 
+      
+      do ivar = 1,nvars
          xmin = varlist(ivar)%add_offset + varlist(ivar)%scale_factor*vmin
          xmax = varlist(ivar)%add_offset + varlist(ivar)%scale_factor*vmax
          ! As a check re-calc offset, scalef
@@ -3286,6 +3311,7 @@ contains
                varlist(ivar)%units = "m s-1"
                varlist(ivar)%long_name = "Near-Surface Wind Speed"
                varlist(ivar)%instant = .true.
+               varlist(ivar)%all_positive = .true.
             else if ( varlist(ivar)%vname == "u" ) then
                varlist(ivar)%vname = "ua"
                varlist(ivar)%units = "m s-1"
@@ -3400,16 +3426,18 @@ contains
                       int_type=int_type, ran_type=ran_type,                  &
                       pop2d=varlist(ivar)%pop2d, tn_type=tn_type,            &
                       daily=varlist(ivar)%daily, sixhr=varlist(ivar)%sixhr,  &
-                      instant=varlist(ivar)%instant )
+                      instant=varlist(ivar)%instant,                         &
+                      all_positive=varlist(ivar)%all_positive )
             end if
          else if ( varlist(ivar)%ndims == 3 ) then  
             if ( varlist(ivar)%water ) then
-              call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name,        &
-                        varlist(ivar)%units, xmin, xmax, onlev, multilev=.true., &
-                        std_name=std_name, water=varlist(ivar)%water,            &
-                        cell_methods=cell_methods, int_type=int_type,            &
-                        ran_type=ran_type, daily=varlist(ivar)%daily,            &
-                        sixhr=varlist(ivar)%sixhr, instant=varlist(ivar)%instant )
+              call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name,         &
+                        varlist(ivar)%units, xmin, xmax, onlev, multilev=.true.,  &
+                        std_name=std_name, water=varlist(ivar)%water,             &
+                        cell_methods=cell_methods, int_type=int_type,             &
+                        ran_type=ran_type, daily=varlist(ivar)%daily,             &
+                        sixhr=varlist(ivar)%sixhr, instant=varlist(ivar)%instant, &
+                        all_positive=varlist(ivar)%all_positive )
             else if ( varlist(ivar)%pop3d ) then
               call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name,        &
                         varlist(ivar)%units, xmin, xmax, cptch, multilev=.true., &
@@ -3417,14 +3445,16 @@ contains
                         cell_methods=cell_methods, int_type=int_type,            &
                         ran_type=ran_type, tn_type=tn_type,                      &
                         daily=varlist(ivar)%daily, sixhr=varlist(ivar)%sixhr,    &
-                        instant=varlist(ivar)%instant )
+                        instant=varlist(ivar)%instant,                           &
+                        all_positive=varlist(ivar)%all_positive )
             else
               call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name,       &
                         varlist(ivar)%units, xmin, xmax, nlev, multilev=.true., &
                         std_name=std_name, cell_methods=cell_methods,           &
                         int_type=int_type, ran_type=ran_type,                   &
                         daily=varlist(ivar)%daily, sixhr=varlist(ivar)%sixhr,   &
-                        instant=varlist(ivar)%instant )
+                        instant=varlist(ivar)%instant,                          &
+                        all_positive=varlist(ivar)%all_positive )
             end if  
          else if ( varlist(ivar)%ndims == 4 ) then  
             if ( varlist(ivar)%pop4d ) then
@@ -3433,7 +3463,8 @@ contains
                         std_name=std_name, pop4d=varlist(ivar)%pop4d,                  &
                         cell_methods=cell_methods, int_type=int_type,                  &
                         ran_type=ran_type, tn_type=tn_type, daily=varlist(ivar)%daily, &
-                        sixhr=varlist(ivar)%sixhr, instant=varlist(ivar)%instant )
+                        sixhr=varlist(ivar)%sixhr, instant=varlist(ivar)%instant,      &
+                        all_positive=varlist(ivar)%all_positive )
             end if
          end if
       end do
@@ -3517,10 +3548,10 @@ contains
          call addfld ( "uas", "Eastward Near-Surface Wind", "m s-1", -100.0, 100.0, 1, std_name="eastward_wind", ran_type=.true. )
          call addfld ( "vas", "Northward Near-Surface Wind", "m s-1", -100.0, 100.0, 1, std_name="northward_wind", ran_type=.true. )
          call addfld ( "sfcWindmax", "Maximum 10m wind speed", "m s-1", 0.0, 200.0, 1, std_name="wind_speed", ran_type=.true., &
-                       daily=.true., instant=.false. )
+                       daily=.true., instant=.false., all_positive=.true. )
          ierr = nf90_inq_varid (ncid, "u10m_max", ivar )
          if ( ierr == nf90_noerr ) then
-            call addfld ( "sfcWind_max", "Maximum 10m wind speed", "m s-1", 0.0, 200.0, 1, std_name="wind_speed" )
+            call addfld ( "sfcWind_max", "Maximum 10m wind speed", "m s-1", 0.0, 200.0, 1, std_name="wind_speed", all_positive=.true. )
          end if   
          ! Packing is not going to work well in this case
          ! For height, estimate the height of the top level and use that
@@ -3658,7 +3689,7 @@ contains
            call addfld ( "uas_stn", "x-component 10m wind", "m s-1", -100.0, 100.0, 1, std_name="wind_speed", ran_type=.false. )
            call addfld ( "vas_stn", "y-component 10m wind", "m s-1", -100.0, 100.0, 1, std_name="wind_speed", ran_type=.false. )
            call addfld ( "sfcWindmax_stn", "Maximum 10m wind speed (station)", "m s-1", 0.0, 200.0, 1, std_name="wind_speed", &
-                         ran_type=.false., instant=.false. ) 
+                         ran_type=.false., instant=.false., all_positive=.true. ) 
          end if    
 
       else
@@ -3676,7 +3707,7 @@ contains
                                  std_name="land_area_fraction", ran_type=.true. )
                end if
                call addfld ( "sfcWindmax", "Maximum 10m wind speed", "m s-1", 0.0, 200.0, 1, std_name="wind_speed", &
-                             ran_type=.true., daily=.true., instant=.false. )
+                             ran_type=.true., daily=.true., instant=.false., all_positive=.true. )
                call addfld ( "sftlaf", "Lake Area Fraction", "%", 0.0, 100.0, 1, ave_type="fixed", &
                              std_name="lake_area_fraction" )
             else
@@ -3691,7 +3722,7 @@ contains
          end if  
          ierr = nf90_inq_varid (ncid, "u10m_max", ivar )
          if ( ierr == nf90_noerr ) then
-            call addfld ( "sfcWind_max", "Maximum 10m wind speed", "m s-1", 0.0, 200.0, 1, std_name="wind_speed" )
+            call addfld ( "sfcWind_max", "Maximum 10m wind speed", "m s-1", 0.0, 200.0, 1, std_name="wind_speed", all_positive=.true. )
          end if  
          ierr = nf90_inq_varid (ncid, "snd", ivar )
          if ( ierr == nf90_noerr ) then
@@ -3736,9 +3767,11 @@ contains
                           instant=.false. ) 
          end if
          if ( cordex_compliant ) then    
-            call addfld ( "sfcWind", "Near-Surface Wind Speed", "m s-1", 0., 100.0, 1, std_name="wind_speed", ran_type=.true. )  
+            call addfld ( "sfcWind", "Near-Surface Wind Speed", "m s-1", 0., 100.0, 1, std_name="wind_speed", ran_type=.true., &
+                          all_positive=.true. )  
          else 
-            call addfld ( "u10", "10m wind speed", "m s-1", 0., 100.0, 1, std_name="wind_speed", ran_type=.true. ) 
+            call addfld ( "u10", "10m wind speed", "m s-1", 0., 100.0, 1, std_name="wind_speed", ran_type=.true., &
+                          all_positive=.true. ) 
          end if   
          call addfld ( "d10", "10m wind direction", "deg", 0.0, 360.0, 1, ran_type=.true. )
          
