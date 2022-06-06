@@ -2658,7 +2658,7 @@ contains
          end if
          ave_type = histinfo(ifld)%ave_type
          nlev = histinfo(ifld)%nlevels
-         count = histinfo(ifld)%count
+         ncount = histinfo(ifld)%count
          vid = histinfo(ifld)%vid
 
 !        Only write fixed variables in the first history set
@@ -2671,11 +2671,11 @@ contains
          if ( ave_type == hist_ave ) then    
             if ( hist_debug >= 4 ) then
                print*, "Raw history at point ", histinfo(ifld)%name,&
-                 histarray(ihdb,jhdb,istart+khdb-1), count
+                 histarray(ihdb,jhdb,istart+khdb-1), ncount
             end if
             where ( histarray(:,:,istart:iend) /= NF90_FILL_FLOAT )
                histarray(:,:,istart:iend) =   &
-                 histarray(:,:,istart:iend) / max( count, 1 )
+                 histarray(:,:,istart:iend) / max( ncount, 1 )
             end where  
          end if
          if ( histinfo(ifld)%output_scale /= 0 ) then
