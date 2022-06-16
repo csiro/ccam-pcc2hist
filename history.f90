@@ -2796,9 +2796,11 @@ contains
 !        Reset the count variable
          histinfo(ifld)%count = 0
 
+         deallocate( hist_a )
+
       end do ! Loop over fields
       
-      deallocate( hist_a, hist_g )
+      deallocate( hist_g )
 #endif
 
       avetime = 0.0
