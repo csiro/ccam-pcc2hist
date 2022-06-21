@@ -2237,7 +2237,7 @@ contains
                      if ( cordex_compliant .and. .not.histinst(i) ) then
                         timeout = time - 180.
                      end if
-                     ierr = nf90_put_var ( ncid, vid, time, start=(/histset_6hr/))
+                     ierr = nf90_put_var ( ncid, vid, timeout, start=(/histset_6hr/))
                   end if
                else
                   timeout = real(histset*hfreq) 
