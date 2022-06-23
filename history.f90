@@ -2353,298 +2353,302 @@ contains
       end do ! Loop over fields
       
       maxcnt = cnt
-      slab = ceiling(real(maxcnt,8)/real(nproc,8))
-      gap = max( nproc/maxcnt, 1 )
-      if ( slab > 1 .and. gap > 1 ) then
-         print *, "Internal error defining slab and gap ",slab,gap
-         stop
-      end if
-      if ( mod( myid, gap ) == 0 .and. myid < gap*ceiling(real(maxcnt,8)/real(slab,8)) ) then
-         allocate( hist_a(pil,pjl*pnpan,pnproc,1+slab*myid/gap:slab*(myid/gap+1)) ) 
-         if ( allocated( hist_g ) ) then
-            if ( size(hist_g,1) /= nx_g .or. size(hist_g,2) /= ny_g ) then
-               deallocate( hist_g )
-            end if
-         end if
-         if ( .not.allocated( hist_g ) ) then
-            allocate( hist_g(nx_g,ny_g) )
-         end if   
-      else
-        allocate( hist_a(0,0,0,0) )  
-      end if
-      if ( allocated( k_indx ) ) then
-         if ( size(k_indx) < maxcnt ) then
-            deallocate( k_indx, ireq_r, ireq_d )
-         end if
-      end if
-      if ( .not.allocated( k_indx ) ) then
-         allocate( k_indx(maxcnt), ireq_r(maxcnt), ireq_d(maxcnt) )
-      end if
-
-      dreq = 0
-      cnt = 0
-!     second pass
-!     create the array used to index histarray
-      do ifld = 1,totflds
-         if ( .not. histinfo(ifld)%used ) then
-            cycle
-         end if
-         ave_type = histinfo(ifld)%ave_type
-         nlev = histinfo(ifld)%nlevels
-
-!        Only write fixed variables in the first history set
-         if ( histset > 1 .and. ave_type == hist_fixed ) then
-            cycle
-         end if
-         if ( histinfo(ifld)%daily .and. .not.single_output .and. .not.endofday ) then
-            cycle
-         end if   
-         if ( histinfo(ifld)%sixhr .and. .not.single_output .and. .not.endof6hr ) then
-            cycle
-         end if 
-
-         istart = histinfo(ifld)%ptr
-         iend = istart + nlev - 1
-
-!        Even multilevel variables are written one level at a time
-         do k = istart,iend
-            cnt = cnt + 1
-            k_indx(cnt) = k
-            rrank = ((cnt-1)*gap)/slab
-            if ( rrank /= histinfo(ifld)%procid ) then
-               if ( myid == histinfo(ifld)%procid ) then
-                  dreq = dreq + 1
-               else if ( myid == rrank ) then
-                  dreq = dreq + 1 
-               end if
-            else
-               dreq = dreq + 1 
-            end if
-         end do   ! k loop
-
-      end do ! Loop over fields
+      if ( maxcnt > 0 ) then
       
-      maxdreq = dreq
-      if ( allocated( ireq ) ) then
-         if ( size(ireq) < maxdreq ) then
-            deallocate( htemp_buff, ireq )
+         slab = ceiling(real(maxcnt,8)/real(nproc,8))
+         gap = max( nproc/maxcnt, 1 )
+         if ( slab > 1 .and. gap > 1 ) then
+            print *, "Internal error defining slab and gap ",slab,gap
+            stop
          end if
-      end if
-      if ( .not.allocated( ireq ) ) then
-         allocate( htemp_buff(nxhis,nyhis,maxdreq), ireq(maxdreq) )
-      end if      
-
-!     now do the gather wrap
-      if ( slab > 0 ) then
-         call gather_wrap(histarray,hist_a,slab,gap,maxcnt,k_indx)
-      end if
- 
-      cnt = 0
-      nreq = 0
-      dreq = 0
-      sizehis = nxhis*nyhis
-!     third pass
-!     perform the interpolation
-      do ifld = 1,totflds
-         if ( .not. histinfo(ifld)%used ) then
-            cycle
-         end if
-         ave_type = histinfo(ifld)%ave_type
-         nlev = histinfo(ifld)%nlevels
-         vid = histinfo(ifld)%vid
-         
-!        Only write fixed variables in the first history set
-         if ( histset > 1 .and. ave_type == hist_fixed ) then
-            cycle
-         end if
-         if ( histinfo(ifld)%daily .and. .not.single_output .and. .not.endofday ) then
-            cycle
-         end if   
-         if ( histinfo(ifld)%sixhr .and. .not.single_output .and. .not.endof6hr ) then
-            cycle
-         end if 
-
-         istart = histinfo(ifld)%ptr
-         iend = istart + nlev - 1
-
-!        Even multilevel variables are written one level at a time
-         do k = istart, iend
-
-            cnt = cnt + 1
-            rrank = ((cnt-1)*gap)/slab
-            if ( myid == rrank ) then
-               do ip = 0,pnproc-1
-                  do n = 0,pnpan-1
-                     hist_g(1+ioff(ip,n):pil+ioff(ip,n),1+joff(ip,n)+n*pil_g:pjl+joff(ip,n)+n*pil_g) = &
-                        hist_a(1:pil,1+n*pjl:(n+1)*pjl,ip+1,cnt)
-                  end do
-               end do
-               if ( present(interp) ) then
-                  call interp ( hist_g, htemp, histinfo(ifld)%int_type )
-               else
-                  htemp = hist_g(:,:)
+         if ( mod( myid, gap ) == 0 .and. myid < gap*ceiling(real(maxcnt,8)/real(slab,8)) ) then
+            allocate( hist_a(pil,pjl*pnpan,pnproc,1+slab*myid/gap:slab*(myid/gap+1)) ) 
+            if ( allocated( hist_g ) ) then
+               if ( size(hist_g,1) /= nx_g .or. size(hist_g,2) /= ny_g ) then
+                  deallocate( hist_g )
                end if
-               if ( histinfo(ifld)%all_positive ) then
-                  htemp = max( htemp, 0. )
-               end if                 
             end if
-
-            call START_LOG(mpisendrecv_begin)
-            itag = 1000 + cnt
-            rrank = ((cnt-1)*gap)/slab
-            if ( rrank /= histinfo(ifld)%procid ) then
-               if ( myid == histinfo(ifld)%procid ) then
-                  dreq = dreq + 1 
-                  nreq = nreq + 1
-                  call MPI_IRecv(htemp_buff(:,:,dreq), sizehis, MPI_REAL, rrank, itag, comm_world, ireq(nreq), ierr)
-                  ireq_r(cnt) = nreq
-                  ireq_d(cnt) = dreq
-               else if ( myid == rrank ) then
-                  dreq = dreq + 1 
-                  nreq = nreq + 1 
-                  htemp_buff(:,:,dreq) = htemp
-                  call MPI_ISend(htemp_buff(:,:,dreq), sizehis, MPI_REAL, histinfo(ifld)%procid, itag, comm_world, ireq(nreq), ierr)
-               end if
-            else
-               dreq = dreq + 1 
-               htemp_buff(:,:,dreq) = htemp
-               ireq_d(cnt) = dreq
+            if ( .not.allocated( hist_g ) ) then
+               allocate( hist_g(nx_g,ny_g) )
+            end if   
+         else
+            allocate( hist_a(0,0,0,0) )  
+         end if
+         if ( allocated( k_indx ) ) then
+            if ( size(k_indx) < maxcnt ) then
+               deallocate( k_indx, ireq_r, ireq_d )
             end if
-            call END_LOG(mpisendrecv_end)
-            
-         end do   ! k loop
-
-      end do ! Loop over fields
-      
-      cnt = 0
-!     fourth pass
-!     write the data
-      do ifld = 1,totflds
-         if ( .not. histinfo(ifld)%used ) then
-            cycle
          end if
-         ave_type = histinfo(ifld)%ave_type
-         nlev = histinfo(ifld)%nlevels
-         vid = histinfo(ifld)%vid
-         
-!        Only write fixed variables in the first history set
-         if ( histset > 1 .and. ave_type == hist_fixed ) then
-            cycle
+         if ( .not.allocated( k_indx ) ) then
+            allocate( k_indx(maxcnt), ireq_r(maxcnt), ireq_d(maxcnt) )
          end if
-         if ( histinfo(ifld)%daily .and. .not.single_output .and. .not.endofday ) then
-            cycle
-         end if   
-         if ( histinfo(ifld)%sixhr .and. .not.single_output .and. .not.endof6hr ) then
-            cycle
-         end if   
 
-         istart = histinfo(ifld)%ptr
-         iend = istart + nlev - 1
+         dreq = 0
+         cnt = 0
+!        second pass
+!        create the array used to index histarray
+         do ifld = 1,totflds
+            if ( .not. histinfo(ifld)%used ) then
+               cycle
+            end if
+            ave_type = histinfo(ifld)%ave_type
+            nlev = histinfo(ifld)%nlevels
 
-!        Even multilevel variables are written one level at a time
-         do k = istart, iend
+!           Only write fixed variables in the first history set
+            if ( histset > 1 .and. ave_type == hist_fixed ) then
+               cycle
+            end if
+            if ( histinfo(ifld)%daily .and. .not.single_output .and. .not.endofday ) then
+               cycle
+            end if   
+            if ( histinfo(ifld)%sixhr .and. .not.single_output .and. .not.endof6hr ) then
+               cycle
+            end if 
 
-            cnt = cnt + 1
+            istart = histinfo(ifld)%ptr
+            iend = istart + nlev - 1
 
-            if ( myid == histinfo(ifld)%procid ) then
-               
-               call START_LOG(mpisendrecv_begin) 
+!           Even multilevel variables are written one level at a time
+            do k = istart,iend
+               cnt = cnt + 1
+               k_indx(cnt) = k
                rrank = ((cnt-1)*gap)/slab
                if ( rrank /= histinfo(ifld)%procid ) then
-                  rreq = ireq_r(cnt) 
-                  call MPI_Wait(ireq(rreq), MPI_STATUS_IGNORE, ierr)
-               end if   
-               dreq = ireq_d(cnt) 
-               htemp = htemp_buff(:,:,dreq)
-               call END_LOG(mpisendrecv_end)
-
-               if ( hbytes == 2 ) then
-                  addoff = histinfo(ifld)%addoff
-                  sf = histinfo(ifld)%scalef
-                  umin = sf * vmin + addoff
-                  umax = sf * vmax + addoff
-                  where ( fpequal(htemp, nf90_fill_float) )
-                     htemp = NF90_FILL_SHORT
-                  elsewhere
-                     ! Put the scaled array back in the original and let
-                     ! netcdf take care of conversion to int2
-                     htemp = nint((max(umin,min(umax,htemp))-addoff)/sf)
-                  end where
-               else
-                  where ( fpequal(htemp, nf90_fill_float) )
-                     htemp = missing_value_cordex 
-                  end where    
-               end if    
-                   
-               call START_LOG(putvar_begin)
-               ncid = histinfo(ifld)%ncid
-               if ( histinfo(ifld)%daily .and. .not.single_output ) then
-                  if ( endofday ) then
-                     if ( histinfo(ifld)%pop4d ) then
-                        start4D = (/ 1, 1, mod(k+1-istart-1,cptch)+1, 1+(k+1-istart-1)/cptch,  histset_daily /)
-                        count4D = (/ nxhis, nyhis, 1, 1, 1 /)
-                        ierr = nf90_put_var ( ncid, vid, htemp, start=start4D, count=count4D )
-                     else if ( nlev > 1 .or. histinfo(ifld)%multilev ) then
-                        start3D = (/ 1, 1, k+1-istart, histset_daily /)
-                        count3D = (/ nxhis, nyhis, 1, 1 /)
-                        ierr = nf90_put_var ( ncid, vid, htemp, start=start3D, count=count3D )
-                     else
-                        start2D = (/ 1, 1, histset_daily /)
-                        count2D = (/ nxhis, nyhis, 1 /)
-                        ierr = nf90_put_var ( ncid, vid, htemp, start=start2D, count=count2D )
-                     end if
-                  end if    
-               else if ( histinfo(ifld)%sixhr .and. .not.single_output ) then
-                  if ( endof6hr ) then
-                     if ( histinfo(ifld)%pop4d ) then
-                        start4D = (/ 1, 1, mod(k+1-istart-1,cptch)+1, 1+(k+1-istart-1)/cptch,  histset_6hr /)
-                        count4D = (/ nxhis, nyhis, 1, 1, 1 /)
-                        ierr = nf90_put_var ( ncid, vid, htemp, start=start4D, count=count4D )
-                     else if ( nlev > 1 .or. histinfo(ifld)%multilev ) then
-                        start3D = (/ 1, 1, k+1-istart, histset_6hr /)
-                        count3D = (/ nxhis, nyhis, 1, 1 /)
-                        ierr = nf90_put_var ( ncid, vid, htemp, start=start3D, count=count3D )
-                     else
-                        start2D = (/ 1, 1, histset_6hr /)
-                        count2D = (/ nxhis, nyhis, 1 /)
-                        ierr = nf90_put_var ( ncid, vid, htemp, start=start2D, count=count2D )
-                     end if
-                  end if  
-               else    
-                  if ( histinfo(ifld)%pop4d ) then
-                     start4D = (/ 1, 1, mod(k+1-istart-1,cptch)+1, 1+(k+1-istart-1)/cptch,  histset /)
-                     count4D = (/ nxhis, nyhis, 1, 1, 1 /)
-                     ierr = nf90_put_var ( ncid, vid, htemp, start=start4D, count=count4D )
-                  else if ( nlev > 1 .or. histinfo(ifld)%multilev ) then
-                     start3D = (/ 1, 1, k+1-istart, histset /)
-                     count3D = (/ nxhis, nyhis, 1, 1 /)
-                     ierr = nf90_put_var ( ncid, vid, htemp, start=start3D, count=count3D )
-                  else
-                     start2D = (/ 1, 1, histset /)
-                     count2D = (/ nxhis, nyhis, 1 /)
-                     ierr = nf90_put_var ( ncid, vid, htemp, start=start2D, count=count2D )
+                  if ( myid == histinfo(ifld)%procid ) then
+                     dreq = dreq + 1
+                  else if ( myid == rrank ) then
+                     dreq = dreq + 1 
                   end if
-               end if   
-               call check_ncerr(ierr, "Error writing history variable "//histinfo(ifld)%name )
-               call END_LOG(putvar_end)
+               else
+                  dreq = dreq + 1 
+               end if
+            end do   ! k loop
 
-            end if
-         end do   ! k loop
-               
-!        Zero ready for next set
-         histarray(:,:,istart:iend) = nf90_fill_float
-!        Reset the count variable
-         histinfo(ifld)%count = 0
-
-      end do ! Loop over fields
+         end do ! Loop over fields
       
-      call START_LOG(mpisendrecv_begin)
-      if ( nreq > 0 ) then
-         call MPI_Waitall(nreq, ireq, MPI_STATUSES_IGNORE, ierr )
-      end if   
-      call END_LOG(mpisendrecv_end)       
+         maxdreq = dreq
+         if ( allocated( ireq ) ) then
+            if ( size(ireq) < maxdreq ) then
+               deallocate( htemp_buff, ireq )
+            end if
+         end if
+         if ( .not.allocated( ireq ) ) then
+            allocate( htemp_buff(nxhis,nyhis,maxdreq), ireq(maxdreq) )
+         end if      
 
-      deallocate(hist_a)
+!        now do the gather wrap
+         if ( slab > 0 ) then
+            call gather_wrap(histarray,hist_a,slab,gap,maxcnt,k_indx)
+         end if
+ 
+         cnt = 0
+         nreq = 0
+         dreq = 0
+         sizehis = nxhis*nyhis
+!        third pass
+!        perform the interpolation
+         do ifld = 1,totflds
+            if ( .not. histinfo(ifld)%used ) then
+               cycle
+            end if
+            ave_type = histinfo(ifld)%ave_type
+            nlev = histinfo(ifld)%nlevels
+            vid = histinfo(ifld)%vid
+         
+!           Only write fixed variables in the first history set
+            if ( histset > 1 .and. ave_type == hist_fixed ) then
+               cycle
+            end if
+            if ( histinfo(ifld)%daily .and. .not.single_output .and. .not.endofday ) then
+               cycle
+            end if   
+            if ( histinfo(ifld)%sixhr .and. .not.single_output .and. .not.endof6hr ) then
+               cycle
+            end if 
+
+            istart = histinfo(ifld)%ptr
+            iend = istart + nlev - 1
+
+!           Even multilevel variables are written one level at a time
+            do k = istart, iend
+
+               cnt = cnt + 1
+               rrank = ((cnt-1)*gap)/slab
+               if ( myid == rrank ) then
+                  do ip = 0,pnproc-1
+                     do n = 0,pnpan-1
+                        hist_g(1+ioff(ip,n):pil+ioff(ip,n),1+joff(ip,n)+n*pil_g:pjl+joff(ip,n)+n*pil_g) = &
+                           hist_a(1:pil,1+n*pjl:(n+1)*pjl,ip+1,cnt)
+                     end do
+                  end do
+                  if ( present(interp) ) then
+                     call interp ( hist_g, htemp, histinfo(ifld)%int_type )
+                  else
+                     htemp = hist_g(:,:)
+                  end if
+                  if ( histinfo(ifld)%all_positive ) then
+                     htemp = max( htemp, 0. )
+                  end if                 
+               end if
+
+               call START_LOG(mpisendrecv_begin)
+               itag = 1000 + cnt
+               rrank = ((cnt-1)*gap)/slab
+               if ( rrank /= histinfo(ifld)%procid ) then
+                  if ( myid == histinfo(ifld)%procid ) then
+                     dreq = dreq + 1 
+                     nreq = nreq + 1
+                     call MPI_IRecv(htemp_buff(:,:,dreq), sizehis, MPI_REAL, rrank, itag, comm_world, ireq(nreq), ierr)
+                     ireq_r(cnt) = nreq
+                     ireq_d(cnt) = dreq
+                  else if ( myid == rrank ) then
+                     dreq = dreq + 1 
+                     nreq = nreq + 1 
+                     htemp_buff(:,:,dreq) = htemp
+                     call MPI_ISend(htemp_buff(:,:,dreq), sizehis, MPI_REAL, histinfo(ifld)%procid, itag, comm_world, ireq(nreq), ierr)
+                  end if
+               else
+                  dreq = dreq + 1 
+                  htemp_buff(:,:,dreq) = htemp
+                  ireq_d(cnt) = dreq
+               end if
+               call END_LOG(mpisendrecv_end)
+            
+            end do   ! k loop
+
+         end do ! Loop over fields
+      
+         cnt = 0
+!        fourth pass
+!        write the data
+         do ifld = 1,totflds
+            if ( .not. histinfo(ifld)%used ) then
+               cycle
+            end if
+            ave_type = histinfo(ifld)%ave_type
+            nlev = histinfo(ifld)%nlevels
+            vid = histinfo(ifld)%vid
+         
+!           Only write fixed variables in the first history set
+            if ( histset > 1 .and. ave_type == hist_fixed ) then
+               cycle
+            end if
+            if ( histinfo(ifld)%daily .and. .not.single_output .and. .not.endofday ) then
+               cycle
+            end if   
+            if ( histinfo(ifld)%sixhr .and. .not.single_output .and. .not.endof6hr ) then
+               cycle
+            end if   
+
+            istart = histinfo(ifld)%ptr
+            iend = istart + nlev - 1
+
+!           Even multilevel variables are written one level at a time
+            do k = istart, iend
+
+               cnt = cnt + 1
+
+               if ( myid == histinfo(ifld)%procid ) then
+               
+                  call START_LOG(mpisendrecv_begin) 
+                  rrank = ((cnt-1)*gap)/slab
+                  if ( rrank /= histinfo(ifld)%procid ) then
+                     rreq = ireq_r(cnt) 
+                     call MPI_Wait(ireq(rreq), MPI_STATUS_IGNORE, ierr)
+                  end if   
+                  dreq = ireq_d(cnt) 
+                  htemp = htemp_buff(:,:,dreq)
+                  call END_LOG(mpisendrecv_end)
+
+                  if ( hbytes == 2 ) then
+                     addoff = histinfo(ifld)%addoff
+                     sf = histinfo(ifld)%scalef
+                     umin = sf * vmin + addoff
+                     umax = sf * vmax + addoff
+                     where ( fpequal(htemp, nf90_fill_float) )
+                        htemp = NF90_FILL_SHORT
+                     elsewhere
+                        ! Put the scaled array back in the original and let
+                        ! netcdf take care of conversion to int2
+                        htemp = nint((max(umin,min(umax,htemp))-addoff)/sf)
+                     end where
+                  else
+                     where ( fpequal(htemp, nf90_fill_float) )
+                        htemp = missing_value_cordex 
+                     end where    
+                  end if    
+                   
+                  call START_LOG(putvar_begin)
+                  ncid = histinfo(ifld)%ncid
+                  if ( histinfo(ifld)%daily .and. .not.single_output ) then
+                     if ( endofday ) then
+                        if ( histinfo(ifld)%pop4d ) then
+                           start4D = (/ 1, 1, mod(k+1-istart-1,cptch)+1, 1+(k+1-istart-1)/cptch,  histset_daily /)
+                           count4D = (/ nxhis, nyhis, 1, 1, 1 /)
+                           ierr = nf90_put_var ( ncid, vid, htemp, start=start4D, count=count4D )
+                        else if ( nlev > 1 .or. histinfo(ifld)%multilev ) then
+                           start3D = (/ 1, 1, k+1-istart, histset_daily /)
+                           count3D = (/ nxhis, nyhis, 1, 1 /)
+                           ierr = nf90_put_var ( ncid, vid, htemp, start=start3D, count=count3D )
+                        else
+                           start2D = (/ 1, 1, histset_daily /)
+                           count2D = (/ nxhis, nyhis, 1 /)
+                           ierr = nf90_put_var ( ncid, vid, htemp, start=start2D, count=count2D )
+                        end if
+                     end if    
+                  else if ( histinfo(ifld)%sixhr .and. .not.single_output ) then
+                     if ( endof6hr ) then
+                        if ( histinfo(ifld)%pop4d ) then
+                           start4D = (/ 1, 1, mod(k+1-istart-1,cptch)+1, 1+(k+1-istart-1)/cptch,  histset_6hr /)
+                           count4D = (/ nxhis, nyhis, 1, 1, 1 /)
+                           ierr = nf90_put_var ( ncid, vid, htemp, start=start4D, count=count4D )
+                        else if ( nlev > 1 .or. histinfo(ifld)%multilev ) then
+                           start3D = (/ 1, 1, k+1-istart, histset_6hr /)
+                           count3D = (/ nxhis, nyhis, 1, 1 /)
+                           ierr = nf90_put_var ( ncid, vid, htemp, start=start3D, count=count3D )
+                        else
+                           start2D = (/ 1, 1, histset_6hr /)
+                           count2D = (/ nxhis, nyhis, 1 /)
+                           ierr = nf90_put_var ( ncid, vid, htemp, start=start2D, count=count2D )
+                        end if
+                     end if  
+                  else    
+                     if ( histinfo(ifld)%pop4d ) then
+                        start4D = (/ 1, 1, mod(k+1-istart-1,cptch)+1, 1+(k+1-istart-1)/cptch,  histset /)
+                        count4D = (/ nxhis, nyhis, 1, 1, 1 /)
+                        ierr = nf90_put_var ( ncid, vid, htemp, start=start4D, count=count4D )
+                     else if ( nlev > 1 .or. histinfo(ifld)%multilev ) then
+                        start3D = (/ 1, 1, k+1-istart, histset /)
+                        count3D = (/ nxhis, nyhis, 1, 1 /)
+                        ierr = nf90_put_var ( ncid, vid, htemp, start=start3D, count=count3D )
+                     else
+                        start2D = (/ 1, 1, histset /)
+                        count2D = (/ nxhis, nyhis, 1 /)
+                        ierr = nf90_put_var ( ncid, vid, htemp, start=start2D, count=count2D )
+                     end if
+                  end if   
+                  call check_ncerr(ierr, "Error writing history variable "//histinfo(ifld)%name )
+                  call END_LOG(putvar_end)
+
+               end if
+            end do   ! k loop
+               
+!           Zero ready for next set
+            histarray(:,:,istart:iend) = nf90_fill_float
+!           Reset the count variable
+            histinfo(ifld)%count = 0
+
+         end do ! Loop over fields
+      
+         call START_LOG(mpisendrecv_begin)
+         if ( nreq > 0 ) then
+            call MPI_Waitall(nreq, ireq, MPI_STATUSES_IGNORE, ierr )
+         end if   
+         call END_LOG(mpisendrecv_end)       
+
+         deallocate(hist_a)
+         
+      end if ! maxcnt>0   
 #else
       if ( myid == 0 ) then
          allocate( hist_g(nx_g,ny_g) )
@@ -2665,7 +2669,13 @@ contains
          if ( histset > 1 .and. ave_type == hist_fixed ) then
             cycle
          end if
-
+         if ( histinfo(ifld)%daily .and. .not.single_output .and. .not.endofday ) then
+            cycle
+         end if   
+         if ( histinfo(ifld)%sixhr .and. .not.single_output .and. .not.endof6hr ) then
+            cycle
+         end if 
+         
          istart = histinfo(ifld)%ptr
          iend = istart + nlev - 1
          if ( ave_type == hist_ave ) then    
@@ -2797,7 +2807,7 @@ contains
          histinfo(ifld)%count = 0
 
          deallocate( hist_a )
-
+         
       end do ! Loop over fields
       
       deallocate( hist_g )
