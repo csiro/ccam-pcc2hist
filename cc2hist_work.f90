@@ -3551,7 +3551,8 @@ contains
                        daily=.true., instant=.false., all_positive=.true. )
          ierr = nf90_inq_varid (ncid, "u10m_max", ivar )
          if ( ierr == nf90_noerr ) then
-            call addfld ( "sfcWind_max", "Maximum 10m wind speed", "m s-1", 0.0, 200.0, 1, std_name="wind_speed", all_positive=.true. )
+            call addfld ( "sfcWind_max", "Maximum 10m wind speed", "m s-1", 0.0, 200.0, 1, std_name="wind_speed", &
+                          all_positive=.true. )
          end if   
          ! Packing is not going to work well in this case
          ! For height, estimate the height of the top level and use that
@@ -3579,7 +3580,8 @@ contains
                         multilev=.true., std_name="relative_humidity",           &
                         ran_type=.true. )
          call addfld ( "theta", "Potential temperature", "K", 150., 1200., nlev, &
-                        multilev=.true., std_name="potential_temperature" )
+                        multilev=.true., std_name="potential_temperature",       &
+                        ran_type=.true. )
          if ( cordex_compliant ) then
             call addfld ( "wa", "Upward Air Velocity", "m s-1", -1., 1., nlev,   &
                            multilev=.true., std_name="upward_air_velocity" )
@@ -3722,7 +3724,8 @@ contains
          end if  
          ierr = nf90_inq_varid (ncid, "u10m_max", ivar )
          if ( ierr == nf90_noerr ) then
-            call addfld ( "sfcWind_max", "Maximum 10m wind speed", "m s-1", 0.0, 200.0, 1, std_name="wind_speed", all_positive=.true. )
+            call addfld ( "sfcWind_max", "Maximum 10m wind speed", "m s-1", 0.0, 200.0, 1, std_name="wind_speed", &
+                          all_positive=.true. )
          end if  
          ierr = nf90_inq_varid (ncid, "snd", ivar )
          if ( ierr == nf90_noerr ) then
