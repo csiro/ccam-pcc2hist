@@ -4325,16 +4325,21 @@ contains
          stdname = "atmosphere_convective_inhibition_wrt_surface" 
       case ("cld")
          stdname = "cloud_area_fraction"
+         cell_methods = "time: mean"
       case ("clh")
          stdname = "cloud_area_fraction_in_atmosphere_layer"         
+         cell_methods = "time: mean"
       case ("clivi")
          stdname = "atmosphere_cloud_ice_content"
       case ("cll")
-         stdname = "cloud_area_fraction_in_atmosphere_layer"         
+         stdname = "cloud_area_fraction_in_atmosphere_layer"
+         cell_methods = "time: mean"
       case ("clm")
          stdname = "cloud_area_fraction_in_atmosphere_layer"
+         cell_methods = "time: mean"
       case ("clt")
          stdname = "cloud_area_fraction"
+         cell_methods = "time: mean"
       case ("clwvi")
          stdname = "atmosphere_cloud_condensed_water_content"
       case ("cfrac")
