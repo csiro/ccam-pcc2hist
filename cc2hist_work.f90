@@ -131,7 +131,7 @@ contains
       allocate ( q(pil,pjl*pnpan*lproc,kl),  ql(pil,pjl*pnpan*lproc,kl), qf(pil,pjl*pnpan*lproc,kl) )
       allocate ( qs(pil,pjl*pnpan*lproc,kl), qg(pil,pjl*pnpan*lproc,kl), omega(pil,pjl*pnpan*lproc,kl) )
       allocate ( tgg(pil,pjl*pnpan*lproc,ksoil) )
-      if ( needfld("zg") ) then
+      if ( needfld("zg") .or. needfld("lvl") ) then
          if ( use_plevs .or. use_meters ) then
             allocate ( zstd(pil,pjl*pnpan*lproc,nplevs) )
          end if
@@ -143,6 +143,7 @@ contains
          allocate( uo_tmp(pil,pjl*pnpan*lproc,ol), vo_tmp(pil,pjl*pnpan*lproc,ol) )
          allocate( thetao_tmp(pil,pjl*pnpan*lproc,ol), so_tmp(pil,pjl*pnpan*lproc,ol) )
          allocate( ocn_tmp(pil,pjl*pnpan*lproc,ol) )
+         allocate( ocn_mask(pil,pjl*pnpan*lproc,ol) )
       end if
       ! POP arrays
       if ( cptch > 0 ) then
@@ -436,6 +437,18 @@ contains
                      call savehist( "ocndepth", dtmp )
                   end if   
                   if ( use_depth ) call ditop_setup( gosig, dlevs(1:onplevs), dtmp )
+                  ! define ocean mask
+                  if ( all(gosig<=1.) ) then
+                     !sigma levels
+                     do k = 1,ol
+                       ocn_mask(:,:,k) = dtmp>0.001
+                     end do
+                  else
+                     ! zstar levels
+                     do k = 1,ol
+                       ocn_mask(:,:,k) = gosig(k)<=dtmp
+                     end do  
+                  end if    
                case default
                   call readsave2 ( varlist(ivar)%vname )
                end select
@@ -924,7 +937,7 @@ contains
                if ( needfld("epso") ) then
                   call vread( "epso", ocn_tmp )
                   do k = 1,size(ocn_tmp,3)
-                     where ( soilt > 0.5 )
+                     where ( soilt > 0.5 .or. .not.ocn_mask(:,:,k) )
                         ocn_tmp(:,:,k) = nf90_fill_float ! flag for land
                      end where
                   end do   
@@ -937,7 +950,7 @@ contains
                if ( needfld("kmo") ) then
                   call vread( "kmo", ocn_tmp )
                   do k = 1,size(ocn_tmp,3)
-                     where ( soilt > 0.5 )
+                     where ( soilt > 0.5 .or. .not.ocn_mask(:,:,k) )
                         ocn_tmp(:,:,k) = nf90_fill_float ! flag for land
                      end where
                   end do
@@ -947,7 +960,7 @@ contains
                if ( needfld("kso") ) then
                   call vread( "kso", ocn_tmp )
                   do k = 1,size(ocn_tmp,3)
-                     where ( soilt > 0.5 )
+                     where ( soilt > 0.5 .or. .not.ocn_mask(:,:,k) )
                         ocn_tmp(:,:,k) = nf90_fill_float ! flag for land
                      end where
                   end do   
@@ -1124,7 +1137,7 @@ contains
                if ( needfld("tkeo") ) then
                   call vread( "tkeo", ocn_tmp )
                   do k = 1,size(ocn_tmp,3)
-                     where ( soilt > 0.5 )
+                     where ( soilt > 0.5 .or. .not.ocn_mask(:,:,k) )
                         ocn_tmp(:,:,k) = nf90_fill_float ! flag for land
                      end where
                   end do   
@@ -1151,7 +1164,7 @@ contains
             case ( "so" )
                call vread( "so", so_tmp )
                do k = 1,size(so_tmp,3)
-                  where ( soilt > 0.5 )
+                  where ( soilt > 0.5 .or. .not.ocn_mask(:,:,k) )
                      so_tmp(:,:,k) = nf90_fill_float ! flag for land
                   end where
                end do
@@ -1161,7 +1174,7 @@ contains
             case ( "thetao" )
                call vread( "thetao", thetao_tmp )
                do k = 1,size(thetao_tmp,3)
-                  where ( soilt > 0.5 )
+                  where ( soilt > 0.5 .or. .not.ocn_mask(:,:,k) )
                      thetao_tmp(:,:,k) = nf90_fill_float ! flag for land
                   end where
                end do   
@@ -1176,14 +1189,14 @@ contains
             case ( "uo" ) 
                call vread( "uo", uo_tmp )
                do k = 1,size(uo_tmp,3)
-                  where ( soilt > 0.5 )
+                  where ( soilt > 0.5 .or. .not.ocn_mask(:,:,k) )
                      uo_tmp(:,:,k) = nf90_fill_float ! flag for land
                   end where
                end do
             case ( "vo" ) 
                call vread( "vo", vo_tmp ) 
                do k = 1,size(vo_tmp,3)
-                  where ( soilt > 0.5 )
+                  where ( soilt > 0.5 .or. .not.ocn_mask(:,:,k) )
                      vo_tmp(:,:,k) = nf90_fill_float ! flag for land
                   end where
                end do
@@ -1251,7 +1264,7 @@ contains
                if ( needfld("wo") ) then
                   call vread( "wo", ocn_tmp )
                   do k = 1,size(ocn_tmp,3)
-                     where ( soilt > 0.5 )
+                     where ( soilt > 0.5 .or. .not.ocn_mask(:,:,k) )
                         ocn_tmp(:,:,k) = nf90_fill_float ! flag for land
                      end where
                   end do
@@ -1547,6 +1560,21 @@ contains
                call savehist ( "zg", hstd(:,:,minlev:maxlev) )
             end if
          end if
+         
+         if ( needfld("lvl") ) then
+            if ( use_plevs ) then
+               call height ( t, q, zs, psl, sig, zstd, plevs(1:nplevs) )
+               call savehist ( "lvl", zstd )
+            else if ( use_meters ) then
+               do k = 1,nplevs
+                  zstd(:,:,k) = mlevs(k)/mlevs(nplevs)*(mlevs(nplevs)-zs) + zs
+               end do
+               call savehist ( "lvl", zstd )
+            else
+               call savehist ( "lvl", hstd(:,:,minlev:maxlev) )
+            end if
+         end if
+
       
          ! Wind vectors
          call fix_winds(u, v)
@@ -1781,12 +1809,12 @@ contains
             if ( needfld("vo") ) then
                call osavehist( "vo", vo_tmp ) 
             end if
-            if ( needfld("sos") ) then
-               call savehist( "sos", so_tmp(:,:,1) )
-            end if
-            if ( needfld("tos") ) then
-               call savehist( "tos", thetao_tmp(:,:,1) )
-            end if   
+         end if
+         if ( needfld("sos") ) then
+            call savehist( "sos", so_tmp(:,:,1) )
+         end if
+         if ( needfld("tos") ) then
+            call savehist( "tos", thetao_tmp(:,:,1) )
          end if   
       end if
       
@@ -2528,7 +2556,7 @@ contains
 
    subroutine get_var_list(varlist, nvars)
       ! Get a list of the variables in the input file
-      use history, only : addfld, int_default, cf_compliant, cordex_compliant
+      use history, only : addfld, int_default, cf_compliant, cordex_compliant, ran_compliant
       use interp_m, only : int_nearest, int_none, int_tapm
       use newmpar_m, only : ol, cptch, cchrt
       use physparams, only : grav, rdry
@@ -3591,6 +3619,11 @@ contains
          end if
          call addfld ( "td", "Dew point temperature", "K", 100.0, 400.0, nlev,   &
                         multilev=.true., ran_type=.true. ) 
+         if ( ran_compliant ) then
+           call addfld ( "lvl", "Height of hybrid theta levels", "m", 0.,        &
+                          topheight, nlev, multilev=.true., ran_type=.true. )
+         end if  
+             
          
          ! If the output uses pressure levels save the lowest sigma level of
          ! the basic fields.

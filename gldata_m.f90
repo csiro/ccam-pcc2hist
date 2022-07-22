@@ -37,4 +37,5 @@ module gldata
    real, allocatable, dimension(:,:,:) :: ocn_tmp
    real, allocatable, dimension(:,:,:) :: cp_tmp
    real, allocatable, dimension(:,:,:,:) :: cpc_tmp
+   logical, allocatable, dimension(:,:,:) :: ocn_mask
 end module gldata

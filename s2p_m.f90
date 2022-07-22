@@ -170,18 +170,12 @@ contains
 !     Make this allocatable rather than automatic because usually it won't be
 !     required (check whether this really does save memory. If nplevs=0 for
 !     sigma case then it would be zero sized anyway?).
-      real, dimension(:,:,:), allocatable, save :: parray
+      real, dimension(size(array,1),size(array,2),nplevs) :: parray
 
       if ( .not. needfld(name) ) return
       call START_LOG(vsavehist_begin)
       if ( use_plevs ) then
 !        sigma to pressure conversion.
-         if ( .not. allocated(parray) ) then
-           allocate ( parray(size(array,1), size(array,2), nplevs) )
-         else if ( size(parray,1)/=size(array,1) .or. size(parray,2)/=size(array,2) .or. size(parray,3)/=nplevs ) then
-           deallocate ( parray )
-           allocate ( parray(size(array,1), size(array,2), nplevs) )
-         end if
          if ( vextrap == vextrap_default ) then
             if ( name == "temp" .or. name == "ta" ) then
                call sitop ( array, parray, sig, plevs(1:nplevs), psl, vextrap_t )
@@ -201,12 +195,6 @@ contains
          call savehist ( name, parray )
       else if ( use_meters ) then
 !        sigma to meters conversion.
-         if ( .not. allocated(parray) ) then
-           allocate ( parray(size(array,1), size(array,2), nplevs) )
-         else if ( size(parray,1)/=size(array,1) .or. size(parray,2)/=size(array,2) .or. size(parray,3)/=nplevs ) then
-           deallocate ( parray )
-           allocate ( parray(size(array,1), size(array,2), nplevs) )
-         end if
          if ( vextrap == vextrap_default ) then
             if (  name == "temp" .or. name == "ta" ) then
                call mitop ( array, parray, vextrap_t )
@@ -240,22 +228,13 @@ contains
       use logging_m
       character(len=*), intent(in) :: name
       real, dimension(:,:,:), intent(in) :: array
-!     Make this allocatable rather than automatic because usually it won't be
-!     required (check whether this really does save memory. If nplevs=0 for
-!     sigma case then it would be zero sized anyway?).
-      real, dimension(:,:,:), allocatable, save :: parray
+      real, dimension(size(array,1),size(array,2),onplevs) :: parray
 
       if ( .not. needfld(name) ) return
       
       call START_LOG(vsavehist_begin)
       if ( use_depth ) then
 !        sigma or z* to meters conversion.
-         if ( .not. allocated(parray) ) then
-           allocate ( parray(size(array,1), size(array,2), onplevs) )
-         else if ( size(parray,1)/=size(array,1) .or. size(parray,2)/=size(array,2) .or. size(parray,3)/=onplevs ) then
-           deallocate ( parray )
-           allocate ( parray(size(array,1), size(array,2), onplevs) )
-         end if
          call ditop ( array, parray )
          call savehist ( name, parray )
       else

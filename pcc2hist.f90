@@ -63,7 +63,7 @@ program cc2hist
 
    character(len=MAX_ARGLEN) :: optarg
    integer :: opt, nopt
-   type(loption), dimension(5) :: longopts
+   type(loption), dimension(6) :: longopts
    integer :: longind
    integer :: kta=0, ktb=999999, ktc=-1, ndate=-1, ntime=-1, k
    integer :: sdate=-1, edate=-1, stime=-1, etime=-1
@@ -78,7 +78,8 @@ program cc2hist
                     use_meters, mlevs, use_depth, dlevs, sdate,       &
                     edate, stime, etime, hres, debug, ifile, ofile,   &
                     int_default, vextrap, cf_compliant,               &
-                    cordex_compliant, save_ccam_parameters
+                    cordex_compliant, save_ccam_parameters,           &
+                    ran_compliant
 
    integer :: kt, kdate, ktime, ierr, ieof, ntracers
    integer :: mins
@@ -139,6 +140,7 @@ program cc2hist
    longopts(3) = loption ( "cf", 0, 0 )
    longopts(4) = loption ( "cordex", 0, 0 )
    longopts(5) = loption ( "multioutput", 0, 0 )
+   longopts(6) = loption ( "ran", 0, 0 )
    ifile = ""
    ofile = ""
    cfile = ""
@@ -205,6 +207,8 @@ program cc2hist
             cordex_compliant = .true.
          case ( 5 )
             single_output = .false.
+         case ( 6 )
+            ran_compliant = .true.
          case default
             print*, "Unexpected result processing long options", longind
             call finishbanner

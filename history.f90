@@ -287,6 +287,8 @@ module history
    
    logical, public :: single_output = .true.
    
+   logical, public :: ran_compliant = .false.
+   
 ! Save CCAM parameters
    logical, public :: save_ccam_parameters = .true.
 
