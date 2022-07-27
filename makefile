@@ -111,11 +111,11 @@ clean:
 
 # Version string. Dummy dependency to force this to be checked every time
 revision.h: FORCE
-	echo "   character(len=*), parameter :: cc2hist_revision='SVN-r`svnversion .`'" > tmpver
+	echo "   character(len=*), parameter :: cc2hist_revision='GIT-`git log | head -3 | tail -1`'" > tmpver
 	# If string contains exported don't overwrite
 	# Only update revision.h if it's different to avoid unncessary
 	# recompilation
-	grep exported tmpver || cmp tmpver revision.h || mv tmpver revision.h
+	cmp tmpver revision.h || mv tmpver revision.h
 
 FORCE:
 
