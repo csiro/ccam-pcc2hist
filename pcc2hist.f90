@@ -100,7 +100,7 @@ program cc2hist
    real :: time_prev = 0.
    integer :: natts, catts, ival, xtype, attlen, i
    real :: rval, dtime
-   character(len=80) :: cval, attname
+   character(len=120) :: cval, attname
 
    
 #ifndef stacklimit
