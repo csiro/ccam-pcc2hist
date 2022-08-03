@@ -111,7 +111,8 @@ clean:
 
 # Version string. Dummy dependency to force this to be checked every time
 revision.h: FORCE
-	echo "   character(len=*), parameter :: cc2hist_revision='GIT-`git log | head -3 | tail -1`" "`git log | head -1`'" > tmpver
+	echo "character(len=*), parameter :: cc2hist_revision= &" > tmpver
+	echo "'GIT-`git log | head -3 | tail -1`" "`git log | head -1`'" >> tmpver
 	# If string contains exported don't overwrite
 	# Only update revision.h if it's different to avoid unncessary
 	# recompilation
