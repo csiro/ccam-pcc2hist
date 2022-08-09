@@ -47,6 +47,16 @@ FFLAGS = -O2 -fallow-argument-mismatch -march=native -fbacktrace
 endif
 endif
 
+# Gfortran compiler options
+ifeq ($(SETONIX),yes)
+MPIFC = ftn
+MPIF77 = ftn
+FC = ftn
+FFLAGS = -O2 -mtune=native -march=native -fbacktrace -Dncclib -fallow-argument-mismatch
+PPFLAG90 = -x f95-cpp-input
+DEBUGFLAG = -g -Wall -Wextra -fbounds-check
+endif
+
 # Cray compiler options
 ifeq ($(CRAY),yes)
 FC = ftn

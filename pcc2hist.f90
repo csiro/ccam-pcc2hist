@@ -69,6 +69,7 @@ program cc2hist
    integer :: sdate=-1, edate=-1, stime=-1, etime=-1
    character(len=10) :: name
    character(len=80) :: longname
+   logical :: debug=.false.
    real :: minsig = 0., maxsig = 1.0
 
    namelist /input/ kta, ktb, ktc, ndate, ntime,                      &
@@ -83,7 +84,6 @@ program cc2hist
 
    integer :: kt, kdate, ktime, ierr, ieof, ntracers
    integer :: mins
-   logical :: debug=.false.
    logical :: use_date, use_steps
    include 'revision.h'
    character(len=256) :: source, optionstring=""
