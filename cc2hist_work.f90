@@ -754,9 +754,9 @@ contains
                end if   
             case ( "sgdndir_ave", "rsdsdir" )
                if ( needfld("sgdndir_ave") .or. needfld("rsdsdir") ) then 
-                  call vread( "sgdndir_ave", sgd )
+                  call vread( "sgdndir_ave", dtmp )
                   if ( needfld(varlist(ivar)%vname) ) then
-                     call savehist( varlist(ivar)%vname, sgd )
+                     call savehist( varlist(ivar)%vname, dtmp )
                   end if   
                end if  
             case ( "sgn_ave" )
