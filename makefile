@@ -53,6 +53,8 @@ MPIFC = ftn
 MPIF77 = ftn
 FC = ftn
 FFLAGS = -O2 -mtune=native -march=native -fbacktrace -Dncclib -fallow-argument-mismatch
+INC =
+LIBS = -lnetcdf
 PPFLAG90 = -x f95-cpp-input
 DEBUGFLAG = -g -Wall -Wextra -fbounds-check
 endif
