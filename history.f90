@@ -2507,7 +2507,8 @@ contains
                      dreq = dreq + 1 
                      nreq = nreq + 1 
                      htemp_buff(:,:,dreq) = htemp
-                     call MPI_ISend(htemp_buff(:,:,dreq), sizehis, MPI_REAL, histinfo(ifld)%procid, itag, comm_world, ireq(nreq), ierr)
+                     call MPI_ISend(htemp_buff(:,:,dreq), sizehis, MPI_REAL, histinfo(ifld)%procid, itag, comm_world, &
+                                    ireq(nreq), ierr)
                   end if
                else
                   dreq = dreq + 1 
