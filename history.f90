@@ -165,6 +165,8 @@ module history
       logical            :: std
 !     Controls whether variable is on the "RAN" list of variables
       logical            :: ran
+!     Controls whether variable is on the "tracer" list of variables
+      logical            :: tracer
 !     Controls whether variable is on the t?_pop list of variables
       integer            :: tn
 !     Scale factor for output, e.g. to convert rain from mm/step to mm/day.
@@ -295,9 +297,6 @@ module history
 !  Working arrays
    integer, private, save :: nx_g, ny_g
    real, dimension(:,:,:,:), allocatable, save, private :: hist_a
-
-!  Maximum number of CABLE tiles
-   integer, parameter :: maxtile=5
 
 contains
 
@@ -481,7 +480,7 @@ contains
                      int_type, multilev, std_name, soil, water,       &
                      pop2d, pop3d, pop4d, coord_height, cell_methods, &
                      ran_type, tn_type, daily, sixhr, instant,        &
-                     all_positive )
+                     all_positive, tracer_type )
 !
 !     Add a field to the master list of fields that may be saved.
 !
@@ -506,6 +505,7 @@ contains
       real, intent(in), optional :: coord_height
       character(len=*), intent(in), optional :: cell_methods
       logical, intent(in), optional   :: ran_type
+      logical, intent(in), optional   :: tracer_type
       integer, intent(in), optional   :: tn_type
       logical, intent(in), optional   :: daily
       logical, intent(in), optional   :: sixhr
@@ -514,7 +514,7 @@ contains
 
 !     Local variables corresponding to the optional arguments
       integer :: atype, ltn
-      logical :: lstd, lran
+      logical :: lstd, lran, ltracer
       character(len=MAX_NAMELEN) :: aname
       real    :: scale
 
@@ -565,6 +565,11 @@ contains
       else
          lran = .false.  
       end if
+      if ( present(tracer_type) ) then
+         ltracer = tracer_type
+      else
+         ltracer = .false.
+      end if
       if ( present(tn_type) ) then
          ltn = tn_type  
       else
@@ -596,6 +601,7 @@ contains
       histinfo(totflds)%nlevels      = nlevels   ! number of levels
       histinfo(totflds)%std          = lstd
       histinfo(totflds)%ran          = lran
+      histinfo(totflds)%tracer       = ltracer
       histinfo(totflds)%tn           = ltn
       histinfo(totflds)%output_scale = scale
       histinfo(totflds)%used         = .FALSE.   ! Value for now
@@ -799,6 +805,10 @@ contains
 !           Include RAN requested variables
             histinfo(1:totflds)%used = &
              histinfo(1:totflds)%used .or. histinfo(1:totflds)%ran
+         else if ( hnames(ivar) == "tracer" ) then
+!           Include Tracer requested variables
+            histinfo(1:totflds)%used = &
+             histinfo(1:totflds)%used .or. histinfo(1:totflds)%tracer
          else if ( hnames(ivar) == "pop2d" ) then
 !           Include POP 3d requested variables
             histinfo(1:totflds)%used = &

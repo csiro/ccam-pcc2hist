@@ -22,10 +22,7 @@
 program cc2hist
 
 !  This program generates a netcdf history file from the conformal-cubic
-!  or conformal-octagon model output file. The interpolation routines are
-!  taken from John's plotting program plotg.f.
-
-!  It uses the f90 shallow water model versions of routines setxyz and staguv.
+!  output file.
     
 !  Modified by MJT to use MPI when reading parallel input files (pcc2hist).
 !  Further optimised by Paul Ryan and David Benn.
@@ -69,7 +66,6 @@ program cc2hist
    integer :: sdate=-1, edate=-1, stime=-1, etime=-1
    character(len=10) :: name
    character(len=80) :: longname
-   logical :: debug=.false.
    real :: minsig = 0., maxsig = 1.0
 
    namelist /input/ kta, ktb, ktc, ndate, ntime,                      &
@@ -82,25 +78,27 @@ program cc2hist
                     cordex_compliant, save_ccam_parameters,           &
                     ran_compliant
 
+   include 'revision.h'
+   
    integer :: kt, kdate, ktime, ierr, ieof, ntracers
    integer :: mins
-   logical :: use_date, use_steps
-   include 'revision.h'
-   character(len=256) :: source, optionstring=""
-   character(len=80)  :: basetime,calendar
    integer :: iyr, imon, iday, ihr, vid
    integer :: base_yr, base_mon, base_day, base_hr
-   real :: time
-   real, dimension(2) :: time_bnds
-   logical :: skip
-   type(input_var), dimension(:), pointer, contiguous :: varlist
    integer :: nvars
-   type(hist_att), dimension(:), allocatable :: extra_atts, extra_temp
    integer :: veg_int
-   real :: time_prev = 0.
    integer :: natts, catts, ival, xtype, attlen, i
-   real :: rval, dtime
+   logical :: debug=.false.
+   logical :: use_date, use_steps
+   logical :: skip
+   character(len=256) :: source, optionstring=""
+   character(len=80)  :: basetime,calendar
    character(len=120) :: cval, attname
+   real :: time
+   real :: time_prev = 0.
+   real :: rval, dtime
+   real, dimension(2) :: time_bnds
+   type(input_var), dimension(:), pointer, contiguous :: varlist
+   type(hist_att), dimension(:), allocatable :: extra_atts, extra_temp
 
    
 #ifndef stacklimit

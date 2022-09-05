@@ -98,18 +98,19 @@ module work
       character(len=20) :: units=""
       real :: add_offset
       real :: scale_factor
-      integer :: ndims ! Number of space dimensions
-      logical :: fixed ! Does it have time dimension
-      integer :: vid   ! netcdf vid
-      logical :: daily ! Is it only valid once per day?
-      logical :: sixhr ! Is it only valid every 6 hours?
-      logical :: instant ! Is it instantaneous?
-      logical :: vector ! Is it a vector component?
-      logical :: xcmpnt ! Is it x-component of a vector?
-      logical :: water  ! Is it a multi-level ocean variable
-      logical :: pop2d ! Is it a x-y POP dimensioned variable
-      logical :: pop3d ! Is it a x-y-cptch POP dimensioned variable
-      logical :: pop4d ! Is it a x-y-cptch-cchrt POP dimensioned variable
+      integer :: ndims      ! Number of space dimensions
+      logical :: fixed      ! Does it have time dimension
+      integer :: vid        ! netcdf vid
+      logical :: daily      ! Is it only valid once per day?
+      logical :: sixhr      ! Is it only valid every 6 hours?
+      logical :: instant    ! Is it instantaneous?
+      logical :: vector     ! Is it a vector component?
+      logical :: xcmpnt     ! Is it x-component of a vector?
+      logical :: water      ! Is it a multi-level ocean variable?
+      logical :: tracer     ! Is it a tracer variable?
+      logical :: pop2d      ! Is it a x-y POP dimensioned variable?
+      logical :: pop3d      ! Is it a x-y-cptch POP dimensioned variable?
+      logical :: pop4d      ! Is it a x-y-cptch-cchrt POP dimensioned variable?
       integer :: othercmpnt ! Index of matching x or y component
       logical :: all_positive
    end type input_var
@@ -1318,7 +1319,7 @@ contains
       end if         
 
       if ( needfld("rlus") ) then
-         where ( rgd /= nf90_fill_float .or. &
+         where ( rgd /= nf90_fill_float .and. &
                  rgn /= nf90_fill_float ) 
             dtmp = rgd + rgn ! rgn +ve is up
          elsewhere
@@ -1328,7 +1329,7 @@ contains
       end if
       
       if ( needfld("rluscs") ) then
-         where ( rgdcs /= nf90_fill_float .or. &
+         where ( rgdcs /= nf90_fill_float .and. &
                  rgncs /= nf90_fill_float ) 
             dtmp = rgdcs + rgncs ! rgncs +ve is up
          elsewhere
@@ -1338,7 +1339,7 @@ contains
       end if
 
       if ( needfld("rsus") ) then
-         where ( sgd /= nf90_fill_float .or. &
+         where ( sgd /= nf90_fill_float .and. &
                  sgn /= nf90_fill_float ) 
             dtmp = sgd - sgn ! sgn +ve is down
          elsewhere
@@ -1348,7 +1349,7 @@ contains
       end if
       
       if ( needfld("rsuscs") ) then
-         where ( sgdcs /= nf90_fill_float .or. &
+         where ( sgdcs /= nf90_fill_float .and. &
                  sgncs /= nf90_fill_float ) 
             dtmp = sgdcs - sgncs ! sgncs +ve is down
          elsewhere
@@ -2576,7 +2577,6 @@ contains
       integer, parameter :: vmin=-32500, vmax=32500
       real :: xmin, xmax, aoff, sf, topsig, topheight
       real :: coord_height
-      integer :: ivar_start
 
       ierr = nf90_inquire(ncid, ndimensions=ndimensions, nvariables=nvariables)
       call check_ncerr(ierr, "nf90_inquire error")
@@ -2605,33 +2605,17 @@ contains
       nvars = 0
       ! For the sigma to pressure initialisation to work properly
       ! the surface pressure has to be read before any of the 3D variables
-      ! Force it to be first by having an extra 0 iteration on the loop
-      ! Some special purpose outputs don't have psf, so only treat cases where
-      ! use_plevs=T in this way.
-      !if ( use_plevs ) then
-      !   ivar_start = 0
-      !else
-         ivar_start = 1
-      !end if
-      do ivar = ivar_start,nvariables
-         !if ( ivar == 0 ) then
-         !   ierr = nf90_inq_varid ( ncid, "psf", vid )
-         !   call check_ncerr(ierr, "Error getting vid for psf")
-         !   ierr = nf90_inquire_variable (ncid, vid, name=vname, ndims=ndims, dimids=dimids, xtype=xtype)
-         !   call check_ncerr(ierr, "nf90_inquire_variable error")
-         !else
-            ierr = nf90_inquire_variable (ncid, ivar, name=vname, ndims=ndims, dimids=dimids, xtype=xtype)
-            call check_ncerr(ierr, "nf90_inquire_variable error")
-            if ( vname == "sfcWindmax" .or. vname == "sfcWindmax_stn" ) then
-               ! remove old sfcWindmax data
-               cycle
-            end if   
-            !if ( use_plevs .and. vname == "psf" ) then
-            !   ! This has already been handled above
-            !   cycle
-            !end if
-         !end if
-!         print*, ivar, vname, ndims, dimids(1:ndims)
+      do ivar = 1,nvariables
+         ierr = nf90_inquire_variable (ncid, ivar, name=vname, ndims=ndims, dimids=dimids, xtype=xtype)
+         call check_ncerr(ierr, "nf90_inquire_variable error")
+         ! remove old sfcWindmax data
+         if ( vname == "sfcWindmax" .or. vname == "sfcWindmax_stn" ) then
+            cycle
+         end if   
+         ! remove old CAPE and CIN
+         if ( kk>1 .and. (vname == "CAPE" .or. vname == "CIN") ) then
+            cycle
+         end if
          if ( ndims == 6 .and. procformat ) then   
             ! Should be lon, lat, lev, proc, time
             if ( match ( dimids(1:ndims), (/ londim, latdim, cptchdim, cchrtdim, procdim, timedim /) ) ) then
@@ -2925,7 +2909,15 @@ contains
          else 
             varlist(ivar)%water = .false. 
          end if
-      end do   
+      end do  
+      
+      do ivar = 1,nvars
+         if ( match ( varlist(ivar)%vname, (/ "trav????" /) ) ) then    
+            varlist(ivar)%tracer = .true. 
+         else 
+            varlist(ivar)%tracer = .false. 
+         end if
+      end do
       
       do ivar = 1,nvars
          if ( varlist(ivar)%vname(3:12) == "_pop_grid_" ) then
@@ -3482,7 +3474,8 @@ contains
                         int_type=int_type, ran_type=ran_type,                   &
                         daily=varlist(ivar)%daily, sixhr=varlist(ivar)%sixhr,   &
                         instant=varlist(ivar)%instant,                          &
-                        all_positive=varlist(ivar)%all_positive )
+                        all_positive=varlist(ivar)%all_positive,                &
+                        tracer_type=varlist(ivar)%tracer )
             end if  
          else if ( varlist(ivar)%ndims == 4 ) then  
             if ( varlist(ivar)%pop4d ) then
