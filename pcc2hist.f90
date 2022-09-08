@@ -76,7 +76,7 @@ program cc2hist
                     edate, stime, etime, hres, debug, ifile, ofile,   &
                     int_default, vextrap, cf_compliant,               &
                     cordex_compliant, save_ccam_parameters,           &
-                    ran_compliant
+                    ran_compliant, safe_max
 
    include 'revision.h'
    

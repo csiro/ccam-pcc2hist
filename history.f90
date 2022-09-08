@@ -123,7 +123,7 @@ module history
 !  The actual data arrays are allocatable, so it doesn't use much space.
 !  It can't be made truly dynamic. The best that could be done is to 
 !  re-allocate a larger array if required.
-   integer, parameter :: nfmax = 1000
+   integer, parameter :: nfmax = 2000
 
 !  Initialise hnames so that set_hnames can find the end of the list to append.
    character(len=MAX_NAMELEN), dimension(nfmax), save ::  &
@@ -297,6 +297,8 @@ module history
 !  Working arrays
    integer, private, save :: nx_g, ny_g
    real, dimension(:,:,:,:), allocatable, save, private :: hist_a
+
+   integer, public, save :: safe_max = 24
 
 contains
 
@@ -2101,7 +2103,6 @@ contains
       logical :: doinc
       logical :: endofday, endof6hr
       integer, save :: safe_count = 0
-      integer, parameter :: safe_max = 24
 #ifdef usempi3
       integer :: cnt, maxcnt, slab, gap, offset
       integer :: rrank, sizehis, itag
@@ -2457,6 +2458,7 @@ contains
          nreq = 0
          dreq = 0
          sizehis = nxhis*nyhis
+
 !        third pass
 !        perform the interpolation
          do ifld = 1,totflds
@@ -2652,6 +2654,7 @@ contains
             histinfo(ifld)%count = 0
 
          end do ! Loop over fields
+
       
          call START_LOG(mpisendrecv_begin)
          if ( nreq > 0 ) then
@@ -2660,6 +2663,7 @@ contains
          call END_LOG(mpisendrecv_end)       
 
          deallocate(hist_a)
+
          
       end if ! maxcnt>0   
 #else

@@ -1098,8 +1098,6 @@ contains
                end if   
             case ( "ta", "temp" )
                ! temp should be the first of the 3D fields
-               minlev = 1
-               maxlev = kk
                ! assume that 2D zs is previously loaded
                call vread( "temp", t)
                call vread( "mixr", q)
@@ -2611,10 +2609,10 @@ contains
          ! remove old sfcWindmax data
          if ( vname == "sfcWindmax" .or. vname == "sfcWindmax_stn" ) then
             cycle
-         end if   
+         end if  
          ! remove old CAPE and CIN
-         if ( kk>1 .and. (vname == "CAPE" .or. vname == "CIN") ) then
-            cycle
+         if ( kk>1 .and. (vname == "CAPE" .or. vname == "CIN" ) ) then
+            cycle 
          end if
          if ( ndims == 6 .and. procformat ) then   
             ! Should be lon, lat, lev, proc, time
