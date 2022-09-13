@@ -69,8 +69,6 @@ module work
    real, dimension(:,:), allocatable, private :: rlong_l, rlat_l
    real, dimension(:,:), allocatable, private :: rlong_g, rlat_g
 
-   character(len=266), dimension(:), allocatable, save :: inputfilename
-
    public :: initialise, fix_winds, final_init, check_cc2histfile
    public :: paraopen, paraclose
    private :: fill_cc
@@ -1277,12 +1275,12 @@ contains
                   if ( needfld(varlist(ivar)%vname) ) then
                      call vread(varlist(ivar)%vname,cp_tmp)
                      call savehist(varlist(ivar)%vname, cp_tmp)
-                  end if   
+                  end if
                else if ( varlist(ivar)%pop4d ) then
                   if ( needfld(varlist(ivar)%vname) ) then
                      call vread(varlist(ivar)%vname,cpc_tmp)
                      call savehist(varlist(ivar)%vname, cpc_tmp)
-                  end if   
+                  end if
                else
                   call readsave3 (varlist(ivar)%vname)
                end if  
@@ -1979,11 +1977,7 @@ contains
       use, intrinsic :: iso_c_binding, only : c_ptr, c_f_pointer
       use mpidata_m
       use shdata_m      
-#ifdef usempi_mod
-      use mpi
-#else
       include 'mpif.h'
-#endif
 #endif
 
       real, intent(inout)  :: hres
@@ -2422,11 +2416,7 @@ contains
       use parm_m, only : rlong0, rlat0
       use physparams, only : pi
       use logging_m      
-#ifdef usempi_mod
-      use mpi
-#else
       include 'mpif.h'
-#endif
       type(input_var), dimension(:) :: varlist
       integer, intent(in) :: nvars
       real, dimension(:,:), allocatable :: costh_g, sinth_g
@@ -2910,7 +2900,7 @@ contains
       end do  
       
       do ivar = 1,nvars
-         if ( match ( varlist(ivar)%vname, (/ "trav????" /) ) ) then    
+         if ( match ( varlist(ivar)%vname, (/ "trsf????" /) ) ) then    
             varlist(ivar)%tracer = .true. 
          else 
             varlist(ivar)%tracer = .false. 
@@ -3445,7 +3435,8 @@ contains
                       pop2d=varlist(ivar)%pop2d, tn_type=tn_type,            &
                       daily=varlist(ivar)%daily, sixhr=varlist(ivar)%sixhr,  &
                       instant=varlist(ivar)%instant,                         &
-                      all_positive=varlist(ivar)%all_positive )
+                      all_positive=varlist(ivar)%all_positive,               &
+                      tracer_type=varlist(ivar)%tracer )
             end if
          else if ( varlist(ivar)%ndims == 3 ) then  
             if ( varlist(ivar)%water ) then
@@ -4743,11 +4734,7 @@ contains
    subroutine fill_cc(b_io,value)
 !     routine fills in interior of an array which has undefined points
       use logging_m
-#ifdef usempi_mod
-      use mpi
-#else
       include 'mpif.h'
-#endif
       real, intent(inout) :: b_io(pil,pjl*pnpan*lproc)         ! input and output array
       real, intent(in)    :: value                             ! array value denoting undefined
       real, dimension(0,0,0) :: c_io
@@ -4774,11 +4761,7 @@ contains
       use newmpar_m
       use indices_m
       use logging_m      
-#ifdef usempi_mod
-      use mpi
-#else
       include 'mpif.h'
-#endif
       real, dimension(pil,pjl*pnpan*lproc), intent(inout) :: b_io ! input and output array
       real, intent(in)    :: value                                ! array value denoting undefined
       real, dimension(pil,pjl*pnpan,pnproc) :: c_io
@@ -4892,17 +4875,12 @@ contains
 #ifdef usempi3
       use, intrinsic :: iso_c_binding, only : c_ptr, c_f_pointer
 #endif
-#ifdef usempi_mod
-      use mpi
-#endif
-#ifdef usempi3
       use mpidata_m
+#ifdef usempi3
       use shdata_m
 #endif
       use logging_m
-#ifndef usempi_mod
       include 'mpif.h'
-#endif
   
       integer, intent(in) :: nmode
       integer, intent(out) :: ncid
@@ -4917,7 +4895,6 @@ contains
       character(len=266) :: pfile, old_pfile
       character(len=8) :: sdecomp
       logical :: singlefile
-
 #ifdef usempi3
       integer(kind=MPI_ADDRESS_KIND) :: ssize
 #endif
@@ -4926,7 +4903,7 @@ contains
 
       nproc_orig = nproc
       
-      if ( myid==0 ) then      
+      if ( myid == 0 ) then      
   
          ! parallel file input
          ip = 0
@@ -4999,18 +4976,18 @@ contains
                deallocate( resprocmap_inv )
             end if   
          end if
-
-      end if ! myid==0
-      
-      call START_LOG(mpibcast_begin)
-      if ( myid==0 ) then
+         
         jdum(1) = pnproc
         if ( resprocformat ) then
           jdum(2) = 1 ! indicates true for resprocformat
         else
           jdum(2) = 0 ! indicates false for resprocformat
         end if
-      end if
+
+      end if ! myid==0
+      
+
+      call START_LOG(mpibcast_begin)
       call MPI_Bcast(jdum(1:2), 2, MPI_INTEGER, 0, comm_world, ier)
       pnproc = jdum(1)
       resprocformat = (jdum(2)==1)
@@ -5106,7 +5083,7 @@ contains
                      write(pfile,"(a,'.',i4.4)") trim(ifile), rip 
                      inputfilename(ip) = pfile
                      ier = nf90_open ( pfile, nmode, ncid_in(ip) )
-                     if (ier /= nf90_noerr ) then
+                     if ( ier /= nf90_noerr ) then
                         write(6,*) "ERROR: Cannot open ",trim(old_pfile)," or ",trim(pfile)
                         call check_ncerr(ier, "open")
                      end if                     
@@ -5191,7 +5168,7 @@ contains
          end if
       
          ier = nf90_get_att(ncid, nf90_global, "il_g", pil_g )
-         if ( ier==nf90_noerr ) then
+         if ( ier == nf90_noerr ) then
             ierr = nf90_get_att(ncid, nf90_global, "jl_g", pjl_g )
             call check_ncerr(ierr, "Error getting jl_g attribute")
          else
@@ -5205,7 +5182,7 @@ contains
          end if
 
          !  Calculate il, jl from these
-         if ( .not.singlefile ) then
+         if ( .not. singlefile ) then
             sdecomp = ''
             ier = nf90_get_att(ncid_in(0), nf90_global, "decomp", sdecomp)
             call check_ncerr(ier, "decomp")
@@ -5360,10 +5337,12 @@ contains
          call check_ncerr(ierr, "Error getting vid for "//name)
 
          if ( resprocformat ) then
-            ierr = nf90_get_var ( ncid_in(ip), vid, inarray3, start=(/ 1, 1, 1, prid_in(ip), nrec /), &
+            ierr = nf90_get_var ( ncid_in(ip), vid, inarray3,                  &
+                                  start=(/ 1, 1, 1, prid_in(ip), nrec /), &
                                   count=(/ pil, pjl*pnpan, pkl, 1, 1 /) )
          else
-            ierr = nf90_get_var ( ncid_in(ip), vid, inarray3, start=(/ 1, 1, 1, nrec /), &
+            ierr = nf90_get_var ( ncid_in(ip), vid, inarray3,                  &
+                                  start=(/ 1, 1, 1, nrec /),              &
                                   count=(/ pil, pjl*pnpan, pkl, 1 /) )
          end if
          if ( ierr /= nf90_noerr ) then
@@ -5413,10 +5392,12 @@ contains
          call check_ncerr(ierr, "Error getting vid for "//name)
 
          if ( resprocformat ) then
-            ierr = nf90_get_var ( ncid_in(ip), vid, inarray4, start=(/ 1, 1, 1, 1, prid_in(ip), nrec /), &
+            ierr = nf90_get_var ( ncid_in(ip), vid, inarray4,                     &
+                                  start=(/ 1, 1, 1, 1, prid_in(ip), nrec /), &
                                   count=(/ pil, pjl*pnpan, pkl, pll, 1, 1 /) )
          else
-            ierr = nf90_get_var ( ncid_in(ip), vid, inarray4, start=(/ 1, 1, 1, 1, nrec /), &
+            ierr = nf90_get_var ( ncid_in(ip), vid, inarray4,                     &
+                                  start=(/ 1, 1, 1, 1, nrec /),              &
                                   count=(/ pil, pjl*pnpan, pkl, pll, 1 /) )
          end if
          if ( ierr /= nf90_noerr ) then
@@ -5621,16 +5602,11 @@ contains
    subroutine ccmpi_scatter_1d_r4_host(data_l,data_g)
    
    use logging_m
-#ifdef usempi_mod
-   use mpi
-#endif
    use newmpar_m, only : il, jl
    
    implicit none
    
-#ifndef usempi_mod
    include 'mpif.h'
-#endif
    
    integer ip, n, iq_a, iq_b, i, j, ierr
    real, dimension(pil*pjl*pnpan*lproc), intent(out) :: data_l
@@ -5658,16 +5634,11 @@ contains
    subroutine ccmpi_scatter_1d_r4_proc(data_l)
    
    use logging_m
-#ifdef usempi_mod
-   use mpi
-#endif
    use newmpar_m, only : il, jl
    
    implicit none
    
-#ifndef usempi_mod
    include 'mpif.h'
-#endif
    
    integer ierr
    real, dimension(pil*pjl*pnpan*lproc), intent(out) :: data_l
@@ -5682,16 +5653,11 @@ contains
    subroutine ccmpi_scatter_2d_r4_host(data_l,data_g)
    
    use logging_m
-#ifdef usempi_mod
-   use mpi
-#endif
    use newmpar_m, only : il, jl
    
    implicit none
    
-#ifndef usempi_mod
    include 'mpif.h'
-#endif
    
    integer :: ip, n, ierr
    real, dimension(pil,pjl*pnpan*lproc), intent(out) :: data_l
@@ -5715,16 +5681,11 @@ contains
    subroutine ccmpi_scatter_2d_r4_proc(data_l)
 
    use logging_m
-#ifdef usempi_mod
-   use mpi
-#endif
    use newmpar_m, only : il, jl
    
    implicit none
    
-#ifndef usempi_mod
    include 'mpif.h'
-#endif
    
    integer ierr
    real, dimension(pil,pjl*pnpan*lproc), intent(out) :: data_l

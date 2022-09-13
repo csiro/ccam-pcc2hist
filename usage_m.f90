@@ -1,6 +1,6 @@
 ! Conformal Cubic Atmospheric Model
     
-! Copyright 2015-2021 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+! Copyright 2015-2022 Commonwealth Scientific Industrial Research Organisation (CSIRO)
     
 ! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
 !
@@ -24,11 +24,7 @@ module usage_m
    contains
    subroutine usage()
    use mpidata_m
-#ifdef usempi_mod
-   use mpi
-#else
    include 'mpif.h'
-#endif
    integer ierr
    if (myid==0) then
       write(*,"(a)") &
@@ -41,11 +37,7 @@ module usage_m
 
    subroutine help(version)
    use mpidata_m
-#ifdef usempi_mod
-   use mpi
-#else
    include 'mpif.h'
-#endif
    integer ierr
    character(len=*), intent(in) :: version
    if (myid==0) then

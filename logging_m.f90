@@ -1,6 +1,6 @@
 ! Conformal Cubic Atmospheric Model
     
-! Copyright 2015-2021 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+! Copyright 2015-2022 Commonwealth Scientific Industrial Research Organisation (CSIRO)
     
 ! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
 !
@@ -21,16 +21,11 @@
     
 module logging_m
 
-#ifdef usempi_mod
-use mpi
-#endif
 use mpidata_m
 
 implicit none
 
-#ifndef usempi_mod
 include 'mpif.h'
-#endif
 
 private
 

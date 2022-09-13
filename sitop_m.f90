@@ -45,11 +45,7 @@ contains
       ! Setup for sitop. Calculate things that don't depend on the field
       ! being interpolated.
       use utils_m, only : assert, search_fgt
-#ifdef usempi_mod
-      use mpi
-#else
       include 'mpif.h'
-#endif
       real, dimension(:), intent(in)       :: sigr   ! Sigma levels
       real, dimension(:), intent(in)       :: prelvs ! Pressure levels
       real, dimension(:,:), intent(in)     :: press  ! Surface pressure
@@ -381,11 +377,7 @@ contains
       ! being interpolated.
       use physparams
       use utils_m, only : assert, search_fgt
-#ifdef usempi_mod
-      use mpi
-#else
       include 'mpif.h'
-#endif
       real, dimension(:), intent(in)       :: sigr      ! Sigma levels
       real, dimension(:), intent(in)       :: mtrlvs    ! Height levels
       real, dimension(:,:,:), intent(in)   :: height    ! Output levels
@@ -729,11 +721,7 @@ contains
       ! being interpolated.
       use physparams
       use utils_m, only : assert, search_fgt
-#ifdef usempi_mod
-      use mpi
-#else
       include 'mpif.h'
-#endif
       real, dimension(:), intent(in)       :: sigr      ! Sigma pr zstar levels
       real, dimension(:), intent(in)       :: mtrlvs    ! Height levels
       real, dimension(:,:), intent(in)     :: zs        ! bathymetry depth

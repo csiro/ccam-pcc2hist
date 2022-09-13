@@ -297,7 +297,7 @@ module history
 !  Working arrays
    integer, private, save :: nx_g, ny_g
    real, dimension(:,:,:,:), allocatable, save, private :: hist_a
-
+   
    integer, public, save :: safe_max = 24
 
 contains
@@ -2067,11 +2067,7 @@ contains
       use mpidata_m
       use newmpar_m, only : cptch, cchrt
       use logging_m
-#ifdef usempi_mod
-      use mpi
-#else
       include 'mpif.h'
-#endif       
       
       integer, intent(in) :: istep
       logical, intent(in), optional :: endofrun
@@ -2458,7 +2454,6 @@ contains
          nreq = 0
          dreq = 0
          sizehis = nxhis*nyhis
-
 !        third pass
 !        perform the interpolation
          do ifld = 1,totflds
@@ -2654,7 +2649,6 @@ contains
             histinfo(ifld)%count = 0
 
          end do ! Loop over fields
-
       
          call START_LOG(mpisendrecv_begin)
          if ( nreq > 0 ) then
@@ -2663,7 +2657,6 @@ contains
          call END_LOG(mpisendrecv_end)       
 
          deallocate(hist_a)
-
          
       end if ! maxcnt>0   
 #else
@@ -2897,11 +2890,7 @@ contains
    subroutine gather_wrap(histarray,hist_a,slab,gap,maxcnt,k_indx)
       use mpidata_m, only : nproc, lproc, myid, pil, pjl, pnpan, comm_world
       use logging_m
-#ifdef usempi_mod
-      use mpi
-#else
       include 'mpif.h'
-#endif 
       integer, intent(in) :: slab, gap, maxcnt
       integer :: istart, iend, ip, k, n, ierr, lsize, lp, iq
       integer, dimension(maxcnt), intent(in) :: k_indx
@@ -2985,11 +2974,7 @@ contains
    subroutine gather_wrap(array_in,array_out)
       use mpidata_m, only : nproc, lproc, comm_world, myid
       use logging_m
-#ifdef usempi_mod
-      use mpi
-#else
       include 'mpif.h'
-#endif   
       real, dimension(:,:,:), intent(in) :: array_in
       real, dimension(:,:,:,:), intent(out) :: array_out
       real, dimension(size(array_out,1),size(array_out,2),lproc,size(array_in,3),nproc) :: array_temp

@@ -27,10 +27,6 @@ program cc2hist
 !  Modified by MJT to use MPI when reading parallel input files (pcc2hist).
 !  Further optimised by Paul Ryan and David Benn.
 
-#ifdef usempi_mod
-   use mpi
-#endif
-    
    use history
    use getopt_m
    use mpidata_m
@@ -46,9 +42,7 @@ program cc2hist
 
    implicit none
 
-#ifndef usempi_mod
    include 'mpif.h'
-#endif
 
    character(len=MAX_ARGLEN) :: ifile, ofile, cfile
 
