@@ -2900,7 +2900,7 @@ contains
       end do  
       
       do ivar = 1,nvars
-         if ( match ( varlist(ivar)%vname, (/ "trsf????" /) ) ) then    
+         if ( match ( varlist(ivar)%vname, (/ "trsf????", "trem????" /) ) ) then    
             varlist(ivar)%tracer = .true. 
          else 
             varlist(ivar)%tracer = .false. 
