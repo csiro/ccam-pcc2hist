@@ -123,7 +123,7 @@ module history
 !  The actual data arrays are allocatable, so it doesn't use much space.
 !  It can't be made truly dynamic. The best that could be done is to 
 !  re-allocate a larger array if required.
-   integer, parameter :: nfmax = 2000
+   integer, parameter :: nfmax = 20000
 
 !  Initialise hnames so that set_hnames can find the end of the list to append.
    character(len=MAX_NAMELEN), dimension(nfmax), save ::  &
@@ -1089,8 +1089,12 @@ contains
          ! Check if regular grid
          if ( int_default /= int_none ) then
             dx = hlon(2) - hlon(1)
-            lon_bnds(1,:) = hlon - 0.5*dx
-            lon_bnds(2,:) = hlon + 0.5*dx
+            lon_bnds(1,:) = hlon(:) - 0.5*dx
+            lon_bnds(2,:) = hlon(:) + 0.5*dx
+            ! MJT fix for rounding errors
+            do i = 2,size(histid)
+               lon_bnds(1,i) = lon_bnds(2,i-1)
+            end do
             do i = 1,size(histid)
                ncid = histid(i) 
                dimvars = histdimvars(i)
@@ -1100,14 +1104,18 @@ contains
          end if
          if ( int_default /= int_none ) then
             dy = hlat(2) - hlat(1)
-            lat_bnds(1,:) = hlat - 0.5*dy
-            lat_bnds(2,:) = hlat + 0.5*dy
+            lat_bnds(1,:) = hlat(:) - 0.5*dy
+            lat_bnds(2,:) = hlat(:) + 0.5*dy
             where ( lat_bnds < -90. ) 
                lat_bnds = -90.
             end where
             where ( lat_bnds > 90. ) 
                lat_bnds = 90.
             end where
+            ! MJT fix for rounding errors
+            do i = 2,size(histid)
+               lat_bnds(1,i) = lat_bnds(2,i-1)
+            end do    
             do i = 1,size(histid)
                ncid = histid(i) 
                dimvars = histdimvars(i)
