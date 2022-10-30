@@ -1092,7 +1092,7 @@ contains
             lon_bnds(1,:) = hlon(:) - 0.5*dx
             lon_bnds(2,:) = hlon(:) + 0.5*dx
             ! MJT fix for rounding errors
-            do i = 2,size(histid)
+            do i = 2,size(hlon)
                lon_bnds(1,i) = lon_bnds(2,i-1)
             end do
             do i = 1,size(histid)
@@ -1113,7 +1113,7 @@ contains
                lat_bnds = 90.
             end where
             ! MJT fix for rounding errors
-            do i = 2,size(histid)
+            do i = 2,size(hlat)
                lat_bnds(1,i) = lat_bnds(2,i-1)
             end do    
             do i = 1,size(histid)
