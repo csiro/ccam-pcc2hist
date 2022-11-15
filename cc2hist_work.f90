@@ -561,6 +561,14 @@ contains
                      call savehist ( "qgscrn_stn", qgscrn_stn ) 
                   end if    
                end if 
+            case ( "mixdepth" )  
+               if ( needfld(varlist(ivar)%vname) ) then
+                  call vread(varlist(ivar)%vname, ctmp)  
+                  where ( soilt > 0.5 )
+                     ctmp = nf90_fill_float ! flag for land
+                  end where
+                  call savehist(varlist(ivar)%vname, ctmp)
+               end if   
             case ( "mrfso", "mrfsos" )   
                if ( needfld(varlist(ivar)%vname) ) then
                   call vread(varlist(ivar)%vname, ctmp) 
