@@ -2563,6 +2563,7 @@ contains
       integer :: ierr, ndimensions, nvariables, ndims, ivar, int_type, xtype
       integer :: londim, latdim, levdim, olevdim, procdim, timedim, vid, ihr, ind
       integer :: cptchdim, cchrtdim, tn_type, j, press_level, height_level
+      integer :: idim
       integer, dimension(nf90_max_var_dims) :: dimids
       logical :: procformat, ran_type
       character(len=10) :: substr
@@ -2601,159 +2602,162 @@ contains
       nvars = 0
       ! For the sigma to pressure initialisation to work properly
       ! the surface pressure has to be read before any of the 3D variables
-      do ivar = 1,nvariables
-         ierr = nf90_inquire_variable (ncid, ivar, name=vname, ndims=ndims, dimids=dimids, xtype=xtype)
-         call check_ncerr(ierr, "nf90_inquire_variable error")
-         ! remove old sfcWindmax data
-         if ( vname == "sfcWindmax" .or. vname == "sfcWindmax_stn" ) then
-            cycle
-         end if  
-         ! remove old CAPE and CIN
-         if ( kk>1 .and. (vname == "CAPE" .or. vname == "CIN" ) ) then
-            cycle 
-         end if
-         if ( ndims == 6 .and. procformat ) then   
-            ! Should be lon, lat, lev, proc, time
-            if ( match ( dimids(1:ndims), (/ londim, latdim, cptchdim, cchrtdim, procdim, timedim /) ) ) then
-               nvars = nvars + 1
-               varlist(nvars)%fixed = .false.
-               varlist(nvars)%ndims = 4
-            else
-               print*, "Error, unexpected dimensions in input variable", vname
-               stop
+      do idim = 2,6 ! force variables to be read in order of dimensions
+         do ivar = 1,nvariables
+            ierr = nf90_inquire_variable (ncid, ivar, name=vname, ndims=ndims, dimids=dimids, xtype=xtype)
+            call check_ncerr(ierr, "nf90_inquire_variable error")
+            if ( ndims/=idim ) cycle
+            ! remove old sfcWindmax data
+            if ( vname == "sfcWindmax" .or. vname == "sfcWindmax_stn" ) then
+               cycle
+            end if  
+            ! remove old CAPE and CIN
+            if ( kk>1 .and. (vname == "CAPE" .or. vname == "CIN" ) ) then
+               cycle 
             end if
-         else if ( ndims == 5 .and. .not.procformat ) then   
-            ! Should be lon, lat, lev, time
-            if ( match ( dimids(1:ndims), (/ londim, latdim, cptchdim, cchrtdim, timedim /) ) ) then
-               nvars = nvars + 1
-               varlist(nvars)%fixed = .false.
-               varlist(nvars)%ndims = 4
+            if ( ndims == 6 .and. procformat ) then   
+               ! Should be lon, lat, lev, proc, time
+               if ( match ( dimids(1:ndims), (/ londim, latdim, cptchdim, cchrtdim, procdim, timedim /) ) ) then
+                  nvars = nvars + 1
+                  varlist(nvars)%fixed = .false.
+                  varlist(nvars)%ndims = 4
+               else
+                  print*, "Error, unexpected dimensions in input variable", vname
+                  stop
+               end if
+            else if ( ndims == 5 .and. .not.procformat ) then   
+               ! Should be lon, lat, lev, time
+               if ( match ( dimids(1:ndims), (/ londim, latdim, cptchdim, cchrtdim, timedim /) ) ) then
+                  nvars = nvars + 1
+                  varlist(nvars)%fixed = .false.
+                  varlist(nvars)%ndims = 4
+               else
+                  print*, "Error, unexpected dimensions in input variable", vname
+                  stop
+               end if
+            else if ( ndims == 5 .and. procformat ) then   
+               ! Should be lon, lat, lev, proc, time
+               if ( match ( dimids(1:ndims), (/ londim, latdim, levdim, procdim, timedim /) ) ) then
+                  nvars = nvars + 1
+                  varlist(nvars)%fixed = .false.
+                  varlist(nvars)%ndims = 3  ! Space only
+               else if ( match ( dimids(1:ndims), (/ londim, latdim, olevdim, procdim, timedim /) ) ) then
+                  nvars = nvars + 1
+                  varlist(nvars)%fixed = .false.
+                  varlist(nvars)%ndims = 3
+               else if ( match ( dimids(1:ndims), (/ londim, latdim, cptchdim, procdim, timedim /) ) ) then
+                  nvars = nvars + 1
+                  varlist(nvars)%fixed = .false.
+                  varlist(nvars)%ndims = 3
+               else
+                  print*, "Error, unexpected dimensions in input variable", vname
+                  stop
+               end if
+            else if ( ndims == 4 .and. .not.procformat ) then
+               ! Should be lon, lat, lev, time
+               if ( match ( dimids(1:ndims), (/ londim, latdim, levdim, timedim /) ) ) then
+                  nvars = nvars + 1
+                  varlist(nvars)%fixed = .false.
+                  varlist(nvars)%ndims = 3  ! Space only
+               else if ( match ( dimids(1:ndims), (/ londim, latdim, olevdim, timedim /) ) ) then
+                  nvars = nvars + 1
+                  varlist(nvars)%fixed = .false.
+                  varlist(nvars)%ndims = 3
+               else if ( match ( dimids(1:ndims), (/ londim, latdim, cptchdim, timedim /) ) ) then
+                  nvars = nvars + 1
+                  varlist(nvars)%fixed = .false.
+                  varlist(nvars)%ndims = 3
+               else
+                  print*, "Error, unexpected dimensions in input variable", vname
+                  stop
+               end if
+            else if ( ndims == 4 .and. procformat ) then
+               ! Check for soil variables
+               if ( (cf_compliant.or.cordex_compliant) .and. is_soil_var(vname) ) then
+                  cycle
+               end if
+               if ( match( dimids(1:ndims), (/ londim, latdim, procdim, timedim /) ) ) then
+                  nvars = nvars + 1
+                  varlist(nvars)%fixed = .false.
+                  varlist(nvars)%ndims = 2  ! Space only
+               else
+                  ! 3D variables fixed in time aren't supported at the moment
+                  ! though there's no reason why they couldn't be
+                  print*, "Error, unexpected dimensions in input variable", vname
+                  stop
+               end if
+            else if ( ndims == 3 .and. .not.procformat ) then
+               ! Check for soil variables
+               if ( (cf_compliant.or.cordex_compliant) .and. is_soil_var(vname) ) then
+                  cycle
+               end if
+               if ( match( dimids(1:ndims), (/ londim, latdim, timedim /) ) ) then
+                  nvars = nvars + 1
+                  varlist(nvars)%fixed = .false.
+                  varlist(nvars)%ndims = 2  ! Space only
+               else
+                  ! 3D variables fixed in time aren't supported at the moment
+                  ! though there's no reason why they couldn't be
+                  print*, "Error, unexpected dimensions in input variable", vname
+                  stop
+               end if
+            else if ( ndims == 3 .and. procformat ) then
+               if ( match( dimids(1:ndims), (/ londim, latdim, procdim /) ) ) then
+                  nvars = nvars + 1
+                  varlist(nvars)%fixed = .true.
+                  varlist(nvars)%ndims = 2  ! Space only
+               else
+                  print*, "Error, unexpected dimensions in input variable", vname
+                  stop
+               end if
+            else if ( ndims == 2 .and. procformat ) then
+               cycle
+            else if ( ndims == 2 ) then
+               if ( match( dimids(1:ndims), (/ londim, latdim /) ) ) then
+                  nvars = nvars + 1
+                  varlist(nvars)%fixed = .true.
+                  varlist(nvars)%ndims = 2  ! Space only
+               else
+                  print*, "Error, unexpected dimensions in input variable", vname
+                  stop
+               end if
             else
-               print*, "Error, unexpected dimensions in input variable", vname
-               stop
-            end if
-         else if ( ndims == 5 .and. procformat ) then   
-            ! Should be lon, lat, lev, proc, time
-            if ( match ( dimids(1:ndims), (/ londim, latdim, levdim, procdim, timedim /) ) ) then
-               nvars = nvars + 1
-               varlist(nvars)%fixed = .false.
-               varlist(nvars)%ndims = 3  ! Space only
-            else if ( match ( dimids(1:ndims), (/ londim, latdim, olevdim, procdim, timedim /) ) ) then
-               nvars = nvars + 1
-               varlist(nvars)%fixed = .false.
-               varlist(nvars)%ndims = 3
-            else if ( match ( dimids(1:ndims), (/ londim, latdim, cptchdim, procdim, timedim /) ) ) then
-               nvars = nvars + 1
-               varlist(nvars)%fixed = .false.
-               varlist(nvars)%ndims = 3
-            else
-               print*, "Error, unexpected dimensions in input variable", vname
-               stop
-            end if
-         else if ( ndims == 4 .and. .not.procformat ) then
-            ! Should be lon, lat, lev, time
-            if ( match ( dimids(1:ndims), (/ londim, latdim, levdim, timedim /) ) ) then
-               nvars = nvars + 1
-               varlist(nvars)%fixed = .false.
-               varlist(nvars)%ndims = 3  ! Space only
-            else if ( match ( dimids(1:ndims), (/ londim, latdim, olevdim, timedim /) ) ) then
-               nvars = nvars + 1
-               varlist(nvars)%fixed = .false.
-               varlist(nvars)%ndims = 3
-            else if ( match ( dimids(1:ndims), (/ londim, latdim, cptchdim, timedim /) ) ) then
-               nvars = nvars + 1
-               varlist(nvars)%fixed = .false.
-               varlist(nvars)%ndims = 3
-            else
-               print*, "Error, unexpected dimensions in input variable", vname
-               stop
-            end if
-         else if ( ndims == 4 .and. procformat ) then
-            ! Check for soil variables
-            if ( (cf_compliant.or.cordex_compliant) .and. is_soil_var(vname) ) then
                cycle
             end if
-            if ( match( dimids(1:ndims), (/ londim, latdim, procdim, timedim /) ) ) then
-               nvars = nvars + 1
-               varlist(nvars)%fixed = .false.
-               varlist(nvars)%ndims = 2  ! Space only
+
+            varlist(nvars)%vname = vname
+            ierr = nf90_inq_varid(ncid, vname, varlist(nvars)%vid)
+            call check_ncerr(ierr, "Error getting vid for "//trim(vname))
+
+            ierr = nf90_get_att(ncid, varlist(nvars)%vid, 'long_name', &
+                                varlist(nvars)%long_name)
+            call check_ncerr(ierr, "Error getting long_name for "//trim(vname))
+
+            ierr = nf90_get_att(ncid, varlist(nvars)%vid, 'units',     &
+                                varlist(nvars)%units)
+            ! In initial condition files, some fields do not have units
+            if ( vname /= "psf" .and. vname /= "wfg" .and. vname /= "wfb" .and. &
+                 vname /= "snd" .and. vname /= "fracice" ) then
+               call check_ncerr(ierr, "Error getting units for "//trim(vname))
+            end if
+
+            if ( xtype == nf90_short ) then
+               ierr = nf90_get_att(ncid, varlist(nvars)%vid, 'add_offset',   &
+                    varlist(nvars)%add_offset)
+               call check_ncerr(ierr, "Error getting add_offset for "//trim(vname))
+
+               ierr = nf90_get_att(ncid, varlist(nvars)%vid, 'scale_factor',     &
+                    varlist(nvars)%scale_factor)
+               call check_ncerr(ierr, "Error getting scale_factor for "//trim(vname))
             else
-               ! 3D variables fixed in time aren't supported at the moment
-               ! though there's no reason why they couldn't be
-               print*, "Error, unexpected dimensions in input variable", vname
-               stop
+               ! Should have some way of setting these. At the moment 16 bit
+               ! output won't work with 32 bit input.
+               varlist(nvars)%add_offset = 0.
+               varlist(nvars)%scale_factor = 1.
             end if
-         else if ( ndims == 3 .and. .not.procformat ) then
-            ! Check for soil variables
-            if ( (cf_compliant.or.cordex_compliant) .and. is_soil_var(vname) ) then
-               cycle
-            end if
-            if ( match( dimids(1:ndims), (/ londim, latdim, timedim /) ) ) then
-               nvars = nvars + 1
-               varlist(nvars)%fixed = .false.
-               varlist(nvars)%ndims = 2  ! Space only
-            else
-               ! 3D variables fixed in time aren't supported at the moment
-               ! though there's no reason why they couldn't be
-               print*, "Error, unexpected dimensions in input variable", vname
-               stop
-            end if
-         else if ( ndims == 3 .and. procformat ) then
-            if ( match( dimids(1:ndims), (/ londim, latdim, procdim /) ) ) then
-               nvars = nvars + 1
-               varlist(nvars)%fixed = .true.
-               varlist(nvars)%ndims = 2  ! Space only
-            else
-               print*, "Error, unexpected dimensions in input variable", vname
-               stop
-            end if
-         else if ( ndims == 2 .and. procformat ) then
-            cycle
-         else if ( ndims == 2 ) then
-            if ( match( dimids(1:ndims), (/ londim, latdim /) ) ) then
-               nvars = nvars + 1
-               varlist(nvars)%fixed = .true.
-               varlist(nvars)%ndims = 2  ! Space only
-            else
-               print*, "Error, unexpected dimensions in input variable", vname
-               stop
-            end if
-         else
-            cycle
-         end if
 
-         varlist(nvars)%vname = vname
-         ierr = nf90_inq_varid(ncid, vname, varlist(nvars)%vid)
-         call check_ncerr(ierr, "Error getting vid for "//trim(vname))
-
-         ierr = nf90_get_att(ncid, varlist(nvars)%vid, 'long_name', &
-                             varlist(nvars)%long_name)
-         call check_ncerr(ierr, "Error getting long_name for "//trim(vname))
-
-         ierr = nf90_get_att(ncid, varlist(nvars)%vid, 'units',     &
-                             varlist(nvars)%units)
-         ! In initial condition files, some fields do not have units
-         if ( vname /= "psf" .and. vname /= "wfg" .and. vname /= "wfb" .and. &
-              vname /= "snd" .and. vname /= "fracice" ) then
-            call check_ncerr(ierr, "Error getting units for "//trim(vname))
-         end if
-
-         if ( xtype == nf90_short ) then
-            ierr = nf90_get_att(ncid, varlist(nvars)%vid, 'add_offset',   &
-                 varlist(nvars)%add_offset)
-            call check_ncerr(ierr, "Error getting add_offset for "//trim(vname))
-
-            ierr = nf90_get_att(ncid, varlist(nvars)%vid, 'scale_factor',     &
-                 varlist(nvars)%scale_factor)
-            call check_ncerr(ierr, "Error getting scale_factor for "//trim(vname))
-         else
-            ! Should have some way of setting these. At the moment 16 bit
-            ! output won't work with 32 bit input.
-            varlist(nvars)%add_offset = 0.
-            varlist(nvars)%scale_factor = 1.
-         end if
-
-      end do
+         end do ! ivar = 1,nvariables
+      end do    ! idims = 2,6
 
       if ( cf_compliant ) then
          ierr = nf90_inq_varid (ncid, "tgg1", ivar ) 

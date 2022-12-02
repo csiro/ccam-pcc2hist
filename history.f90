@@ -214,7 +214,7 @@ module history
       real :: rval
       integer :: ival
       ! This length isn't really related to the max_name length but this will do.
-      character(len=nf90_max_name)   :: cval
+      character(len=256)   :: cval
    end type hist_att
 
 !  Type to hold dimension IDs and dimension variable IDs

@@ -86,7 +86,8 @@ program cc2hist
    logical :: skip
    character(len=256) :: source, optionstring=""
    character(len=80)  :: basetime,calendar
-   character(len=120) :: cval, attname
+   character(len=120) :: attname
+   character(len=256) :: cval
    real :: time
    real :: time_prev = 0.
    real :: rval, dtime
