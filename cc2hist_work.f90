@@ -579,19 +579,25 @@ contains
                end if 
             case ( "mrro" )
                if ( needfld("mrro") ) then 
-                  call vread( "runoff", dtmp )
-                  where ( dtmp /= nf90_fill_float )
-                     dtmp = dtmp/86400.
-                  end where   
-                  call savehist ( "mrro", dtmp )
+                  call vread( "runoff", ctmp )
+                  where ( ctmp /= nf90_fill_float )
+                     ctmp = ctmp/86400.
+                  end where
+                  where ( soilt <= 0.5 )
+                    ctmp = nf90_fill_float  
+                  end where    
+                  call savehist ( "mrro", ctmp )
                end if   
             case ( "mrros" )
                if ( needfld("mrros") ) then 
-                  call vread( "mrros", dtmp )
-                  where ( dtmp /= nf90_fill_float )
-                     dtmp = dtmp/86400.
+                  call vread( "mrros", ctmp )
+                  where ( ctmp /= nf90_fill_float )
+                     ctmp = ctmp/86400.
+                  end where 
+                  where ( soilt <= 0.5 )
+                    ctmp = nf90_fill_float  
                   end where   
-                  call savehist ( "mrros", dtmp )
+                  call savehist ( "mrros", ctmp )
                end if   
             case ( "mrso", "mrsos" )   
                if ( needfld(varlist(ivar)%vname) ) then
