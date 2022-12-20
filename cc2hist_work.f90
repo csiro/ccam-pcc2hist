@@ -584,7 +584,7 @@ contains
                      ctmp = ctmp/86400.
                   end where
                   where ( soilt <= 0.5 )
-                    ctmp = nf90_fill_float  
+                     ctmp = nf90_fill_float  
                   end where    
                   call savehist ( "mrro", ctmp )
                end if   
@@ -595,7 +595,7 @@ contains
                      ctmp = ctmp/86400.
                   end where 
                   where ( soilt <= 0.5 )
-                    ctmp = nf90_fill_float  
+                     ctmp = nf90_fill_float  
                   end where   
                   call savehist ( "mrros", ctmp )
                end if   

@@ -61,6 +61,7 @@ program cc2hist
    character(len=10) :: name
    character(len=80) :: longname
    real :: minsig = 0., maxsig = 1.0
+   logical :: debug=.false.
 
    namelist /input/ kta, ktb, ktc, ndate, ntime,                      &
                     minlon, maxlon, dlon, minlat, maxlat, dlat,       &
@@ -81,7 +82,6 @@ program cc2hist
    integer :: nvars
    integer :: veg_int
    integer :: natts, catts, ival, xtype, attlen, i
-   logical :: debug=.false.
    logical :: use_date, use_steps
    logical :: skip
    character(len=256) :: source, optionstring=""
