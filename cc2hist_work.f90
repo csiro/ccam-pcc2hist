@@ -391,7 +391,10 @@ contains
                   if ( needfld("sfturf") ) then
                      dtmp = urban_frac*100.
                      call savehist("sfturf", dtmp)
-                  end if   
+                  end if
+                  if ( needfld("sigmu" ) then
+                     call savehist("sigmu", urban_frac)
+                  end if
                case ( "soilt" )
                   call vread( "soilt", soilt )
                   if ( needfld("soilt") ) then
