@@ -1,6 +1,6 @@
 ! Conformal Cubic Atmospheric Model
     
-! Copyright 2015-2022 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+! Copyright 2015-2023 Commonwealth Scientific Industrial Research Organisation (CSIRO)
     
 ! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
 !
@@ -385,10 +385,10 @@ contains
                   if ( needfld(varlist(ivar)%vname) ) then
                      call savehist ( varlist(ivar)%vname, zs )
                   end if
-               case ( "sfturf")
+               case ( "sfturf", "sigmu" )
+                  call vread( "sigmu", urban_frac ) 
                   if ( needfld("sfturf") ) then
-                     call vread( "sigmu", dtmp )
-                     dtmp = dtmp*100.
+                     dtmp = urban_frac*100.
                      call savehist("sfturf", dtmp)
                   end if   
                case ( "soilt" )
@@ -461,6 +461,14 @@ contains
 
          if ( varlist(ivar)%ndims == 2 ) then
             select case ( varlist(ivar)%vname )
+            case ( "anth_ave", "anthroheat", "anth_elecgas_ave", "anth_heat_ave", "anth_cool_ave" )
+               if ( needfld(varlist(ivar)%vname) ) then
+                  call vread( varlist(ivar)%vname, dtmp )
+                  where ( urban_frac <= 0. )
+                     dtmp = nf90_fill_float
+                  end where
+                  call savehist ( varlist(ivar)%vname, dtmp )
+               end if   
             case ( "clh" )
                if ( needfld("clh") ) then 
                   call vread( "clh", dtmp )
@@ -818,6 +826,14 @@ contains
                call readsave2 (varlist(ivar)%vname, input_name="tmaxscr")
             case ( "tasmin" )
                call readsave2 (varlist(ivar)%vname, input_name="tminscr")
+            case ( "tasskin", "tspav", "tsroof", "tsgree" )
+               if ( needfld(varlist(ivar)%vname) ) then
+                  call vread( varlist(ivar)%vname, dtmp )
+                  where ( urban_frac <= 0. )
+                     dtmp = nf90_fill_float
+                  end where
+                  call savehist ( varlist(ivar)%vname, dtmp )
+               end if                 
             case ( "tauu", "taux" )
                if ( needfld("taux") .or. needfld("tauy") .or. needfld("tauu") .or. needfld("tauv") ) then 
                   call vread( "taux", tauxtmp )
@@ -888,6 +904,14 @@ contains
                 call vread( "vas", vastmp )         ! only for high-frequency output
             case ( "vas_stn" )
                 call vread( "vas_stn", vastmp_stn ) ! only for high-frequency output
+            case ( "urbantas", "urbantasmax", "urbantasmin" )
+               if ( needfld(varlist(ivar)%vname) ) then
+                  call vread( varlist(ivar)%vname, dtmp )
+                  where ( urban_frac <= 0. )
+                     dtmp = nf90_fill_float
+                  end where
+                  call savehist ( varlist(ivar)%vname, dtmp )
+               end if                  
             case ( "z0" )
                 if ( needfld("z0") ) then
                    call vread( "zolnd", dtmp ) 
@@ -3079,7 +3103,12 @@ contains
             xmax = 9000.
          end if
          if ( cordex_compliant ) then
-            if ( varlist(ivar)%vname == "cld" ) then
+            if ( varlist(ivar)%vname == "anth_ave" ) then
+               varlist(ivar)%vname = "anthroheat"
+               varlist(ivar)%units = "W m-2"
+               varlist(ivar)%long_name = "Anthropogenic heat flux"
+               varlist(ivar)%instant = .false.
+            else if ( varlist(ivar)%vname == "cld" ) then
                varlist(ivar)%vname = "clt"
                varlist(ivar)%units = "%"
                varlist(ivar)%long_name = "Total Cloud Fraction"
@@ -4335,12 +4364,13 @@ contains
       ! Also return preferred variable name and units?
       vname = vinfo%vname
       select case (vname)
-      case ("od550aer")
-         stdname = "atmospheric_optical_thickness_due_to_ambient_aerosol_particles" 
       case ("alb")
          stdname = "surface_albedo"
       case ("anth_ave")
-         stdname = "surface_upward_heat_flux_in_air"
+         stdname = "anthropogenic_heatflux"
+         cell_methods = "time: mean"
+      case ("anthroheat")
+         stdname = "anthropogenic_heatflux"
          cell_methods = "time: mean"
       case ("areacella")
          stdname = "cell_area"
@@ -4441,6 +4471,8 @@ contains
       case ("mrros")
          stdname = "surface_runoff_flux" 
          cell_methods = "time: mean"
+      case ("od550aer")
+         stdname = "atmospheric_optical_thickness_due_to_ambient_aerosol_particles" 
       case ("ocheight")
          stdname = "sea_surface_height_above_sea_level" 
       case ("orog")
@@ -4591,6 +4623,8 @@ contains
       case ("tasmin")
          stdname = "air_temperature"
          cell_methods = "time: minimum"
+      case ("tasskin")
+         stdname = "skin_temperature"
       case ("tauu")
          stdname = "surface_downward_eastward_stress"
       case ("tauv")
@@ -4613,8 +4647,14 @@ contains
          stdname = "sea_surface_temperature" 
       case ("ts")
          stdname = "surface_temperature" 
+      case ("tsgree")
+         stdname = "greenspaces_surface_temperaure"
       case ("tsl")
          stdname = "soil_temperature" 
+      case ("tspav")
+         stdname = "pavement_surface_temperaure"
+      case ("tsroof")
+         stdname = "roof_surface_temperaure"
       case ("tscr_ave")
          stdname = "air_temperature" 
          cell_methods = "time: mean"
@@ -5044,7 +5084,7 @@ contains
          myid = myid_reduced
          nproc = nproc_reduced
 
-         !exit color=1 ranks
+         !exit color=1 ranks that are unused
          if ( colour == 1 ) then
             call MPI_Finalize(ierr)
             stop

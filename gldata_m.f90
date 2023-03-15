@@ -1,6 +1,6 @@
 ! Conformal Cubic Atmospheric Model
     
-! Copyright 2015-2022 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+! Copyright 2015-2023 Commonwealth Scientific Industrial Research Organisation (CSIRO)
     
 ! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
 !
@@ -23,7 +23,7 @@ module gldata
    implicit none
 !  Arrays for fields that need some extra processing and so 
 !  can't be handled by readsave
-   real, dimension(:,:),   allocatable, save :: psl, zs, soilt
+   real, dimension(:,:),   allocatable, save :: psl, zs, soilt, urban_frac
    real, dimension(:,:,:), allocatable, save :: u, v, t, q, rh, ql, qf, qs, qg
    real, dimension(:,:,:), allocatable, save :: omega
    real, dimension(:),     allocatable, save :: sig, dsig, zsoil, zse, gosig
