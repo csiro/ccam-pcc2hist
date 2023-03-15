@@ -130,6 +130,7 @@ contains
       allocate ( q(pil,pjl*pnpan*lproc,kl),  ql(pil,pjl*pnpan*lproc,kl), qf(pil,pjl*pnpan*lproc,kl) )
       allocate ( qs(pil,pjl*pnpan*lproc,kl), qg(pil,pjl*pnpan*lproc,kl), omega(pil,pjl*pnpan*lproc,kl) )
       allocate ( tgg(pil,pjl*pnpan*lproc,ksoil) )
+      allocate ( urban_frac(pil,pjl*pnpan*lproc) )
       if ( needfld("zg") .or. needfld("lvl") ) then
          if ( use_plevs .or. use_meters ) then
             allocate ( zstd(pil,pjl*pnpan*lproc,nplevs) )
