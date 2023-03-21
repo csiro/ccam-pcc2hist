@@ -392,7 +392,7 @@ contains
                      dtmp = urban_frac*100.
                      call savehist("sfturf", dtmp)
                   end if
-                  if ( needfld("sigmu" ) then
+                  if ( needfld("sigmu") ) then
                      call savehist("sigmu", urban_frac)
                   end if
                case ( "soilt" )
