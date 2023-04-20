@@ -465,7 +465,15 @@ contains
 
          if ( varlist(ivar)%ndims == 2 ) then
             select case ( varlist(ivar)%vname )
-            case ( "anth_ave", "anthroheat", "anth_elecgas_ave", "anth_heat_ave", "anth_cool_ave" )
+            case ( "anth_ave", "anthroheat" )
+               if ( needfld(varlist(ivar)%vname) ) then
+                  call vread( "anth_ave", dtmp ) 
+                  where ( urban_frac <= 0. )
+                     dtmp = nf90_fill_float
+                  end where
+                  call savehist ( varlist(ivar)%vname, dtmp )
+               end if   
+            case ( "anth_elecgas_ave", "anth_heat_ave", "anth_cool_ave" )
                if ( needfld(varlist(ivar)%vname) ) then
                   call vread( varlist(ivar)%vname, dtmp )
                   where ( urban_frac <= 0. )
@@ -473,35 +481,15 @@ contains
                   end where
                   call savehist ( varlist(ivar)%vname, dtmp )
                end if   
-            case ( "clh" )
-               if ( needfld("clh") ) then 
-                  call vread( "clh", dtmp )
+            case ( "clh", "cll", "clm" )
+               if ( needfld(varlist(ivar)%vname) ) then 
+                  call vread( varlist(ivar)%vname, dtmp )
                   if ( cordex_compliant ) then
                      where ( dtmp /= nf90_fill_float )
                         dtmp = max(dtmp*100.,0.)
                      end where  
                   end if
-                  call savehist ( "clh", dtmp )
-               end if   
-            case ( "cll" )
-               if ( needfld("cll") ) then 
-                  call vread( "cll", dtmp )
-                  if ( cordex_compliant ) then
-                     where ( dtmp /= nf90_fill_float ) 
-                        dtmp = max(dtmp*100.,0.)
-                     end where
-                  end if
-                  call savehist ( "cll", dtmp )
-               end if   
-            case ( "clm" )
-               if ( needfld("clm") ) then 
-                  call vread( "clm", dtmp )
-                  if ( cordex_compliant ) then
-                     where ( dtmp /= nf90_fill_float ) 
-                        dtmp = max(dtmp*100.,0.)
-                     end where   
-                  end if
-                  call savehist ( "clm", dtmp )
+                  call savehist ( varlist(ivar)%vname, dtmp )
                end if   
             case ( "clt" )
                if ( needfld("clt") ) then 
