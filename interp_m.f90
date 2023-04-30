@@ -1,6 +1,6 @@
 ! Conformal Cubic Atmospheric Model
     
-! Copyright 2015-2022 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+! Copyright 2015-2023 Commonwealth Scientific Industrial Research Organisation (CSIRO)
     
 ! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
 !
@@ -24,9 +24,14 @@ module interp_m
    implicit none
 
 #ifdef usempi3
+#ifdef noshare_ifullg
+   real, allocatable, dimension(:,:), public :: xg, yg
+   integer, allocatable, dimension(:,:), public :: nface
+#else
    real, pointer, contiguous, dimension(:,:), public :: xg, yg
    integer, pointer, contiguous, dimension(:,:), public :: nface
    integer :: xg_win, yg_win, nface_win
+#endif   
 #else
    real, allocatable, dimension(:,:), public :: xg, yg
    integer, allocatable, dimension(:,:), public :: nface

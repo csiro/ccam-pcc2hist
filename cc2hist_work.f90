@@ -2004,9 +2004,11 @@ contains
       use physparams, only : erad
       use vertutils_m, only : sig2ds
 #ifdef usempi3
+#ifndef noshare_ifullg      
       use, intrinsic :: iso_c_binding, only : c_ptr, c_f_pointer
+      use shdata_m    
+#endif      
       use mpidata_m
-      use shdata_m      
       include 'mpif.h'
 #endif
 
@@ -2041,7 +2043,9 @@ contains
       real, parameter :: shallow_max = 0.1 ! shallow soil depth (10cm)
 
 #ifdef usempi3
+#ifndef noshare_ifullg
       integer(kind=MPI_ADDRESS_KIND) :: ssize
+#endif
 #endif
 !     Read the header here because doing the CC grid initialisation before
 !     alloc_indata minimises the total memory requirements
@@ -2367,6 +2371,10 @@ contains
       end if  
 
 #ifdef usempi3
+#ifdef noshare_ifullg
+      allocate ( nface(nxhis,nyhis) )
+      allocate ( xg(nxhis,nyhis), yg(nxhis,nyhis) )
+#else
       if ( node_myid == 0 ) then
          ssize = nxhis*nyhis
       else
@@ -2380,6 +2388,7 @@ contains
       !call MPI_Win_fence(0,xg_win,ierr)
       !call MPI_Win_fence(0,yg_win,ierr)
       !call MPI_Win_fence(0,nface_win,ierr)
+#endif      
 #else
       if ( myid==0 ) then
          allocate ( nface(nxhis,nyhis) )
@@ -2427,10 +2436,16 @@ contains
       end if   
 
 #ifdef usempi3
+#ifdef noshare_ifull_g
+      call MPI_Bcast( nface, nxhis*nyhis, MPI_INTEGER, 0, node_comm, ierr )
+      call MPI_Bcast( xg, nxhis*nyhis, MPI_REAL, 0, node_comm, ierr )
+      call MPI_Bcast( yg, nxhis*nyhis, MPI_REAL, 0, node_comm, ierr )
+#else
       call MPI_Barrier(node_comm,ierr)
       !call MPI_Win_fence(0,xg_win,ierr)
       !call MPI_Win_fence(0,yg_win,ierr)
       !call MPI_Win_fence(0,nface_win,ierr)
+#endif      
 #endif
 
 
@@ -4923,12 +4938,12 @@ contains
    subroutine paraopen(ifile,nmode,ncid)
   
 #ifdef usempi3
+#ifndef noshare_ifullg
       use, intrinsic :: iso_c_binding, only : c_ptr, c_f_pointer
+      use shdata_m
+#endif      
 #endif
       use mpidata_m
-#ifdef usempi3
-      use shdata_m
-#endif
       use logging_m
       include 'mpif.h'
   
@@ -4945,9 +4960,6 @@ contains
       character(len=266) :: pfile, old_pfile
       character(len=8) :: sdecomp
       logical :: singlefile
-#ifdef usempi3
-      integer(kind=MPI_ADDRESS_KIND) :: ssize
-#endif
 
       call START_LOG(paraopen_begin)
 
@@ -5630,16 +5642,25 @@ contains
    subroutine cc2hist_work_close
    
    use interp_m
-#ifdef usempi3   
+#ifdef usempi3  
+#ifndef noshare_ifullg
    use shdata_m 
+#endif   
 #endif
 
 #ifdef usempi3
+#ifdef noshare_ifullg
+   if ( allocated(xg) ) then
+      deallocate(xg,yg)
+      deallocate(nface)
+   end if   
+#else
    call freeshdata(xg_win)
    call freeshdata(yg_win)
    call freeshdata(nface_win)
    nullify(xg,yg)
    nullify(nface)
+#endif   
 #else
    if ( allocated(xg) ) then
       deallocate(xg,yg)
