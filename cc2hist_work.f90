@@ -336,7 +336,7 @@ contains
       real, dimension(pil,pjl*pnpan*lproc) :: u10max, v10max 
       real, dimension(pil,pjl*pnpan*lproc) :: u10m_max, v10m_max
       real, dimension(pil,pjl*pnpan*lproc) :: tscrn, qgscrn
-      real, dimension(pil,pjl*pnpan*lproc) :: uten_stn, uastmp_stn, vastmp_stn
+      real, dimension(pil,pjl*pnpan*lproc) :: uten_stn
       real, dimension(pil,pjl*pnpan*lproc) :: u10max_stn, v10max_stn
       real, dimension(pil,pjl*pnpan*lproc) :: tscrn_stn, qgscrn_stn
       real, dimension(1) :: rlong_a, rlat_a, cos_zen, frac
@@ -467,12 +467,12 @@ contains
             select case ( varlist(ivar)%vname )
             case ( "anth_ave", "anthroheat" )
                if ( needfld(varlist(ivar)%vname) ) then
-                  call vread( "anth_ave", dtmp ) 
+                  call vread( "anth_ave", dtmp )
                   where ( urban_frac <= 0. )
                      dtmp = nf90_fill_float
                   end where
                   call savehist ( varlist(ivar)%vname, dtmp )
-               end if   
+               end if
             case ( "anth_elecgas_ave", "anth_heat_ave", "anth_cool_ave" )
                if ( needfld(varlist(ivar)%vname) ) then
                   call vread( varlist(ivar)%vname, dtmp )
@@ -534,10 +534,23 @@ contains
                   end if
                end if   
             case ( "hfss" )
-               call readsave2 (varlist(ivar)%vname, input_name="fg_ave")
-            case ( "hurs" )
-               call readsave2 (varlist(ivar)%vname, input_name="rhscrn")
-            case ( "huss", "qgscrn" )
+               call readsave2 ( "hfss", input_name="fg_ave")
+            case ( "hurs", "rhscrn", "rhscrn_stn" )
+               if ( needfld("hurs") ) then 
+                  call readsave2 ( "hurs", input_name="rhscrn")
+               end if   
+               if ( needfld("rhscrn") ) then
+                  call readsave2( "rhscrn" )
+               end if
+               if ( needfld("rhscrn_stn") ) then ! to be depreciated
+                  ierr = nf90_inq_varid (ncid, "rhscrn_stn", var_dum )
+                  if ( ierr == nf90_noerr ) then
+                     call readsave2( "rhscrn_stn" )  
+                  else    
+                     call readsave2( "rhscrn_stn", input_name="rhscrn" ) 
+                  end if    
+               end if               
+            case ( "huss", "qgscrn", "huss_stn", "qgscrn_stn" )
                if ( needfld("huss") .or. needfld("qgscrn") .or. needfld("tdew") ) then 
                   call vread( "qgscrn", qgscrn )
                   if ( needfld("huss") ) then
@@ -549,9 +562,13 @@ contains
                      call savehist ( "qgscrn", qgscrn ) 
                   end if    
                end if 
-            case ( "huss_stn", "qgscrn_stn" )
-               if ( needfld("huss_stn") .or. needfld("qgscrn_stn") .or. needfld("tdscrn_stn") ) then 
-                  call vread( "qgscrn_stn", qgscrn_stn )
+               if ( needfld("huss_stn") .or. needfld("qgscrn_stn") .or. needfld("tdscrn_stn") ) then ! to be depreciated 
+                  ierr = nf90_inq_varid (ncid, "qgscrn_stn", var_dum ) 
+                  if ( ierr == nf90_noerr ) then
+                     call vread( "qgscrn_stn", qgscrn_stn )    
+                  else
+                     call vread( "qgscrn", qgscrn_stn ) 
+                  end if    
                   if ( needfld("huss_stn") ) then
                      where ( qgscrn_stn /= nf90_fill_float )
                         dtmp = qgscrn_stn/(qgscrn_stn+1.)
@@ -717,6 +734,30 @@ contains
                   if ( needfld("rgn_ave") ) then
                      call savehist( "rgn_ave", rgn )
                   end if   
+               end if  
+            case ( "rhmaxscr", "rhmaxscr_stn" )
+               if ( needfld("rhmaxscr") ) then
+                  call readsave2( "rhmaxscr" )
+               end if
+               if ( needfld("rhmaxscr_stn") ) then ! to be depreciated
+                  ierr = nf90_inq_varid (ncid, "rhmaxscr_stn", var_dum ) 
+                  if ( ierr == nf90_noerr ) then
+                     call readsave2( "rhmaxscr_stn" ) 
+                  else
+                     call readsave2( "rhmaxscr_stn", input_name="rhmaxscr" ) 
+                  end if                   
+               end if    
+            case ( "rhminscr", "rhminscr_stn" )
+               if ( needfld("rhminscr") ) then
+                  call readsave2( "rhminscr" )
+               end if
+               if ( needfld("rhminscr_stn") ) then ! to be depreciated
+                  ierr = nf90_inq_varid (ncid, "rhminscr_stn", var_dum ) 
+                  if ( ierr == nf90_noerr ) then
+                     call readsave2( "rhminscr_stn" ) 
+                  else
+                     call readsave2( "rhminscr_stn", input_name="rhminscr" ) 
+                  end if
                end if   
             case ( "rlut" )
                call readsave2( varlist(ivar)%vname, input_name="rtu_ave" )
@@ -736,13 +777,13 @@ contains
                   end if
                   call savehist ( "sbl", dtmp )
                end if 
-            case ( "sic" )
-               if ( needfld("sic") ) then 
+            case ( "siconca" )
+               if ( needfld("siconca") ) then 
                   call vread2( "fracice", dtmp )
                   where ( dtmp /= nf90_fill_float )
                      dtmp = dtmp*100.
                   end where   
-                  call savehist( "sic", dtmp )
+                  call savehist( "siconca", dtmp )
                end if   
             case ( "sgc_ave" )
                if ( needfld("sgc_ave") .or. needfld("rsuscs") ) then 
@@ -807,17 +848,57 @@ contains
                   end where   
                   call savehist ( "sund", dtmp )
                end if   
-            case ( "tas", "tscrn" )
+            case ( "tas", "tscrn", "tscrn_stn" )
                if ( needfld("tas") .or. needfld("tscrn") .or. needfld("tdew") ) then 
                   call vread( "tscrn", tscrn )
-                  if ( needfld(varlist(ivar)%vname) ) then
-                     call savehist(varlist(ivar)%vname, tscrn)
-                  end if   
+                  if ( needfld("tas") ) then
+                     call savehist("tas", tscrn)
+                  end if  
+                  if ( needfld("tscrn") ) then
+                     call savehist("tscrn", tscrn)
+                  end if 
+               end if  
+               if ( needfld("tscrn_stn") .or. needfld("tdscrn_stn") ) then 
+                  ierr = nf90_inq_varid (ncid, "tscrn_stn", var_dum )
+                  if ( ierr == nf90_noerr ) then
+                     call vread( "tscrn_stn", tscrn_stn )  
+                  else    
+                     call vread( "tscrn", tscrn_stn ) 
+                  end if    
+                  if ( needfld("tscrn_stn") ) then
+                     call savehist("tscrn_stn", tscrn_stn)
+                  end if            
                end if   
-            case ( "tasmax" )
-               call readsave2 (varlist(ivar)%vname, input_name="tmaxscr")
-            case ( "tasmin" )
-               call readsave2 (varlist(ivar)%vname, input_name="tminscr")
+            case ( "tasmax", "tmaxscr", "tmaxscr_stn" )
+               if ( needfld("tasmax") ) then
+                  call readsave2( "tasmax", input_name="tmaxscr" )
+               end if  
+               if ( needfld("tmaxscr") ) then
+                  call readsave2( "tmaxscr" )
+               end if               
+               if ( needfld("tmaxscr_stn") ) then ! to be depreciated
+                  ierr = nf90_inq_varid (ncid, "tmaxscr_stn", var_dum ) 
+                  if ( ierr == nf90_noerr ) then
+                     call readsave2( "tmaxscr_stn" ) 
+                  else
+                     call readsave2( "tmaxscr_stn", input_name="tmaxscr" ) 
+                  end if
+               end if    
+            case ( "tasmin", "tminscr", "tminscr_stn" )
+               if ( needfld("tasmin") ) then 
+                  call readsave2( "tasmin", input_name="tminscr" )
+               end if   
+               if ( needfld("tminscr") ) then 
+                  call readsave2( "tminscr" )
+               end if                
+               if ( needfld("tminscr_stn") ) then ! to be depreciated
+                  ierr = nf90_inq_varid (ncid, "tminscr_stn", var_dum ) 
+                  if ( ierr == nf90_noerr ) then
+                     call readsave2( "tminscr_stn" ) 
+                  else
+                     call readsave2( "tminscr_stn", input_name="tminscr" ) 
+                  end if                   
+               end if    
             case ( "tasskin", "tspav", "tsroof", "tsgree" )
                if ( needfld(varlist(ivar)%vname) ) then
                   call vread( varlist(ivar)%vname, dtmp )
@@ -859,43 +940,70 @@ contains
                      call savehist ( "tsea", ctmp )
                   end if   
                end if
-            case ( "tscrn_stn" )
-               if ( needfld("tscrn_stn") .or. needfld("tdscrn_stn") ) then 
-                  call vread( "tscrn_stn", tscrn_stn )
-                  if ( needfld(varlist(ivar)%vname) ) then
-                     call savehist(varlist(ivar)%vname, tscrn_stn)
-                  end if   
-               end if  
-            case ( "u10", "sfcWind" )
-               call vread( "u10", uten )
-               if ( needfld(varlist(ivar)%vname) ) then
-                  call savehist( varlist(ivar)%vname, uten )
+            case ( "u10", "sfcWind", "u10_stn" )
+               if ( needfld("u10") .or. needfld("sfcWind") .or. needfld("uas") .or. &
+                    needfld("vas") ) then
+                  call vread( "u10", uten ) 
                end if   
-            case ( "u10_stn" ) ! to be depreciated
-               call vread( "u10_stn", uten_stn )
-               if ( needfld(varlist(ivar)%vname) ) then
-                  call savehist( varlist(ivar)%vname, uten_stn )
+               if ( needfld("u10") ) then
+                  call savehist( "u10", uten )
                end if
+               if ( needfld("sfcWind") ) then
+                  call savehist( "sfcWind", uten )
+               end if 
+               if ( needfld("u10_stn") .or. needfld("uas_stn") .or. needfld("vas_stn") ) then
+                  ierr = nf90_inq_varid (ncid, "u10_stn", var_dum )
+                  if ( ierr == nf90_noerr ) then
+                     call vread( "u10_stn", uten_stn )
+                  else
+                     call vread( "u10", uten_stn ) 
+                  end if          
+                  if ( needfld("u10_stn") ) then
+                     call savehist( "u10_stn", uten_stn )
+                  end if
+               end if   
             case ( "u10m_max" )
-               call vread( "u10m_max", u10m_max ) ! subdaily
-            case ( "u10max" )
-               call vread( "u10max", u10max ) 
-            case ( "u10max_stn" ) ! to be depreciated
-               call vread( "u10max_stn", u10max_stn ) 
+               if ( needfld('u10m_max') .or. needfld('v10m_max') .or. &
+                    needfld('sfcWind_max') ) then                
+                  call vread( "u10m_max", u10m_max ) ! subdaily
+               end if   
+            case ( "u10max", "u10max_stn" )
+               if ( needfld("u10max") .or. needfld("v10max") .or. &
+                    needfld("sfcWindmax") ) then                
+                  call vread( "u10max", u10max ) 
+               end if   
+               if ( needfld("u10max_stn") .or. needfld("v10max_stn") .or. &
+                    needfld("sfcWindmax_stn") ) then ! to be depreciated
+                  ierr = nf90_inq_varid (ncid, "u10max_stn", var_dum )  
+                  if ( ierr == nf90_noerr ) then
+                     call vread( "u10max_stn", u10max_stn )
+                  else
+                     call vread( "u10max", u10max_stn )
+                  end if    
+               end if   
             case ( "uas" )
                 call vread( "uas", uastmp )         ! only for high-frequency output
-            case ( "uas_stn" )
-                call vread( "uas_stn", uastmp_stn ) ! only for high-frequency output
             case ( "v10m_max" )
-               call vread( "v10m_max", v10m_max ) ! subdaily
-            case ( "v10max" )
-               call vread( "v10max", v10max ) 
-            case ( "v10max_stn" ) ! to be depreciated
-               call vread( "v10max_stn", v10max_stn ) 
+               if ( needfld('u10m_max') .or. needfld('v10m_max') .or. &
+                    needfld('sfcWind_max') ) then                 
+                  call vread( "v10m_max", v10m_max ) ! subdaily
+               end if   
+            case ( "v10max", "v10max_stn" )
+               if ( needfld("u10max") .or. needfld("v10max") .or. &
+                    needfld("sfcWindmax") ) then                 
+                  call vread( "v10max", v10max ) 
+               end if   
+               if ( needfld("u10max_stn") .or. needfld("v10max_stn") .or. &
+                    needfld("sfcWindmax_stn") ) then ! to be depreciated
+                  ierr = nf90_inq_varid (ncid, "v10max_stn", var_dum )  
+                  if ( ierr == nf90_noerr ) then
+                     call vread( "v10max_stn", v10max_stn )
+                  else
+                     call vread( "v10max", v10max_stn )
+                  end if
+               end if   
             case ( "vas" )
                 call vread( "vas", vastmp )         ! only for high-frequency output
-            case ( "vas_stn" )
-                call vread( "vas_stn", vastmp_stn ) ! only for high-frequency output
             case ( "urbantas", "urbantasmax", "urbantasmin" )
                if ( needfld(varlist(ivar)%vname) ) then
                   call vread( varlist(ivar)%vname, dtmp )
@@ -904,10 +1012,10 @@ contains
                   end where
                   call savehist ( varlist(ivar)%vname, dtmp )
                end if                  
-            case ( "z0" )
-                if ( needfld("z0") ) then
+            case ( "z0", "zolnd" )
+                if ( needfld( varlist(ivar)%vname ) ) then
                    call vread( "zolnd", dtmp ) 
-                   call savehist( "z0", dtmp )
+                   call savehist( varlist(ivar)%vname, dtmp )
                 end if   
             case ( "zmla" )
                call readsave2 (varlist(ivar)%vname, input_name="pblh")
@@ -1321,7 +1429,7 @@ contains
       end do
 
       ! clean-up rh if necessary
-      call fix_rh(t, q, ql, qf, psl, sig)
+      !call fix_rh(t, q, ql, qf, psl, sig)
       
       if ( needfld("hus") ) then
          where ( q /= nf90_fill_float ) 
@@ -1798,24 +1906,6 @@ contains
             end where
             call savehist( "d10", dtmp )
          end if
-         
-         ! to be depreciated     
-         call fix_winds( uastmp_stn, vastmp_stn )
-         if ( needfld("uas_stn") ) then
-            call savehist( "uas_stn", uastmp_stn )
-         end if
-         if ( needfld("vas_stn") ) then
-            call savehist( "vas_stn", vastmp_stn )
-         end if  
-         if ( needfld("u10_stn") ) then
-            where ( uastmp_stn/=nf90_fill_float .and. &
-                    vastmp_stn/=nf90_fill_float )
-               dtmp = sqrt( uastmp_stn**2 + vastmp**2 )
-            elsewhere
-               dtmp = nf90_fill_float         
-            end where            
-            call savehist( "u10_stn", dtmp )
-         end if
               
       end if       
       
@@ -2004,7 +2094,7 @@ contains
       use physparams, only : erad
       use vertutils_m, only : sig2ds
 #ifdef usempi3
-#ifndef noshare_ifullg      
+#ifdef share_ifullg      
       use, intrinsic :: iso_c_binding, only : c_ptr, c_f_pointer
       use shdata_m    
 #endif      
@@ -2042,10 +2132,8 @@ contains
       real :: new_sum, shallow_sum
       real, parameter :: shallow_max = 0.1 ! shallow soil depth (10cm)
 
-#ifdef usempi3
-#ifndef noshare_ifullg
+#ifdef share_ifullg
       integer(kind=MPI_ADDRESS_KIND) :: ssize
-#endif
 #endif
 !     Read the header here because doing the CC grid initialisation before
 !     alloc_indata minimises the total memory requirements
@@ -2370,11 +2458,8 @@ contains
          end if
       end if  
 
-#ifdef usempi3
-#ifdef noshare_ifullg
-      allocate ( nface(nxhis,nyhis) )
-      allocate ( xg(nxhis,nyhis), yg(nxhis,nyhis) )
-#else
+#ifdef usempi3      
+#ifdef share_ifullg
       if ( node_myid == 0 ) then
          ssize = nxhis*nyhis
       else
@@ -2388,6 +2473,9 @@ contains
       !call MPI_Win_fence(0,xg_win,ierr)
       !call MPI_Win_fence(0,yg_win,ierr)
       !call MPI_Win_fence(0,nface_win,ierr)
+#else
+      allocate ( nface(nxhis,nyhis) )
+      allocate ( xg(nxhis,nyhis), yg(nxhis,nyhis) )
 #endif      
 #else
       if ( myid==0 ) then
@@ -2436,15 +2524,15 @@ contains
       end if   
 
 #ifdef usempi3
-#ifdef noshare_ifull_g
-      call MPI_Bcast( nface, nxhis*nyhis, MPI_INTEGER, 0, node_comm, ierr )
-      call MPI_Bcast( xg, nxhis*nyhis, MPI_REAL, 0, node_comm, ierr )
-      call MPI_Bcast( yg, nxhis*nyhis, MPI_REAL, 0, node_comm, ierr )
-#else
+#ifdef share_ifull_g
       call MPI_Barrier(node_comm,ierr)
       !call MPI_Win_fence(0,xg_win,ierr)
       !call MPI_Win_fence(0,yg_win,ierr)
       !call MPI_Win_fence(0,nface_win,ierr)
+#else
+      call MPI_Bcast( nface, nxhis*nyhis, MPI_INTEGER, 0, node_comm, ierr )
+      call MPI_Bcast( xg, nxhis*nyhis, MPI_REAL, 0, node_comm, ierr )
+      call MPI_Bcast( yg, nxhis*nyhis, MPI_REAL, 0, node_comm, ierr )
 #endif      
 #endif
 
@@ -3110,12 +3198,7 @@ contains
             xmax = 9000.
          end if
          if ( cordex_compliant ) then
-            if ( varlist(ivar)%vname == "anth_ave" ) then
-               varlist(ivar)%vname = "anthroheat"
-               varlist(ivar)%units = "W m-2"
-               varlist(ivar)%long_name = "Anthropogenic heat flux"
-               varlist(ivar)%instant = .false.
-            else if ( varlist(ivar)%vname == "cld" ) then
+            if ( varlist(ivar)%vname == "cld" ) then
                varlist(ivar)%vname = "clt"
                varlist(ivar)%units = "%"
                varlist(ivar)%long_name = "Total Cloud Fraction"
@@ -3164,9 +3247,9 @@ contains
                varlist(ivar)%long_name = "Surface Upward Sensible Heat Flux"
                varlist(ivar)%instant = .false.
             else if ( varlist(ivar)%vname == "fracice" ) then
-               varlist(ivar)%vname = "sic"
+               varlist(ivar)%vname = "siconca"
                varlist(ivar)%units = "%"
-               varlist(ivar)%long_name = "Sea Ice Area Fraction"
+               varlist(ivar)%long_name = "Sea Ice Area Percentage (Atmosphere Grid)"
                varlist(ivar)%instant = .true.
                xmin = 0.
                xmax = 100.
@@ -3274,10 +3357,6 @@ contains
                varlist(ivar)%units = "kg m-2 s-1"
                xmin = -0.001
                xmax = 0.001
-            else if ( varlist(ivar)%vname == "sigmu" ) then
-               varlist(ivar)%vname = "sfturf"
-               varlist(ivar)%units = "%"
-               varlist(ivar)%long_name = "Urban Area Fraction"
             else if ( varlist(ivar)%vname == "sgdc_ave" ) then
                varlist(ivar)%vname = "rsdscs"
                varlist(ivar)%units = "W m-2"
@@ -3391,11 +3470,6 @@ contains
             else if ( varlist(ivar)%vname == "vas" ) then
                varlist(ivar)%long_name = "Northward Near-Surface Wind"
                varlist(ivar)%units = "m s-1"
-               varlist(ivar)%instant = .true.
-            else if ( varlist(ivar)%vname == "zolnd" ) then
-               varlist(ivar)%vname = "z0"
-               varlist(ivar)%long_name = "Surface Roughness Length"
-               varlist(ivar)%units = "m"
                varlist(ivar)%instant = .true.
             else if ( varlist(ivar)%vname == "zs" ) then
                varlist(ivar)%vname = "orog"
@@ -3608,7 +3682,6 @@ contains
             call addfld ( "pwc", "Precipitable water column", "kg m-2", 0.0, 100.0, 1, &
                           std_name="atmosphere_water_vapor_content", ran_type=.true. )           
          end if
-         call addfld ( "d10", "10m wind direction", "deg", 0.0, 360.0, 1, ran_type=.true. )
          call addfld ( "uas", "Eastward Near-Surface Wind", "m s-1", -100.0, 100.0, 1, std_name="eastward_wind", ran_type=.true. )
          call addfld ( "vas", "Northward Near-Surface Wind", "m s-1", -100.0, 100.0, 1, std_name="northward_wind", ran_type=.true. )
          call addfld ( "sfcWindmax", "Maximum 10m wind speed", "m s-1", 0.0, 200.0, 1, std_name="wind_speed", ran_type=.true., &
@@ -3755,14 +3828,29 @@ contains
          
          ! to be depreciated
          ierr = nf90_inq_varid (ncid, "u10_stn", ivar )
-         if ( ierr==nf90_noerr ) then
-           call addfld ( "tdscrn_stn", "Dew point screen temperature (station)", "K", 100.0, 400.0, 1, std_name="air_temperature" )
-           call addfld ( "uas_stn", "x-component 10m wind", "m s-1", -100.0, 100.0, 1, std_name="wind_speed", ran_type=.false. )
-           call addfld ( "vas_stn", "y-component 10m wind", "m s-1", -100.0, 100.0, 1, std_name="wind_speed", ran_type=.false. )
-           call addfld ( "sfcWindmax_stn", "Maximum 10m wind speed (station)", "m s-1", 0.0, 200.0, 1, std_name="wind_speed", &
-                         ran_type=.false., instant=.false., all_positive=.true. ) 
+         if ( ierr /= nf90_noerr ) then
+           call addfld ( "rhscrn_stn", "Near-Surface Relative Humidity", "%", 0.0, 200.0, 1, std_name="relative_humidity" )
+           call addfld ( "rhmaxscr_stn", "Maximum screen relative humidity", "%", 0.0, 200.0, 1, std_name="relative_humidity", &
+                         daily=.true. )
+           call addfld ( "rhminscr_stn", "Minimum screen relative humidity", "%", 0.0, 200.0, 1, std_name="relative_humidity", &
+                         daily=.true.)
+           call addfld ( "tscrn_stn", "Near-Surface Air Temperature", "K", 100.0, 425.0, 1, std_name="air_temperature" )
+           call addfld ( "tmaxscr_stn", "Daily Maximum Near-Surface Air Temperature", "K", 100.0, 425.0, 1, &
+                         std_name="air_temperature", daily=.true. )
+           call addfld ( "tminscr_stn", "Daily Minimum Near-Surface Air Temperature", "K", 100.0, 425.0, 1, &
+                         std_name="air_temperature", daily=.true. )
+           call addfld ( "u10_stn", "Near-Surface Wind Speed", "m s-1", 0.0, 130.0, 1, std_name="wind_speed" )
+           call addfld ( "u10max_stn", "x-component max 10m wind (daily)", "m s-1", -99.0, 99.0, 1, std_name="wind_speed", &
+                         daily=.true.)
+           call addfld ( "v10max_stn", "y-component max 10m wind (daily)", "m s-1", -99.0, 99.0, 1, std_name="wind_speed", &
+                         daily=.true.)
          end if    
-
+         call addfld ( "uas_stn", "x-component 10m wind", "m s-1", -100.0, 100.0, 1, std_name="wind_speed", ran_type=.false. )
+         call addfld ( "vas_stn", "y-component 10m wind", "m s-1", -100.0, 100.0, 1, std_name="wind_speed", ran_type=.false. )
+         call addfld ( "sfcWindmax_stn", "Maximum 10m wind speed (station)", "m s-1", 0.0, 200.0, 1, std_name="wind_speed", &
+                       ran_type=.false., instant=.false., all_positive=.true. ) 
+         call addfld ( "tdscrn_stn", "Dew point screen temperature (station)", "K", 100.0, 400.0, 1, std_name="air_temperature" )
+         
       else
          ! high-frequency output
          ierr = nf90_inq_varid (ncid, "soilt", ivar )
@@ -3845,7 +3933,6 @@ contains
             call addfld ( "u10", "10m wind speed", "m s-1", 0., 100.0, 1, std_name="wind_speed", ran_type=.true., &
                           all_positive=.true. ) 
          end if   
-         call addfld ( "d10", "10m wind direction", "deg", 0.0, 360.0, 1, ran_type=.true. )
          
          if ( cordex_compliant ) then
             ierr = nf90_inq_varid (ncid, "tgg1", ivar ) 
@@ -3862,7 +3949,29 @@ contains
             end if 
          end if
          
+         ! to be depreciated
+         !ierr = nf90_inq_varid (ncid, "uas_stn", ivar )
+         !if ( ierr==nf90_noerr ) then
+         !   call addfld ( "u10_stn", "10m wind speed (station)", "m s-1", 0., 100.0, 1, ran_type=.false. ) 
+         !   ierr = nf90_inq_varid (ncid, "psf", ivar )
+         !   if ( ierr==nf90_noerr ) then
+         !      call addfld ( "tdscrn_stn", "Dew point screen temperature (station)", "K", 100.0, 400.0, 1 )
+         !   end if
+         !end if  
+         
       end if ! kk>1 ..else..
+
+      call addfld ( "z0", "Surface Roughness Length", "m", 0.0, 65.0, 1, std_name="surface_roughness_length" )      
+      call addfld ( "d10", "10m wind direction", "deg", 0.0, 360.0, 1, ran_type=.true. )
+      ierr = nf90_inq_varid (ncid, "sigmu", ivar )
+      if ( ierr == nf90_noerr ) then
+         call addfld ( "sfturf", "Urban Area Fraction", "%", 0.0, 100.0, 1, std_name="area_fraction" )
+      end if
+      ierr = nf90_inq_varid (ncid, "anth_ave", ivar )
+      if ( ierr == nf90_noerr ) then
+         call addfld ( "anthroheat", "Anthropogenic heat flux", "W m-2", 0.0, 650.0, 1, std_name="anthropogenic_heatflux", &
+                       instant=.false. )
+      end if
       
       if ( ok > 1 ) then
          call addfld( "uos", "x-component surface current", "m s-1", -100., 100., 1 )
@@ -3870,16 +3979,6 @@ contains
          call addfld( "sos", "Surface ocean salinity", "PSU", 0., 100., 1 )
          call addfld( "tos", "Surface ocean temperature", "K", 150., 350., 1 )
       end if
-
-      ! to be depreciated
-      ierr = nf90_inq_varid (ncid, "uas_stn", ivar )
-      if ( ierr==nf90_noerr ) then
-         call addfld ( "u10_stn", "10m wind speed (station)", "m s-1", 0., 100.0, 1, ran_type=.false. ) 
-         ierr = nf90_inq_varid (ncid, "psf", ivar )
-         if ( ierr==nf90_noerr ) then
-            call addfld ( "tdscrn_stn", "Dew point screen temperature (station)", "K", 100.0, 400.0, 1 )
-         end if
-      end if      
 
    end subroutine get_var_list
 
@@ -3990,48 +4089,48 @@ contains
       end do
    end subroutine calc_rh
 
-   subroutine fix_rh ( t, q, ql, qf, psl, sig )
-      use moistfuncs
-      real, dimension(pil,pjl*pnpan*lproc,kk), intent(inout) :: t, q, ql, qf
-      real, dimension(pil,pjl*pnpan*lproc), intent(in) :: psl
-      real, dimension(kk), intent(in) :: sig
-      real, dimension(pil,pjl*pnpan*lproc) :: p, tliq, fice, qsw, qc, qtot
-      real, dimension(pil,pjl*pnpan*lproc) :: qsi, qsl, deles
-      real, dimension(pil,pjl*pnpan*lproc) :: hlrvap, dqsdt, al
-      real, parameter :: tfrz  = 273.1
-      real, parameter :: tice  = 233.15
-      real, parameter :: cp    = 1004.64
-      real, parameter :: hl    = 2.5104e6
-      real, parameter :: hlf   = 3.36e5
-      real, parameter :: epsil = 0.622
-      real, parameter :: rvap  = 461.
-      integer :: k
-
-      do k = 1,kk
-         p = 100.*sig(k)*psl  ! p in Pa.
-         qc = qf(:,:,k) + ql(:,:,k)
-         fice = min(qf(:,:,k)/max(qc,1.e-12),1.)
-         tliq = t(:,:,k) - hl/cp*qc - hlf/cp*qf(:,:,k)
-         qtot = q(:,:,k) + qc
-         qsi = qsati(p,tliq)
-         deles = esdiffx(tliq)
-         qsl = qsi + epsil*deles/p
-         qsw = fice*qsi + (1.-fice)*qsl
-
-         ! simple cloud microphysics
-         !hlrvap = (hl+fice*hlf)/rvap
-         !dqsdt = qsw*hlrvap/tliq**2
-         !al = 1./(1.+(hl+fice*hlf)/cp*dqsdt)
-         !qc = max( al*(qtot - qsw), qc, 0. )
-         qc = max( qtot - qsw, qc, 0. )
-
-         qf(:,:,k) = max( fice*qc, 0. )
-         ql(:,:,k) = max( qc - qf(:,:,k), 0. )
-         
-         q(:,:,k) = max( qtot - ql(:,:,k) - qf(:,:,k), 0. )
-         t(:,:,k) = tliq + hl/cp*qc + hlf/cp*qf(:,:,k)
-      end do
-   end subroutine fix_rh   
+   !subroutine fix_rh ( t, q, ql, qf, psl, sig )
+   !   use moistfuncs
+   !   real, dimension(pil,pjl*pnpan*lproc,kk), intent(inout) :: t, q, ql, qf
+   !   real, dimension(pil,pjl*pnpan*lproc), intent(in) :: psl
+   !   real, dimension(kk), intent(in) :: sig
+   !   real, dimension(pil,pjl*pnpan*lproc) :: p, tliq, fice, qsw, qc, qtot
+   !   real, dimension(pil,pjl*pnpan*lproc) :: qsi, qsl, deles
+   !   real, dimension(pil,pjl*pnpan*lproc) :: hlrvap, dqsdt, al
+   !   real, parameter :: tfrz  = 273.1
+   !   real, parameter :: tice  = 233.15
+   !   real, parameter :: cp    = 1004.64
+   !   real, parameter :: hl    = 2.5104e6
+   !   real, parameter :: hlf   = 3.36e5
+   !   real, parameter :: epsil = 0.622
+   !   real, parameter :: rvap  = 461.
+   !   integer :: k
+   !
+   !   do k = 1,kk
+   !      p = 100.*sig(k)*psl  ! p in Pa.
+   !      qc = qf(:,:,k) + ql(:,:,k)
+   !      fice = min(qf(:,:,k)/max(qc,1.e-12),1.)
+   !      tliq = t(:,:,k) - hl/cp*qc - hlf/cp*qf(:,:,k)
+   !      qtot = q(:,:,k) + qc
+   !      qsi = qsati(p,tliq)
+   !      deles = esdiffx(tliq)
+   !      qsl = qsi + epsil*deles/p
+   !      qsw = fice*qsi + (1.-fice)*qsl
+   !
+   !      ! simple cloud microphysics
+   !      !hlrvap = (hl+fice*hlf)/rvap
+   !      !dqsdt = qsw*hlrvap/tliq**2
+   !      !al = 1./(1.+(hl+fice*hlf)/cp*dqsdt)
+   !      !qc = max( al*(qtot - qsw), qc, 0. )
+   !      qc = max( qtot - qsw, qc, 0. )
+   !
+   !      qf(:,:,k) = max( fice*qc, 0. )
+   !      ql(:,:,k) = max( qc - qf(:,:,k), 0. )
+   !      
+   !      q(:,:,k) = max( qtot - ql(:,:,k) - qf(:,:,k), 0. )
+   !      t(:,:,k) = tliq + hl/cp*qc + hlf/cp*qf(:,:,k)
+   !   end do
+   !end subroutine fix_rh   
    
    subroutine calc_td ( t_in, q_in, ql_in, qf_in, psl_in, sig, td )
       real, dimension(pil,pjl*pnpan*lproc,kk), intent(out) :: td
@@ -4426,7 +4525,7 @@ contains
          stdname = "surface_downwelling_shortwave_flux_in_air"
          cell_methods = "time: mean"
       case ("dtb")
-         stdname = "???" 
+         stdname = "bedrock_depth" 
       case ("eg")
          stdname = "surface_upward_latent_heat_flux"
          cell_methods = "time: mean"
@@ -4936,13 +5035,6 @@ contains
    end subroutine fill_cc0
    
    subroutine paraopen(ifile,nmode,ncid)
-  
-#ifdef usempi3
-#ifndef noshare_ifullg
-      use, intrinsic :: iso_c_binding, only : c_ptr, c_f_pointer
-      use shdata_m
-#endif      
-#endif
       use mpidata_m
       use logging_m
       include 'mpif.h'
@@ -5642,25 +5734,16 @@ contains
    subroutine cc2hist_work_close
    
    use interp_m
-#ifdef usempi3  
-#ifndef noshare_ifullg
+#ifdef share_ifullg
    use shdata_m 
-#endif   
 #endif
 
-#ifdef usempi3
-#ifdef noshare_ifullg
-   if ( allocated(xg) ) then
-      deallocate(xg,yg)
-      deallocate(nface)
-   end if   
-#else
+#ifdef share_ifullg
    call freeshdata(xg_win)
    call freeshdata(yg_win)
    call freeshdata(nface_win)
    nullify(xg,yg)
    nullify(nface)
-#endif   
 #else
    if ( allocated(xg) ) then
       deallocate(xg,yg)
