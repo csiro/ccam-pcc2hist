@@ -95,11 +95,6 @@ program cc2hist
    type(input_var), dimension(:), pointer, contiguous :: varlist
    type(hist_att), dimension(:), allocatable :: extra_atts, extra_temp
 
-   
-#ifndef stacklimit
-   ! For linux only
-   call setstacklimit(-1)
-#endif
 
    call MPI_Init(ierr)
    comm_world = MPI_COMM_WORLD
