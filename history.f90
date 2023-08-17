@@ -1709,10 +1709,10 @@ contains
       call check_ncerr(ierr)
       ierr = nf90_put_att ( ncid, NF90_GLOBAL, "title", "CCAM simulation data" )
       call check_ncerr(ierr)
-      ierr = nf90_put_att ( ncid, NF90_GLOBAL, "contact", "ccam@csiro.au" )
-      call check_ncerr(ierr)
-      ierr = nf90_put_att ( ncid, NF90_GLOBAL, "project", "Undefined CCAM project" )
-      call check_ncerr(ierr)
+      !ierr = nf90_put_att ( ncid, NF90_GLOBAL, "contact", "ccam@csiro.au" )
+      !call check_ncerr(ierr)
+      !ierr = nf90_put_att ( ncid, NF90_GLOBAL, "project", "Undefined CCAM project" )
+      !call check_ncerr(ierr)
 !     Make sure it's a null string, otherwise len_trim won't find the end 
 !     properly.
       histstr = "" 
