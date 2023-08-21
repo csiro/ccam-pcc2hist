@@ -3968,9 +3968,7 @@ contains
          call addfld ( "sfturf", "Urban Area Fraction", "%", 0.0, 100.0, 1, std_name="area_fraction" )
       end if
       ierr = nf90_inq_varid (ncid, "anth_ave", ivar )
-      print *,"anth_ave ",ierr
       if ( ierr == nf90_noerr ) then
-         print *,"anthroheat"     
          call addfld ( "anthroheat", "Anthropogenic heat flux", "W m-2", 0.0, 650.0, 1, std_name="anthropogenic_heatflux", &
                        instant=.false. )
       end if
