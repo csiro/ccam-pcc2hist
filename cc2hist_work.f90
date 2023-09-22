@@ -5075,7 +5075,7 @@ contains
             ierr = nf90_open(pfile, nmode, ncid)
             call check_ncerr(ierr, "Error opening file "//trim(old_pfile)//" or "//trim(pfile))
             ierr = nf90_get_att(ncid, nf90_global, "nproc", pnproc)
-            if ( ierr/=nf90_noerr ) then
+            if ( ierr==nf90_noerr ) then
                write(6,*) "ERROR: Parallel file format found in ifile = ",trim(ifile)
                write(6,*) "       Try removing .000000 from ifile in the namelist."
                write(6,*) "       Alternatively, this could be a lat/lon output that"
