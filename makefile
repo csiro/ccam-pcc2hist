@@ -4,23 +4,23 @@ FC = mpif90
 ifneq ($(CUSTOM),yes)
 FHOST = -xHost
 ifeq ($(BROADWELL),yes)
-FHOST = -xCORE-AVX2 -align array32byte -fimf-use-svml -Dsafe
+FHOST = -xCORE-AVX2 -align array32byte -fimf-use-svml
 endif
 ifeq ($(SKYLAKE),yes)
-FHOST = -xSKYLAKE-AVX512 -align array64byte -fimf-use-svml -Dsafe
+FHOST = -xSKYLAKE-AVX512 -align array64byte -fimf-use-svml
 endif
 ifeq ($(CASCADELAKE),yes)
-FHOST = -xCASCADELAKE -align array64byte -fimf-use-svml -Dsafe
+FHOST = -xCASCADELAKE -align array64byte -fimf-use-svml
 endif
 ifeq ($(SAPPHIRERAPIDS),yes)
-FHOST = -xSAPPHIRERAPIDS -align array64byte -fimf-use-svml -Dsafe
+FHOST = -xSAPPHIRERAPIDS -align array64byte -fimf-use-svml
 endif
 ifeq ($(ZEN3),yes)
-FHOST = -axCORE-AVX2 -align array32byte -fimf-use-svml -Dsafe
+FHOST = -axCORE-AVX2 -align array32byte -fimf-use-svml
 endif
 ifeq ($(MAGNUS),yes)
 FC = ftn
-FHOST = -xHost -Dsafe
+FHOST = -xHost
 endif
 ifeq ($(NOMPI3),yes)
 MPIFLAG =
