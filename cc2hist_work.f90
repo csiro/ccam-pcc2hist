@@ -3965,7 +3965,7 @@ contains
       call addfld ( "d10", "10m wind direction", "deg", 0.0, 360.0, 1, ran_type=.true. )
       ierr = nf90_inq_varid (ncid, "sigmu", ivar )
       if ( ierr == nf90_noerr ) then
-         call addfld ( "sfturf", "Urban Area Fraction", "%", 0.0, 100.0, 1, std_name="area_fraction" )
+         call addfld ( "sfturf", "Urban Area Fraction", "%", 0.0, 100.0, 1, ave_type="fixed", std_name="area_fraction" )
       end if
       ierr = nf90_inq_varid (ncid, "anth_ave", ivar )
       if ( ierr == nf90_noerr ) then
