@@ -2273,6 +2273,9 @@ contains
                if ( present(time) ) then
                   if ( ihtype == hist_ave) then
                      timeout = avetime/timecount
+                     if ( cordex_compliant .and. .not.histinst(i) ) then
+                        timeout = avetime/timecount - 720. 
+                     end if    
                      ierr = nf90_put_var ( ncid, vid,   &
                           timeout, start=(/histset_daily/) )
                   else
@@ -2309,6 +2312,9 @@ contains
                if ( present(time) ) then
                   if ( ihtype == hist_ave) then
                      timeout = avetime/timecount
+                     if ( cordex_compliant .and. .not.histinst(i) ) then
+                       timeout = avetime/timecount - 180.
+                     end if
                      ierr = nf90_put_var ( ncid, vid,   &
                           timeout, start=(/histset_6hr/) )
                   else
