@@ -2099,7 +2099,11 @@ contains
       use shdata_m    
 #endif      
       use mpidata_m
+#ifdef usempimod
+      use mpi
+#else
       include 'mpif.h'
+#endif      
 #endif
 
       real, intent(inout)  :: hres
@@ -2549,7 +2553,11 @@ contains
       use parm_m, only : rlong0, rlat0
       use physparams, only : pi
       use logging_m      
-      include 'mpif.h'
+!#ifdef usempimod
+!      use mpi
+!#else
+!      include 'mpif.h'
+!#endif
       type(input_var), dimension(:) :: varlist
       integer, intent(in) :: nvars
       real, dimension(:,:), allocatable :: costh_g, sinth_g
@@ -3146,7 +3154,8 @@ contains
                   "climate_max20       ", "climate_alpha20     ", "climate_agdd5       ", "climate_gmd         ", &
                   "climate_dmoist_min20", "climate_dmoist_max20", "urbant              ", "u10max              ", &
                   "v10max              ", "u10max_stn          ", "v10max_stn          ", "fracice             ", &
-                  "siced               ", "wb?                 ", "wbice?              ", "wbice?_ave          "  &
+                  "siced               ", "wb?                 ", "wbice?              ", "wbice?_ave          ", &
+                  "tsl                 "                                                                          &
                /)) .and. int_default /= int_none ) then
             int_type = int_nearest
          else if ( match ( varlist(ivar)%vname, (/ "t?_pop_grid_patch_id              ", "t?_pop_grid_patch_layer1_cohort_id" /)) &
@@ -3471,6 +3480,10 @@ contains
                varlist(ivar)%long_name = "Northward Near-Surface Wind"
                varlist(ivar)%units = "m s-1"
                varlist(ivar)%instant = .true.
+            else if ( varlist(ivar)%vname == "zolnd" ) then
+               varlist(ivar)%vname = "z0"
+               varlist(ivar)%long_name = "Surface Roughness Length"
+               varlist(ivar)%units = "m"
             else if ( varlist(ivar)%vname == "zs" ) then
                varlist(ivar)%vname = "orog"
                varlist(ivar)%units = "m"
@@ -3752,7 +3765,7 @@ contains
             ! add cordex soil 
             ierr = nf90_inq_varid (ncid, "tgg1", ivar ) 
             if ( ierr==nf90_noerr .and. ksoil>0 ) then             
-               call addfld('tsl','Soil temperature','K',100.,350.,ksoil,soil=.true.)
+               call addfld('tsl','Soil temperature','K',100.,425.,ksoil,soil=.true.)
             end if
             ierr = nf90_inq_varid (ncid, "wb1_ave", ivar ) 
             if ( ierr==nf90_noerr .and. ksoil>0 ) then
@@ -3937,7 +3950,7 @@ contains
          if ( cordex_compliant ) then
             ierr = nf90_inq_varid (ncid, "tgg1", ivar ) 
             if ( ierr==nf90_noerr .and. ksoil>0 ) then    
-               call addfld('tsl','Temperature of Soil','K',100.,350.,ksoil,soil=.true.,sixhr=.true.) 
+               call addfld('tsl','Temperature of Soil','K',100.,425.,ksoil,soil=.true.,sixhr=.true.) 
             end if
             ierr = nf90_inq_varid (ncid, "mrsol1", ivar ) 
             if ( ierr==nf90_noerr .and. ksoil>0 ) then
@@ -3960,8 +3973,7 @@ contains
          !end if  
          
       end if ! kk>1 ..else..
-
-      call addfld ( "z0", "Surface Roughness Length", "m", 0.0, 65.0, 1, std_name="surface_roughness_length" )      
+      
       call addfld ( "d10", "10m wind direction", "deg", 0.0, 360.0, 1, ran_type=.true. )
       ierr = nf90_inq_varid (ncid, "sigmu", ivar )
       if ( ierr == nf90_noerr ) then
@@ -4118,11 +4130,10 @@ contains
    !      qsw = fice*qsi + (1.-fice)*qsl
    !
    !      ! simple cloud microphysics
-   !      !hlrvap = (hl+fice*hlf)/rvap
-   !      !dqsdt = qsw*hlrvap/tliq**2
-   !      !al = 1./(1.+(hl+fice*hlf)/cp*dqsdt)
-   !      !qc = max( al*(qtot - qsw), qc, 0. )
-   !      qc = max( qtot - qsw, qc, 0. )
+   !      hlrvap = (hl+fice*hlf)/rvap
+   !      dqsdt = qsw*hlrvap/tliq**2
+   !      al = 1./(1.+(hl+fice*hlf)/cp*dqsdt)
+   !      qc = max( al*(qtot - qsw), qc, 0. )
    !
    !      qf(:,:,k) = max( fice*qc, 0. )
    !      ql(:,:,k) = max( qc - qf(:,:,k), 0. )
@@ -4898,7 +4909,11 @@ contains
    subroutine fill_cc(b_io,value)
 !     routine fills in interior of an array which has undefined points
       use logging_m
+#ifdef usempimod
+      use mpi
+#else
       include 'mpif.h'
+#endif
       real, intent(inout) :: b_io(pil,pjl*pnpan*lproc)         ! input and output array
       real, intent(in)    :: value                             ! array value denoting undefined
       real, dimension(0,0,0) :: c_io
@@ -4925,7 +4940,11 @@ contains
       use newmpar_m
       use indices_m
       use logging_m      
+#ifdef usempimod
+      use mpi
+#else
       include 'mpif.h'
+#endif
       real, dimension(pil,pjl*pnpan*lproc), intent(inout) :: b_io ! input and output array
       real, intent(in)    :: value                                ! array value denoting undefined
       real, dimension(pil,pjl*pnpan,pnproc) :: c_io
@@ -5037,7 +5056,11 @@ contains
    subroutine paraopen(ifile,nmode,ncid)
       use mpidata_m
       use logging_m
+#ifdef usempimod
+      use mpi
+#else
       include 'mpif.h'
+#endif
   
       integer, intent(in) :: nmode
       integer, intent(out) :: ncid
@@ -5757,10 +5780,15 @@ contains
    
    use logging_m
    use newmpar_m, only : il, jl
+#ifdef usempimod
+   use mpi
+#endif
    
    implicit none
    
+#ifndef usempimod
    include 'mpif.h'
+#endif
    
    integer ip, n, iq_a, iq_b, i, j, ierr
    real, dimension(pil*pjl*pnpan*lproc), intent(out) :: data_l
@@ -5789,10 +5817,15 @@ contains
    
    use logging_m
    use newmpar_m, only : il, jl
+#ifdef usempimod
+   use mpi
+#endif
    
    implicit none
    
-   include 'mpif.h'
+#ifndef usempimod
+      include 'mpif.h'
+#endif
    
    integer ierr
    real, dimension(pil*pjl*pnpan*lproc), intent(out) :: data_l
@@ -5808,10 +5841,15 @@ contains
    
    use logging_m
    use newmpar_m, only : il, jl
+#ifdef usempimod
+   use mpi
+#endif
    
    implicit none
    
+#ifndef usempimod
    include 'mpif.h'
+#endif
    
    integer :: ip, n, ierr
    real, dimension(pil,pjl*pnpan*lproc), intent(out) :: data_l
@@ -5836,10 +5874,15 @@ contains
 
    use logging_m
    use newmpar_m, only : il, jl
+#ifdef usempimod
+   use mpi
+#endif
    
    implicit none
    
+#ifndef usempimod
    include 'mpif.h'
+#endif
    
    integer ierr
    real, dimension(pil,pjl*pnpan*lproc), intent(out) :: data_l
