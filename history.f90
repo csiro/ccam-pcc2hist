@@ -1582,7 +1582,7 @@ contains
          ierr = nf90_put_att ( ncid, vid, "cell_methods", cell_methods )
          call check_ncerr(ierr,"Error with cell_methods attribute")
       else
-         ! default to time point if otherwise not defined
+         ! Default to time point if otherwise not defined 
          ierr = nf90_put_att ( ncid, vid, "cell_methods", "time: point" )
          call check_ncerr(ierr,"Error with cell_methods attribute")
       end if
@@ -1722,20 +1722,25 @@ contains
       histstr = "" 
       call hstring(histstr)
       ierr = nf90_put_att ( ncid, NF90_GLOBAL, "history", histstr )
-      if ( present(extra_atts) .and. save_ccam_parameters ) then
+      if ( present(extra_atts) ) then
          do i=1,size(extra_atts)
-            select case(extra_atts(i)%type)
-            case ( NF90_FLOAT )
-               ierr = nf90_put_att ( ncid, NF90_GLOBAL, extra_atts(i)%name, extra_atts(i)%rval )
-            case ( NF90_INT )
-               ierr = nf90_put_att ( ncid, NF90_GLOBAL, extra_atts(i)%name, extra_atts(i)%ival )
-            case ( NF90_CHAR )
-               ierr = nf90_put_att ( ncid, NF90_GLOBAL, extra_atts(i)%name, trim(extra_atts(i)%cval) )
-            case default
-               print*, "Error, unexpected type in extra_atts", extra_atts(i)%type
-               stop
-            end select
-            call check_ncerr(ierr, "Error writing extra attribute")
+            if ( save_ccam_parameters .or.                                &
+                 extra_atts(i)%name=="driving_model_id" .or.              &
+                 extra_atts(i)%name=="driving_model_ensemble_number" .or. &
+                 extra_atts(i)%name=="driving_experiment_name" ) then
+               select case(extra_atts(i)%type)
+               case ( NF90_FLOAT )
+                  ierr = nf90_put_att ( ncid, NF90_GLOBAL, extra_atts(i)%name, extra_atts(i)%rval )
+               case ( NF90_INT )
+                  ierr = nf90_put_att ( ncid, NF90_GLOBAL, extra_atts(i)%name, extra_atts(i)%ival )
+               case ( NF90_CHAR )
+                  ierr = nf90_put_att ( ncid, NF90_GLOBAL, extra_atts(i)%name, trim(extra_atts(i)%cval) )
+               case default
+                  print*, "Error, unexpected type in extra_atts", extra_atts(i)%type
+                  stop
+               end select
+               call check_ncerr(ierr, "Error writing extra attribute")
+            end if   
          end do
       end if
       
