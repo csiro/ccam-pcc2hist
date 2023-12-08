@@ -1581,6 +1581,10 @@ contains
       if ( len_trim(cell_methods) > 0 ) then
          ierr = nf90_put_att ( ncid, vid, "cell_methods", cell_methods )
          call check_ncerr(ierr,"Error with cell_methods attribute")
+      else
+         ! default to time point if otherwise not defined
+         ierr = nf90_put_att ( ncid, vid, "cell_methods", "time: point" )
+         call check_ncerr(ierr,"Error with cell_methods attribute")
       end if
          
       if ( vtype == NF90_INT2 ) then

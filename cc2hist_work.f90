@@ -4704,6 +4704,9 @@ contains
          stdname = "surface_net_downward_shortwave_flux"
       case ("sic")
          stdname = "sea_ice_area_fraction" 
+      case ("siconca")
+         stdname = "sea_ice_area_fraction"
+         cell_methods = "time: point"
       case ("siced")
          stdname = "sea_ice_thickness"
       case ("sigmf")
@@ -4730,6 +4733,7 @@ contains
          stdname = "sea_surface_height_above_sea_level"          
       case ("sund")
          stdname = "duration_of_sunshine"
+         cell_methods = "time: sum"
       case ("ta")
         stdname = "air_temperature"  
       case ("tas")
@@ -4869,9 +4873,10 @@ contains
          end if   
       end do
 
-      if ( vinfo%daily ) then
-         cell_methods = cell_methods(1:len_trim(cell_methods)) // " over days"
-      end if
+      !if ( vinfo%daily ) then
+      !   cell_methods = cell_methods(1:len_trim(cell_methods)) // " over days"
+      !end if
+      
 
    end subroutine cc_cfproperties
 
