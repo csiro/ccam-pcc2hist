@@ -2,7 +2,8 @@
 
 PCC2Hist is used to convert output files from the Conformal Cubic Atmospheric Model (CCAM) into lat/lon datasets.  PCC2Hist will also calculate additional
 information from the CCAM output like relative humidity or dew point
-temperature.
+temperature. PCC2Hist also can interpolate to pressure levels and altitude
+heights as well as interpolate to depth for ocean variables.
 
 ## Website
 
