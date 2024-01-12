@@ -1,2 +1,2 @@
 character(len=*), parameter :: cc2hist_revision= &
-'GIT-Date:   Fri Dec 8 14:48:00 2023 +1100 commit 8ba4c403a5d3ecee7739db7e532adae3464c6ba6'
+'GIT-Date:   Fri Dec 8 16:11:18 2023 +1100 commit 6e2e7b8909955404363755d5a95e1311a9baa536'

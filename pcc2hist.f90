@@ -1,6 +1,6 @@
 ! Conformal Cubic Atmospheric Model
     
-! Copyright 2015-2022 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+! Copyright 2015-2023 Commonwealth Scientific Industrial Research Organisation (CSIRO)
     
 ! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
 !
@@ -71,7 +71,7 @@ program cc2hist
                     edate, stime, etime, hres, debug, ifile, ofile,   &
                     int_default, vextrap, cf_compliant,               &
                     cordex_compliant, save_ccam_parameters,           &
-                    ran_compliant, safe_max
+                    ran_compliant, safe_max, fao_potev
 
    include 'revision.h'
    
@@ -95,7 +95,7 @@ program cc2hist
    type(input_var), dimension(:), pointer, contiguous :: varlist
    type(hist_att), dimension(:), allocatable :: extra_atts, extra_temp
 
-
+   
    call MPI_Init(ierr)
    comm_world = MPI_COMM_WORLD
    call MPI_Comm_size(comm_world, nproc, ierr) ! Find number of processes

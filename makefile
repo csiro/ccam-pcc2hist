@@ -31,9 +31,6 @@ endif
 FFLAGS = -O3 $(FHOST) -ftz -fp-model precise -traceback $(MPIFLAG)
 INC = -I $(NETCDF_ROOT)/include
 LIBS = -L $(NETCDF_ROOT)/lib -lnetcdf
-ifneq ($(NCCLIB),yes)
-LIBS += -lnetcdff
-endif
 PPFLAG90 = -fpp
 DEBUGFLAG = -check all -debug all -fpe0
 endif
@@ -93,10 +90,6 @@ endif
 # Testing - I/O and fpmodel
 ifeq ($(TEST),yes)
 FFLAGS += $(DEBUGFLAG)
-endif
-
-ifeq ($(NCCLIB),yes)
-FFLAGS += -Dncclib
 endif
 
 OBJ = pcc2hist.o cc2hist_work.o gldata_m.o height_m.o indices_m.o ind_m.o \

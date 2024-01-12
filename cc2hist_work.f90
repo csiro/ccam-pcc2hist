@@ -1,6 +1,6 @@
 ! Conformal Cubic Atmospheric Model
     
-! Copyright 2015-2023 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+! Copyright 2015-2024 Commonwealth Scientific Industrial Research Organisation (CSIRO)
     
 ! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
 !
@@ -37,6 +37,8 @@ module work
    
    integer, private, save :: resprocmode
    logical, private, save :: resprocformat
+   
+   logical, public, save :: fao_potev = .false.
 
 !  Passed between infile and main, previously in common infil
    integer :: ik, jk, kk, ok
@@ -45,12 +47,6 @@ module work
    integer :: ksoil, kice
    integer :: ntrac, ilt ! Extra flag controlling tracers in file. Still needed?
 
-!  Flag for presence of extra surface flux fields (epot_ave etc).
-   logical :: extra_surfflux
-!  Flag for presence of extra snow fields
-   logical :: extra_snow
-!  Flag for presence of extra 6, 12 and 18 hourly rain fields
-   logical :: extra_rain, extra_rain_3hr
 !  Record number for the netcdf input file
    integer, save :: nrec
    integer, save :: maxrec ! Length of record dimension.
@@ -1427,9 +1423,6 @@ contains
          end if
 
       end do
-
-      ! clean-up rh if necessary
-      !call fix_rh(t, q, ql, qf, psl, sig)
       
       if ( needfld("hus") ) then
          where ( q /= nf90_fill_float ) 
@@ -1568,7 +1561,7 @@ contains
          end if    
       end if
 
-      ! to be depreciated      
+      ! to be depreciated (CMIP5 ESCI)   
       if ( needfld("u10max_stn") .or. needfld("v10max_stn") .or. &
            needfld("sfcWindmax_stn") ) then
          call fix_winds(u10max_stn, v10max_stn)
@@ -1589,12 +1582,22 @@ contains
          end if
       end if
            
+      if ( needfld("evspsblpot") .and. fao_potev ) then
+         if ( kk>1 ) then 
+           ctmp = uten
+         else
+           ctmp = sqrt(uastmp**2 + vastmp**2)  
+         end if
+         call calc_faoet( dtmp, sgd, rgn, tscrn, ctmp, psl, qgscrn ) 
+         call savehist( "evspsblpot", dtmp )
+      end if
+           
       if ( needfld("tdew") ) then
          call calc_tdscrn( tscrn, qgscrn, psl, dtmp )
          call savehist( "tdew", dtmp )
       end if
       
-      ! to be depreciated      
+      ! to be depreciated (CMIP5 ESCI)     
       if ( needfld("tdscrn_stn") ) then
          call calc_tdscrn( tscrn_stn, qgscrn_stn, psl, dtmp )
          call savehist( "tdscrn_stn", dtmp )          
@@ -4101,47 +4104,46 @@ contains
       end do
    end subroutine calc_rh
 
-   !subroutine fix_rh ( t, q, ql, qf, psl, sig )
-   !   use moistfuncs
-   !   real, dimension(pil,pjl*pnpan*lproc,kk), intent(inout) :: t, q, ql, qf
-   !   real, dimension(pil,pjl*pnpan*lproc), intent(in) :: psl
-   !   real, dimension(kk), intent(in) :: sig
-   !   real, dimension(pil,pjl*pnpan*lproc) :: p, tliq, fice, qsw, qc, qtot
-   !   real, dimension(pil,pjl*pnpan*lproc) :: qsi, qsl, deles
-   !   real, dimension(pil,pjl*pnpan*lproc) :: hlrvap, dqsdt, al
-   !   real, parameter :: tfrz  = 273.1
-   !   real, parameter :: tice  = 233.15
-   !   real, parameter :: cp    = 1004.64
-   !   real, parameter :: hl    = 2.5104e6
-   !   real, parameter :: hlf   = 3.36e5
-   !   real, parameter :: epsil = 0.622
-   !   real, parameter :: rvap  = 461.
-   !   integer :: k
-   !
-   !   do k = 1,kk
-   !      p = 100.*sig(k)*psl  ! p in Pa.
-   !      qc = qf(:,:,k) + ql(:,:,k)
-   !      fice = min(qf(:,:,k)/max(qc,1.e-12),1.)
-   !      tliq = t(:,:,k) - hl/cp*qc - hlf/cp*qf(:,:,k)
-   !      qtot = q(:,:,k) + qc
-   !      qsi = qsati(p,tliq)
-   !      deles = esdiffx(tliq)
-   !      qsl = qsi + epsil*deles/p
-   !      qsw = fice*qsi + (1.-fice)*qsl
-   !
-   !      ! simple cloud microphysics
-   !      hlrvap = (hl+fice*hlf)/rvap
-   !      dqsdt = qsw*hlrvap/tliq**2
-   !      al = 1./(1.+(hl+fice*hlf)/cp*dqsdt)
-   !      qc = max( al*(qtot - qsw), qc, 0. )
-   !
-   !      qf(:,:,k) = max( fice*qc, 0. )
-   !      ql(:,:,k) = max( qc - qf(:,:,k), 0. )
-   !      
-   !      q(:,:,k) = max( qtot - ql(:,:,k) - qf(:,:,k), 0. )
-   !      t(:,:,k) = tliq + hl/cp*qc + hlf/cp*qf(:,:,k)
-   !   end do
-   !end subroutine fix_rh   
+   subroutine calc_faoet( et, sgd, rgn, t, u10, ps, q )
+      real, dimension(pil,pjl*pnpan*lproc), intent(out) :: et
+      real, dimension(pil,pjl*pnpan*lproc), intent(in) :: sgd
+      real, dimension(pil,pjl*pnpan*lproc), intent(in) :: rgn
+      real, dimension(pil,pjl*pnpan*lproc), intent(in) :: t
+      real, dimension(pil,pjl*pnpan*lproc), intent(in) :: u10
+      real, dimension(pil,pjl*pnpan*lproc), intent(in) :: ps
+      real, dimension(pil,pjl*pnpan*lproc), intent(in) :: q
+      real, dimension(pil,pjl*pnpan*lproc) :: u2, sgn, ga, gam, del
+      real, dimension(pil,pjl*pnpan*lproc) :: tc, rn, def, es, ea
+      real, dimension(pil,pjl*pnpan*lproc) :: qs
+      
+      ! calculates approximate potential evapotransiration using FAO method
+      
+      tc = t - 273.16 ! degC
+      del = 4096.*(0.6108*exp(17.27*tc/(tc+237.3)))/((tc+237.3)**2) ! kPa/degC eq13
+      gam = 0.665*1.e-6*ps ! kPa/degC FAO eq8
+      sgn = sgd*(1.-0.23) ! W/m2 albedo=0.23 in FAO
+      u2 = u10*4.87/log(67.8*10.-5.42) ! m/s  FAO eq47
+      rn = sgn + rgn ! W/m2
+      where( sgn>0. ) ! FAO
+         ga = 0.1*rn ! W/m2
+      elsewhere
+         ga = 0.5*rn ! W/m2
+      end where
+      es = 6.108*exp(17.27*tc/(tc+237.3)) ! Pa
+      qs = 287.09/461.5*es/max(ps-es,0.1)
+      ea = es*min(max(q,0.)/qs,1.) ! Pa
+      def = (es-ea)*1.e-3 ! kPa
+      
+      et = (0.408*del*(rn-ga)+37./(tc+273.)*gam*u2*def) &
+          /(del+gam*(1.+0.34*u2)) ! mm/hour
+
+      where( t/=NF90_FILL_FLOAT )
+         et = et/3600. ! kg/m2/s
+      elsewhere
+         et = NF90_FILL_FLOAT  
+      end where
+      
+   end subroutine calc_faoet
    
    subroutine calc_td ( t_in, q_in, ql_in, qf_in, psl_in, sig, td )
       real, dimension(pil,pjl*pnpan*lproc,kk), intent(out) :: td
@@ -4872,11 +4874,6 @@ contains
             stdname = "specific_humidity" 
          end if   
       end do
-
-      !if ( vinfo%daily ) then
-      !   cell_methods = cell_methods(1:len_trim(cell_methods)) // " over days"
-      !end if
-      
 
    end subroutine cc_cfproperties
 
