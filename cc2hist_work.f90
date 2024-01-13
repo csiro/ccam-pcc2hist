@@ -3210,7 +3210,14 @@ contains
             xmax = 9000.
          end if
          if ( cordex_compliant ) then
-            if ( varlist(ivar)%vname == "cld" ) then
+            if ( varlist(ivar)%vname == "anth_ave" ) then
+               varlist(ivar)%vname = "anthroheat"
+               varlist(ivar)%units = "W m-2"
+               varlist(ivar)%long_name = "Anthropogenic heat flux"
+               varlist(ivar)%instant = .false.
+               xmin = 0.
+               xmax = 650.               
+            else if ( varlist(ivar)%vname == "cld" ) then
                varlist(ivar)%vname = "clt"
                varlist(ivar)%units = "%"
                varlist(ivar)%long_name = "Total Cloud Fraction"
@@ -3384,6 +3391,12 @@ contains
                varlist(ivar)%units = "W m-2"
                varlist(ivar)%long_name = "Surface Direct Downwelling Shortwave Radiation"
                varlist(ivar)%instant = .false.
+            else if ( varlist(ivar)%vname == "sigmu" ) then
+               varlist(ivar)%vname = "sfturf"
+               varlist(ivar)%units = "%"
+               varlist(ivar)%long_name = "Urban Area Fraction"
+               xmin = 0.
+               xmax = 100.
             else if ( varlist(ivar)%vname == "sint_ave" ) then
                varlist(ivar)%vname = "rsdt"
                varlist(ivar)%long_name = "TOA Incident Shortwave Radiation"
@@ -3978,15 +3991,6 @@ contains
       end if ! kk>1 ..else..
       
       call addfld ( "d10", "10m wind direction", "deg", 0.0, 360.0, 1, ran_type=.true. )
-      ierr = nf90_inq_varid (ncid, "sigmu", ivar )
-      if ( ierr == nf90_noerr ) then
-         call addfld ( "sfturf", "Urban Area Fraction", "%", 0.0, 100.0, 1, ave_type="fixed", std_name="area_fraction" )
-      end if
-      ierr = nf90_inq_varid (ncid, "anth_ave", ivar )
-      if ( ierr == nf90_noerr ) then
-         call addfld ( "anthroheat", "Anthropogenic heat flux", "W m-2", 0.0, 650.0, 1, std_name="anthropogenic_heatflux", &
-                       instant=.false. )
-      end if
       
       if ( ok > 1 ) then
          call addfld( "uos", "x-component surface current", "m s-1", -100., 100., 1 )
