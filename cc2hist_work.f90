@@ -895,7 +895,7 @@ contains
                      call readsave2( "tminscr_stn", input_name="tminscr" ) 
                   end if                   
                end if    
-            case ( "tasskin", "tspav", "tsroof", "tsgree" )
+            case ( "tsskin", "tspav", "tsroof", "tsgree" )
                if ( needfld(varlist(ivar)%vname) ) then
                   call vread( varlist(ivar)%vname, dtmp )
                   where ( urban_frac <= 0. )
