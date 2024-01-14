@@ -4750,7 +4750,7 @@ contains
       case ("tasmin")
          stdname = "air_temperature"
          cell_methods = "time: minimum"
-      case ("tasskin")
+      case ("tsskin")
          stdname = "skin_temperature"
       case ("tauu")
          stdname = "surface_downward_eastward_stress"
