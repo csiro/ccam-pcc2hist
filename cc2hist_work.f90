@@ -431,7 +431,7 @@ contains
                      end if   
                   end if
                case ( "mrsofc" )   
-                  if ( "mrsofc" ) then
+                  if ( needfld("mrsofc") ) then
                      call vread( "mrsofc", dtmp) 
                      where ( soilt <= 0.5 )
                         dtmp = nf90_fill_float 
