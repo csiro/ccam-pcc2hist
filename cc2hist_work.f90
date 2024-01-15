@@ -430,6 +430,14 @@ contains
                         call savehist("grid", dtmp)
                      end if   
                   end if
+               case ( "mrsofc" )   
+                  if ( "mrsofc" ) then
+                     call vread( "mrsofc", dtmp) 
+                     where ( soilt <= 0.5 )
+                        dtmp = nf90_fill_float 
+                     end where
+                     call savehist( "mrsofc", dtmp)
+                  end if 
                case ( "ocndepth" )
                   call vread( "ocndepth", dtmp )
                   if ( needfld("ocndepth") ) then
@@ -582,7 +590,7 @@ contains
                   end where
                   call savehist(varlist(ivar)%vname, ctmp)
                end if   
-            case ( "mrfso", "mrfsos", "mrsofc" )   
+            case ( "mrfso", "mrfsos" )   
                if ( needfld(varlist(ivar)%vname) ) then
                   call vread(varlist(ivar)%vname, ctmp) 
                   where ( soilt <= 0.5 )
