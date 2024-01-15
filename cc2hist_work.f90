@@ -582,7 +582,7 @@ contains
                   end where
                   call savehist(varlist(ivar)%vname, ctmp)
                end if   
-            case ( "mrfso", "mrfsos", "mrfsofc" )   
+            case ( "mrfso", "mrfsos", "mrsofc" )   
                if ( needfld(varlist(ivar)%vname) ) then
                   call vread(varlist(ivar)%vname, ctmp) 
                   where ( soilt <= 0.5 )
