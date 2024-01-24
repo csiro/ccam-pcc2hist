@@ -2454,22 +2454,26 @@ contains
          if ( nyhis == 1 ) then
             hlat(1) = minlat
          else  
+            !hlat(1) = minlat 
             do j = 1,nyhis
-               hlat(j) = minlat + (j-1)*(maxlat-minlat)/(nyhis-1)
+               hlat(j) = minlat + real(j-1)*(maxlat-minlat)/real(nyhis-1)
             end do
+            !hlat(nyhis) = maxlat
          end if   
          if ( maxlon - minlon == 360.0 ) then
+            !hlon(1) = minlon 
             do i = 1,nxhis
-               hlon(i) = minlon + (i-1)*(maxlon-minlon)/nxhis
+               hlon(i) = minlon + real(i-1)*(maxlon-minlon)/real(nxhis)
             end do
-         else
-            if ( nxhis == 1 ) then
-               hlon(1) = minlon 
-            else    
-               do i = 1,nxhis
-                  hlon(i) = minlon + (i-1)*(maxlon-minlon)/(nxhis-1)
-               end do
-            end if   
+            !hlon(nxhis) = maxlon
+         else if ( nxhis == 1 ) then
+            hlon(1) = minlon 
+         else    
+            !hlon(1) = minlon 
+            do i = 1,nxhis
+               hlon(i) = minlon + real(i-1)*(maxlon-minlon)/real(nxhis-1)
+            end do
+            !hlon(nxhis) = maxlon
          end if
       end if  
 
@@ -3252,7 +3256,7 @@ contains
                xmax = 100.
             else if ( varlist(ivar)%vname == "eg_ave" ) then
                varlist(ivar)%vname = "hfls"
-               varlist(ivar)%units = "kg m-2 s-1"
+               varlist(ivar)%units = "W m-2"
                varlist(ivar)%long_name = "Surface Upward Latent Heat Flux"
                varlist(ivar)%instant = .false.
             else if ( varlist(ivar)%vname == "epot_ave" ) then
@@ -3270,7 +3274,7 @@ contains
                xmax = 0.001
             else if ( varlist(ivar)%vname == "fg_ave" ) then
                varlist(ivar)%vname = "hfss"
-               varlist(ivar)%units = "kg m-2 s-1"
+               varlist(ivar)%units = "W m-2"
                varlist(ivar)%long_name = "Surface Upward Sensible Heat Flux"
                varlist(ivar)%instant = .false.
             else if ( varlist(ivar)%vname == "fracice" ) then
