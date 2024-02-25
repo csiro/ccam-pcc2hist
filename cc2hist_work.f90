@@ -332,9 +332,9 @@ contains
       real, dimension(pil,pjl*pnpan*lproc) :: u10max, v10max 
       real, dimension(pil,pjl*pnpan*lproc) :: u10m_max, v10m_max
       real, dimension(pil,pjl*pnpan*lproc) :: tscrn, qgscrn
-      real, dimension(pil,pjl*pnpan*lproc) :: uten_stn
-      real, dimension(pil,pjl*pnpan*lproc) :: u10max_stn, v10max_stn
-      real, dimension(pil,pjl*pnpan*lproc) :: tscrn_stn, qgscrn_stn
+      !real, dimension(pil,pjl*pnpan*lproc) :: uten_stn
+      !real, dimension(pil,pjl*pnpan*lproc) :: u10max_stn, v10max_stn
+      !real, dimension(pil,pjl*pnpan*lproc) :: tscrn_stn, qgscrn_stn
       real, dimension(1) :: rlong_a, rlat_a, cos_zen, frac
       real :: fjd, bpyear, r1, dlt, alp, slag, dhr
       character(len=10) :: name
@@ -361,8 +361,8 @@ contains
       v10max = nf90_fill_float     ! daily
       u10m_max = nf90_fill_float   ! subdaily
       v10m_max = nf90_fill_float   ! subdaily
-      u10max_stn = nf90_fill_float ! daily
-      v10max_stn = nf90_fill_float ! daily
+      !u10max_stn = nf90_fill_float ! daily
+      !v10max_stn = nf90_fill_float ! daily
       rgdcs = nf90_fill_float      ! daily
       rgncs = nf90_fill_float      ! daily
       sgdcs = nf90_fill_float      ! daily
@@ -539,22 +539,22 @@ contains
                end if   
             case ( "hfss" )
                call readsave2 ( "hfss", input_name="fg_ave")
-            case ( "hurs", "rhscrn", "rhscrn_stn" )
+            case ( "hurs", "rhscrn" ) !, "rhscrn_stn" )   
                if ( needfld("hurs") ) then 
                   call readsave2 ( "hurs", input_name="rhscrn")
                end if   
                if ( needfld("rhscrn") ) then
                   call readsave2( "rhscrn" )
                end if
-               if ( needfld("rhscrn_stn") ) then ! to be depreciated
-                  ierr = nf90_inq_varid (ncid, "rhscrn_stn", var_dum )
-                  if ( ierr == nf90_noerr ) then
-                     call readsave2( "rhscrn_stn" )  
-                  else    
-                     call readsave2( "rhscrn_stn", input_name="rhscrn" ) 
-                  end if    
-               end if               
-            case ( "huss", "qgscrn", "huss_stn", "qgscrn_stn" )
+               !if ( needfld("rhscrn_stn") ) then ! to be depreciated
+               !   ierr = nf90_inq_varid (ncid, "rhscrn_stn", var_dum )
+               !   if ( ierr == nf90_noerr ) then
+               !      call readsave2( "rhscrn_stn" )  
+               !   else    
+               !      call readsave2( "rhscrn_stn", input_name="rhscrn" ) 
+               !   end if    
+               !end if               
+            case ( "huss", "qgscrn") !, "huss_stn", "qgscrn_stn" )
                if ( needfld("huss") .or. needfld("qgscrn") .or. needfld("tdew") ) then 
                   call vread( "qgscrn", qgscrn )
                   if ( needfld("huss") ) then
@@ -566,22 +566,22 @@ contains
                      call savehist ( "qgscrn", qgscrn ) 
                   end if    
                end if 
-               if ( needfld("huss_stn") .or. needfld("qgscrn_stn") .or. needfld("tdscrn_stn") ) then ! to be depreciated 
-                  ierr = nf90_inq_varid (ncid, "qgscrn_stn", var_dum ) 
-                  if ( ierr == nf90_noerr ) then
-                     call vread( "qgscrn_stn", qgscrn_stn )    
-                  else
-                     call vread( "qgscrn", qgscrn_stn ) 
-                  end if    
-                  if ( needfld("huss_stn") ) then
-                     where ( qgscrn_stn /= nf90_fill_float )
-                        dtmp = qgscrn_stn/(qgscrn_stn+1.)
-                     end where  
-                     call savehist ( "huss_stn", dtmp )
-                  else if ( needfld("qgscrn_stn") ) then
-                     call savehist ( "qgscrn_stn", qgscrn_stn ) 
-                  end if    
-               end if 
+               !if ( needfld("huss_stn") .or. needfld("qgscrn_stn") .or. needfld("tdscrn_stn") ) then ! to be depreciated 
+               !   ierr = nf90_inq_varid (ncid, "qgscrn_stn", var_dum ) 
+               !   if ( ierr == nf90_noerr ) then
+               !      call vread( "qgscrn_stn", qgscrn_stn )    
+               !   else
+               !      call vread( "qgscrn", qgscrn_stn ) 
+               !   end if    
+               !   if ( needfld("huss_stn") ) then
+               !      where ( qgscrn_stn /= nf90_fill_float )
+               !         dtmp = qgscrn_stn/(qgscrn_stn+1.)
+               !      end where  
+               !      call savehist ( "huss_stn", dtmp )
+               !   else if ( needfld("qgscrn_stn") ) then
+               !      call savehist ( "qgscrn_stn", qgscrn_stn ) 
+               !   end if    
+               !end if 
             case ( "mixdepth" )  
                if ( needfld(varlist(ivar)%vname) ) then
                   call vread(varlist(ivar)%vname, ctmp)  
@@ -739,30 +739,30 @@ contains
                      call savehist( "rgn_ave", rgn )
                   end if   
                end if  
-            case ( "rhmaxscr", "rhmaxscr_stn" )
+            case ( "rhmaxscr") !, "rhmaxscr_stn" )
                if ( needfld("rhmaxscr") ) then
                   call readsave2( "rhmaxscr" )
                end if
-               if ( needfld("rhmaxscr_stn") ) then ! to be depreciated
-                  ierr = nf90_inq_varid (ncid, "rhmaxscr_stn", var_dum ) 
-                  if ( ierr == nf90_noerr ) then
-                     call readsave2( "rhmaxscr_stn" ) 
-                  else
-                     call readsave2( "rhmaxscr_stn", input_name="rhmaxscr" ) 
-                  end if                   
-               end if    
-            case ( "rhminscr", "rhminscr_stn" )
+               !if ( needfld("rhmaxscr_stn") ) then ! to be depreciated
+               !   ierr = nf90_inq_varid (ncid, "rhmaxscr_stn", var_dum ) 
+               !   if ( ierr == nf90_noerr ) then
+               !      call readsave2( "rhmaxscr_stn" ) 
+               !   else
+               !      call readsave2( "rhmaxscr_stn", input_name="rhmaxscr" ) 
+               !   end if                   
+               !end if    
+            case ( "rhminscr") !, "rhminscr_stn" )
                if ( needfld("rhminscr") ) then
                   call readsave2( "rhminscr" )
                end if
-               if ( needfld("rhminscr_stn") ) then ! to be depreciated
-                  ierr = nf90_inq_varid (ncid, "rhminscr_stn", var_dum ) 
-                  if ( ierr == nf90_noerr ) then
-                     call readsave2( "rhminscr_stn" ) 
-                  else
-                     call readsave2( "rhminscr_stn", input_name="rhminscr" ) 
-                  end if
-               end if   
+               !if ( needfld("rhminscr_stn") ) then ! to be depreciated
+               !   ierr = nf90_inq_varid (ncid, "rhminscr_stn", var_dum ) 
+               !   if ( ierr == nf90_noerr ) then
+               !      call readsave2( "rhminscr_stn" ) 
+               !   else
+               !      call readsave2( "rhminscr_stn", input_name="rhminscr" ) 
+               !   end if
+               !end if   
             case ( "rlut" )
                call readsave2( varlist(ivar)%vname, input_name="rtu_ave" )
             case ( "rlutcs" )
@@ -852,7 +852,7 @@ contains
                   end where   
                   call savehist ( "sund", dtmp )
                end if   
-            case ( "tas", "tscrn", "tscrn_stn" )
+            case ( "tas", "tscrn") !, "tscrn_stn" )
                if ( needfld("tas") .or. needfld("tscrn") .or. needfld("tdew") ) then 
                   call vread( "tscrn", tscrn )
                   if ( needfld("tas") ) then
@@ -862,47 +862,47 @@ contains
                      call savehist("tscrn", tscrn)
                   end if 
                end if  
-               if ( needfld("tscrn_stn") .or. needfld("tdscrn_stn") ) then 
-                  ierr = nf90_inq_varid (ncid, "tscrn_stn", var_dum )
-                  if ( ierr == nf90_noerr ) then
-                     call vread( "tscrn_stn", tscrn_stn )  
-                  else    
-                     call vread( "tscrn", tscrn_stn ) 
-                  end if    
-                  if ( needfld("tscrn_stn") ) then
-                     call savehist("tscrn_stn", tscrn_stn)
-                  end if            
-               end if   
-            case ( "tasmax", "tmaxscr", "tmaxscr_stn" )
+               !if ( needfld("tscrn_stn") .or. needfld("tdscrn_stn") ) then ! to be depreciated
+               !   ierr = nf90_inq_varid (ncid, "tscrn_stn", var_dum )
+               !   if ( ierr == nf90_noerr ) then
+               !      call vread( "tscrn_stn", tscrn_stn )  
+               !   else    
+               !      call vread( "tscrn", tscrn_stn ) 
+               !   end if    
+               !   if ( needfld("tscrn_stn") ) then
+               !      call savehist("tscrn_stn", tscrn_stn)
+               !   end if            
+               !end if   
+            case ( "tasmax", "tmaxscr") !, "tmaxscr_stn" )
                if ( needfld("tasmax") ) then
                   call readsave2( "tasmax", input_name="tmaxscr" )
                end if  
                if ( needfld("tmaxscr") ) then
                   call readsave2( "tmaxscr" )
                end if               
-               if ( needfld("tmaxscr_stn") ) then ! to be depreciated
-                  ierr = nf90_inq_varid (ncid, "tmaxscr_stn", var_dum ) 
-                  if ( ierr == nf90_noerr ) then
-                     call readsave2( "tmaxscr_stn" ) 
-                  else
-                     call readsave2( "tmaxscr_stn", input_name="tmaxscr" ) 
-                  end if
-               end if    
-            case ( "tasmin", "tminscr", "tminscr_stn" )
+               !if ( needfld("tmaxscr_stn") ) then ! to be depreciated
+               !   ierr = nf90_inq_varid (ncid, "tmaxscr_stn", var_dum ) 
+               !   if ( ierr == nf90_noerr ) then
+               !      call readsave2( "tmaxscr_stn" ) 
+               !   else
+               !      call readsave2( "tmaxscr_stn", input_name="tmaxscr" ) 
+               !   end if
+               !end if    
+            case ( "tasmin", "tminscr") !, "tminscr_stn" )
                if ( needfld("tasmin") ) then 
                   call readsave2( "tasmin", input_name="tminscr" )
                end if   
                if ( needfld("tminscr") ) then 
                   call readsave2( "tminscr" )
                end if                
-               if ( needfld("tminscr_stn") ) then ! to be depreciated
-                  ierr = nf90_inq_varid (ncid, "tminscr_stn", var_dum ) 
-                  if ( ierr == nf90_noerr ) then
-                     call readsave2( "tminscr_stn" ) 
-                  else
-                     call readsave2( "tminscr_stn", input_name="tminscr" ) 
-                  end if                   
-               end if    
+               !if ( needfld("tminscr_stn") ) then ! to be depreciated
+               !   ierr = nf90_inq_varid (ncid, "tminscr_stn", var_dum ) 
+               !   if ( ierr == nf90_noerr ) then
+               !      call readsave2( "tminscr_stn" ) 
+               !   else
+               !      call readsave2( "tminscr_stn", input_name="tminscr" ) 
+               !   end if                   
+               !end if    
             case ( "tsskin", "tspav", "tsroof", "tsgree" )
                if ( needfld(varlist(ivar)%vname) ) then
                   call vread( varlist(ivar)%vname, dtmp )
@@ -944,7 +944,7 @@ contains
                      call savehist ( "tsea", ctmp )
                   end if   
                end if
-            case ( "u10", "sfcWind", "u10_stn" )
+            case ( "u10", "sfcWind") !, "u10_stn" )
                if ( needfld("u10") .or. needfld("sfcWind") .or. needfld("uas") .or. &
                     needfld("vas") ) then
                   call vread( "u10", uten ) 
@@ -955,36 +955,36 @@ contains
                if ( needfld("sfcWind") ) then
                   call savehist( "sfcWind", uten )
                end if 
-               if ( needfld("u10_stn") .or. needfld("uas_stn") .or. needfld("vas_stn") ) then
-                  ierr = nf90_inq_varid (ncid, "u10_stn", var_dum )
-                  if ( ierr == nf90_noerr ) then
-                     call vread( "u10_stn", uten_stn )
-                  else
-                     call vread( "u10", uten_stn ) 
-                  end if          
-                  if ( needfld("u10_stn") ) then
-                     call savehist( "u10_stn", uten_stn )
-                  end if
-               end if   
+               !if ( needfld("u10_stn") .or. needfld("uas_stn") .or. needfld("vas_stn") ) then ! to be depreciated
+               !   ierr = nf90_inq_varid (ncid, "u10_stn", var_dum )
+               !   if ( ierr == nf90_noerr ) then
+               !      call vread( "u10_stn", uten_stn )
+               !   else
+               !      call vread( "u10", uten_stn ) 
+               !   end if          
+               !   if ( needfld("u10_stn") ) then
+               !      call savehist( "u10_stn", uten_stn )
+               !   end if
+               !end if   
             case ( "u10m_max" )
                if ( needfld('u10m_max') .or. needfld('v10m_max') .or. &
                     needfld('sfcWind_max') ) then                
                   call vread( "u10m_max", u10m_max ) ! subdaily
                end if   
-            case ( "u10max", "u10max_stn" )
+            case ( "u10max") !, "u10max_stn" )
                if ( needfld("u10max") .or. needfld("v10max") .or. &
                     needfld("sfcWindmax") ) then                
                   call vread( "u10max", u10max ) 
                end if   
-               if ( needfld("u10max_stn") .or. needfld("v10max_stn") .or. &
-                    needfld("sfcWindmax_stn") ) then ! to be depreciated
-                  ierr = nf90_inq_varid (ncid, "u10max_stn", var_dum )  
-                  if ( ierr == nf90_noerr ) then
-                     call vread( "u10max_stn", u10max_stn )
-                  else
-                     call vread( "u10max", u10max_stn )
-                  end if    
-               end if   
+               !if ( needfld("u10max_stn") .or. needfld("v10max_stn") .or. &
+               !     needfld("sfcWindmax_stn") ) then ! to be depreciated
+               !   ierr = nf90_inq_varid (ncid, "u10max_stn", var_dum )  
+               !   if ( ierr == nf90_noerr ) then
+               !      call vread( "u10max_stn", u10max_stn )
+               !   else
+               !      call vread( "u10max", u10max_stn )
+               !   end if    
+               !end if   
             case ( "uas" )
                 call vread( "uas", uastmp )         ! only for high-frequency output
             case ( "v10m_max" )
@@ -992,20 +992,20 @@ contains
                     needfld('sfcWind_max') ) then                 
                   call vread( "v10m_max", v10m_max ) ! subdaily
                end if   
-            case ( "v10max", "v10max_stn" )
+            case ( "v10max") !, "v10max_stn" )
                if ( needfld("u10max") .or. needfld("v10max") .or. &
                     needfld("sfcWindmax") ) then                 
                   call vread( "v10max", v10max ) 
                end if   
-               if ( needfld("u10max_stn") .or. needfld("v10max_stn") .or. &
-                    needfld("sfcWindmax_stn") ) then ! to be depreciated
-                  ierr = nf90_inq_varid (ncid, "v10max_stn", var_dum )  
-                  if ( ierr == nf90_noerr ) then
-                     call vread( "v10max_stn", v10max_stn )
-                  else
-                     call vread( "v10max", v10max_stn )
-                  end if
-               end if   
+               !if ( needfld("u10max_stn") .or. needfld("v10max_stn") .or. &
+               !     needfld("sfcWindmax_stn") ) then ! to be depreciated
+               !   ierr = nf90_inq_varid (ncid, "v10max_stn", var_dum )  
+               !   if ( ierr == nf90_noerr ) then
+               !      call vread( "v10max_stn", v10max_stn )
+               !   else
+               !      call vread( "v10max", v10max_stn )
+               !   end if
+               !end if   
             case ( "vas" )
                 call vread( "vas", vastmp )         ! only for high-frequency output
             case ( "urbantas", "urbantasmax", "urbantasmin" )
@@ -1570,25 +1570,25 @@ contains
       end if
 
       ! to be depreciated (CMIP5 ESCI)   
-      if ( needfld("u10max_stn") .or. needfld("v10max_stn") .or. &
-           needfld("sfcWindmax_stn") ) then
-         call fix_winds(u10max_stn, v10max_stn)
-         if ( needfld("u10max_stn") ) then
-            call savehist( "u10max_stn", u10max_stn )
-         end if
-         if ( needfld("v10max_stn") ) then
-            call savehist( "v10max_stn", v10max_stn )
-         end if
-         if ( needfld("sfcWindmax_stn") ) then
-            where ( u10max_stn/=nf90_fill_float .and. &
-                    v10max_stn/=nf90_fill_float ) 
-               dtmp = sqrt(u10max_stn**2 + v10max_stn**2)
-            elsewhere
-               dtmp = nf90_fill_float
-            end where   
-            call savehist( "sfcWindmax_stn", dtmp )
-         end if
-      end if
+      !if ( needfld("u10max_stn") .or. needfld("v10max_stn") .or. &
+      !     needfld("sfcWindmax_stn") ) then
+      !   call fix_winds(u10max_stn, v10max_stn)
+      !   if ( needfld("u10max_stn") ) then
+      !      call savehist( "u10max_stn", u10max_stn )
+      !   end if
+      !   if ( needfld("v10max_stn") ) then
+      !      call savehist( "v10max_stn", v10max_stn )
+      !   end if
+      !   if ( needfld("sfcWindmax_stn") ) then
+      !      where ( u10max_stn/=nf90_fill_float .and. &
+      !              v10max_stn/=nf90_fill_float ) 
+      !         dtmp = sqrt(u10max_stn**2 + v10max_stn**2)
+      !      elsewhere
+      !         dtmp = nf90_fill_float
+      !      end where   
+      !      call savehist( "sfcWindmax_stn", dtmp )
+      !   end if
+      !end if
            
       if ( needfld("evspsblpot") .and. fao_potev ) then
          if ( kk>1 ) then 
@@ -1606,10 +1606,10 @@ contains
       end if
       
       ! to be depreciated (CMIP5 ESCI)     
-      if ( needfld("tdscrn_stn") ) then
-         call calc_tdscrn( tscrn_stn, qgscrn_stn, psl, dtmp )
-         call savehist( "tdscrn_stn", dtmp )          
-      end if
+      !if ( needfld("tdscrn_stn") ) then
+      !   call calc_tdscrn( tscrn_stn, qgscrn_stn, psl, dtmp )
+      !   call savehist( "tdscrn_stn", dtmp )          
+      !end if
       
       if ( kk > 1 ) then
          
@@ -1759,22 +1759,22 @@ contains
             end where    
             call savehist ( "vas", dtmp )    
          end if
-         if ( needfld("uas_stn") ) then
-            where ( wind_norm > 0. )
-               dtmp = u(:,:,1)*uten_stn/wind_norm
-            elsewhere
-               dtmp = 0. 
-            end where    
-            call savehist ( "uas_stn", dtmp )    
-         end if    
-         if ( needfld("vas_stn") ) then
-            where ( wind_norm > 0. )
-               dtmp = v(:,:,1)*uten_stn/wind_norm
-            elsewhere
-               dtmp = 0. 
-            end where    
-            call savehist ( "vas_stn", dtmp )    
-         end if
+         !if ( needfld("uas_stn") ) then
+         !   where ( wind_norm > 0. )
+         !      dtmp = u(:,:,1)*uten_stn/wind_norm
+         !   elsewhere
+         !      dtmp = 0. 
+         !   end where    
+         !   call savehist ( "uas_stn", dtmp )    
+         !end if    
+         !if ( needfld("vas_stn") ) then
+         !   where ( wind_norm > 0. )
+         !      dtmp = v(:,:,1)*uten_stn/wind_norm
+         !   elsewhere
+         !      dtmp = 0. 
+         !   end where    
+         !   call savehist ( "vas_stn", dtmp )    
+         !end if
          if ( needfld("d10") ) then
             udir = atan2(-u(:,:,1),-v(:,:,1))*180./3.1415927
             where ( udir < 0. )
@@ -2454,26 +2454,26 @@ contains
          if ( nyhis == 1 ) then
             hlat(1) = minlat
          else  
-            !hlat(1) = minlat 
-            do j = 1,nyhis
+            hlat(1) = minlat 
+            do j = 2,nyhis-1
                hlat(j) = minlat + real(j-1)*(maxlat-minlat)/real(nyhis-1)
             end do
-            !hlat(nyhis) = maxlat
+            hlat(nyhis) = maxlat
          end if   
          if ( maxlon - minlon == 360.0 ) then
-            !hlon(1) = minlon 
-            do i = 1,nxhis
+            hlon(1) = minlon 
+            do i = 2,nxhis-1
                hlon(i) = minlon + real(i-1)*(maxlon-minlon)/real(nxhis)
             end do
-            !hlon(nxhis) = maxlon
+            hlon(nxhis) = maxlon
          else if ( nxhis == 1 ) then
             hlon(1) = minlon 
          else    
-            !hlon(1) = minlon 
-            do i = 1,nxhis
+            hlon(1) = minlon 
+            do i = 2,nxhis-1
                hlon(i) = minlon + real(i-1)*(maxlon-minlon)/real(nxhis-1)
             end do
-            !hlon(nxhis) = maxlon
+            hlon(nxhis) = maxlon
          end if
       end if  
 
@@ -2756,7 +2756,7 @@ contains
             call check_ncerr(ierr, "nf90_inquire_variable error")
             if ( ndims/=idim ) cycle
             ! remove old sfcWindmax data
-            if ( vname == "sfcWindmax" .or. vname == "sfcWindmax_stn" ) then
+            if ( vname == "sfcWindmax" ) then  ! .or. vname == "sfcWindmax_stn"
                cycle
             end if  
             ! remove old CAPE and CIN
@@ -3168,9 +3168,8 @@ contains
                   "wb?_ave             ", "climate_biome       ", "climate_ivegt       ", "climate_min20       ", &
                   "climate_max20       ", "climate_alpha20     ", "climate_agdd5       ", "climate_gmd         ", &
                   "climate_dmoist_min20", "climate_dmoist_max20", "urbant              ", "u10max              ", &
-                  "v10max              ", "u10max_stn          ", "v10max_stn          ", "fracice             ", &
-                  "siced               ", "wb?                 ", "wbice?              ", "wbice?_ave          ", &
-                  "tsl                 "                                                                          &
+                  "v10max              ", "fracice             ", "siced               ", "wb?                 ", &
+                  "wbice?              ", "wbice?_ave          ", "tsl                 "                          &
                /)) .and. int_default /= int_none ) then
             int_type = int_nearest
          else if ( match ( varlist(ivar)%vname, (/ "t?_pop_grid_patch_id              ", "t?_pop_grid_patch_layer1_cohort_id" /)) &
@@ -3318,13 +3317,13 @@ contains
                varlist(ivar)%instant = .true.
                xmin = 0.
                xmax = 0.06
-            else if ( varlist(ivar)%vname == "qgscrn_stn" ) then
-               varlist(ivar)%vname = "huss_stn"
-               varlist(ivar)%units = "1"
-               varlist(ivar)%long_name = "Near-Surface Specific Humidity"
-               varlist(ivar)%instant = .true.
-               xmin = 0.
-               xmax = 0.06
+            !else if ( varlist(ivar)%vname == "qgscrn_stn" ) then
+            !   varlist(ivar)%vname = "huss_stn"
+            !   varlist(ivar)%units = "1"
+            !   varlist(ivar)%long_name = "Near-Surface Specific Humidity"
+            !   varlist(ivar)%instant = .true.
+            !   xmin = 0.
+            !   xmax = 0.06
             else if ( varlist(ivar)%vname == "rgdc_ave" ) then
                varlist(ivar)%vname = "rldscs"
                varlist(ivar)%units = "W m-2"
@@ -3868,29 +3867,29 @@ contains
          end if
          
          ! to be depreciated
-         ierr = nf90_inq_varid (ncid, "u10_stn", ivar )
-         if ( ierr /= nf90_noerr ) then
-           call addfld ( "rhscrn_stn", "Near-Surface Relative Humidity", "%", 0.0, 200.0, 1, std_name="relative_humidity" )
-           call addfld ( "rhmaxscr_stn", "Maximum screen relative humidity", "%", 0.0, 200.0, 1, std_name="relative_humidity", &
-                         daily=.true. )
-           call addfld ( "rhminscr_stn", "Minimum screen relative humidity", "%", 0.0, 200.0, 1, std_name="relative_humidity", &
-                         daily=.true.)
-           call addfld ( "tscrn_stn", "Near-Surface Air Temperature", "K", 100.0, 425.0, 1, std_name="air_temperature" )
-           call addfld ( "tmaxscr_stn", "Daily Maximum Near-Surface Air Temperature", "K", 100.0, 425.0, 1, &
-                         std_name="air_temperature", daily=.true. )
-           call addfld ( "tminscr_stn", "Daily Minimum Near-Surface Air Temperature", "K", 100.0, 425.0, 1, &
-                         std_name="air_temperature", daily=.true. )
-           call addfld ( "u10_stn", "Near-Surface Wind Speed", "m s-1", 0.0, 130.0, 1, std_name="wind_speed" )
-           call addfld ( "u10max_stn", "x-component max 10m wind (daily)", "m s-1", -99.0, 99.0, 1, std_name="wind_speed", &
-                         daily=.true.)
-           call addfld ( "v10max_stn", "y-component max 10m wind (daily)", "m s-1", -99.0, 99.0, 1, std_name="wind_speed", &
-                         daily=.true.)
-         end if    
-         call addfld ( "uas_stn", "x-component 10m wind", "m s-1", -100.0, 100.0, 1, std_name="wind_speed", ran_type=.false. )
-         call addfld ( "vas_stn", "y-component 10m wind", "m s-1", -100.0, 100.0, 1, std_name="wind_speed", ran_type=.false. )
-         call addfld ( "sfcWindmax_stn", "Maximum 10m wind speed (station)", "m s-1", 0.0, 200.0, 1, std_name="wind_speed", &
-                       ran_type=.false., instant=.false., all_positive=.true. ) 
-         call addfld ( "tdscrn_stn", "Dew point screen temperature (station)", "K", 100.0, 400.0, 1, std_name="air_temperature" )
+         !ierr = nf90_inq_varid (ncid, "u10_stn", ivar )
+         !if ( ierr /= nf90_noerr ) then
+         !  call addfld ( "rhscrn_stn", "Near-Surface Relative Humidity", "%", 0.0, 200.0, 1, std_name="relative_humidity" )
+         !  call addfld ( "rhmaxscr_stn", "Maximum screen relative humidity", "%", 0.0, 200.0, 1, std_name="relative_humidity", &
+         !                daily=.true. )
+         !  call addfld ( "rhminscr_stn", "Minimum screen relative humidity", "%", 0.0, 200.0, 1, std_name="relative_humidity", &
+         !                daily=.true.)
+         !  call addfld ( "tscrn_stn", "Near-Surface Air Temperature", "K", 100.0, 425.0, 1, std_name="air_temperature" )
+         !  call addfld ( "tmaxscr_stn", "Daily Maximum Near-Surface Air Temperature", "K", 100.0, 425.0, 1, &
+         !                std_name="air_temperature", daily=.true. )
+         !  call addfld ( "tminscr_stn", "Daily Minimum Near-Surface Air Temperature", "K", 100.0, 425.0, 1, &
+         !                std_name="air_temperature", daily=.true. )
+         !  call addfld ( "u10_stn", "Near-Surface Wind Speed", "m s-1", 0.0, 130.0, 1, std_name="wind_speed" )
+         !  call addfld ( "u10max_stn", "x-component max 10m wind (daily)", "m s-1", -99.0, 99.0, 1, std_name="wind_speed", &
+         !                daily=.true.)
+         !  call addfld ( "v10max_stn", "y-component max 10m wind (daily)", "m s-1", -99.0, 99.0, 1, std_name="wind_speed", &
+         !                daily=.true.)
+         !end if    
+         !call addfld ( "uas_stn", "x-component 10m wind", "m s-1", -100.0, 100.0, 1, std_name="wind_speed", ran_type=.false. )
+         !call addfld ( "vas_stn", "y-component 10m wind", "m s-1", -100.0, 100.0, 1, std_name="wind_speed", ran_type=.false. )
+         !call addfld ( "sfcWindmax_stn", "Maximum 10m wind speed (station)", "m s-1", 0.0, 200.0, 1, std_name="wind_speed", &
+         !              ran_type=.false., instant=.false., all_positive=.true. ) 
+         !call addfld ( "tdscrn_stn", "Dew point screen temperature (station)", "K", 100.0, 400.0, 1, std_name="air_temperature" )
          
       else
          ! high-frequency output
