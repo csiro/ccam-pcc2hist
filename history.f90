@@ -1,6 +1,6 @@
 ! Conformal Cubic Atmospheric Model
     
-! Copyright 2015-2023 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+! Copyright 2015-2024 Commonwealth Scientific Industrial Research Organisation (CSIRO)
     
 ! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
 !
@@ -687,8 +687,8 @@ contains
    
 !-------------------------------------------------------------------
    subroutine openhist ( nx, ny, nl, sig, ol, cptch, cchrt, gosig, suffix, hlon, hlat, basetime, &
-                         year, nxout, nyout, source, histfilename,      &
-                         pressure, height, depth, extra_atts, hybrid_levels, anf,  &
+                         year, nxout, nyout, source, histfilename,                               &
+                         pressure, height, theta, pvort, depth, extra_atts, hybrid_levels, anf,  &
                          bnf, p0, calendar, nsoil, zsoil )
 !
 !     Create netCDF history files using information in histinfo array.
@@ -714,6 +714,8 @@ contains
       logical, intent(in), optional :: pressure
       logical, intent(in), optional :: height
       logical, intent(in), optional :: depth
+      logical, intent(in), optional :: theta
+      logical, intent(in), optional :: pvort
       type(hist_att), dimension(:), optional :: extra_atts
       logical, intent(in), optional :: hybrid_levels
       real, dimension(:), intent(in), optional :: anf, bnf
@@ -733,6 +735,7 @@ contains
       character(len=80) :: longname, units
       character(len=MAX_NAMELEN) :: vname
       logical :: used, multilev, use_plevs, use_hyblevs, use_meters, use_depth
+      logical :: use_theta, use_pvort
       logical :: multilev_fld
       integer :: nlevels, nlevels_fld
       integer, dimension(totflds) :: coord_heights
@@ -962,6 +965,14 @@ contains
       if ( present(depth) ) then
          use_depth = depth 
       end if
+      use_theta = .false.
+      if ( present(theta) ) then
+         use_theta = theta
+      end if
+      use_pvort = .false.
+      if ( present(pvort) ) then
+         use_pvort = pvort
+      end if
       if ( ol > 0 ) then
          osig_found = all(gosig<=1.)
       else 
@@ -974,7 +985,7 @@ contains
             allocate( histinst(1), histnlevels(1), histocean(1), histsoil(1) )
             allocate( histcablepatch(1), histcablecohort(1) )
             call create_ncfile ( filename, nxhis, nyhis, size(sig), ol, cptch, cchrt, multilev, &
-                 use_plevs, use_meters, use_depth, use_hyblevs, basetime,                       &
+                 use_plevs, use_meters, use_theta, use_pvort, use_depth, use_hyblevs, basetime, &
                  coord_heights(1:ncoords), ncid, dims, dimvars, source, extra_atts, calendar,   &
                  nsoil, zsoil, osig_found )
             histid(1) = ncid
@@ -1080,13 +1091,13 @@ contains
                singlefilename = calcfilename(histinfo(ifld)%name,filename)
                if ( histinfo(ifld)%ave_type == hist_fixed ) then
                   call create_ncfile ( singlefilename, nxhis, nyhis, nlevels_fld, ol_fld, cptch_fld, cchrt_fld, &
-                       multilev_fld, use_plevs, use_meters, use_depth, use_hyblevs, "none",                     &
-                       coord_heights(1:ncoords), ncid, dims, dimvars, source, extra_atts, calendar,             &
+                       multilev_fld, use_plevs, use_meters, use_theta, use_pvort, use_depth, use_hyblevs,       &
+                       "none", coord_heights(1:ncoords), ncid, dims, dimvars, source, extra_atts, calendar,     &
                        nsoil_fld, zsoil, osig_found )
                else    
                   call create_ncfile ( singlefilename, nxhis, nyhis, nlevels_fld, ol_fld, cptch_fld, cchrt_fld, &
-                       multilev_fld, use_plevs, use_meters, use_depth, use_hyblevs, basetime,                   &
-                       coord_heights(1:ncoords), ncid, dims, dimvars, source, extra_atts, calendar,             &
+                       multilev_fld, use_plevs, use_meters, use_theta, use_pvort, use_depth, use_hyblevs,       &
+                       basetime, coord_heights(1:ncoords), ncid, dims, dimvars, source, extra_atts, calendar,   &
                        nsoil_fld, zsoil, osig_found )
                end if
                histid(i) = ncid
@@ -1616,15 +1627,15 @@ contains
    end subroutine create_ncvar
   
 !---------------------------------------------------------------------------
-   subroutine create_ncfile ( filename, nxhis, nyhis, nlev, ol, cptch, cchrt, multilev,            &
-                 use_plevs, use_meters, use_depth, use_hyblevs, basetime,            &
-                 coord_heights, ncid, dims, dimvars, source, extra_atts, calendar,   &
+   subroutine create_ncfile ( filename, nxhis, nyhis, nlev, ol, cptch, cchrt, multilev,         &
+                 use_plevs, use_meters, use_theta, use_pvort, use_depth, use_hyblevs, basetime, &
+                 coord_heights, ncid, dims, dimvars, source, extra_atts, calendar,              &
                  nsoil, zsoil, osig_found )
 
       use mpidata_m
       character(len=*), intent(in) :: filename
       integer, intent(in) :: nxhis, nyhis, nlev, ol, cptch, cchrt
-      logical, intent(in) :: multilev, use_plevs, use_meters, use_depth, use_hyblevs
+      logical, intent(in) :: multilev, use_plevs, use_meters, use_theta, use_pvort, use_depth, use_hyblevs
       logical, intent(in) :: osig_found
       character(len=*), intent(in) :: basetime
       integer, dimension(:), intent(in) :: coord_heights
@@ -1804,6 +1815,18 @@ contains
             call check_ncerr(ierr)
             ierr = nf90_put_att ( ncid, dimvars%z, "positive", "up" )
             call check_ncerr(ierr)
+         else if ( use_theta ) then
+            ierr = nf90_def_var ( ncid, "lev", NF90_FLOAT, dims%z, dimvars%z )
+            call check_ncerr(ierr)
+            ierr = nf90_put_att ( ncid, dimvars%z, "long_name", "theta_level" )
+            call check_ncerr(ierr)
+            ierr = nf90_put_att ( ncid, dimvars%z, "units", "K" )
+            call check_ncerr(ierr)
+            ierr = nf90_put_att ( ncid, dimvars%z, "positive", "up" )
+            call check_ncerr(ierr)
+         else if ( use_pvort ) then
+            print *,"Error potential vorticity levels are not avaliable"
+            stop
          else if ( use_hyblevs ) then
             ! This is required for grads to recognise it's a vertical dimension
             ! Allowed by CF convention

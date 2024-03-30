@@ -132,6 +132,11 @@ contains
             allocate ( zstd(pil,pjl*pnpan*lproc,nplevs) )
          end if
       end if
+      if ( needfld("theta") ) then
+         if ( use_theta ) then
+            allocate ( tstd(pil,pjl*pnpan*lproc,nplevs) )
+         end if    
+      end if   
       allocate( tmp3d(pil,pjl*pnpan*lproc,kl) )
       allocate( hstd(pil,pjl*pnpan*lproc,kl) )
       ! ocean arrays
@@ -463,7 +468,7 @@ contains
             cycle ! Otherwise will match the following if test as well
          end if
 
-         ! Only read these on a full day. ktau is really time in minutes
+         ! Only read these on a full day or 6-hours. ktau is really time in minutes
          if ( varlist(ivar)%daily .and. modulo(ktau,1440) /= 0 ) cycle
          if ( varlist(ivar)%sixhr .and. modulo(ktau,360) /= 0 ) cycle
 
@@ -517,7 +522,7 @@ contains
                   call savehist ( "evspsbl", dtmp )
                end if    
             case ( "evspsblpot" )
-               if ( needfld("evspsblpot") ) then 
+               if ( needfld("evspsblpot") .and. .not.fao_potev ) then 
                   call vread( "epot_ave", dtmp )
                   where ( dtmp /= nf90_fill_float )
                      dtmp = dtmp/2.501e6 ! Latent heat of vaporisation (J kg^-1)
@@ -1058,11 +1063,17 @@ contains
                else if ( match ( varlist(ivar)%vname, (/ "wb?_ave"/) ) ) then
                   if ( needfld(varlist(ivar)%vname) ) then                             
                      call vread( varlist(ivar)%vname, ctmp ) 
+                     where ( soilt<0.5 )
+                       ctmp = nf90_fill_float ! flag for ocean  
+                     end where    
                      call savehist( varlist(ivar)%vname, ctmp )
                   end if
                else if ( match ( varlist(ivar)%vname, (/ "wbice?_ave"/) ) ) then
                   if ( needfld(varlist(ivar)%vname) ) then
                      call vread( varlist(ivar)%vname, ctmp ) 
+                     where ( soilt<0.5 )
+                       ctmp = nf90_fill_float ! flag for ocean  
+                     end where    
                      call savehist( varlist(ivar)%vname, ctmp )
                   end if
                else
@@ -1249,7 +1260,10 @@ contains
                end do
                if ( use_meters ) then
                   call mitop_setup( sig, mlevs(1:nplevs), hstd, zs, t, q, maxlev, minlev )
-               end if   
+               end if
+               if ( use_theta ) then
+                  call titop_setup( sig, tlevs(1:nplevs), psl, t, maxlev, minlev )
+               end if
                if ( needfld(varlist(ivar)%vname) ) then
                   call vsavehist ( varlist(ivar)%vname, t )
                end if
@@ -1671,10 +1685,17 @@ contains
          end if
          
          if ( needfld("theta") ) then
-            do k = 1,kk
-               tmp3d(:,:,k) = t(:,:,k)*(psl*sig(k)/1.e3)**(-rdry/cp)
-            end do
-            call vsavehist ( "theta", tmp3d )
+            if ( use_theta ) then
+               do k = 1,nplevs
+                  tstd(:,:,k) = tlevs(k)
+               end do
+               call savehist( "theta", tstd )
+            else    
+               do k = 1,kk
+                  tmp3d(:,:,k) = t(:,:,k)*(psl*sig(k)/1.e3)**(-rdry/cp)
+               end do
+               call vsavehist ( "theta", tmp3d )
+            end if   
          end if
          
          if ( needfld("w") ) then
@@ -1702,6 +1723,8 @@ contains
                   zstd(:,:,k) = mlevs(k)/mlevs(nplevs)*(mlevs(nplevs)-zs) + zs
                end do
                call savehist ( "zg", zstd )
+            else if ( use_theta .or. use_pvort ) then
+               call vsavehist( "zg", hstd )
             else
                call savehist ( "zg", hstd(:,:,minlev:maxlev) )
             end if
@@ -1716,6 +1739,8 @@ contains
                   zstd(:,:,k) = mlevs(k)/mlevs(nplevs)*(mlevs(nplevs)-zs) + zs
                end do
                call savehist ( "lvl", zstd )
+            else if ( use_theta .or. use_pvort ) then
+               call vsavehist( "zg", hstd )
             else
                call savehist ( "lvl", hstd(:,:,minlev:maxlev) )
             end if
@@ -1895,7 +1920,7 @@ contains
          if ( needfld("u10") .or. needfld("sfcWind") ) then
             where ( uastmp/=nf90_fill_float .and. &
                     vastmp/=nf90_fill_float )
-               dtmp = sqrt( uastmp*uastmp + vastmp*vastmp )
+               dtmp = sqrt( uastmp**2 + vastmp**2 )
             elsewhere
                dtmp = nf90_fill_float
             end where  
@@ -2146,6 +2171,7 @@ contains
       real :: hlon_tmp, hlat_tmp, hlon_dx, hlat_dy
       real :: new_sum, shallow_sum
       real, parameter :: shallow_max = 0.1 ! shallow soil depth (10cm)
+      real(kind=8) :: hlonr8, hlatr8
 
 #ifdef share_ifullg
       integer(kind=MPI_ADDRESS_KIND) :: ssize
@@ -2407,9 +2433,9 @@ contains
          end if
          ! If dlon set use that, otherwise use hres
          if ( dlon /= 0. ) then
-            nxhis = nint ( (maxlon-minlon) / dlon )
+            nxhis = nint ( (real(maxlon,8)-real(minlon,8)) / real(dlon,8) )
          else
-            nxhis = nint ( (maxlon-minlon) / hres )
+            nxhis = nint ( (real(maxlon,8)-real(minlon,8)) / real(hres,8) )
          end if
 !        If it's not periodic then need to add 1 to nxhis to get both
 !        boundaries
@@ -2423,9 +2449,9 @@ contains
             maxlat = tmp
          end if
          if ( dlat /= 0. ) then
-            nyhis = nint ( (maxlat-minlat) / dlat ) + 1
+            nyhis = nint ( (real(maxlat,8)-real(minlat,8)) / real(dlat,8) ) + 1
          else
-            nyhis = nint ( (maxlat-minlat) / hres ) + 1
+            nyhis = nint ( (real(maxlat,8)-real(minlat,8)) / real(hres,8) ) + 1
          end if
       end if
 
@@ -2456,14 +2482,16 @@ contains
          else  
             hlat(1) = minlat 
             do j = 2,nyhis-1
-               hlat(j) = minlat + real(j-1)*(maxlat-minlat)/real(nyhis-1)
+               hlatr8 = real(minlat,8) + real(j-1,8)*(real(maxlat,8)-real(minlat,8))/real(nyhis-1,8)
+               hlat(j) = real(hlatr8)
             end do
             hlat(nyhis) = maxlat
          end if   
          if ( maxlon - minlon == 360.0 ) then
             hlon(1) = minlon 
             do i = 2,nxhis-1
-               hlon(i) = minlon + real(i-1)*(maxlon-minlon)/real(nxhis)
+               hlonr8 = real(minlon,8) + real(i-1,8)*(real(maxlon,8)-real(minlon,8))/real(nxhis,8)  
+               hlon(i) = real(hlonr8)
             end do
             hlon(nxhis) = maxlon
          else if ( nxhis == 1 ) then
@@ -2471,7 +2499,8 @@ contains
          else    
             hlon(1) = minlon 
             do i = 2,nxhis-1
-               hlon(i) = minlon + real(i-1)*(maxlon-minlon)/real(nxhis-1)
+               hlonr8 = real(minlon,8) + real(i-1,8)*(real(maxlon,8)-real(minlon,8))/real(nxhis-1,8) 
+               hlon(i) = real(hlonr8)
             end do
             hlon(nxhis) = maxlon
          end if
@@ -3739,6 +3768,7 @@ contains
          else if ( use_meters ) then
             topsig = exp(-grav*mlevs(nlev)/(300.*rdry))
          else
+            ! use this value for sigma levels, theta levels and pvort levels 
             topsig = sig(kk)
          end if
          ! Assume isothermal 300K profile. This will lead to an overestimate

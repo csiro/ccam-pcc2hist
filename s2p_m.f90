@@ -1,6 +1,6 @@
 ! Conformal Cubic Atmospheric Model
     
-! Copyright 2015-2019 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+! Copyright 2015-2024 Commonwealth Scientific Industrial Research Organisation (CSIRO)
     
 ! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
 !
@@ -29,10 +29,14 @@ module s2p_m
    logical, save :: use_plevs = .false. 
    logical, save :: use_meters = .false.
    logical, save :: use_depth = .false.
+   logical, save :: use_theta = .false.
+   logical, save :: use_pvort = .false.
    integer, parameter :: npmax = 200
    real, dimension(npmax) :: plevs = 0.0
    real, dimension(npmax) :: mlevs = 9.e9
    real, dimension(npmax) :: dlevs = 9.e9
+   real, dimension(npmax) :: tlevs = 9.e9
+   real, dimension(npmax) :: vlevs = 9.e9
    integer, save :: nplevs, onplevs
    integer :: vextrap = vextrap_default
    integer, public, save :: minlev=1, maxlev=HUGE(1)
@@ -116,7 +120,57 @@ contains
          stop
       end if
    end subroutine check_meters   
- 
+
+   subroutine check_theta
+      ! Sanity checks and sorting on the specified output theta levels.
+      use usage_m
+      integer :: i, j
+      real :: temp
+
+      if ( .not. use_meters ) then
+         return
+      end if
+      if ( minval(tlevs) == 9.e9 ) then
+         print*, " Error, use_tlevs set but no levels specified "
+         call usage()
+      end if
+!     Find the actual number of height levels set.
+!     First remove any negative values
+      tlevs = max ( tlevs, 0.0 )
+!     Sort into increasing order. This is only done once on a short list
+!     so just use a selection sort. 
+      do i=1,npmax
+!        Using maxval here is just a trick to reduce the array result of 
+!        maxloc to a scalar.
+         j = maxval ( minloc(tlevs(i:)) ) + i - 1
+         temp = tlevs(i)
+         tlevs(i) = tlevs(j)
+         tlevs(j) = temp
+      end do
+!     Find the minimum non-huge value
+      do i=1,npmax
+         if ( tlevs(i) == 9.E9 ) then
+            exit
+         end if
+      end do
+!     Gives correct value whether the loop exits naturally or not
+      nplevs = i-1  
+      if  ( nplevs == 0 ) then
+         print*,  "Error, no theta levels set "
+         stop
+      end if
+   end subroutine check_theta
+
+   subroutine check_pvort
+      ! Sanity checks and sorting on the specified output potential vorticity levels.
+
+      if ( .not. use_pvort ) then
+         return
+      end if
+      print *, "Error, potential vorticity levels not currently supported"
+      stop
+   end subroutine check_pvort   
+   
    subroutine check_depth
       ! Sanity checks and sorting on the specified output pressure levels.
       use usage_m
@@ -174,16 +228,16 @@ contains
 
       if ( .not. needfld(name) ) return
       call START_LOG(vsavehist_begin)
-      if ( use_plevs ) then
-!        sigma to pressure conversion.
+      if ( use_plevs .or. use_meters .or. use_theta ) then
+!        sigma to pressure/height/theta conversion.
          if ( vextrap == vextrap_default ) then
             if ( name == "temp" .or. name == "ta" ) then
-               call sitop ( array, parray, sig, plevs(1:nplevs), psl, vextrap_t )
+               call sitop ( array, parray, vextrap_t )
             else
-               call sitop ( array, parray, sig, plevs(1:nplevs), psl, vextrap_none )
+               call sitop ( array, parray, vextrap_none )
             end if
          else
-            call sitop ( array, parray, sig, plevs(1:nplevs), psl, vextrap )
+            call sitop ( array, parray, vextrap )
          end if
          if ( name=="qlg" .or. name=="qfg" .or. name=="mixr" .or. name=="hus" ) then
             ! special fix 
@@ -193,25 +247,9 @@ contains
             parray = min( max( parray, 0. ), 100. )
          end if    
          call savehist ( name, parray )
-      else if ( use_meters ) then
-!        sigma to meters conversion.
-         if ( vextrap == vextrap_default ) then
-            if (  name == "temp" .or. name == "ta" ) then
-               call mitop ( array, parray, vextrap_t )
-            else
-               call mitop ( array, parray, vextrap_none )
-            end if
-         else
-            call mitop ( array, parray, vextrap )
-         end if
-         if ( name=="qlg" .or. name=="qfg" .or. name=="mixr" .or. name=="hus" ) then
-            ! special fix 
-            parray = max( parray, 0. )
-         else if ( name=="rh" ) then
-            ! special fix 
-            parray = min( max( parray, 0. ), 100. )
-         end if    
-         call savehist ( name, parray )
+      else if ( use_pvort ) then
+         print *, "Error, potential vorticity levels not currently supported"
+         stop
       else
 !        Save the sigma level values directly.
          call savehist ( name, array(:,:,minlev:maxlev) )

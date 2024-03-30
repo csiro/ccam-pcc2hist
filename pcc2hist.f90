@@ -1,6 +1,6 @@
 ! Conformal Cubic Atmospheric Model
     
-! Copyright 2015-2023 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+! Copyright 2015-2024 Commonwealth Scientific Industrial Research Organisation (CSIRO)
     
 ! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
 !
@@ -67,7 +67,8 @@ program cc2hist
                     minlon, maxlon, dlon, minlat, maxlat, dlat,       &
                     dx, dy, lx, ly,                                   &
                     minlev, maxlev, minsig, maxsig, use_plevs, plevs, &
-                    use_meters, mlevs, use_depth, dlevs, sdate,       &
+                    use_meters, mlevs, use_depth, dlevs, use_theta,   &
+                    tlevs, use_pvort, vlevs, sdate,                   &
                     edate, stime, etime, hres, debug, ifile, ofile,   &
                     int_default, vextrap, cf_compliant,               &
                     cordex_compliant, save_ccam_parameters,           &
@@ -80,7 +81,7 @@ program cc2hist
    integer :: iyr, imon, iday, ihr, vid
    integer :: base_yr, base_mon, base_day, base_hr
    integer :: nvars
-   integer :: veg_int
+   integer :: veg_int, ncount
    integer :: natts, catts, ival, xtype, attlen, i
    logical :: use_date, use_steps
    logical :: skip
@@ -92,6 +93,7 @@ program cc2hist
    real :: time_prev = 0.
    real :: rval, dtime
    real, dimension(2) :: time_bnds
+   real, dimension(:), allocatable :: xlevs
    type(input_var), dimension(:), pointer, contiguous :: varlist
    type(hist_att), dimension(:), allocatable :: extra_atts, extra_temp
 
@@ -235,8 +237,13 @@ program cc2hist
       call MPI_ABORT(comm_world,-1,ierr)
    end if
 
-   if ( use_plevs .and. use_meters ) then
-      print *,"Cannot both use_plevs and use_meters together"
+   ncount = 0
+   if ( use_plevs ) ncount = ncount + 1
+   if ( use_meters ) ncount = ncount + 1
+   if ( use_theta ) ncount = ncount + 1
+   if ( use_pvort ) ncount = ncount + 1
+   if ( ncount>1 ) then
+      print *,"Cannot use use_plevs, use_meters, use_theta and use_port together"
       call finishbanner
       call MPI_ABORT(comm_world,-1,ierr)
    end if
@@ -269,6 +276,8 @@ program cc2hist
    call check_plevs
    call check_meters
    call check_depth
+   call check_theta
+   call check_pvort
    
    ! Open parallel input files  
    call paraopen(ifile, NF90_NOWRITE, ncid)
@@ -302,7 +311,7 @@ program cc2hist
       print*, " Check minlev, maxlev, minsig, maxsig "
       stop
    end if
-   if ( use_plevs .or. use_meters ) then
+   if ( use_plevs .or. use_meters .or. use_theta .or. use_pvort ) then
       nlev = nplevs
       minlev = 1
       maxlev = kl
@@ -384,185 +393,50 @@ program cc2hist
    extra_atts(3:catts) = extra_temp(1:catts-2)
    deallocate ( extra_temp )
    
+   allocate( xlevs(nplevs) ) ! use a pointer here?
+   if ( use_plevs ) xlevs(1:nplevs) = plevs(1:nplevs)
+   if ( use_meters ) xlevs(1:nplevs) = mlevs(1:nplevs)
+   if ( use_theta ) xlevs(1:nplevs) = tlevs(1:nplevs)
+   if ( use_pvort ) xlevs(1:nplevs) = vlevs(1:nplevs)
+   
    if ( calendar /= "" ) then
       if ( cf_compliant ) then
-         if ( use_plevs ) then
-            if ( use_depth ) then
-               call openhist( il, jl, nlev, plevs(1:nplevs), onlev, cptch, cchrt, dlevs(1:onplevs), &
-                              "_test", hlon, hlat, basetime, year=1, nxout=nxhis,     &
-                              nyout=nyhis, source=source, histfilename=ofile,         &
-                              pressure=use_plevs, depth=use_depth,                    &
-                              extra_atts=extra_atts, nsoil=ksoil, zsoil=zsoil,        &
-                              calendar=calendar )
-            else    
-               call openhist( il, jl, nlev, plevs(1:nplevs), onlev, cptch, cchrt, gosig, "_test",   &
-                              hlon, hlat, basetime, year=1, nxout=nxhis, nyout=nyhis, &
-                              source=source, histfilename=ofile, pressure=use_plevs,  &
-                              extra_atts=extra_atts, nsoil=ksoil, zsoil=zsoil,        &
-                              calendar=calendar )
-            end if   
-         else if ( use_meters ) then
-            if ( use_depth ) then
-               call openhist( il, jl, nlev, mlevs(1:nplevs), onlev, cptch, cchrt, dlevs(1:onplevs), &
-                              "_test", hlon, hlat, basetime, year=1, nxout=nxhis,     &
-                              nyout=nyhis, source=source, histfilename=ofile,         &
-                              height=use_meters, depth=use_depth,                     &
-                              extra_atts=extra_atts, nsoil=ksoil, zsoil=zsoil,        &
-                              calendar=calendar )
-            else    
-               call openhist( il, jl, nlev, mlevs(1:nplevs), onlev, cptch, cchrt, gosig, "_test",   &
-                              hlon, hlat, basetime, year=1, nxout=nxhis, nyout=nyhis, &
-                              source=source, histfilename=ofile, height=use_meters,   &
-                              extra_atts=extra_atts, nsoil=ksoil, zsoil=zsoil,        &
-                              calendar=calendar )
-            end if   
-         else
-            if ( use_depth ) then
-               call openhist( il, jl, nlev, sig(minlev:maxlev), onlev, cptch, cchrt, dlevs(1:onplevs), &
-                             "_test", hlon, hlat, basetime, year=1, nxout=nxhis,         &
-                             nyout=nyhis, source=source, histfilename=ofile,             &
-                             depth=use_depth, extra_atts=extra_atts, nsoil=ksoil,        &
-                             zsoil=zsoil, calendar=calendar )
-            else    
-               call openhist( il, jl, nlev, sig(minlev:maxlev), onlev, cptch, cchrt, gosig, "_test", &
-                             hlon, hlat, basetime, year=1, nxout=nxhis, nyout=nyhis,   &
-                             source=source, histfilename=ofile,                        &
-                             extra_atts=extra_atts, nsoil=ksoil, zsoil=zsoil,          &
-                             calendar=calendar )
-            end if   
-         end if
+         call openhist( il, jl, nlev, xlevs(1:nplevs), onlev, cptch, cchrt, dlevs(1:onplevs), &
+                        "_test", hlon, hlat, basetime, year=1, nxout=nxhis,     &
+                        nyout=nyhis, source=source, histfilename=ofile,         &
+                        pressure=use_plevs, height=use_meters, theta=use_theta, &
+                        pvort=use_pvort, depth=use_depth,                       &
+                        extra_atts=extra_atts, nsoil=ksoil, zsoil=zsoil,        &
+                        calendar=calendar )
       else
-         if ( use_plevs ) then
-            if ( use_depth ) then
-               call openhist ( il, jl, nlev, plevs(1:nplevs), onlev, cptch, cchrt, dlevs(1:onplevs), &
-                               "_test", hlon, hlat, basetime, year=1, nxout=nxhis,     &
-                               nyout=nyhis, source=source, histfilename=ofile,         &
-                               pressure=use_plevs, depth=use_depth,                    &
-                               extra_atts=extra_atts, nsoil=ksoil, zsoil=zsoil,        &
-                               calendar=calendar )
-            else    
-               call openhist ( il, jl, nlev, plevs(1:nplevs), onlev, cptch, cchrt, gosig, "_test",   &
-                               hlon, hlat, basetime, year=1, nxout=nxhis, nyout=nyhis, &
-                               source=source, histfilename=ofile, pressure=use_plevs,  &
-                               extra_atts=extra_atts, nsoil=ksoil, zsoil=zsoil,        &
-                               calendar=calendar )
-            end if   
-         else if ( use_meters ) then
-            if ( use_depth ) then
-               call openhist ( il, jl, nlev, mlevs(1:nplevs), onlev, cptch, cchrt, dlevs(1:onplevs), &
-                               "_test", hlon, hlat, basetime, year=1, nxout=nxhis,     &
-                               nyout=nyhis, source=source, histfilename=ofile,         &
-                               height=use_meters, depth=use_depth,                     &
-                               extra_atts=extra_atts, nsoil=ksoil, zsoil=zsoil,        &
-                               calendar=calendar )
-            else    
-               call openhist ( il, jl, nlev, mlevs(1:nplevs), onlev, cptch, cchrt, gosig, "_test",   &
-                               hlon, hlat, basetime, year=1, nxout=nxhis, nyout=nyhis, &
-                               source=source, histfilename=ofile, height=use_meters,   &
-                               extra_atts=extra_atts, nsoil=ksoil, zsoil=zsoil,        &
-                               calendar=calendar )
-            end if   
-         else
-            if ( use_depth ) then
-               call openhist ( il, jl, nlev, sig(minlev:maxlev), onlev, cptch, cchrt, dlevs(1:onplevs), &
-                               "_test", hlon, hlat, basetime, year=1, nxout=nxhis,        &
-                               nyout=nyhis, source=source, histfilename=ofile,            &
-                               depth=use_depth, extra_atts=extra_atts, nsoil=ksoil,       &
-                               zsoil=zsoil, calendar=calendar )   
-            else    
-               call openhist ( il, jl, nlev, sig(minlev:maxlev), onlev, cptch, cchrt, gosig, "_test",   &
-                               hlon, hlat, basetime, year=1, nxout=nxhis, nyout=nyhis,    &
-                               source=source, histfilename=ofile, extra_atts=extra_atts,  &
-                               nsoil=ksoil, zsoil=zsoil, calendar=calendar )
-            end if   
-         end if
+         call openhist ( il, jl, nlev, xlevs(1:nplevs), onlev, cptch, cchrt, dlevs(1:onplevs), &
+                         "_test", hlon, hlat, basetime, year=1, nxout=nxhis,     &
+                         nyout=nyhis, source=source, histfilename=ofile,         &
+                         pressure=use_plevs, height=use_meters, theta=use_theta, &
+                         pvort=use_pvort, depth=use_depth,                       &
+                         extra_atts=extra_atts, nsoil=ksoil, zsoil=zsoil,        &
+                         calendar=calendar )
       end if
    else
-       if ( cf_compliant ) then
-         if ( use_plevs ) then
-            if ( use_depth ) then
-               call openhist( il, jl, nlev, plevs(1:nplevs), onlev, cptch, cchrt, dlevs(1:onplevs), &
-                              "_test", hlon, hlat, basetime, year=1, nxout=nxhis,     &
-                              nyout=nyhis, source=source, histfilename=ofile,         &
-                              pressure=use_plevs, depth=use_depth,                    &
-                              extra_atts=extra_atts, nsoil=ksoil, zsoil=zsoil )
-            else    
-               call openhist( il, jl, nlev, plevs(1:nplevs), onlev, cptch, cchrt, gosig, "_test",   &
-                              hlon, hlat, basetime, year=1, nxout=nxhis, nyout=nyhis, &
-                              source=source, histfilename=ofile, pressure=use_plevs,  &
-                              extra_atts=extra_atts, nsoil=ksoil, zsoil=zsoil )
-            end if   
-         else if ( use_meters ) then
-            if ( use_depth ) then
-               call openhist( il, jl, nlev, mlevs(1:nplevs), onlev, cptch, cchrt, dlevs(1:onplevs), &
-                              "_test", hlon, hlat, basetime, year=1, nxout=nxhis,     &
-                              nyout=nyhis, source=source, histfilename=ofile,         &
-                              height=use_meters, depth=use_depth,                     &
-                              extra_atts=extra_atts, nsoil=ksoil, zsoil=zsoil )
-            else    
-               call openhist( il, jl, nlev, mlevs(1:nplevs), onlev, cptch, cchrt, gosig, "_test",   &
-                              hlon, hlat, basetime, year=1, nxout=nxhis, nyout=nyhis, &
-                              source=source, histfilename=ofile, height=use_meters,   &
-                              extra_atts=extra_atts, nsoil=ksoil, zsoil=zsoil )
-            end if
-         else
-            if ( use_depth ) then
-               call openhist( il, jl, nlev, sig(minlev:maxlev), onlev, cptch, cchrt, dlevs(1:onplevs), &
-                             "_test", hlon, hlat, basetime, year=1, nxout=nxhis,         &
-                             nyout=nyhis, source=source, histfilename=ofile,             &
-                             depth=use_depth, extra_atts=extra_atts, nsoil=ksoil,        &
-                             zsoil=zsoil )
-            else    
-               call openhist( il, jl, nlev, sig(minlev:maxlev), onlev, cptch, cchrt, gosig, "_test", &
-                             hlon, hlat, basetime, year=1, nxout=nxhis, nyout=nyhis,   &
-                             source=source, histfilename=ofile,                        &
-                             extra_atts=extra_atts, nsoil=ksoil, zsoil=zsoil )
-            end if   
-         end if
+      if ( cf_compliant ) then
+         call openhist( il, jl, nlev, xlevs(1:nplevs), onlev, cptch, cchrt, dlevs(1:onplevs), &
+                        "_test", hlon, hlat, basetime, year=1, nxout=nxhis,     &
+                        nyout=nyhis, source=source, histfilename=ofile,         &
+                        pressure=use_plevs, height=use_meters, theta=use_theta, &
+                        pvort=use_pvort, depth=use_depth,                       &
+                        extra_atts=extra_atts, nsoil=ksoil, zsoil=zsoil )
       else
-         if ( use_plevs ) then
-            if ( use_depth ) then
-               call openhist ( il, jl, nlev, plevs(1:nplevs), onlev, cptch, cchrt, dlevs(1:onplevs), &
-                               "_test", hlon, hlat, basetime, year=1, nxout=nxhis,     &
-                               nyout=nyhis, source=source, histfilename=ofile,         &
-                               pressure=use_plevs, depth=use_depth,                    &
-                               extra_atts=extra_atts, nsoil=ksoil, zsoil=zsoil )  
-            else    
-               call openhist ( il, jl, nlev, plevs(1:nplevs), onlev, cptch, cchrt, gosig, "_test",   &
-                               hlon, hlat, basetime, year=1, nxout=nxhis, nyout=nyhis, &
-                               source=source, histfilename=ofile, pressure=use_plevs,  &
-                               extra_atts=extra_atts, nsoil=ksoil, zsoil=zsoil )
-            end if   
-         else if ( use_meters ) then
-            if ( use_depth ) then
-               call openhist ( il, jl, nlev, mlevs(1:nplevs), onlev, cptch, cchrt, dlevs(1:onplevs), &
-                               "_test", hlon, hlat, basetime, year=1, nxout=nxhis,     &
-                               nyout=nyhis, source=source, histfilename=ofile,         &
-                               height=use_meters, depth=use_depth,                     &
-                               extra_atts=extra_atts, nsoil=ksoil, zsoil=zsoil )  
-            else    
-               call openhist ( il, jl, nlev, mlevs(1:nplevs), onlev, cptch, cchrt, gosig, "_test",   &
-                               hlon, hlat, basetime, year=1, nxout=nxhis, nyout=nyhis, &
-                               source=source, histfilename=ofile, height=use_meters,   &
-                               extra_atts=extra_atts, nsoil=ksoil, zsoil=zsoil )
-            end if   
-         else
-            if ( use_depth ) then
-               call openhist ( il, jl, nlev, sig(minlev:maxlev), onlev, cptch, cchrt, dlevs(1:onplevs),  &
-                              "_test", hlon, hlat, basetime, year=1, nxout=nxhis,          &
-                               nyout=nyhis, source=source, histfilename=ofile,             &
-                               depth=use_depth, extra_atts=extra_atts,nsoil=ksoil,         &
-                               zsoil=zsoil )
-            else    
-               call openhist ( il, jl, nlev, sig(minlev:maxlev), onlev, cptch, cchrt, gosig, "_test",    &
-                               hlon, hlat, basetime, year=1, nxout=nxhis, nyout=nyhis,     &
-                               source=source, histfilename=ofile, extra_atts=extra_atts,   &
-                               nsoil=ksoil, zsoil=zsoil )
-            end if   
-         end if
-      end if  
+         call openhist ( il, jl, nlev, xlevs(1:nplevs), onlev, cptch, cchrt, dlevs(1:onplevs), &
+                         "_test", hlon, hlat, basetime, year=1, nxout=nxhis,     &
+                         nyout=nyhis, source=source, histfilename=ofile,         &
+                         pressure=use_plevs, height=use_meters, theta=use_theta, &
+                         pvort=use_pvort, depth=use_depth,                       &
+                         extra_atts=extra_atts, nsoil=ksoil, zsoil=zsoil )  
+      end if   
    end if
 
+   deallocate( xlevs )
+   
 !  needfld calls are only valid after openhist
    call final_init( varlist, nvars )
 
@@ -587,7 +461,7 @@ program cc2hist
          print*, "KT", kt
       end if
       do ! Loop through until time found
-         call getdate ( kdate, ktime, ieof )
+         call getdate( kdate, ktime, ieof )
          if ( ieof /= 0 ) then  ! END OF FILE
             exit timeloop
          end if
@@ -698,7 +572,7 @@ program cc2hist
    call END_LOG(timeloop_end)
    call log_off()
 
-   call writehist(ktau, interp=ints, time=time, dtime=dtime, endofrun=.true. )
+   call writehist( ktau, interp=ints, time=time, dtime=dtime, endofrun=.true. )
    call closehist
    call paraclose
 
