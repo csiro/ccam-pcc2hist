@@ -127,7 +127,7 @@ contains
       integer :: i, j
       real :: temp
 
-      if ( .not. use_meters ) then
+      if ( .not. use_theta ) then
          return
       end if
       if ( minval(tlevs) == 9.e9 ) then

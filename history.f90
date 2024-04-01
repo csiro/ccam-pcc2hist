@@ -751,7 +751,7 @@ contains
 #endif
 
       call START_LOG(openhist_begin)
-      
+
 !     Set the module variables
       if ( present (nxout) ) then
          nxhis = nxout
