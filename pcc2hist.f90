@@ -392,16 +392,23 @@ program cc2hist
    extra_atts(2) = hist_att("kl", NF90_INT, 0., kl, "")
    extra_atts(3:catts) = extra_temp(1:catts-2)
    deallocate ( extra_temp )
-   
-   allocate( xlevs(nplevs) ) ! use a pointer here?
-   if ( use_plevs ) xlevs(1:nplevs) = plevs(1:nplevs)
-   if ( use_meters ) xlevs(1:nplevs) = mlevs(1:nplevs)
-   if ( use_theta ) xlevs(1:nplevs) = tlevs(1:nplevs)
-   if ( use_pvort ) xlevs(1:nplevs) = vlevs(1:nplevs)
+
+   allocate( xlevs(nlev) ) ! use a pointer here?
+   if ( use_plevs ) then
+      xlevs(1:nlev) = plevs(1:nlev)
+   else if ( use_meters ) then
+      xlevs(1:nlev) = mlevs(1:nlev)
+   else if ( use_theta ) then
+      xlevs(1:nlev) = tlevs(1:nlev)
+   else if ( use_pvort ) then
+      xlevs(1:nlev) = vlevs(1:nlev)
+   else
+      xlevs(1:nlev) = sig(minlev:maxlev)
+   end if
    
    if ( calendar /= "" ) then
       if ( cf_compliant ) then
-         call openhist( il, jl, nlev, xlevs(1:nplevs), onlev, cptch, cchrt, dlevs(1:onplevs), &
+         call openhist( il, jl, nlev, xlevs(1:nlev), onlev, cptch, cchrt, dlevs(1:onplevs), &
                         "_test", hlon, hlat, basetime, year=1, nxout=nxhis,     &
                         nyout=nyhis, source=source, histfilename=ofile,         &
                         pressure=use_plevs, height=use_meters, theta=use_theta, &
@@ -409,7 +416,7 @@ program cc2hist
                         extra_atts=extra_atts, nsoil=ksoil, zsoil=zsoil,        &
                         calendar=calendar )
       else
-         call openhist ( il, jl, nlev, xlevs(1:nplevs), onlev, cptch, cchrt, dlevs(1:onplevs), &
+         call openhist ( il, jl, nlev, xlevs(1:nlev), onlev, cptch, cchrt, dlevs(1:onplevs), &
                          "_test", hlon, hlat, basetime, year=1, nxout=nxhis,     &
                          nyout=nyhis, source=source, histfilename=ofile,         &
                          pressure=use_plevs, height=use_meters, theta=use_theta, &
@@ -419,14 +426,14 @@ program cc2hist
       end if
    else
       if ( cf_compliant ) then
-         call openhist( il, jl, nlev, xlevs(1:nplevs), onlev, cptch, cchrt, dlevs(1:onplevs), &
+         call openhist( il, jl, nlev, xlevs(1:nlev), onlev, cptch, cchrt, dlevs(1:onplevs), &
                         "_test", hlon, hlat, basetime, year=1, nxout=nxhis,     &
                         nyout=nyhis, source=source, histfilename=ofile,         &
                         pressure=use_plevs, height=use_meters, theta=use_theta, &
                         pvort=use_pvort, depth=use_depth,                       &
                         extra_atts=extra_atts, nsoil=ksoil, zsoil=zsoil )
       else
-         call openhist ( il, jl, nlev, xlevs(1:nplevs), onlev, cptch, cchrt, dlevs(1:onplevs), &
+         call openhist ( il, jl, nlev, xlevs(1:nlev), onlev, cptch, cchrt, dlevs(1:onplevs), &
                          "_test", hlon, hlat, basetime, year=1, nxout=nxhis,     &
                          nyout=nyhis, source=source, histfilename=ofile,         &
                          pressure=use_plevs, height=use_meters, theta=use_theta, &
