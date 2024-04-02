@@ -2483,7 +2483,7 @@ contains
             hlat(1) = minlat 
             do j = 2,nyhis-1
                hlatr8 = real(minlat,8) + real(j-1,8)*(real(maxlat,8)-real(minlat,8))/real(nyhis-1,8)
-               hlat(j) = real(hlatr8)
+               hlat(j) = real(real(nint(hlatr8*1.e6_8),8)/1.e6_8)
             end do
             hlat(nyhis) = maxlat
          end if   
@@ -2491,7 +2491,7 @@ contains
             hlon(1) = minlon 
             do i = 2,nxhis-1
                hlonr8 = real(minlon,8) + real(i-1,8)*(real(maxlon,8)-real(minlon,8))/real(nxhis,8)  
-               hlon(i) = real(hlonr8)
+               hlon(i) = real(real(nint(hlonr8*1.e6_8),8)/1.e6_8)
             end do
             hlon(nxhis) = maxlon
          else if ( nxhis == 1 ) then
@@ -2500,7 +2500,7 @@ contains
             hlon(1) = minlon 
             do i = 2,nxhis-1
                hlonr8 = real(minlon,8) + real(i-1,8)*(real(maxlon,8)-real(minlon,8))/real(nxhis-1,8) 
-               hlon(i) = real(hlonr8)
+               hlon(i) = real(real(nint(hlonr8*1.e6_8),8)/1.e6_8)
             end do
             hlon(nxhis) = maxlon
          end if
