@@ -24,6 +24,7 @@ module gldata
 !  Arrays for fields that need some extra processing and so 
 !  can't be handled by readsave
    real, dimension(:,:),   allocatable, save :: psl, zs, soilt, urban_frac
+   real, dimension(:,:),   allocatable, save :: f_cor
    real, dimension(:,:,:), allocatable, save :: u, v, t, q, rh, ql, qf, qs, qg
    real, dimension(:,:,:), allocatable, save :: omega
    real, dimension(:),     allocatable, save :: sig, dsig, zsoil, zse, gosig

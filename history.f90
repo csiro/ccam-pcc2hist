@@ -1148,7 +1148,9 @@ contains
          if ( int_default /= int_none ) then
             dx = hlon(2) - hlon(1)
             lon_bnds(1,:) = hlon(:) - 0.5*dx
+            lon_bnds(1,:) = real(nint(lon_bnds(1,:)*1.e5))/1.e5
             lon_bnds(2,:) = hlon(:) + 0.5*dx
+            lon_bnds(2,:) = real(nint(lon_bnds(2,:)*1.e5))/1.e5
             ! MJT fix for rounding errors
             do i = 2,size(hlon)
                lon_bnds(1,i) = lon_bnds(2,i-1)
@@ -1163,7 +1165,9 @@ contains
          if ( int_default /= int_none ) then
             dy = hlat(2) - hlat(1)
             lat_bnds(1,:) = hlat(:) - 0.5*dy
+            lat_bnds(1,:) = real(nint(lat_bnds(1,:)*1.e5))/1.e5
             lat_bnds(2,:) = hlat(:) + 0.5*dy
+            lat_bnds(2,:) = real(nint(lat_bnds(2,:)*1.e5))/1.e5
             where ( lat_bnds < -90. ) 
                lat_bnds = -90.
             end where
@@ -1825,8 +1829,14 @@ contains
             ierr = nf90_put_att ( ncid, dimvars%z, "positive", "up" )
             call check_ncerr(ierr)
          else if ( use_pvort ) then
-            print *,"Error potential vorticity levels are not avaliable"
-            stop
+            ierr = nf90_def_var ( ncid, "lev", NF90_FLOAT, dims%z, dimvars%z )
+            call check_ncerr(ierr)
+            ierr = nf90_put_att ( ncid, dimvars%z, "long_name", "potential_vorticity_level" )
+            call check_ncerr(ierr)
+            ierr = nf90_put_att ( ncid, dimvars%z, "units", "PVU" )
+            call check_ncerr(ierr)
+            ierr = nf90_put_att ( ncid, dimvars%z, "positive", "up" )
+            call check_ncerr(ierr)             
          else if ( use_hyblevs ) then
             ! This is required for grads to recognise it's a vertical dimension
             ! Allowed by CF convention

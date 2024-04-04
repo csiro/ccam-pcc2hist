@@ -228,7 +228,7 @@ contains
 
       if ( .not. needfld(name) ) return
       call START_LOG(vsavehist_begin)
-      if ( use_plevs .or. use_meters .or. use_theta ) then
+      if ( use_plevs .or. use_meters .or. use_theta .or. use_pvort ) then
 !        sigma to pressure/height/theta conversion.
          if ( vextrap == vextrap_default ) then
             if ( name == "temp" .or. name == "ta" ) then
@@ -247,9 +247,6 @@ contains
             parray = min( max( parray, 0. ), 100. )
          end if    
          call savehist ( name, parray )
-      else if ( use_pvort ) then
-         print *, "Error, potential vorticity levels not currently supported"
-         stop
       else
 !        Save the sigma level values directly.
          call savehist ( name, array(:,:,minlev:maxlev) )

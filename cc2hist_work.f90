@@ -126,7 +126,7 @@ contains
       allocate ( q(pil,pjl*pnpan*lproc,kl),  ql(pil,pjl*pnpan*lproc,kl), qf(pil,pjl*pnpan*lproc,kl) )
       allocate ( qs(pil,pjl*pnpan*lproc,kl), qg(pil,pjl*pnpan*lproc,kl), omega(pil,pjl*pnpan*lproc,kl) )
       allocate ( tgg(pil,pjl*pnpan*lproc,ksoil) )
-      allocate ( urban_frac(pil,pjl*pnpan*lproc) )
+      allocate ( urban_frac(pil,pjl*pnpan*lproc), f_cor(pil,pjl*pnpan*lproc) )
       if ( needfld("zg") .or. needfld("lvl") ) then
          if ( use_plevs .or. use_meters ) then
             allocate ( zstd(pil,pjl*pnpan*lproc,nplevs) )
@@ -380,49 +380,10 @@ contains
          if ( varlist(ivar)%fixed ) then
             if ( first_in ) then
                select case ( varlist(ivar)%vname )
-               case ( "zs", "orog" )
-                  ! This could also be done with the output_scale
-                  call vread( "zht", zs )
-                  zs = zs / grav
-                  if ( needfld(varlist(ivar)%vname) ) then
-                     call savehist ( varlist(ivar)%vname, zs )
-                  end if
-               case ( "sfturf", "sigmu" )
-                  call vread( "sigmu", urban_frac ) 
-                  if ( needfld("sfturf") ) then
-                     dtmp = urban_frac*100.
-                     call savehist("sfturf", dtmp)
-                  end if
-                  if ( needfld("sigmu") ) then
-                     call savehist("sigmu", urban_frac)
-                  end if
-               case ( "soilt" )
-                  call vread( "soilt", soilt )
-                  if ( needfld("soilt") ) then
-                     call savehist("soilt", soilt)
-                  end if   
-                  if ( needfld("land_mask") ) then
-                     where ( soilt > 0.5 )
-                        dtmp = 1.
-                     elsewhere
-                        dtmp = 0.
-                     end where
-                     call savehist("land_mask", dtmp)
-                  else if ( needfld("sftlf") ) then
-                     where ( soilt > 0.5 )
-                        dtmp = 100.
-                     elsewhere
-                        dtmp = 0.
-                     end where
-                     call savehist("sftlf", dtmp)
-                  endif
-                  if ( needfld("sftlaf") ) then
-                     where ( soilt == -1 )
-                        dtmp = 100.  
-                     elsewhere
-                        dtmp = 0. 
-                     end where    
-                     call savehist("sftlaf", dtmp)
+               case ( "cor" )
+                  call vread( "cor", f_cor )
+                  if ( needfld("cor") ) then
+                     call savehist( "cor", f_cor ) 
                   end if
                case ( "map" )
                   if ( needfld("map") .or. needfld("grid") ) then 
@@ -461,6 +422,50 @@ contains
                        ocn_mask(:,:,k) = gosig(k)<=dtmp
                      end do  
                   end if    
+               case ( "sfturf", "sigmu" )
+                  call vread( "sigmu", urban_frac ) 
+                  if ( needfld("sfturf") ) then
+                     dtmp = urban_frac*100.
+                     call savehist("sfturf", dtmp)
+                  end if
+                  if ( needfld("sigmu") ) then
+                     call savehist("sigmu", urban_frac)
+                  end if
+               case ( "soilt" )
+                  call vread( "soilt", soilt )
+                  if ( needfld("soilt") ) then
+                     call savehist("soilt", soilt)
+                  end if   
+                  if ( needfld("land_mask") ) then
+                     where ( soilt > 0.5 )
+                        dtmp = 1.
+                     elsewhere
+                        dtmp = 0.
+                     end where
+                     call savehist("land_mask", dtmp)
+                  else if ( needfld("sftlf") ) then
+                     where ( soilt > 0.5 )
+                        dtmp = 100.
+                     elsewhere
+                        dtmp = 0.
+                     end where
+                     call savehist("sftlf", dtmp)
+                  endif
+                  if ( needfld("sftlaf") ) then
+                     where ( soilt == -1 )
+                        dtmp = 100.  
+                     elsewhere
+                        dtmp = 0. 
+                     end where    
+                     call savehist("sftlaf", dtmp)
+                  end if                  
+               case ( "zs", "orog" )
+                  ! This could also be done with the output_scale
+                  call vread( "zht", zs )
+                  zs = zs / grav
+                  if ( needfld(varlist(ivar)%vname) ) then
+                     call savehist ( varlist(ivar)%vname, zs )
+                  end if
                case default
                   call readsave2 ( varlist(ivar)%vname )
                end select
@@ -1076,6 +1081,14 @@ contains
                      end where    
                      call savehist( varlist(ivar)%vname, ctmp )
                   end if
+               else if ( match ( varlist(ivar)%vname, (/ "wetfrac?"/) ) ) then
+                  if ( needfld(varlist(ivar)%vname) ) then                             
+                     call vread( varlist(ivar)%vname, ctmp ) 
+                     where ( soilt<0.5 )
+                       ctmp = nf90_fill_float ! flag for ocean  
+                     end where    
+                     call savehist( varlist(ivar)%vname, ctmp )
+                  end if                  
                else
                   if ( needfld(varlist(ivar)%vname) ) then           
                      call vread( varlist(ivar)%vname, ctmp ) 
@@ -1263,6 +1276,15 @@ contains
                end if
                if ( use_theta ) then
                   call titop_setup( sig, tlevs(1:nplevs), psl, t, maxlev, minlev )
+               end if
+               if ( use_pvort ) then
+                  ! read u and v variables early 
+                  call vread( "u", u)
+                  call vread( "v", v)
+                  print *,"Error, potential vorticity levels are not supported"
+                  stop
+                  !call calc_pvort_cc(sig,psl,t,u,v,f_cor,tmp3d)
+                  !call vitop_setup( sig, vlevs(1:nplevs), tmp3d, maxlev, minlev )
                end if
                if ( needfld(varlist(ivar)%vname) ) then
                   call vsavehist ( varlist(ivar)%vname, t )
@@ -2171,7 +2193,6 @@ contains
       real :: hlon_tmp, hlat_tmp, hlon_dx, hlat_dy
       real :: new_sum, shallow_sum
       real, parameter :: shallow_max = 0.1 ! shallow soil depth (10cm)
-      real(kind=8) :: hlonr8, hlatr8
 
 #ifdef share_ifullg
       integer(kind=MPI_ADDRESS_KIND) :: ssize
@@ -2482,16 +2503,16 @@ contains
          else  
             hlat(1) = minlat 
             do j = 2,nyhis-1
-               hlatr8 = real(minlat,8) + real(j-1,8)*(real(maxlat,8)-real(minlat,8))/real(nyhis-1,8)
-               hlat(j) = real(real(nint(hlatr8*1.e5_8),8)/1.e5_8)
+               hlat(j) = minlat + real(j-1)*(maxlat-minlat)/real(nyhis-1)
+               hlat(j) = real(nint(hlat(i)*1.e5))/1.e5
             end do
             hlat(nyhis) = maxlat
          end if   
          if ( maxlon - minlon == 360.0 ) then
             hlon(1) = minlon 
             do i = 2,nxhis-1
-               hlonr8 = real(minlon,8) + real(i-1,8)*(real(maxlon,8)-real(minlon,8))/real(nxhis,8)  
-               hlon(i) = real(real(nint(hlonr8*1.e5_8),8)/1.e5_8)
+               hlon(i) = minlon + real(i-1)*(maxlon-minlon)/real(nxhis)  
+               hlon(i) = real(nint(hlon(i)*1.e5))/1.e5
             end do
             hlon(nxhis) = maxlon
          else if ( nxhis == 1 ) then
@@ -2499,8 +2520,8 @@ contains
          else    
             hlon(1) = minlon 
             do i = 2,nxhis-1
-               hlonr8 = real(minlon,8) + real(i-1,8)*(real(maxlon,8)-real(minlon,8))/real(nxhis-1,8) 
-               hlon(i) = real(real(nint(hlonr8*1.e5_8),8)/1.e5_8)
+               hlon(i) = minlon + real(i-1)*(maxlon-minlon)/real(nxhis-1) 
+               hlon(i) = real(nint(hlon(i)*1.e5))/1.e5
             end do
             hlon(nxhis) = maxlon
          end if
@@ -4952,7 +4973,6 @@ contains
       end do
    end function is_soil_var
 
-   ! From ccam infile.f
    subroutine fill_cc(b_io,value)
 !     routine fills in interior of an array which has undefined points
       use logging_m
@@ -5099,6 +5119,157 @@ contains
       call END_LOG(fillcc0_end)
       
    end subroutine fill_cc0
+
+!   subroutine calc_pvort_cc(sig,psl,t,u,v,f_cor,pvort)
+!      use logging_m
+!#ifdef usempimod
+!      use mpi
+!#else
+!      include 'mpif.h'
+!#endif
+!      real, dimension(kl), intent(in) :: sig
+!      real, dimension(pil,pjl*pnpan*lproc), intent(in) :: psl, f_cor
+!      real, dimension(pil,pjl*pnpan*lproc,kl), intent(in) :: t, u, v      
+!      real, dimension(pil,pjl*pnpan*lproc,kl), intent(out) :: pvort
+!      real, dimension(pil,pjl*pnpan*lproc,kl) :: theta
+!      real, dimension(0,0,0) :: c_io
+!      real, dimension(0,0,0,0) :: d_io
+!      integer :: ierr, lsize
+!      
+!      do k = 1,kl
+!         theta(:,:,k) = t(:,:,k)*(psl*sig(k)/1.e3)**(-rdry/cp)
+!      end do      
+!      
+!      if ( myid == 0 ) then
+!         call calc_pvort_cc0(f_cor,theta,u,v,pvort)
+!      else
+!         call START_LOG(mpigather_begin)
+!         lsize = pil*pjl*pnpan*lproc
+!         call MPI_Gather(f_cor,lsize,MPI_REAL,c_io,lsize,MPI_REAL,0,comm_world,ierr)
+!         lsize = pil*pjl*pnpan*lproc*kl
+!         call MPI_Gather(theta,lsize,MPI_REAL,d_io,lsize,MPI_REAL,0,comm_world,ierr)
+!         call MPI_Gather(u,lsize,MPI_REAL,d_io,lsize,MPI_REAL,0,comm_world,ierr)
+!         call MPI_Gather(v,lsize,MPI_REAL,d_io,lsize,MPI_REAL,0,comm_world,ierr)
+!         call END_LOG(mpigather_end)
+!         call START_LOG(mpiscatter_begin)
+!         lsize = pil*pjl*pnpan*lproc*kl
+!         call MPI_Scatter(d_io,lsize,MPI_REAL,pvort,lsize,MPI_REAL,0,comm_world,ierr)
+!         call END_LOG(mpiscatter_end)
+!      end if
+!      
+!   end subroutine calc_pvort_cc
+!
+!   subroutine calc_pvort_cc0(f_cor,theta,u,v,pvort)
+!!     routine calculates potential vorticity
+!      use newmpar_m
+!      use indices_m
+!      use logging_m      
+!#ifdef usempimod
+!      use mpi
+!#else
+!      include 'mpif.h'
+!#endif
+!      real, dimension(pil,pjl*pnpan*lproc), intent(in) :: f_cor
+!      real, dimension(pil,pjl*pnpan*lproc,kl), intent(in) :: theta, u, v
+!      real, dimension(pil,pjl*pnpan*lproc,kl), intent(out) :: pvort
+!      real, dimension(pil,pjl*pnpan,pnproc) :: c_io
+!      real, dimension(pil,pjl*pnpan,pnproc,kl) :: d_io
+!      real, dimension(ifull) :: f_cor_g
+!      real, dimension(ifull,kl) :: theta_g, u_g, v_g, pvort_g
+!      real :: dvdp, dudp, dtdx, dtdy, dtdp, dudy, dvdx
+!      integer :: iq, ierr, i, j
+!      integer :: ip, n, lsize, k
+!      
+!      ! this version gathers data on a single process
+!      
+!      call START_LOG(mpigather_begin)
+!      lsize = pil*pjl*pnpan*lproc      
+!      call MPI_Gather(f_cor,lsize,MPI_REAL,c_io,lsize,MPI_REAL,0,comm_world,ierr)
+!      do ip = 0,pnproc-1   
+!         do n = 0,pnpan-1
+!            do j = 1,pjl
+!               do i = 1,pil
+!                  iq = i + ioff(ip,n) + (j+joff(ip,n)+n*pil_g-1)*il
+!                  f_cor_g(iq) = c_io(i,j+n*pjl,ip+1)
+!               end do
+!            end do
+!         end do
+!      end do
+!      lsize = pil*pjl*pnpan*lproc*kl
+!      call MPI_Gather(theta,lsize,MPI_REAL,d_io,lsize,MPI_REAL,0,comm_world,ierr)
+!      do k = 1,kl
+!         do ip = 0,pnproc-1   
+!            do n = 0,pnpan-1
+!               do j = 1,pjl
+!                  do i = 1,pil
+!                     iq = i + ioff(ip,n) + (j+joff(ip,n)+n*pil_g-1)*il
+!                     theta_g(iq,k) = d_io(i,j+n*pjl,ip+1,k)
+!                  end do   
+!               end do
+!            end do
+!         end do
+!      end do
+!      call MPI_Gather(u,lsize,MPI_REAL,d_io,lsize,MPI_REAL,0,comm_world,ierr)
+!      do k = 1,kl
+!         do ip = 0,pnproc-1   
+!            do n = 0,pnpan-1
+!               do j = 1,pjl
+!                  do i = 1,pil
+!                     iq = i + ioff(ip,n) + (j+joff(ip,n)+n*pil_g-1)*il
+!                     u_g(iq,k) = d_io(i,j+n*pjl,ip+1,k)
+!                  end do   
+!               end do
+!            end do
+!         end do
+!      end do
+!      call MPI_Gather(v,lsize,MPI_REAL,d_io,lsize,MPI_REAL,0,comm_world,ierr)
+!      do k = 1,kl
+!         do ip = 0,pnproc-1   
+!            do n = 0,pnpan-1
+!               do j = 1,pjl
+!                  do i = 1,pil
+!                     iq = i + ioff(ip,n) + (j+joff(ip,n)+n*pil_g-1)*il
+!                     v_g(iq,k) = d_io(i,j+n*pjl,ip+1,k)
+!                  end do   
+!               end do
+!            end do
+!         end do
+!      end do
+!      call END_LOG(mpigather_end)
+!      
+!      !do k = 1,kl
+!      !   do iq = 1,ifull
+!             !dvdp = 0.5*(v_g(iq,k+1) - v_g(iq,k-1))
+!             !dtdx = 0.5*(theta_g(i_e(iq),k) - theta_g(i_w(iq),k))
+!             !dudp = 0.5*(u_g(iq,k+1) - u_g(iq,k-1))
+!             !dtdy = 0.5*(theta_g(i_n(iq),k) - theta_g(i_s(iq),k))
+!             !dtdp = 0.5*(theta_g(iq,k+1) - theta_g(iq,k-1))
+!             !dvdx = 0.5*(v_g(i_e(iq),k) - v_g(i_w(iq),k))
+!             !dudy = 0.5*(u_g(i_n(iq),k) - u_g(i_s(iq),k))
+!             !pvort_g(iq,k) = -grav*(-dvdp*dtdx+dudp*dtdy + dtdp*(f_cor_g(iq)+dvdx-dudy))
+!      !   end do
+!      !end do    
+!      
+!      do k = 1,kl 
+!         do ip = 0,pnproc-1   
+!            do n = 0,pnpan-1
+!               do j = 1,pjl
+!                 do i = 1,pil
+!                    iq = i+ioff(ip,n) + (j+joff(ip,n)+n*pil_g-1)*il
+!                    d_io(i,j+n*pjl,ip+1) = pvort_g(iq,k)
+!                  end do  
+!               end do
+!            end do
+!         end do
+!      end do
+!      
+!      call START_LOG(mpiscatter_begin)
+!      lsize = pil*pjl*pnpan*lproc*kl
+!      call MPI_Scatter(d_io,lsize,MPI_REAL,pvort,lsize,MPI_REAL,0,comm_world,ierr)
+!      call END_LOG(mpiscatter_end)
+!      call END_LOG(fillcc0_end)
+!      
+!   end subroutine fill_cc0
    
    subroutine paraopen(ifile,nmode,ncid)
       use mpidata_m
