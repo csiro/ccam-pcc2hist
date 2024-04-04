@@ -2504,7 +2504,7 @@ contains
             hlat(1) = minlat 
             do j = 2,nyhis-1
                hlat(j) = minlat + real(j-1)*(maxlat-minlat)/real(nyhis-1)
-               hlat(j) = real(nint(hlat(i)*1.e5))/1.e5
+               hlat(j) = real(nint(hlat(j)*1.e5))/1.e5
             end do
             hlat(nyhis) = maxlat
          end if   
