@@ -742,9 +742,10 @@ contains
       integer :: kc, ncoords, k, pkl
       integer :: ol_fld, nsoil_fld, cptch_fld, cchrt_fld
       logical :: osig_found
-      real :: dx, dy
       integer :: i, j
       real, dimension(:), allocatable :: cabledata
+      real(kind=8) :: dx, dy
+      real(kind=8) :: hlonr8, hlatr8
 #ifdef usempi3
       integer :: ave_type, nlev, rrank
       integer :: cnt, maxcnt, gap, slab
@@ -1146,11 +1147,13 @@ contains
          allocate ( lat_bnds(2,size(hlat)), lon_bnds(2,size(hlon)) )
          ! Check if regular grid
          if ( int_default /= int_none ) then
-            dx = hlon(2) - hlon(1)
-            lon_bnds(1,:) = hlon(:) - 0.5*dx
-            lon_bnds(1,:) = real(nint(lon_bnds(1,:)*1.e5))/1.e5
-            lon_bnds(2,:) = hlon(:) + 0.5*dx
-            lon_bnds(2,:) = real(nint(lon_bnds(2,:)*1.e5))/1.e5
+            dx = real(hlon(2),8) - real(hlon(1),8)
+            do i = 1,size(hlon)
+              hlonr8 = real(hlon(i),8) - 0.5_8*dx
+              lon_bnds(1,i) = real(real(nint(hlonr8*1.e5_8),8)*1.e-5_8)
+              hlonr8 = real(hlon(i),8) + 0.5_8*dx
+              lon_bnds(2,i) = real(real(nint(hlonr8*1.e5_8),8)*1.e-5_8)
+            end do  
             ! MJT fix for rounding errors
             do i = 2,size(hlon)
                lon_bnds(1,i) = lon_bnds(2,i-1)
@@ -1163,11 +1166,13 @@ contains
             end do
          end if
          if ( int_default /= int_none ) then
-            dy = hlat(2) - hlat(1)
-            lat_bnds(1,:) = hlat(:) - 0.5*dy
-            lat_bnds(1,:) = real(nint(lat_bnds(1,:)*1.e5))/1.e5
-            lat_bnds(2,:) = hlat(:) + 0.5*dy
-            lat_bnds(2,:) = real(nint(lat_bnds(2,:)*1.e5))/1.e5
+            dy = real(hlat(2),8) - real(hlat(1),8)
+            do j = 1,size(hlat)
+              hlatr8 = real(hlat(j),8) - 0.5_8*dy
+              lat_bnds(1,j) = real(real(nint(hlatr8*1.e5_8),8)*1.e-5_8)
+              hlatr8 = real(hlat(j),8) + 0.5_8*dy
+              lat_bnds(2,j) = real(real(nint(hlatr8*1.e5_8),8)*1.e-5_8)
+            end do  
             where ( lat_bnds < -90. ) 
                lat_bnds = -90.
             end where

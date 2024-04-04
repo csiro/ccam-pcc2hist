@@ -2193,6 +2193,7 @@ contains
       real :: hlon_tmp, hlat_tmp, hlon_dx, hlat_dy
       real :: new_sum, shallow_sum
       real, parameter :: shallow_max = 0.1 ! shallow soil depth (10cm)
+      real(kind=8) :: hlonr8, hlatr8
 
 #ifdef share_ifullg
       integer(kind=MPI_ADDRESS_KIND) :: ssize
@@ -2503,16 +2504,16 @@ contains
          else  
             hlat(1) = minlat 
             do j = 2,nyhis-1
-               hlat(j) = minlat + real(j-1)*(maxlat-minlat)/real(nyhis-1)
-               hlat(j) = real(nint(hlat(j)*1.e5))/1.e5
+               hlatr8 = real(minlat,8) + real(j-1,8)*(real(maxlat,8)-real(minlat,8))/real(nyhis-1,8)
+               hlat(j) = real(real(nint(hlatr8*1.e5_8),8)*1.e-5_8)
             end do
             hlat(nyhis) = maxlat
          end if   
          if ( maxlon - minlon == 360.0 ) then
             hlon(1) = minlon 
             do i = 2,nxhis-1
-               hlon(i) = minlon + real(i-1)*(maxlon-minlon)/real(nxhis)  
-               hlon(i) = real(nint(hlon(i)*1.e5))/1.e5
+               hlonr8 = real(minlon,8) + real(i-1,8)*(real(maxlon,8)-real(minlon,8))/real(nxhis,8)  
+               hlon(i) = real(real(nint(hlonr8*1.e5_8),8)*1.e-5_8)
             end do
             hlon(nxhis) = maxlon
          else if ( nxhis == 1 ) then
@@ -2520,8 +2521,8 @@ contains
          else    
             hlon(1) = minlon 
             do i = 2,nxhis-1
-               hlon(i) = minlon + real(i-1)*(maxlon-minlon)/real(nxhis-1) 
-               hlon(i) = real(nint(hlon(i)*1.e5))/1.e5
+               hlonr8 = real(minlon,8) + real(i-1,8)*(real(maxlon,8)-real(minlon,8))/real(nxhis-1,8) 
+               hlon(i) = real(real(nint(hlonr8*1.e5_8),8)*1.e-5_8)
             end do
             hlon(nxhis) = maxlon
          end if
