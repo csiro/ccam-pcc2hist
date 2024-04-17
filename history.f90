@@ -164,7 +164,7 @@ module history
 !     Controls whether variable is on the "standard" list of monthly means
       logical            :: std
 !     Controls whether variable is on the "RAN" list of variables
-      logical            :: ran
+      logical            :: ran, areps
 !     Controls whether variable is on the "tracer" list of variables
       logical            :: tracer
 !     Controls whether variable is on the t?_pop list of variables
@@ -291,7 +291,9 @@ module history
    
    logical, public :: single_output = .true.
    
-   logical, public :: ran_compliant = .false.
+   logical, public :: ran_compliant = .false. ! depreciated
+   
+   logical, public :: areps_compliant = .false.
    
 ! Save CCAM parameters
    logical, public :: save_ccam_parameters = .true.
@@ -483,8 +485,8 @@ contains
                      nlevels, amip_name, ave_type, std, output_scale, &
                      int_type, multilev, std_name, soil, water,       &
                      pop2d, pop3d, pop4d, coord_height, cell_methods, &
-                     ran_type, tn_type, daily, sixhr, instant,        &
-                     all_positive, tracer_type )
+                     ran_type, areps_type, tn_type, daily, sixhr,      &
+                     instant, all_positive, tracer_type )
 !
 !     Add a field to the master list of fields that may be saved.
 !
@@ -509,6 +511,7 @@ contains
       real, intent(in), optional :: coord_height
       character(len=*), intent(in), optional :: cell_methods
       logical, intent(in), optional   :: ran_type
+      logical, intent(in), optional   :: areps_type
       logical, intent(in), optional   :: tracer_type
       integer, intent(in), optional   :: tn_type
       logical, intent(in), optional   :: daily
@@ -518,7 +521,7 @@ contains
 
 !     Local variables corresponding to the optional arguments
       integer :: atype, ltn
-      logical :: lstd, lran, ltracer
+      logical :: lstd, lran, lareps, ltracer
       character(len=MAX_NAMELEN) :: aname
       real    :: scale
 
@@ -569,6 +572,11 @@ contains
       else
          lran = .false.  
       end if
+      if ( present(areps_type) ) then
+         lareps = areps_type  
+      else
+         lareps = .false.  
+      end if      
       if ( present(tracer_type) ) then
          ltracer = tracer_type
       else
@@ -605,6 +613,7 @@ contains
       histinfo(totflds)%nlevels      = nlevels   ! number of levels
       histinfo(totflds)%std          = lstd
       histinfo(totflds)%ran          = lran
+      histinfo(totflds)%areps        = lareps
       histinfo(totflds)%tracer       = ltracer
       histinfo(totflds)%tn           = ltn
       histinfo(totflds)%output_scale = scale
@@ -812,6 +821,10 @@ contains
 !           set explicitly.
             histinfo(1:totflds)%used = &
              histinfo(1:totflds)%used .or. histinfo(1:totflds)%std
+         else if ( hnames(ivar) == "areps" ) then
+!           Include RAN requested variables
+            histinfo(1:totflds)%used = &
+             histinfo(1:totflds)%used .or. histinfo(1:totflds)%areps
          else if ( hnames(ivar) == "ran" ) then
 !           Include RAN requested variables
             histinfo(1:totflds)%used = &
@@ -1661,7 +1674,7 @@ contains
       integer :: i, k
       character(len=80) :: histstr
       character(len=20) :: tmpname
-      integer :: vid
+      integer :: vid, cmode
 
       if ( hist_debug > 0 ) then
          print*, "Creating file ", filename
@@ -1669,31 +1682,43 @@ contains
 #ifdef usenc3
       ierr = nf90_create(filename, nf90_64bit_offset, ncid)
 #else
+      !cmode = nf90_netcdf4 .or. nf90_classic_model
       ierr = nf90_create(filename, nf90_netcdf4, ncid)
 #endif
       call check_ncerr ( ierr, "Error in creating history file "//trim(filename) )
                
-!     Create dimensions, lon, lat and rec
-      ierr = nf90_def_dim ( ncid, "lon", nxhis, dims%x )
+      ! Create dimensions, lon, lat and rec
+      if ( areps_compliant ) then
+         ierr = nf90_def_dim ( ncid, "longitude", nxhis, dims%x ) 
+      else    
+         ierr = nf90_def_dim ( ncid, "lon", nxhis, dims%x )
+      end if   
       call check_ncerr(ierr,"Error creating lon dimension")
       if ( hist_debug > 5 ) print*, "Created lon dimension, id",  dims%x
-      ierr = nf90_def_dim ( ncid, "lat", nyhis, dims%y )
+      if ( areps_compliant ) then
+         ierr = nf90_def_dim ( ncid, "latitude", nyhis, dims%y ) 
+      else    
+         ierr = nf90_def_dim ( ncid, "lat", nyhis, dims%y )
+      end if   
       call check_ncerr(ierr,"Error creating lat dimension")
       if ( hist_debug > 5 ) print*, "Created lon dimension, id",  dims%y
       if ( cf_compliant .or. cordex_compliant ) then
          ierr = nf90_def_dim ( ncid, "bnds", 2, dims%b )
          call check_ncerr(ierr,"Error creating bnds dimension")
          if ( hist_debug > 5 ) print*, "Created bnds dimension, id",  dims%b
-
       end if
 
-!     Only create the lev dimension if one of the variables actually uses it
+      ! Only create the lev dimension if one of the variables actually uses it
       if ( nlev > 1 ) then
-         if ( use_meters ) then
-            ierr = nf90_def_dim ( ncid, "alt", nlev, dims%z )
+         if ( areps_compliant ) then
+            ierr = nf90_def_dim ( ncid, "level", nlev, dims%z ) 
          else
-            ierr = nf90_def_dim ( ncid, "lev", nlev, dims%z )
-         end if
+            if ( use_meters ) then
+               ierr = nf90_def_dim ( ncid, "alt", nlev, dims%z )
+            else
+               ierr = nf90_def_dim ( ncid, "lev", nlev, dims%z )
+            end if
+         end if   
          call check_ncerr(ierr,"Error creating lev dimension")
          if ( hist_debug > 5 ) print*, "Created lev dimension, id",  dims%z
       end if
@@ -1737,8 +1762,8 @@ contains
       !call check_ncerr(ierr)
       !ierr = nf90_put_att ( ncid, NF90_GLOBAL, "project", "Undefined CCAM project" )
       !call check_ncerr(ierr)
-!     Make sure it's a null string, otherwise len_trim won't find the end 
-!     properly.
+      ! Make sure it's a null string, otherwise len_trim won't find the end 
+      ! properly.
       histstr = "" 
       call hstring(histstr)
       ierr = nf90_put_att ( ncid, NF90_GLOBAL, "history", histstr )
@@ -1769,7 +1794,11 @@ contains
 !     Define attributes for the dimensions
 !     Is there any value in keeping long_name for latitude and longitude?
 !     Possibly add bounds here??
-      ierr = nf90_def_var ( ncid, "lon", NF90_FLOAT, dims%x, dimvars%x)
+      if ( areps_compliant ) then
+         ierr = nf90_def_var ( ncid, "longitude", NF90_FLOAT, dims%x, dimvars%x) 
+      else    
+         ierr = nf90_def_var ( ncid, "lon", NF90_FLOAT, dims%x, dimvars%x)
+      end if   
       call check_ncerr(ierr)
       ierr = nf90_put_att ( ncid, dimvars%x, "long_name", "longitude" )
       call check_ncerr(ierr)
@@ -1786,7 +1815,11 @@ contains
          call check_ncerr(ierr)
       end if
 
-      ierr = nf90_def_var ( ncid, "lat", NF90_FLOAT, dims%y, dimvars%y )
+      if ( areps_compliant ) then
+         ierr = nf90_def_var ( ncid, "latitude", NF90_FLOAT, dims%y, dimvars%y ) 
+      else    
+         ierr = nf90_def_var ( ncid, "lat", NF90_FLOAT, dims%y, dimvars%y )
+      end if  
       call check_ncerr(ierr)
       ierr = nf90_put_att ( ncid, dimvars%y, "long_name", "latitude" )
       call check_ncerr(ierr)
@@ -1805,7 +1838,11 @@ contains
 
       if ( nlev > 1 ) then
          if ( use_plevs ) then
-            ierr = nf90_def_var ( ncid, "lev", NF90_FLOAT, dims%z, dimvars%z )
+            if ( areps_compliant ) then 
+               ierr = nf90_def_var ( ncid, "level", NF90_FLOAT, dims%z, dimvars%z ) 
+            else    
+               ierr = nf90_def_var ( ncid, "lev", NF90_FLOAT, dims%z, dimvars%z )
+            end if   
             call check_ncerr(ierr)
             ierr = nf90_put_att ( ncid, dimvars%z, "long_name", "pressure_level" )
             call check_ncerr(ierr)
@@ -1814,7 +1851,11 @@ contains
             ierr = nf90_put_att ( ncid, dimvars%z, "positive", "down" )
             call check_ncerr(ierr)
          else if ( use_meters ) then
-            ierr = nf90_def_var ( ncid, "alt", NF90_FLOAT, dims%z, dimvars%z )
+            if ( areps_compliant ) then  
+               ierr = nf90_def_var ( ncid, "level", NF90_FLOAT, dims%z, dimvars%z ) 
+            else    
+               ierr = nf90_def_var ( ncid, "alt", NF90_FLOAT, dims%z, dimvars%z )
+            end if   
             call check_ncerr(ierr)
             ierr = nf90_put_att ( ncid, dimvars%z, "standard_name", "height" )
             call check_ncerr(ierr)
@@ -1825,7 +1866,11 @@ contains
             ierr = nf90_put_att ( ncid, dimvars%z, "positive", "up" )
             call check_ncerr(ierr)
          else if ( use_theta ) then
-            ierr = nf90_def_var ( ncid, "lev", NF90_FLOAT, dims%z, dimvars%z )
+            if ( areps_compliant ) then  
+               ierr = nf90_def_var ( ncid, "level", NF90_FLOAT, dims%z, dimvars%z )
+            else
+               ierr = nf90_def_var ( ncid, "lev", NF90_FLOAT, dims%z, dimvars%z )
+            end if   
             call check_ncerr(ierr)
             ierr = nf90_put_att ( ncid, dimvars%z, "long_name", "theta_level" )
             call check_ncerr(ierr)
@@ -1834,7 +1879,11 @@ contains
             ierr = nf90_put_att ( ncid, dimvars%z, "positive", "up" )
             call check_ncerr(ierr)
          else if ( use_pvort ) then
-            ierr = nf90_def_var ( ncid, "lev", NF90_FLOAT, dims%z, dimvars%z )
+            if ( areps_compliant ) then 
+               ierr = nf90_def_var ( ncid, "level", NF90_FLOAT, dims%z, dimvars%z ) 
+            else    
+               ierr = nf90_def_var ( ncid, "lev", NF90_FLOAT, dims%z, dimvars%z )
+            end if   
             call check_ncerr(ierr)
             ierr = nf90_put_att ( ncid, dimvars%z, "long_name", "potential_vorticity_level" )
             call check_ncerr(ierr)
@@ -1845,7 +1894,11 @@ contains
          else if ( use_hyblevs ) then
             ! This is required for grads to recognise it's a vertical dimension
             ! Allowed by CF convention
-            ierr = nf90_def_var ( ncid, "lev", NF90_FLOAT, dims%z, dimvars%z )
+            if ( areps_compliant ) then 
+               ierr = nf90_def_var ( ncid, "level", NF90_FLOAT, dims%z, dimvars%z ) 
+            else    
+               ierr = nf90_def_var ( ncid, "lev", NF90_FLOAT, dims%z, dimvars%z )
+            end if   
             call check_ncerr(ierr)
             ierr = nf90_put_att ( ncid, dimvars%z, "units", "level" )
             call check_ncerr(ierr)
@@ -1858,7 +1911,11 @@ contains
             ierr = nf90_put_att ( ncid, dimvars%z, "positive", "down" )
             call check_ncerr(ierr)
          else
-            ierr = nf90_def_var ( ncid, "lev", NF90_FLOAT, dims%z, dimvars%z )
+            if ( areps_compliant ) then 
+               ierr = nf90_def_var ( ncid, "level", NF90_FLOAT, dims%z, dimvars%z ) 
+            else    
+               ierr = nf90_def_var ( ncid, "lev", NF90_FLOAT, dims%z, dimvars%z )
+            end if   
             call check_ncerr(ierr)
             ierr = nf90_put_att ( ncid, dimvars%z, "long_name", "sigma_level" )
             call check_ncerr(ierr)
@@ -2280,7 +2337,7 @@ contains
             end if
          end if
       end if
-
+     
       call START_LOG(writehist_begin)
       
       if ( hist_debug > 0 ) then
@@ -2291,10 +2348,18 @@ contains
       if ( cf_compliant ) then
          if ( present(time) ) then
             endofday = modulo(nint(time*1440.),1440) == 0  
-            endof6hr = modulo(nint(time*360.),360) == 0
+            endof6hr = modulo(nint(time*1440.),360) == 0
          else
             endofday = modulo(nint(real(histset)*hfreq*1440.),1440) == 0
-            endof6hr = modulo(nint(real(histset)*hfreq*360.),360) == 0
+            endof6hr = modulo(nint(real(histset)*hfreq*1440.),360) == 0
+         end if    
+      else if ( areps_compliant ) then
+         if ( present(time) ) then
+            endofday = modulo(nint(time*60.),1440) == 0  
+            endof6hr = modulo(nint(time*60.),360) == 0
+         else
+            endofday = modulo(nint(real(histset)*hfreq*60.),1440) == 0
+            endof6hr = modulo(nint(real(histset)*hfreq*60.),360) == 0
          end if    
       else    
          if ( present(time) ) then

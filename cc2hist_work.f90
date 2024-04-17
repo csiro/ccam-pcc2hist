@@ -127,7 +127,7 @@ contains
       allocate ( qs(pil,pjl*pnpan*lproc,kl), qg(pil,pjl*pnpan*lproc,kl), omega(pil,pjl*pnpan*lproc,kl) )
       allocate ( tgg(pil,pjl*pnpan*lproc,ksoil) )
       allocate ( urban_frac(pil,pjl*pnpan*lproc), f_cor(pil,pjl*pnpan*lproc) )
-      if ( needfld("zg") .or. needfld("lvl") ) then
+      if ( needfld("zg") ) then !.or. needfld("lvl")
          if ( use_plevs .or. use_meters ) then
             allocate ( zstd(pil,pjl*pnpan*lproc,nplevs) )
          end if
@@ -223,6 +223,8 @@ contains
          ktau = ktau/60
       else if ( datestring(1:7)=="minutes" ) then
          ! do nothing
+      else if ( datestring(1:5)=="hours" ) then
+         ktau = ktau*60  
       else
          write(6,*) "ERROR reading time units.  Unknown time units ",trim(datestring)
          write(6,*) "Expecting seconds or minutes"
@@ -251,6 +253,8 @@ contains
          dtime = real(ktc/60)
       else if ( datestring(1:7)=="minutes" ) then
          dtime = real(ktc)
+      else if ( datestring(1:5)=="hours" ) then   
+         dtime = real(ktc)*60. 
       else
          write(6,*) "ERROR reading time units.  Unknown time units ",trim(datestring)
          write(6,*) "Expecting seconds or minutes"
@@ -296,8 +300,10 @@ contains
       jhour = ktime/100
       newtime = ktime - jhour*100
       jmin = newtime
-         
-      if ( basetime(1:13) == "minutes since" ) then
+
+      if ( basetime(1:11) == "hours since" ) then
+         mtimer = kt*60 
+      else if ( basetime(1:13) == "minutes since" ) then
          mtimer = kt
       else if ( basetime(1:13) == "seconds since" ) then
          mtimer = kt/60 
@@ -311,7 +317,7 @@ contains
    
    subroutine infile ( varlist, nvars, skip, mins )
       ! For netcdf input
-      use history, only : savehist, needfld, cordex_compliant
+      use history, only : savehist, needfld, cordex_compliant, areps_compliant
       use physparams, only : grav, rdry, cp, pi
       use s2p_m
       use height_m
@@ -436,13 +442,18 @@ contains
                   if ( needfld("soilt") ) then
                      call savehist("soilt", soilt)
                   end if   
-                  if ( needfld("land_mask") ) then
+                  if ( needfld("land_mask") .or. needfld("land") ) then
                      where ( soilt > 0.5 )
                         dtmp = 1.
                      elsewhere
                         dtmp = 0.
                      end where
-                     call savehist("land_mask", dtmp)
+                     if ( needfld("land_mask") ) then
+                        call savehist("land_mask", dtmp)
+                     end if   
+                     if ( needfld("land") ) then
+                        call savehist("land", dtmp)
+                     end if   
                   else if ( needfld("sftlf") ) then
                      where ( soilt > 0.5 )
                         dtmp = 100.
@@ -862,8 +873,9 @@ contains
                   end where   
                   call savehist ( "sund", dtmp )
                end if   
-            case ( "tas", "tscrn") !, "tscrn_stn" )
-               if ( needfld("tas") .or. needfld("tscrn") .or. needfld("tdew") ) then 
+            case ( "tas", "tscrn", "tempc2m" ) !, "tscrn_stn" )
+               if ( needfld("tas") .or. needfld("tscrn") .or. &
+                    needfld("tempc2m") .or. needfld("tdew") ) then 
                   call vread( "tscrn", tscrn )
                   if ( needfld("tas") ) then
                      call savehist("tas", tscrn)
@@ -871,6 +883,10 @@ contains
                   if ( needfld("tscrn") ) then
                      call savehist("tscrn", tscrn)
                   end if 
+                  if ( needfld("tempc2m") ) then
+                     dtmp = tscrn + 273.16 
+                     call savehist("tempc2m", dtmp) 
+                  end if
                end if  
                !if ( needfld("tscrn_stn") .or. needfld("tdscrn_stn") ) then ! to be depreciated
                !   ierr = nf90_inq_varid (ncid, "tscrn_stn", var_dum )
@@ -930,7 +946,7 @@ contains
                   call vread( "tauy", tauytmp )
                end if  
             case ( "ts", "tsu" )
-               if ( needfld("ts") .or. needfld("tsu") .or. needfld("tsea") ) then 
+               if ( needfld("ts") .or. needfld("tsu") .or. needfld("tsea") .or. needfld("sst") ) then
                   call vread( "tsu", dtmp )
                   ! Some (all?) initial conditions have tsu negative over ocean
                   where ( dtmp /= nf90_fill_float )
@@ -939,7 +955,7 @@ contains
                   if ( needfld(varlist(ivar)%vname) ) then
                      call savehist(varlist(ivar)%vname, dtmp)
                   end if   
-                  if ( needfld("tsea") ) then
+                  if ( needfld("tsea") .or. needfld("sst") ) then
                      where ( dtmp /= nf90_fill_float )
                         dtmp = max(tfreeze, dtmp)
                      end where
@@ -951,7 +967,13 @@ contains
                         ctmp = dtmp
                      end where
                      call fill_cc(ctmp, spval)
-                     call savehist ( "tsea", ctmp )
+                     if ( needfld("tsea") ) then
+                        call savehist ( "tsea", ctmp )
+                     end if
+                     if ( needfld("sst") ) then
+                        ctmp = ctmp + 273.16 
+                        call savehist ( "sst", ctmp )
+                     end if
                   end if   
                end if
             case ( "u10", "sfcWind") !, "u10_stn" )
@@ -1260,7 +1282,7 @@ contains
                if ( needfld("omega") ) then
                   call vsavehist( "omega", omega )
                end if   
-            case ( "ta", "temp" )
+            case ( "ta", "temp", "tempc" )
                ! temp should be the first of the 3D fields
                ! assume that 2D zs is previously loaded
                call vread( "temp", t)
@@ -1286,7 +1308,10 @@ contains
                   !call calc_pvort_cc(sig,psl,t,u,v,f_cor,tmp3d)
                   !call vitop_setup( sig, vlevs(1:nplevs), tmp3d, maxlev, minlev )
                end if
-               if ( needfld(varlist(ivar)%vname) ) then
+               if ( needfld("tempc") ) then
+                   tmp3d = t - 273.16
+                   call vsavehist ( "tempc", tmp3d )
+               else if ( needfld(varlist(ivar)%vname) ) then
                   call vsavehist ( varlist(ivar)%vname, t )
                end if
             case ( "tgg", "tsl" )
@@ -1701,9 +1726,15 @@ contains
             call vsavehist( "td", tmp3d ) 
          end if
          
-         if ( needfld("rh") ) then
+         if ( needfld("rh") .or. needfld("relhum") ) then
             call calc_rh ( t, q, ql, qf, psl, sig, tmp3d )
-            call vsavehist ( "rh", tmp3d )
+            if ( needfld("rh") ) then
+               call vsavehist ( "rh", tmp3d )
+            end if   
+            if ( needfld("relhum") ) then
+               tmp3d = max( tmp3d, 0. ) 
+               call vsavehist ( "relhum", tmp3d )
+            end if   
          end if
          
          if ( needfld("theta") ) then
@@ -1739,34 +1770,54 @@ contains
          if ( needfld("zg") ) then
             if ( use_plevs ) then
                call height ( t, q, zs, psl, sig, zstd, plevs(1:nplevs) )
-               call savehist ( "zg", zstd )
+               if ( areps_compliant ) then
+                  tmp3d = zstd*3.28028 ! convert from m to ft 
+                  call savehist ( "topoft", tmp3d ) 
+               else    
+                  call savehist ( "zg", zstd )
+               end if   
             else if ( use_meters ) then
                do k = 1,nplevs
                   zstd(:,:,k) = mlevs(k)/mlevs(nplevs)*(mlevs(nplevs)-zs) + zs
                end do
-               call savehist ( "zg", zstd )
+               if ( areps_compliant ) then
+                  tmp3d = zstd*3.28028 ! convert from m to ft 
+                  call savehist ( "topoft", tmp3d ) 
+               else    
+                  call savehist ( "zg", zstd )
+               end if   
             else if ( use_theta .or. use_pvort ) then
-               call vsavehist( "zg", hstd )
+               if ( areps_compliant ) then
+                  tmp3d = hstd*3.28028 ! convert from m to ft 
+                  call savehist ( "topoft", tmp3d ) 
+               else    
+                  call vsavehist( "zg", hstd )
+               end if   
             else
-               call savehist ( "zg", hstd(:,:,minlev:maxlev) )
+               if ( areps_compliant ) then
+                  tmp3d(:,:,minlev:maxlev) = hstd(:,:,minlev:maxlev)*3.28028 ! convert from m to ft  
+                  call savehist ( "topoft", tmp3d(:,:,minlev:maxlev) ) 
+               else    
+                  call savehist ( "zg", hstd(:,:,minlev:maxlev) )
+               end if   
             end if
          end if
          
-         if ( needfld("lvl") ) then
-            if ( use_plevs ) then
-               call height ( t, q, zs, psl, sig, zstd, plevs(1:nplevs) )
-               call savehist ( "lvl", zstd )
-            else if ( use_meters ) then
-               do k = 1,nplevs
-                  zstd(:,:,k) = mlevs(k)/mlevs(nplevs)*(mlevs(nplevs)-zs) + zs
-               end do
-               call savehist ( "lvl", zstd )
-            else if ( use_theta .or. use_pvort ) then
-               call vsavehist( "zg", hstd )
-            else
-               call savehist ( "lvl", hstd(:,:,minlev:maxlev) )
-            end if
-         end if
+         !if ( needfld("lvl") ) then
+         !   if ( use_plevs ) then
+         !      call height ( t, q, zs, psl, sig, zstd, plevs(1:nplevs) )
+         !      call savehist ( "lvl", zstd )
+         !   else if ( use_meters ) then
+         !      do k = 1,nplevs
+         !         zstd(:,:,k) = mlevs(k)/mlevs(nplevs)*(mlevs(nplevs)-zs) + zs
+         !      end do
+         !      call savehist ( "lvl", zstd )
+         !   else if ( use_theta .or. use_pvort ) then
+         !      call vsavehist( "zg", hstd )
+         !   else
+         !      call savehist ( "lvl", hstd(:,:,minlev:maxlev) )
+         !   end if
+         !end if
 
       
          ! Wind vectors
@@ -1806,6 +1857,14 @@ contains
             end where    
             call savehist ( "vas", dtmp )    
          end if
+         if ( needfld("direction") ) then
+            tmp3d = atan2(u,v)*45./atan(1.) + 180.
+            call vsavehist ( "direction", tmp3d )
+         end if
+         if ( needfld("speed") ) then
+            tmp3d = sqrt(u**2+v**2)
+            call vsavehist ( "speed", tmp3d )
+         end if
          !if ( needfld("uas_stn") ) then
          !   where ( wind_norm > 0. )
          !      dtmp = u(:,:,1)*uten_stn/wind_norm
@@ -1827,7 +1886,9 @@ contains
             where ( udir < 0. )
                udir = udir + 360.
             end where
-            call savehist( "d10", udir )        
+            if ( needfld("d10") ) then
+               call savehist( "d10", udir )        
+            end if
          end if   
 
          ! Note that these are just vertical averages, not vertical integrals
@@ -1962,7 +2023,9 @@ contains
             where ( dtmp<0. .and. dtmp/=nf90_fill_float )
                dtmp = dtmp + 360.
             end where
-            call savehist( "d10", dtmp )
+            if ( needfld("d10") ) then
+               call savehist( "d10", dtmp )
+            end if
          end if
               
       end if       
@@ -2752,7 +2815,7 @@ contains
 
    subroutine get_var_list(varlist, nvars)
       ! Get a list of the variables in the input file
-      use history, only : addfld, int_default, cf_compliant, cordex_compliant, ran_compliant
+      use history, only : addfld, int_default, cf_compliant, cordex_compliant, areps_compliant
       use interp_m, only : int_nearest, int_none, int_tapm
       use newmpar_m, only : ol, cptch, cchrt
       use physparams, only : grav, rdry
@@ -2764,7 +2827,7 @@ contains
       integer :: cptchdim, cchrtdim, tn_type, j, press_level, height_level
       integer :: idim
       integer, dimension(nf90_max_var_dims) :: dimids
-      logical :: procformat, ran_type
+      logical :: procformat, ran_type, areps_type
       character(len=10) :: substr
       character(len=60) :: vname
       character(len=60) :: cname, lname
@@ -3240,6 +3303,7 @@ contains
          else
             ran_type = .false.
          end if
+         areps_type = .false.
          tn_type = 0
          if ( index(varlist(ivar)%vname,'t1_pop_grid_') /= 0 ) then 
             tn_type = 1
@@ -3270,6 +3334,21 @@ contains
             varlist(ivar)%long_name = "Surface height"
             xmin = 0.
             xmax = 9000.
+         end if
+         if ( areps_compliant ) then
+            if ( varlist(ivar)%vname == "temp" ) then
+               varlist(ivar)%vname = "tempc"
+               varlist(ivar)%units = "degree_C"
+               varlist(ivar)%long_name = "Air Temperature"
+               varlist(ivar)%instant = .true. 
+               areps_type = .true.
+            else if ( varlist(ivar)%vname == "tscrn" ) then
+               varlist(ivar)%vname = "tempc2m"
+               varlist(ivar)%units = "degree_C"
+               varlist(ivar)%long_name = "Near-Surface Air Temperature"
+               varlist(ivar)%instant = .true.
+               areps_type = .true.
+            end if   
          end if
          if ( cordex_compliant ) then
             if ( varlist(ivar)%vname == "anth_ave" ) then
@@ -3626,14 +3705,15 @@ contains
             call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name,     &
                       varlist(ivar)%units, xmin, xmax, 1, ave_type="fixed", &
                       int_type=int_type, std_name=std_name,                 &
-                      ran_type=ran_type )
+                      ran_type=ran_type, areps_type=areps_type )
          else if ( varlist(ivar)%ndims == 2 ) then
             if ( varlist(ivar)%vname(1:3) == "max" ) then
                ! Special check for maximum rainfall rate
                call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name, &
                       varlist(ivar)%units, xmin, xmax, 1, ave_type="max",  &
                       std_name=std_name, cell_methods=cell_methods,        &
-                      ran_type=ran_type, daily=varlist(ivar)%daily,        &
+                      ran_type=ran_type, areps_type=areps_type,            &
+                      daily=varlist(ivar)%daily,                           &
                       instant=varlist(ivar)%instant )
             else
                ! Check for screen and 10m variables
@@ -3651,6 +3731,7 @@ contains
                       varlist(ivar)%units, xmin, xmax, 1, std_name=std_name, &
                       coord_height=coord_height, cell_methods=cell_methods,  & 
                       int_type=int_type, ran_type=ran_type,                  &
+                      areps_type=areps_type,                                 &
                       pop2d=varlist(ivar)%pop2d, tn_type=tn_type,            &
                       daily=varlist(ivar)%daily, sixhr=varlist(ivar)%sixhr,  &
                       instant=varlist(ivar)%instant,                         &
@@ -3663,7 +3744,8 @@ contains
                         varlist(ivar)%units, xmin, xmax, onlev, multilev=.true.,  &
                         std_name=std_name, water=varlist(ivar)%water,             &
                         cell_methods=cell_methods, int_type=int_type,             &
-                        ran_type=ran_type, daily=varlist(ivar)%daily,             &
+                        ran_type=ran_type, areps_type=areps_type,                 &
+                        daily=varlist(ivar)%daily,                                &
                         sixhr=varlist(ivar)%sixhr, instant=varlist(ivar)%instant, &
                         all_positive=varlist(ivar)%all_positive )
             else if ( varlist(ivar)%pop3d ) then
@@ -3671,8 +3753,9 @@ contains
                         varlist(ivar)%units, xmin, xmax, cptch, multilev=.true., &
                         std_name=std_name, pop3d=varlist(ivar)%pop3d,            &
                         cell_methods=cell_methods, int_type=int_type,            &
-                        ran_type=ran_type, tn_type=tn_type,                      &
-                        daily=varlist(ivar)%daily, sixhr=varlist(ivar)%sixhr,    &
+                        ran_type=ran_type, areps_type=areps_type,                &
+                        tn_type=tn_type, daily=varlist(ivar)%daily,              &
+                        sixhr=varlist(ivar)%sixhr,                               &
                         instant=varlist(ivar)%instant,                           &
                         all_positive=varlist(ivar)%all_positive )
             else
@@ -3680,6 +3763,7 @@ contains
                         varlist(ivar)%units, xmin, xmax, nlev, multilev=.true., &
                         std_name=std_name, cell_methods=cell_methods,           &
                         int_type=int_type, ran_type=ran_type,                   &
+                        areps_type=areps_type,                                  &
                         daily=varlist(ivar)%daily, sixhr=varlist(ivar)%sixhr,   &
                         instant=varlist(ivar)%instant,                          &
                         all_positive=varlist(ivar)%all_positive,                &
@@ -3691,8 +3775,9 @@ contains
                         varlist(ivar)%units, xmin, xmax, cptch*cchrt, multilev=.true., &
                         std_name=std_name, pop4d=varlist(ivar)%pop4d,                  &
                         cell_methods=cell_methods, int_type=int_type,                  &
-                        ran_type=ran_type, tn_type=tn_type, daily=varlist(ivar)%daily, &
-                        sixhr=varlist(ivar)%sixhr, instant=varlist(ivar)%instant,      &
+                        ran_type=ran_type, areps_type=areps_type, tn_type=tn_type,     &
+                        daily=varlist(ivar)%daily, sixhr=varlist(ivar)%sixhr,          &
+                        instant=varlist(ivar)%instant,                                 &
                         all_positive=varlist(ivar)%all_positive )
             end if
          end if
@@ -3701,8 +3786,13 @@ contains
       ! Extra fields are handled explicitly
       if ( kk > 1 ) then
          call addfld ( "grid", "Grid resolution", "km", 0., 1000., 1, ave_type="fixed" )
-         call addfld ( "tsea", "Sea surface temperature", "K", 150., 350., 1, &
-                        std_name="sea_surface_temperature", ran_type=.true. )
+         if ( areps_compliant ) then
+            call addfld ( "sst", "Sea surface temperature", "degree_C", -123., 77., 1, &
+                           std_name="sea_surface_temperature", areps_type=.true. )
+         else    
+            call addfld ( "tsea", "Sea surface temperature", "K", 150., 350., 1, &
+                           std_name="sea_surface_temperature", ran_type=.true. )
+         end if
          call addfld ( "tdew", "Dew point screen temperature", "K", 100.0, 400.0, 1 )
          if ( cordex_compliant ) then
             ierr = nf90_inq_varid (ncid, "evspsbl", ivar )
@@ -3730,13 +3820,13 @@ contains
                              std_name="frozen_water_content_of_soil_layer", int_type = int_none )
             end if    
             call addfld ( "prw", "Water Vapor Path", "kg m-2", 0.0, 100.0, 1,  &
-                           std_name="atmosphere_water_vapor_content", ran_type=.true. )
+                           std_name="atmosphere_water_vapor_content" )
             call addfld ( "clwvi", "Condensed Water Path", "kg m-2", 0.0, 100.0, 1,  &
-                           std_name="atmosphere_cloud_condensed_water_content", ran_type=.false. )
+                           std_name="atmosphere_cloud_condensed_water_content" )
             call addfld ( "clivi", "Ice Water Path", "kg m-2", 0.0, 100.0, 1,  &
-                           std_name="atmosphere_cloud_condensed_ice_content", ran_type=.false. )
+                           std_name="atmosphere_cloud_condensed_ice_content" )
             call addfld ( "ps", "Surface Air Pressure", "Pa", 0., 120000., 1, &
-                           std_name="surface_air_pressure", ran_type=.true. )
+                           std_name="surface_air_pressure" )
             call addfld ( "rlus", "Surface Upwelling Longwave Radiation", "W m-2", -1000., 1000., 1, &
                           std_name="surface_upwelling_longwave_flux_in_air", instant=.false. )
             call addfld ( "rsus", "Surface Upwelling Shortwave Radiation", "W m-2", -1000., 1000., 1, &
@@ -3750,29 +3840,41 @@ contains
             if ( int_type /= int_none ) then
                call addfld ( "sftlf", "Land-sea mask", "%",  0.0, 100.0, 1, &
                               ave_type="fixed", int_type=int_nearest,       &
-                              std_name="land_area_fraction", ran_type=.true. )
+                              std_name="land_area_fraction" )
             else
                call addfld ( "sftlf", "Land-sea mask", "%",  0.0, 100.0, 1, &
                               ave_type="fixed", int_type=int_none,          &
-                              std_name="land_area_fraction", ran_type=.true. )
+                              std_name="land_area_fraction" )
             end if
             call addfld ( "snc",  "Snow area fraction", "%", 0., 6.5, 1, std_name="surface_snow_area_fraction" )
             call addfld ( "snw",  "Surface Snow Amount", "kg m-2", 0., 6.5, 1, std_name="surface_snow_amount" )
             call addfld ( "sftlaf", "Lake Area Fraction", "%", 0.0, 100.0, 1, ave_type="fixed", &
                           std_name="lake_area_fraction" )
-         else          
-            if ( int_type /= int_none ) then
-               call addfld ( "land_mask", "Land-sea mask", "",  0.0, 1.0, 1, &
-                              ave_type="fixed", int_type=int_nearest, std_name="land_area_fraction", ran_type=.true. )
-            else
-               call addfld ( "land_mask", "Land-sea mask", "",  0.0, 1.0, 1, &
-                              ave_type="fixed", int_type=int_none, std_name="land_area_fraction", ran_type=.true. )
-            end if
+         else    
+            if ( areps_compliant ) then 
+               if ( int_type /= int_none ) then
+                  call addfld ( "land", "Land-sea mask", "",  0.0, 1.0, 1,                                               &
+                                 ave_type="fixed", int_type=int_nearest, std_name="land_area_fraction", ran_type=.true., &
+                                 areps_type=.true. )
+               else
+                  call addfld ( "land", "Land-sea mask", "",  0.0, 1.0, 1,                                            &
+                                 ave_type="fixed", int_type=int_none, std_name="land_area_fraction", ran_type=.true., &
+                                 areps_type=.true. )
+               end if
+            else    
+               if ( int_type /= int_none ) then
+                  call addfld ( "land_mask", "Land-sea mask", "",  0.0, 1.0, 1,                                          &
+                                 ave_type="fixed", int_type=int_nearest, std_name="land_area_fraction", ran_type=.true. )
+               else
+                  call addfld ( "land_mask", "Land-sea mask", "",  0.0, 1.0, 1, &
+                                 ave_type="fixed", int_type=int_none, std_name="land_area_fraction", ran_type=.true. )
+               end if
+            end if   
             call addfld ( "ps", "Surface Air Pressure", "hPa", 0., 1200., 1, &
                            std_name="surface_air_pressure", ran_type=.true. )
             call addfld ( "pwc", "Precipitable water column", "kg m-2", 0.0, 100.0, 1, &
-                          std_name="atmosphere_water_vapor_content", ran_type=.true. )           
-         end if
+                           std_name="atmosphere_water_vapor_content", ran_type=.true. )           
+         end if   
          call addfld ( "uas", "Eastward Near-Surface Wind", "m s-1", -100.0, 100.0, 1, std_name="eastward_wind", ran_type=.true. )
          call addfld ( "vas", "Northward Near-Surface Wind", "m s-1", -100.0, 100.0, 1, std_name="northward_wind", ran_type=.true. )
          call addfld ( "sfcWindmax", "Maximum 10m wind speed", "m s-1", 0.0, 200.0, 1, std_name="wind_speed", ran_type=.true., &
@@ -3799,15 +3901,30 @@ contains
          topheight = -rdry*300./grav * log(topsig)
          ! Round to next highest 1000 m
          topheight = 1000*(floor(0.001*topheight)+1)
-         call addfld ( "zg", "Geopotential Height", "m", 0., topheight, nlev,    &
-                        multilev=.true., std_name="geopotential_height",         &
-                        ran_type=.true. )
-         call addfld ( "press", "Air pressure", "hPa", 0., 1500., nlev,          &
-                        multilev=.true., std_name="air_pressure",                &
-                        ran_type=.true. )
-         call addfld ( "rh", "Relative humidity", "%", 0., 110., nlev,           &
-                        multilev=.true., std_name="relative_humidity",           &
-                        ran_type=.true. )
+         if ( areps_compliant ) then
+            call addfld ( "topoft", "Geopotential Height", "ft", 0., topheight, nlev,    &
+                           multilev=.true., std_name="geopotential_height",              &
+                           areps_type=.true. )
+            call addfld ( "press", "Air pressure", "mb", 0., 1500., nlev,           &
+                           multilev=.true., std_name="air_pressure",                &
+                           ran_type=.true., areps_type=.true. )
+         else    
+            call addfld ( "zg", "Geopotential Height", "m", 0., topheight, nlev,    &
+                           multilev=.true., std_name="geopotential_height",         &
+                           ran_type=.true. )
+            call addfld ( "press", "Air pressure", "hPa", 0., 1500., nlev,          &
+                           multilev=.true., std_name="air_pressure",                &
+                           ran_type=.true., areps_type=.true. )
+         end if   
+         if ( areps_compliant ) then
+            call addfld ( "relhum", "Relative humidity", "%", 0., 110., nlev,       &
+                           multilev=.true., std_name="relative_humidity",           &
+                           areps_type=.true. )
+         else    
+            call addfld ( "rh", "Relative humidity", "%", 0., 110., nlev,           &
+                           multilev=.true., std_name="relative_humidity",           &
+                           ran_type=.true. )
+         end if   
          call addfld ( "theta", "Potential temperature", "K", 150., 1200., nlev, &
                         multilev=.true., std_name="potential_temperature",       &
                         ran_type=.true. )
@@ -3820,11 +3937,15 @@ contains
          end if
          call addfld ( "td", "Dew point temperature", "K", 100.0, 400.0, nlev,   &
                         multilev=.true., ran_type=.true. ) 
-         if ( ran_compliant ) then
-           call addfld ( "lvl", "Height of hybrid theta levels", "m", 0.,        &
-                          topheight, nlev, multilev=.true., ran_type=.true. )
-         end if  
-             
+         !call addfld ( "lvl", "Height of hybrid theta levels", "m", 0.,          &
+         !               topheight, nlev, multilev=.true., ran_type=.true.,       &
+         !               areps_type=.true. )
+         if ( areps_compliant ) then
+            call addfld ( "direction", "Wind Direction", "degrees", 0., 360.,     &
+                          nlev, multilev=.true., areps_type=.true. )
+            call addfld ( "speed", "Wind Speed", "m/s", 0., 150.,                 &
+                          nlev, multilev=.true., areps_type=.true. )
+         end if
          
          ! If the output uses pressure levels save the lowest sigma level of
          ! the basic fields.
@@ -3833,7 +3954,6 @@ contains
          call addfld ( "vbot", "Northward wind at lowest sigma level", "m s-1", -100., 100., 1, std_name="northward_wind" )
          call addfld ( "qbot", "Specific humidity at lowest sigma level", "kg kg-1", 0., 0.1, 1, &
                        std_name="specific_humidity", ran_type=.true. )
-
          ! Vertical averaged fluxes. Note that these are NOT vertical integrals
          call addfld ( "vaveuq", "Vertical average of zonal humidity flux", "m s-1 kg kg-1", -0.5, 0.5, 1, std_name=std_name )
          call addfld ( "vavevq", "Vertical average of meridional humidity flux", "m s-1 kg kg-1", -0.5, 0.5, 1, std_name=std_name )
@@ -3940,7 +4060,7 @@ contains
          !call addfld ( "uas_stn", "x-component 10m wind", "m s-1", -100.0, 100.0, 1, std_name="wind_speed", ran_type=.false. )
          !call addfld ( "vas_stn", "y-component 10m wind", "m s-1", -100.0, 100.0, 1, std_name="wind_speed", ran_type=.false. )
          !call addfld ( "sfcWindmax_stn", "Maximum 10m wind speed (station)", "m s-1", 0.0, 200.0, 1, std_name="wind_speed", &
-         !              ran_type=.false., instant=.false., all_positive=.true. ) 
+         !              instant=.false., all_positive=.true. ) 
          !call addfld ( "tdscrn_stn", "Dew point screen temperature (station)", "K", 100.0, 400.0, 1, std_name="air_temperature" )
          
       else
@@ -3951,23 +4071,23 @@ contains
                if ( int_type /= int_none ) then
                   call addfld ( "sftlf", "Land-sea mask", "%",  0.0, 100.0, 1, &
                                  ave_type="fixed", int_type=int_nearest,       &
-                                 std_name="land_area_fraction", ran_type=.true. )
+                                 std_name="land_area_fraction" )
                else
                   call addfld ( "sftlf", "Land-sea mask", "%",  0.0, 100.0, 1, &
                                  ave_type="fixed", int_type=int_none,          &
-                                 std_name="land_area_fraction", ran_type=.true. )
+                                 std_name="land_area_fraction" )
                end if
                call addfld ( "sfcWindmax", "Maximum 10m wind speed", "m s-1", 0.0, 200.0, 1, std_name="wind_speed", &
-                             ran_type=.true., daily=.true., instant=.false., all_positive=.true. )
+                             daily=.true., instant=.false., all_positive=.true. )
                call addfld ( "sftlaf", "Lake Area Fraction", "%", 0.0, 100.0, 1, ave_type="fixed", &
                              std_name="lake_area_fraction" )
-            else
+            else    
                if ( int_type /= int_none ) then
                   call addfld ( "land_mask", "Land-sea mask", "",  0.0, 1.0, 1, &
                                  ave_type="fixed", int_type=int_nearest, std_name="land_area_fraction", ran_type=.true. )
                else
                   call addfld ( "land_mask", "Land-sea mask", "",  0.0, 1.0, 1, &
-                                 ave_type="fixed", int_type=int_none, std_name="land_area_fraction", ran_type=.true. )
+                              ave_type="fixed", int_type=int_none, std_name="land_area_fraction", ran_type=.true. )
                end if 
             end if   
          end if  
@@ -3997,8 +4117,8 @@ contains
          if ( ierr==nf90_noerr ) then
             call addfld ( "tdew", "Dew point screen temperature", "K", 100.0, 400.0, 1 )
             if ( cordex_compliant ) then
-               call addfld ( "ps", "Surface Air Pressure", "Pa", 0., 120000., 1, std_name="surface_air_pressure", ran_type=.true. ) 
-            else    
+               call addfld ( "ps", "Surface Air Pressure", "Pa", 0., 120000., 1, std_name="surface_air_pressure" ) 
+            else
                call addfld ( "ps", "Surface Air Pressure", "hPa", 0., 1200., 1, std_name="surface_air_pressure", ran_type=.true. )
             end if
          end if
@@ -4019,10 +4139,10 @@ contains
                           instant=.false. ) 
          end if
          if ( cordex_compliant ) then    
-            call addfld ( "sfcWind", "Near-Surface Wind Speed", "m s-1", 0., 100.0, 1, std_name="wind_speed", ran_type=.true., &
+            call addfld ( "sfcWind", "Near-Surface Wind Speed", "m s-1", 0., 100.0, 1, std_name="wind_speed",      &
                           all_positive=.true. )  
-         else 
-            call addfld ( "u10", "10m wind speed", "m s-1", 0., 100.0, 1, std_name="wind_speed", ran_type=.true., &
+         else
+            call addfld ( "u10", "10m wind speed", "m s-1", 0., 100.0, 1, std_name="wind_speed", ran_type=.true.,  &
                           all_positive=.true. ) 
          end if   
          
@@ -4044,7 +4164,7 @@ contains
          ! to be depreciated
          !ierr = nf90_inq_varid (ncid, "uas_stn", ivar )
          !if ( ierr==nf90_noerr ) then
-         !   call addfld ( "u10_stn", "10m wind speed (station)", "m s-1", 0., 100.0, 1, ran_type=.false. ) 
+         !   call addfld ( "u10_stn", "10m wind speed (station)", "m s-1", 0., 100.0, 1 ) 
          !   ierr = nf90_inq_varid (ncid, "psf", ivar )
          !   if ( ierr==nf90_noerr ) then
          !      call addfld ( "tdscrn_stn", "Dew point screen temperature (station)", "K", 100.0, 400.0, 1 )
@@ -4567,7 +4687,7 @@ contains
          cell_methods = "time: mean"
       case ("cape_max")
          stdname = "atmosphere_convective_available_potential_energy"
-         cell_methods = "time: maximum"
+         cell_methods = "time: maximum (interval: 1 day)"
       case ("cbas_ave")
          stdname = "air_pressure_at_cloud_base"
       case ("CIN")
@@ -4600,6 +4720,8 @@ contains
       case ("d150")
          stdname = "wind_from_direction" 
       case ("d250")
+         stdname = "wind_from_direction" 
+      case ("direction")
          stdname = "wind_from_direction" 
       case ("dni")
          stdname = "surface_downwelling_shortwave_flux_in_air"
@@ -4675,10 +4797,10 @@ contains
          cell_methods = "time: mean"
       case ("prmax")
          stdname = "precipitation_flux" 
-         cell_methods = "time: maximum"
+         cell_methods = "time: maximum (interval: 1 day)"
       case ("prhmax")
          stdname = "precipitation_flux" 
-         cell_methods = "time: maximum"
+         cell_methods = "time: maximum (interval: 1 day)"
       case ("prw")
          stdname = "atmosphere_water_vapor_content"
       case ("ps")
@@ -4756,7 +4878,7 @@ contains
          stdname = "wind_speed"
       case ("sfcWindmax")
          stdname = "wind_speed"
-         cell_methods = "time: maximum"
+         cell_methods = "time: maximum (interval: 1 day)"
       case ("sftlf")
          stdname = "land_area_fraction" 
       case ("sftgif")
@@ -4802,17 +4924,17 @@ contains
          stdname = "sea_surface_height_above_sea_level"          
       case ("sund")
          stdname = "duration_of_sunshine"
-         cell_methods = "time: sum"
+         cell_methods = "time: sum (interval: 1 day)"
       case ("ta")
         stdname = "air_temperature"  
       case ("tas")
          stdname = "air_temperature"
       case ("tasmax")
          stdname = "air_temperature"
-         cell_methods = "time: maximum"
+         cell_methods = "time: maximum (interval: 1 day)"
       case ("tasmin")
          stdname = "air_temperature"
-         cell_methods = "time: minimum"
+         cell_methods = "time: minimum (interval: 1 day)"
       case ("tsskin")
          stdname = "skin_temperature"
       case ("tauu")
@@ -4829,10 +4951,10 @@ contains
          stdname = "sea_water_potential_temperature" 
       case ("tminscr")
          stdname = "air_temperature" 
-         cell_methods = "time: minimum"
+         cell_methods = "time: minimum (interval: 1 day)"
       case ("tmaxscr")
          stdname = "air_temperature" 
-         cell_methods = "time: maximum"
+         cell_methods = "time: maximum (interval: 1 day)"
       case ("tos")
          stdname = "sea_surface_temperature" 
       case ("ts")
@@ -4882,7 +5004,7 @@ contains
          stdname = "northward_sea_water_velocity"
       case ("wsgsmax")
          stdname = "wind_speed_of_gust"
-         cell_methods = "time: maximum"
+         cell_methods = "time: maximum (interval: 1 day)"
       case ("z0")
          stdname = "surface_roughness_length"   
          cell_methods = "time: point"

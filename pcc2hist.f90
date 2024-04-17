@@ -54,7 +54,7 @@ program cc2hist
 
    character(len=MAX_ARGLEN) :: optarg
    integer :: opt, nopt
-   type(loption), dimension(6) :: longopts
+   type(loption), dimension(7) :: longopts
    integer :: longind
    integer :: kta=0, ktb=999999, ktc=-1, ndate=-1, ntime=-1, k
    integer :: sdate=-1, edate=-1, stime=-1, etime=-1
@@ -72,7 +72,8 @@ program cc2hist
                     edate, stime, etime, hres, debug, ifile, ofile,   &
                     int_default, vextrap, cf_compliant,               &
                     cordex_compliant, save_ccam_parameters,           &
-                    ran_compliant, safe_max, fao_potev
+                    ran_compliant, areps_compliant, safe_max,          &
+                    fao_potev
 
    include 'revision.h'
    
@@ -93,7 +94,7 @@ program cc2hist
    real :: time_prev = 0.
    real :: rval, dtime
    real, dimension(2) :: time_bnds
-   real, dimension(:), allocatable :: xlevs
+   real, dimension(:), allocatable :: xlevs, oxlevs
    type(input_var), dimension(:), pointer, contiguous :: varlist
    type(hist_att), dimension(:), allocatable :: extra_atts, extra_temp
 
@@ -131,6 +132,7 @@ program cc2hist
    longopts(4) = loption ( "cordex", 0, 0 )
    longopts(5) = loption ( "multioutput", 0, 0 )
    longopts(6) = loption ( "ran", 0, 0 )
+   longopts(7) = loption ( "areps", 0, 0 )
    ifile = ""
    ofile = ""
    cfile = ""
@@ -198,7 +200,9 @@ program cc2hist
          case ( 5 )
             single_output = .false.
          case ( 6 )
-            ran_compliant = .true.
+            ran_compliant = .true. ! depreciated
+         case ( 7 )
+            areps_compliant = .true.
          case default
             print*, "Unexpected result processing long options", longind
             call finishbanner
@@ -354,6 +358,9 @@ program cc2hist
    if ( cf_compliant .and. basetime(1:13) == "seconds since" ) then
       basetime = "days" // basetime(8:len_trim(basetime))
    end if
+   if ( areps_compliant .and. basetime(1:13) == "minutes since" ) then
+      basetime = "hours" // basetime(8:len_trim(basetime))
+   end if
 
    ierr = nf90_inquire(ncid, nAttributes=natts )
    call check_ncerr(ierr, "Error getting number of global attributes")
@@ -393,7 +400,7 @@ program cc2hist
    extra_atts(3:catts) = extra_temp(1:catts-2)
    deallocate ( extra_temp )
 
-   allocate( xlevs(nlev) ) ! use a pointer here?
+   allocate( xlevs(nlev), oxlevs(onlev) ) ! use a pointer here?
    if ( use_plevs ) then
       xlevs(1:nlev) = plevs(1:nlev)
    else if ( use_meters ) then
@@ -405,10 +412,15 @@ program cc2hist
    else
       xlevs(1:nlev) = sig(minlev:maxlev)
    end if
+   if ( use_depth ) then
+      oxlevs(1:onlev) = dlevs(1:onlev)
+   else
+      oxlevs(1:onlev) = gosig(1:onlev) 
+   end if
    
    if ( calendar /= "" ) then
       if ( cf_compliant ) then
-         call openhist( il, jl, nlev, xlevs(1:nlev), onlev, cptch, cchrt, dlevs(1:onplevs), &
+         call openhist( il, jl, nlev, xlevs(1:nlev), onlev, cptch, cchrt, oxlevs(1:onlev), &
                         "_test", hlon, hlat, basetime, year=1, nxout=nxhis,     &
                         nyout=nyhis, source=source, histfilename=ofile,         &
                         pressure=use_plevs, height=use_meters, theta=use_theta, &
@@ -416,7 +428,7 @@ program cc2hist
                         extra_atts=extra_atts, nsoil=ksoil, zsoil=zsoil,        &
                         calendar=calendar )
       else
-         call openhist ( il, jl, nlev, xlevs(1:nlev), onlev, cptch, cchrt, dlevs(1:onplevs), &
+         call openhist( il, jl, nlev, xlevs(1:nlev), onlev, cptch, cchrt, oxlevs(1:onlev), &
                          "_test", hlon, hlat, basetime, year=1, nxout=nxhis,     &
                          nyout=nyhis, source=source, histfilename=ofile,         &
                          pressure=use_plevs, height=use_meters, theta=use_theta, &
@@ -426,14 +438,14 @@ program cc2hist
       end if
    else
       if ( cf_compliant ) then
-         call openhist( il, jl, nlev, xlevs(1:nlev), onlev, cptch, cchrt, dlevs(1:onplevs), &
+         call openhist( il, jl, nlev, xlevs(1:nlev), onlev, cptch, cchrt, oxlevs(1:onlev), &
                         "_test", hlon, hlat, basetime, year=1, nxout=nxhis,     &
                         nyout=nyhis, source=source, histfilename=ofile,         &
                         pressure=use_plevs, height=use_meters, theta=use_theta, &
                         pvort=use_pvort, depth=use_depth,                       &
                         extra_atts=extra_atts, nsoil=ksoil, zsoil=zsoil )
       else
-         call openhist ( il, jl, nlev, xlevs(1:nlev), onlev, cptch, cchrt, dlevs(1:onplevs), &
+         call openhist( il, jl, nlev, xlevs(1:nlev), onlev, cptch, cchrt, oxlevs(1:onlev), &
                          "_test", hlon, hlat, basetime, year=1, nxout=nxhis,     &
                          nyout=nyhis, source=source, histfilename=ofile,         &
                          pressure=use_plevs, height=use_meters, theta=use_theta, &
@@ -442,7 +454,7 @@ program cc2hist
       end if   
    end if
 
-   deallocate( xlevs )
+   deallocate( xlevs, oxlevs )
    
 !  needfld calls are only valid after openhist
    call final_init( varlist, nvars )
@@ -460,6 +472,11 @@ program cc2hist
    end if
    
    call getdtime( dtime, ktc )
+   if ( cf_compliant ) then
+      dtime = dtime/1440. ! Days
+   else if ( areps_compliant ) then
+      dtime = dtime/60.   ! Hours
+   end if
    
    call log_on()
    call START_LOG(timeloop_begin)
@@ -570,6 +587,9 @@ program cc2hist
          time_bnds = (/time_prev,time/)
          call writehist ( ktau, interp=ints, time=time, time_bnds=time_bnds, dtime=dtime )
          time_prev = time
+      else if ( areps_compliant ) then
+         time = time/60. ! Hours
+         call writehist ( ktau, interp=ints, time=time, dtime=dtime ) 
       else
          call writehist ( ktau, interp=ints, time=time, dtime=dtime )
       end if
