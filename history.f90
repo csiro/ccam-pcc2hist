@@ -81,6 +81,8 @@ module history
 !  Access is only possible through a routine so that the underlying data
 !  structure may be changed without affecting user programs.
    public :: set_htype,  set_hfreq, set_hnames, set_hbytes
+   
+   public :: spval
 
    !public :: set_missval
 
@@ -89,6 +91,7 @@ module history
               create_ncfile,                                            &
               hashkey, qindex_hname, savehist_work,                     &
               gsavehist2D, gsavehist3D, gsavehist4D
+   private :: fill_cc1
    !private :: create_oldfile
 
    character(len=50), public, parameter :: &
@@ -151,6 +154,9 @@ module history
 !  To allow old format files to be written in another directory
    character(len=200), save :: oldprefix
 
+!  Fill value for tsea   
+   real, parameter :: spval   = 999.   
+   
 !  Record for each field in a history file
    type hinfo
       character(len=MAX_NAMELEN)   :: name      ! Mnemonic name
@@ -205,6 +211,8 @@ module history
       logical            :: instant
       ! all positive values
       logical            :: all_positive
+      ! fill required
+      logical            :: fill
    end type hinfo
 
 !  For adding extra global attributes
@@ -486,7 +494,7 @@ contains
                      int_type, multilev, std_name, soil, water,       &
                      pop2d, pop3d, pop4d, coord_height, cell_methods, &
                      ran_type, areps_type, tn_type, daily, sixhr,      &
-                     instant, all_positive, tracer_type )
+                     instant, all_positive, tracer_type, fill )
 !
 !     Add a field to the master list of fields that may be saved.
 !
@@ -518,6 +526,7 @@ contains
       logical, intent(in), optional   :: sixhr
       logical, intent(in), optional   :: instant
       logical, intent(in), optional   :: all_positive
+      logical, intent(in), optional   :: fill
 
 !     Local variables corresponding to the optional arguments
       integer :: atype, ltn
@@ -690,6 +699,11 @@ contains
          histinfo(totflds)%all_positive = all_positive
       else
          histinfo(totflds)%all_positive = .false.
+      end if
+      if ( present(fill) ) then
+         histinfo(totflds)%fill = fill
+      else
+         histinfo(totflds)%fill = .false.
       end if
 
    end subroutine addfld
@@ -2651,7 +2665,7 @@ contains
             ave_type = histinfo(ifld)%ave_type
             nlev = histinfo(ifld)%nlevels
             vid = histinfo(ifld)%vid
-         
+            
 !           Only write fixed variables in the first history set
             if ( histset > 1 .and. ave_type == hist_fixed ) then
                cycle
@@ -2678,6 +2692,10 @@ contains
                            hist_a(1:pil,1+n*pjl:(n+1)*pjl,ip+1,cnt)
                      end do
                   end do
+!                 Update fill if required         
+                  if ( histinfo(ifld)%fill ) then
+                     call fill_cc1(hist_g)
+                  end if
                   if ( present(interp) ) then
                      call interp ( hist_g, htemp, histinfo(ifld)%int_type )
                   else
@@ -2916,7 +2934,11 @@ contains
                         hist_a(1:pil,1+n*pjl:(n+1)*pjl,k-istart+1,ip+1)
                   end do
                end do
-  
+               
+  !            Update fill if required         
+               if ( histinfo(ifld)%fill ) then
+                  call fill_cc1(hist_g)
+               end if
                if ( present(interp) ) then
                   call interp ( hist_g, htemp, histinfo(ifld)%int_type )
                else
@@ -3328,6 +3350,91 @@ contains
       end if
       
       
-   end function calcfilename   
+   end function calcfilename
+   
+   subroutine fill_cc1(b_io)
+!     routine fills in interior of an array which has undefined points
+      use newmpar_m
+      use indices_m
+      use logging_m      
+      real, dimension(:,:), intent(inout) :: b_io ! input and output array
+      real, dimension(ifull) :: b, a
+      integer, dimension(0:5) :: imin, imax, jmin, jmax
+      integer :: iminb, imaxb, jminb, jmaxb
+      integer :: nrem, iq, neighb, i, j
+      integer :: n
+      real :: av, avx
+      
+      call START_LOG(fillcc0_begin)
+      
+      a(1:ifull) = reshape( b_io(1:il,1:jl), (/ ifull /) )
+      
+      imin(:) = 1
+      imax(:) = il
+      jmin(:) = 1
+      jmax(:) = il
+      
+      nrem = 1    ! Just for first iteration
+!     nrem_gmin used to avoid infinite loops, e.g. for no sice
+      do while ( nrem > 0 )
+         nrem = 0
+         b(:) = a(:)
+         do n = 0,5
+            iminb = il
+            imaxb = 1
+            jminb = il
+            jmaxb = 1
+            do j = jmin(n),jmax(n)
+               do i = imin(n),imax(n)
+                  iq = i + (j-1)*il + n*il*il
+                  if ( a(iq) == spval ) then
+                     neighb = 0
+                     av = 0.
+                     if ( a(i_n(iq)) /= spval ) then
+                        neighb = neighb + 1
+                        av = av + a(i_n(iq))
+                     end if
+                     if ( a(i_e(iq)) /= spval ) then
+                        neighb = neighb + 1
+                        av = av + a(i_e(iq))
+                     end if
+                     if ( a(i_w(iq)) /= spval ) then
+                        neighb = neighb + 1
+                        av = av + a(i_w(iq))
+                     end if
+                     if ( a(i_s(iq)) /= spval ) then
+                        neighb = neighb + 1
+                        av = av + a(i_s(iq))
+                     end if
+                     if ( neighb > 0 ) then
+                        b(iq) = av/neighb
+                        avx = av
+                     else
+                        nrem = nrem + 1   ! current number of points without a neighbour
+                        iminb = min( i, iminb )
+                        imaxb = max( i, imaxb )
+                        jminb = min( j, jminb )
+                        jmaxb = max( j, jmaxb )
+                     end if
+                  end if
+               end do
+            end do
+            imin(n) = iminb
+            imax(n) = imaxb
+            jmin(n) = jminb
+            jmax(n) = jmaxb
+         end do
+         a(:) = b(:)
+         if ( nrem == ifull ) then
+            print*, "Error in fill_cc - no points defined"
+            exit
+         end if
+      end do
+ 
+      b_io(1:il,1:jl) = reshape( a(1:ifull), (/ il, jl /) )
+      
+      call END_LOG(fillcc0_end)
+      
+   end subroutine fill_cc1   
    
 end module history

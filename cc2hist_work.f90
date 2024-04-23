@@ -67,7 +67,7 @@ module work
 
    public :: initialise, fix_winds, final_init, check_cc2histfile
    public :: paraopen, paraclose
-   private :: fill_cc
+   
    interface fix_winds
       module procedure fix_winds2, fix_winds3
    end interface
@@ -317,7 +317,7 @@ contains
    
    subroutine infile ( varlist, nvars, skip, mins )
       ! For netcdf input
-      use history, only : savehist, needfld, cordex_compliant, areps_compliant
+      use history, only : savehist, needfld, cordex_compliant, areps_compliant, spval
       use physparams, only : grav, rdry, cp, pi
       use s2p_m
       use height_m
@@ -351,7 +351,6 @@ contains
       character(len=10) :: name
       character(len=60) :: cname
       logical :: validvar
-      real, parameter :: spval   = 999.
       real, parameter :: tfreeze = 271.38
 
       ! With a netcdf file there's no need to read in order to skip.
@@ -884,7 +883,7 @@ contains
                      call savehist("tscrn", tscrn)
                   end if 
                   if ( needfld("tempc2m") ) then
-                     dtmp = tscrn + 273.16 
+                     dtmp = tscrn - 273.16 
                      call savehist("tempc2m", dtmp) 
                   end if
                end if  
@@ -963,15 +962,16 @@ contains
                      where ( soilt > 0.5 )
                         ctmp = spval
                      elsewhere
-                        ! Use the maxval to ignore ice points.
                         ctmp = dtmp
                      end where
-                     call fill_cc(ctmp, spval)
+                     ! spval replaced in history.f90 (histinfo%fill=.true.)
                      if ( needfld("tsea") ) then
                         call savehist ( "tsea", ctmp )
                      end if
                      if ( needfld("sst") ) then
-                        ctmp = ctmp + 273.16 
+                        where ( ctmp /= spval ) 
+                           ctmp = ctmp - 273.16 
+                        end where
                         call savehist ( "sst", ctmp )
                      end if
                   end if   
@@ -3788,10 +3788,12 @@ contains
          call addfld ( "grid", "Grid resolution", "km", 0., 1000., 1, ave_type="fixed" )
          if ( areps_compliant ) then
             call addfld ( "sst", "Sea surface temperature", "degree_C", -123., 77., 1, &
-                           std_name="sea_surface_temperature", areps_type=.true. )
+                           std_name="sea_surface_temperature", areps_type=.true.,      &
+                           fill=.true. )
          else    
             call addfld ( "tsea", "Sea surface temperature", "K", 150., 350., 1, &
-                           std_name="sea_surface_temperature", ran_type=.true. )
+                           std_name="sea_surface_temperature", ran_type=.true.,  &
+                           fill=.true. )
          end if
          call addfld ( "tdew", "Dew point screen temperature", "K", 100.0, 400.0, 1 )
          if ( cordex_compliant ) then
@@ -5095,153 +5097,6 @@ contains
          if ( is_soil_var ) return
       end do
    end function is_soil_var
-
-   subroutine fill_cc(b_io,value)
-!     routine fills in interior of an array which has undefined points
-      use logging_m
-#ifdef usempimod
-      use mpi
-#else
-      include 'mpif.h'
-#endif
-      real, intent(inout) :: b_io(pil,pjl*pnpan*lproc)         ! input and output array
-      real, intent(in)    :: value                             ! array value denoting undefined
-      real, dimension(0,0,0) :: c_io
-      integer :: ierr, lsize
-      
-      call START_LOG(fillcc_begin)
-      if ( myid == 0 ) then
-         call fill_cc0(b_io,value)
-      else
-         lsize = pil*pjl*pnpan*lproc
-         call START_LOG(mpigather_begin)
-         call MPI_Gather(b_io,lsize,MPI_REAL,c_io,lsize,MPI_REAL,0,comm_world,ierr)
-         call END_LOG(mpigather_end)
-         call START_LOG(mpiscatter_begin)
-         call MPI_Scatter(c_io,lsize,MPI_REAL,b_io,lsize,MPI_REAL,0,comm_world,ierr)
-         call END_LOG(mpiscatter_end)
-      end if
-      call END_LOG(fillcc_end)
-      
-   end subroutine fill_cc
-
-   subroutine fill_cc0(b_io,value)
-!     routine fills in interior of an array which has undefined points
-      use newmpar_m
-      use indices_m
-      use logging_m      
-#ifdef usempimod
-      use mpi
-#else
-      include 'mpif.h'
-#endif
-      real, dimension(pil,pjl*pnpan*lproc), intent(inout) :: b_io ! input and output array
-      real, intent(in)    :: value                                ! array value denoting undefined
-      real, dimension(pil,pjl*pnpan,pnproc) :: c_io
-      real, dimension(ifull) :: b, a
-      integer, dimension(0:5) :: imin, imax, jmin, jmax
-      integer iminb, imaxb, jminb, jmaxb
-      integer :: nrem, iq, neighb, ierr, i, j
-      integer :: ip, n, lsize
-      real :: av, avx
-      
-      call START_LOG(fillcc0_begin)
-      
-      lsize = pil*pjl*pnpan*lproc
-      call START_LOG(mpigather_begin)
-      call MPI_Gather(b_io,lsize,MPI_REAL,c_io,lsize,MPI_REAL,0,comm_world,ierr)
-      call END_LOG(mpigather_end)
-
-      do ip = 0,pnproc-1   
-         do n = 0,pnpan-1
-            do j = 1,pjl
-               do i = 1,pil
-                  iq = i + ioff(ip,n) + (j+joff(ip,n)+n*pil_g-1)*il
-                  a(iq) = c_io(i,j+n*pjl,ip+1)
-               end do
-            end do
-         end do
-      end do
-      
-      imin(:) = 1
-      imax(:) = il
-      jmin(:) = 1
-      jmax(:) = il
-      
-      nrem = 1    ! Just for first iteration
-!     nrem_gmin used to avoid infinite loops, e.g. for no sice
-      do while ( nrem > 0 )
-         nrem = 0
-         b(:) = a(:)
-         do n = 0,5
-            iminb = il
-            imaxb = 1
-            jminb = il
-            jmaxb = 1
-            do j = jmin(n),jmax(n)
-               do i = imin(n),imax(n)
-                  iq = i + (j-1)*il + n*il*il
-                  if ( a(iq) == value ) then
-                     neighb = 0
-                     av = 0.
-                     if ( a(i_n(iq)) /= value ) then
-                        neighb = neighb + 1
-                        av = av + a(i_n(iq))
-                     end if
-                     if ( a(i_e(iq)) /= value ) then
-                        neighb = neighb + 1
-                        av = av + a(i_e(iq))
-                     end if
-                     if ( a(i_w(iq)) /= value ) then
-                        neighb = neighb + 1
-                        av = av + a(i_w(iq))
-                     end if
-                     if ( a(i_s(iq)) /= value ) then
-                        neighb = neighb + 1
-                        av = av + a(i_s(iq))
-                     end if
-                     if ( neighb > 0 ) then
-                        b(iq) = av/neighb
-                        avx = av
-                     else
-                        nrem = nrem + 1   ! current number of points without a neighbour
-                        iminb = min( i, iminb )
-                        imaxb = max( i, imaxb )
-                        jminb = min( j, jminb )
-                        jmaxb = max( j, jmaxb )
-                     end if
-                  end if
-               end do
-            end do
-            imin(n) = iminb
-            imax(n) = imaxb
-            jmin(n) = jminb
-            jmax(n) = jmaxb
-         end do
-         a(:) = b(:)
-         if ( nrem == ifull ) then
-            print*, "Error in fill_cc - no points defined"
-            exit
-         end if
-      end do
- 
-      do ip = 0,pnproc-1   
-         do n = 0,pnpan-1
-            do j = 1,pjl
-               do i = 1,pil
-                 iq = i+ioff(ip,n) + (j+joff(ip,n)+n*pil_g-1)*il
-                 c_io(i,j+n*pjl,ip+1) = a(iq)
-               end do
-            end do
-         end do
-      end do
-      
-      call START_LOG(mpiscatter_begin)
-      call MPI_Scatter(c_io,lsize,MPI_REAL,b_io,lsize,MPI_REAL,0,comm_world,ierr)
-      call END_LOG(mpiscatter_end)
-      call END_LOG(fillcc0_end)
-      
-   end subroutine fill_cc0
 
 !   subroutine calc_pvort_cc(sig,psl,t,u,v,f_cor,pvort)
 !      use logging_m
