@@ -1,6 +1,6 @@
 ! Conformal Cubic Atmospheric Model
     
-! Copyright 2015 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+! Copyright 2015-2024 Commonwealth Scientific Industrial Research Organisation (CSIRO)
     
 ! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
 !
@@ -93,7 +93,7 @@ subroutine setxyz ( il, jl, kl, npanels, ifull, iquad, diag, id, jd,        &
 
 !  Allocate all the public arrays
    allocate ( xx4(iquad,iquad), yy4(iquad,iquad) )
-   allocate ( i_n(ifull),  i_s(ifull), i_w(ifull), i_e(ifull), i_nn(ifull),   &
+   allocate ( i_nn(ifull),                                                    &
               i_ss(ifull), i_ww(ifull), i_ee(ifull), i_ne(ifull),             &
               i_se(ifull), i_en(ifull), i_wn(ifull), i_wu(ifull),             &
               i_sv(ifull), i_wu2(ifull), i_sv2(ifull), i_eu2(ifull),          &

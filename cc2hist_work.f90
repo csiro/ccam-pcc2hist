@@ -2477,11 +2477,13 @@ contains
 
 !     Set all the resolution parameters
       npanels = jl/il - 1
-      ifull=il*jl
-      ij=il*jl
-      ijk=il*jl*kl
-      iquad=1+il*((8*npanels)/(npanels+4))
+      ifull = il*jl
+      ij = il*jl
+      ijk = il*jl*kl
+      iquad = 1 + il*((8*npanels)/(npanels+4))
 
+      allocate ( i_n(ifull), i_s(ifull), i_e(ifull), i_w(ifull) )
+      
 #ifdef usempi3
       if ( node_myid == 0 ) then
 #else
@@ -2489,10 +2491,22 @@ contains
 #endif
 
           call setxyz ( il, jl, kl, npanels, ifull, iquad, idiag, id, jd,        &
-                    rlong0, rlat0, schmidt, schm13, ntang, erad )
+                        rlong0, rlat0, schmidt, schm13, ntang, erad )
                     
       end if
 
+#ifdef usempi3
+      call MPI_Bcast( i_n, ifull, MPI_INTEGER, 0, node_comm, ierr )
+      call MPI_Bcast( i_s, ifull, MPI_INTEGER, 0, node_comm, ierr )
+      call MPI_Bcast( i_e, ifull, MPI_INTEGER, 0, node_comm, ierr )
+      call MPI_Bcast( i_w, ifull, MPI_INTEGER, 0, node_comm, ierr )
+#else
+      call MPI_Bcast( i_n, ifull, MPI_INTEGER, 0, comm_world, ierr )
+      call MPI_Bcast( i_s, ifull, MPI_INTEGER, 0, comm_world, ierr )
+      call MPI_Bcast( i_e, ifull, MPI_INTEGER, 0, comm_world, ierr )
+      call MPI_Bcast( i_w, ifull, MPI_INTEGER, 0, comm_world, ierr )
+#endif
+      
       if ( int_default == int_none ) then
          nxhis = il
          nyhis = jl
@@ -2539,7 +2553,6 @@ contains
             nyhis = nint ( (real(maxlat,8)-real(minlat,8)) / real(hres,8) ) + 1
          end if
       end if
-
 
 #ifdef usempi3
       if ( node_myid == 0 ) then
@@ -2601,7 +2614,7 @@ contains
       call allocshdata(xg,ssize,(/ nxhis, nyhis /),xg_win)
       call allocshdata(yg,ssize,(/ nxhis, nyhis /),yg_win)
       call allocshdata(nface,ssize,(/ nxhis, nyhis /),nface_win)
-
+      
       call MPI_Barrier(node_comm,ierr)
       !call MPI_Win_fence(0,xg_win,ierr)
       !call MPI_Win_fence(0,yg_win,ierr)
