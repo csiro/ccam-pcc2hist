@@ -25,7 +25,7 @@ endif
 ifeq ($(NOMPI3),yes)
 MPIFLAG =
 else
-MPIFLAG = -Dusempi3 -Dshare_ifullg
+MPIFLAG = -Dshare_ifullg
 #MPIFLAG =
 endif
 FFLAGS = -O3 $(FHOST) -ftz -fp-model precise -traceback $(MPIFLAG)
@@ -52,7 +52,7 @@ ifeq ($(SETONIX),yes)
 MPIFC = ftn
 MPIF77 = ftn
 FC = ftn
-FFLAGS = -O2 -mtune=native -march=native -fbacktrace -fallow-argument-mismatch -Dusempi3 -Dsafe
+FFLAGS = -O2 -mtune=native -march=native -fbacktrace -fallow-argument-mismatch -Dsafe
 INC =
 LIBS = -lnetcdf
 PPFLAG90 = -x f95-cpp-input
@@ -70,7 +70,7 @@ endif
 ifeq ($(MAUI),yes)
 FC = ftn
 FHOST = -xSKYLAKE-AVX512
-MPIFLAG = -Dusempi3
+MPIFLAG = 
 FFLAGS = -O3 $(FHOST) -ftz -fp-model precise -traceback $(MPIFLAG)
 INC = -I $(NETCDF_ROOT)/include
 LIBS = -L $(NETCDF_ROOT)/lib -lnetcdf -lnetcdff

@@ -39,10 +39,15 @@ program cc2hist
    use checkver_m
    use parm_m, only : rlong0, rlat0, schmidt
    use logging_m
+#ifdef usempimod
+   use mpi
+#endif   
 
    implicit none
 
+#ifndef usempimod   
    include 'mpif.h'
+#endif   
 
    character(len=MAX_ARGLEN) :: ifile, ofile, cfile
 
@@ -111,7 +116,7 @@ program cc2hist
       write(6,*) "=============================================================================="
    end if
    
-#ifdef usempi3
+#ifdef share_ifullg
    call MPI_Comm_split_type(comm_world, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, node_comm, ierr) ! Per node communicator
    call MPI_Comm_size(node_comm, node_nproc, ierr) ! Find number of processes on node
    call MPI_Comm_rank(node_comm, node_myid, ierr)  ! Find local processor id on node

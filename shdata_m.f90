@@ -1,6 +1,6 @@
 ! Conformal Cubic Atmospheric Model
     
-! Copyright 2015-2018 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+! Copyright 2015-2023 Commonwealth Scientific Industrial Research Organisation (CSIRO)
     
 ! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
 !
@@ -19,7 +19,7 @@
 
 !------------------------------------------------------------------------------
     
-#ifdef usempi3
+#ifdef share_ifullg
 module shdata_m
    implicit none
 
@@ -27,7 +27,8 @@ module shdata_m
    public :: allocshdata, freeshdata
 
    interface allocshdata
-      module procedure allocshdata_r2,allocshdata_r3,allocshdata_i2,allocshdata_i3
+      module procedure allocshdata_r2,allocshdata_r3
+      module procedure allocshdata_i1,allocshdata_i2,allocshdata_i3
    end interface
 
 contains
@@ -35,7 +36,11 @@ contains
    subroutine allocshdata_r2(pdata, ssize, sshape, win)
       use, intrinsic :: iso_c_binding, only : c_ptr, c_f_pointer
       use mpidata_m
+#ifdef usempimod
+      use mpi
+#else
       include 'mpif.h'
+#endif      
       real, pointer, dimension(:,:), intent(inout) :: pdata 
       integer(kind=MPI_ADDRESS_KIND), intent(in) :: ssize
       integer, dimension(:), intent(in) :: sshape
@@ -56,7 +61,11 @@ contains
    subroutine allocshdata_r3(pdata, ssize, sshape, win)
       use, intrinsic :: iso_c_binding, only : c_ptr, c_f_pointer
       use mpidata_m
+#ifdef usempimod
+      use mpi
+#else
       include 'mpif.h'
+#endif  
       real, pointer, dimension(:,:,:), intent(inout) :: pdata 
       integer(kind=MPI_ADDRESS_KIND), intent(in) :: ssize
       integer, dimension(:), intent(in) :: sshape
@@ -74,10 +83,40 @@ contains
 
    end subroutine allocshdata_r3
 
+   subroutine allocshdata_i1(pdata, ssize, sshape, win)
+      use, intrinsic :: iso_c_binding, only : c_ptr, c_f_pointer
+      use mpidata_m
+#ifdef usempimod
+      use mpi
+#else
+      include 'mpif.h'
+#endif  
+      integer, pointer, dimension(:), intent(inout) :: pdata 
+      integer(kind=MPI_ADDRESS_KIND), intent(in) :: ssize
+      integer, dimension(:), intent(in) :: sshape
+      integer, intent(out) :: win
+      integer(kind=MPI_ADDRESS_KIND) :: qsize, lsize
+      integer :: disp_unit,ierr,tsize
+      type(c_ptr) :: baseptr
+
+!     allocted a single shared memory region on each node
+      call MPI_Type_size(MPI_INTEGER,tsize,ierr)
+      lsize = ssize*tsize
+      call MPI_Win_allocate_shared( lsize, 1, MPI_INFO_NULL, node_comm, baseptr, win, ierr)
+      if ( node_myid /= 0 ) call MPI_Win_shared_query(win, 0, qsize, disp_unit, baseptr, ierr)
+      call c_f_pointer(baseptr, pdata, sshape)
+
+   end subroutine allocshdata_i1
+   
+   
    subroutine allocshdata_i2(pdata, ssize, sshape, win)
       use, intrinsic :: iso_c_binding, only : c_ptr, c_f_pointer
       use mpidata_m
+#ifdef usempimod
+      use mpi
+#else
       include 'mpif.h'
+#endif  
       integer, pointer, dimension(:,:), intent(inout) :: pdata 
       integer(kind=MPI_ADDRESS_KIND), intent(in) :: ssize
       integer, dimension(:), intent(in) :: sshape
@@ -98,7 +137,11 @@ contains
    subroutine allocshdata_i3(pdata, ssize, sshape, win)
       use, intrinsic :: iso_c_binding, only : c_ptr, c_f_pointer
       use mpidata_m
+#ifdef usempimod
+      use mpi
+#else
       include 'mpif.h'
+#endif  
       integer, pointer, dimension(:,:,:), intent(inout) :: pdata 
       integer(kind=MPI_ADDRESS_KIND), intent(in) :: ssize
       integer, dimension(:), intent(in) :: sshape
@@ -117,7 +160,11 @@ contains
    end subroutine allocshdata_i3
    
    subroutine freeshdata(win)
+#ifdef usempimod
+      use mpi
+#else
       include 'mpif.h'
+#endif  
       integer, intent(in) :: win
       integer :: ierr
 

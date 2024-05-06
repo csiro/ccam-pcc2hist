@@ -1,6 +1,6 @@
 ! Conformal Cubic Atmospheric Model
     
-! Copyright 2015 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+! Copyright 2015-2024 Commonwealth Scientific Industrial Research Organisation (CSIRO)
     
 ! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
 !
@@ -22,8 +22,7 @@
 module indices_m
    implicit none
 
-   integer, public, dimension(:), allocatable :: i_n, i_s, i_w, i_e,         &
-                                                 i_nn, i_ss, i_ww, i_ee,     &
+   integer, public, dimension(:), allocatable :: i_nn, i_ss, i_ww, i_ee,     &
                                                  i_ne, i_se, i_en, i_wn,     &
                                                  i_wu, i_sv, i_wu2, i_sv2,   &
                                                  i_eu2, i_nv2, i_ev2, i_nu2, &
@@ -34,4 +33,12 @@ module indices_m
                                                  lenn, lsww, lsw, lssw,              &
                                                  lsee, lsse, lnww, lnw,              &
                                                  lnnw, lnee, lnne
+   
+#ifdef share_ifullg
+   integer, pointer, contiguous, dimension(:), public :: i_n, i_s, i_w, i_e
+   integer :: in_win, is_win, ie_win, iw_win
+#else
+   integer, public, dimension(:), allocatable :: i_n, i_s, i_w, i_e
+#endif   
+   
 end module indices_m

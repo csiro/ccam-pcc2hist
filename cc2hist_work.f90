@@ -1153,15 +1153,15 @@ contains
                   end do   
                   call osavehist( "kso", ocn_tmp )
                end if
-            case ( "mrfsol" )
-               if ( needfld("mrfsol") .or. (kk>1.and.(needfld("mrfso").or.needfld("mrfsos"))) ) then 
+            case ( "mrfsl" )
+               if ( needfld("mrfsl") .or. (kk>1.and.(needfld("mrfso").or.needfld("mrfsos"))) ) then 
                   mrfso = 0.
                   mrfsos = 0.
                   ierr = nf90_inq_varid (ncid, "mrfsol1", var_dum ) 
                   if ( ierr == nf90_noerr ) then 
                      do k = 1,ksoil
                         write(name,'(a,i1)') 'mrfsol', k
-                        call vread(name,tgg(:,:,k))
+                        call vread(name,tgg(:,:,k)) ! water
                         where ( tgg(:,:,k)/=nf90_fill_float )
                            mrfso = mrfso + tgg(:,:,k)
                            mrfsos = mrfsos + tgg(:,:,k)*shallow_zse(k)/zse(k)
@@ -1181,15 +1181,15 @@ contains
                      if ( needfld("mrfsos") .and. kk>1 ) then
                         call savehist("mrfsos", mrfsos)
                      endif
-                     if ( needfld("mrfsol") ) then
-                        call savehist("mrfsol", tgg)
+                     if ( needfld("mrfsl") ) then
+                        call savehist("mrfsl", tgg) ! water
                      end if   
                   end if
                   ierr = nf90_inq_varid (ncid, "wbice1_ave", var_dum ) 
                   if ( ierr == nf90_noerr ) then
                      do k = 1,ksoil
                         write(name,'(a,i1,a)') 'wbice', k, '_ave'
-                        call vread(name,tgg(:,:,k))
+                        call vread(name,tgg(:,:,k)) ! water
                         where ( tgg(:,:,k)/=nf90_fill_float )
                            mrfso = mrfso + tgg(:,:,k)*zse(k)*330.
                            mrfsos = mrfsos + tgg(:,:,k)*shallow_zse(k)*330.
@@ -1210,8 +1210,8 @@ contains
                      if ( needfld("mrfsos") .and. kk>1 ) then
                         call savehist("mrfsos", mrfsos)
                      endif
-                     if ( needfld("mrfsol") ) then
-                        call savehist("mrfsol", tgg)
+                     if ( needfld("mrfsl") ) then
+                        call savehist("mrfsl", tgg) ! water
                      end if   
                   end if    
                end if 
@@ -2214,11 +2214,9 @@ contains
       use parm_m, only : rlong0, rlat0, schmidt ! Share with final_init
       use physparams, only : erad
       use vertutils_m, only : sig2ds
-#ifdef usempi3
 #ifdef share_ifullg      
       use, intrinsic :: iso_c_binding, only : c_ptr, c_f_pointer
       use shdata_m    
-#endif      
       use mpidata_m
 #ifdef usempimod
       use mpi
@@ -2257,10 +2255,10 @@ contains
       real :: new_sum, shallow_sum
       real, parameter :: shallow_max = 0.1 ! shallow soil depth (10cm)
       real(kind=8) :: hlonr8, hlatr8
-
 #ifdef share_ifullg
       integer(kind=MPI_ADDRESS_KIND) :: ssize
 #endif
+
 !     Read the header here because doing the CC grid initialisation before
 !     alloc_indata minimises the total memory requirements
 
@@ -2482,11 +2480,24 @@ contains
       ijk = il*jl*kl
       iquad = 1 + il*((8*npanels)/(npanels+4))
 
-      allocate ( i_n(ifull), i_s(ifull), i_e(ifull), i_w(ifull) )
-      
-#ifdef usempi3
+#ifdef share_ifullg
+      if ( node_myid == 0 ) then
+         ssize = ifull
+      else
+         ssize = 0
+      end if
+      call allocshdata(i_n,ssize,(/ ifull /),in_win)
+      call allocshdata(i_s,ssize,(/ ifull /),is_win)
+      call allocshdata(i_e,ssize,(/ ifull /),ie_win)
+      call allocshdata(i_w,ssize,(/ ifull /),iw_win)
+      call MPI_Barrier(node_comm,ierr)
+      !call MPI_Win_fence(0,in_win,ierr)
+      !call MPI_Win_fence(0,in_win,ierr)
+      !call MPI_Win_fence(0,in_win,ierr)
+      !call MPI_Win_fence(0,in_win,ierr)
       if ( node_myid == 0 ) then
 #else
+      allocate ( i_n(ifull), i_s(ifull), i_e(ifull), i_w(ifull) )
       if ( myid == 0 ) then
 #endif
 
@@ -2495,11 +2506,13 @@ contains
                     
       end if
 
-#ifdef usempi3
-      call MPI_Bcast( i_n, ifull, MPI_INTEGER, 0, node_comm, ierr )
-      call MPI_Bcast( i_s, ifull, MPI_INTEGER, 0, node_comm, ierr )
-      call MPI_Bcast( i_e, ifull, MPI_INTEGER, 0, node_comm, ierr )
-      call MPI_Bcast( i_w, ifull, MPI_INTEGER, 0, node_comm, ierr )
+!     Communicate direction indices in case a fill is required in history.f90
+#ifdef share_ifullg
+      call MPI_Barrier(node_comm,ierr)
+      !call MPI_Win_fence(0,in_win,ierr)
+      !call MPI_Win_fence(0,in_win,ierr)
+      !call MPI_Win_fence(0,in_win,ierr)
+      !call MPI_Win_fence(0,in_win,ierr)
 #else
       call MPI_Bcast( i_n, ifull, MPI_INTEGER, 0, comm_world, ierr )
       call MPI_Bcast( i_s, ifull, MPI_INTEGER, 0, comm_world, ierr )
@@ -2554,7 +2567,7 @@ contains
          end if
       end if
 
-#ifdef usempi3
+#ifdef share_ifullg
       if ( node_myid == 0 ) then
 #else
       if ( myid == 0 ) then
@@ -2604,7 +2617,6 @@ contains
          end if
       end if  
 
-#ifdef usempi3      
 #ifdef share_ifullg
       if ( node_myid == 0 ) then
          ssize = nxhis*nyhis
@@ -2623,14 +2635,8 @@ contains
       allocate ( nface(nxhis,nyhis) )
       allocate ( xg(nxhis,nyhis), yg(nxhis,nyhis) )
 #endif      
-#else
-      if ( myid==0 ) then
-         allocate ( nface(nxhis,nyhis) )
-         allocate ( xg(nxhis,nyhis), yg(nxhis,nyhis) )
-      end if   
-#endif
       
-#ifdef usempi3
+#ifdef share_ifullg
       if ( node_myid == 0 ) then
 #else
       if ( myid==0 ) then
@@ -2669,18 +2675,16 @@ contains
 
       end if   
 
-#ifdef usempi3
 #ifdef share_ifull_g
       call MPI_Barrier(node_comm,ierr)
       !call MPI_Win_fence(0,xg_win,ierr)
       !call MPI_Win_fence(0,yg_win,ierr)
       !call MPI_Win_fence(0,nface_win,ierr)
 #else
-      call MPI_Bcast( nface, nxhis*nyhis, MPI_INTEGER, 0, node_comm, ierr )
-      call MPI_Bcast( xg, nxhis*nyhis, MPI_REAL, 0, node_comm, ierr )
-      call MPI_Bcast( yg, nxhis*nyhis, MPI_REAL, 0, node_comm, ierr )
+      call MPI_Bcast( nface, nxhis*nyhis, MPI_INTEGER, 0, comm_world, ierr )
+      call MPI_Bcast( xg, nxhis*nyhis, MPI_REAL, 0, comm_world, ierr )
+      call MPI_Bcast( yg, nxhis*nyhis, MPI_REAL, 0, comm_world, ierr )
 #endif      
-#endif
 
 
    end subroutine initialise
@@ -2695,11 +2699,6 @@ contains
       use parm_m, only : rlong0, rlat0
       use physparams, only : pi
       use logging_m      
-!#ifdef usempimod
-!      use mpi
-!#else
-!      include 'mpif.h'
-!#endif
       type(input_var), dimension(:) :: varlist
       integer, intent(in) :: nvars
       real, dimension(:,:), allocatable :: costh_g, sinth_g
@@ -2711,7 +2710,7 @@ contains
       
       call START_LOG(finalinit_begin)
       
-#ifdef usempi3
+#ifdef share_ifullg
       if ( node_myid == 0 ) then
 #else
       if ( myid == 0 ) then
@@ -2779,7 +2778,7 @@ contains
          call ccmpi_scatter(sinth)
       end if 
       
-#ifdef usempi3
+#ifdef share_ifullg
       if ( node_myid == 0 ) then
 #else
       if ( myid == 0 ) then
@@ -3105,14 +3104,14 @@ contains
          ierr = nf90_inq_varid (ncid, "mrfsol1", ivar ) 
          if ( ierr==nf90_noerr .and. ksoil>0 ) then
             nvars = nvars + 1
-            varlist(nvars)%vname = "mrfsol"
+            varlist(nvars)%vname = "mrfsl"
             varlist(nvars)%fixed = .false.
             varlist(nvars)%ndims = 4
          end if  
          ierr = nf90_inq_varid (ncid, "wbice1_ave", ivar ) 
          if ( ierr==nf90_noerr .and. ksoil>0 ) then
             nvars = nvars + 1
-            varlist(nvars)%vname = "mrfsol"
+            varlist(nvars)%vname = "mrfsl"
             varlist(nvars)%fixed = .false.
             varlist(nvars)%ndims = 4
          end if 
@@ -3296,7 +3295,8 @@ contains
                   "climate_max20       ", "climate_alpha20     ", "climate_agdd5       ", "climate_gmd         ", &
                   "climate_dmoist_min20", "climate_dmoist_max20", "urbant              ", "u10max              ", &
                   "v10max              ", "fracice             ", "siced               ", "wb?                 ", &
-                  "wbice?              ", "wbice?_ave          ", "tsl                 "                          &
+                  "wbice?              ", "wbice?_ave          ", "tsl                 ", "mrsofc              ", &
+                  "sftlaf              ", "sigmu               ", "dtb                 "                          &
                /)) .and. int_default /= int_none ) then
             int_type = int_nearest
          else if ( match ( varlist(ivar)%vname, (/ "t?_pop_grid_patch_id              ", "t?_pop_grid_patch_layer1_cohort_id" /)) &
@@ -3987,7 +3987,7 @@ contains
             end if    
             ierr = nf90_inq_varid (ncid, "wbice1_ave", ivar ) 
             if ( ierr==nf90_noerr .and. ksoil>0 ) then
-               call addfld('mrfsol','Frozen Water Content of Soil Layer','kg m-2',0.,1.,ksoil,soil=.true.)
+               call addfld('mrfsl','Frozen Water Content of Soil Layer','kg m-2',0.,1.,ksoil,soil=.true.)
             end if 
             ! add cordex pressure levels
             do j = 1,cordex_levels
@@ -4172,7 +4172,7 @@ contains
             end if    
             ierr = nf90_inq_varid (ncid, "mrfsol1", ivar ) 
             if ( ierr==nf90_noerr .and. ksoil>0 ) then
-               call addfld('mrfsol','Frozen Water Content of Soil Layer','kg m-2',0.,1.,ksoil,soil=.true.,sixhr=.true.)
+               call addfld('mrfsl','Frozen Water Content of Soil Layer','kg m-2',0.,1.,ksoil,soil=.true.,sixhr=.true.)
             end if 
          end if
          
@@ -4787,7 +4787,7 @@ contains
          stdname = "soil_moisture_content_at_field_capacity" 
       case ("mrfso")
          stdname = "soil_frozen_water_content" 
-      case ("mrfsol")
+      case ("mrfsl")
          stdname = "mass_content_of_water_in_soil_layer" 
       case ("mrfsos")
          stdname = "mass_content_of_water_in_soil_layer" 
@@ -5091,7 +5091,7 @@ contains
       do k = 1,ksoil
          write(tmpname,'(a,i1)') 'mrsol', k
          if ( vname == tmpname ) is_soil_var = .true.
-         write(tmpname,'(a,i1)') 'mrfsol', k
+         write(tmpname,'(a,i1)') 'mrfsl', k
          if ( vname == tmpname ) is_soil_var = .true.
          if ( cordex_compliant ) then
             write(tmpname,'(a,i1)') 'tgg', k
@@ -5420,7 +5420,7 @@ contains
          
       end if
 
-#ifdef usempi3
+#ifdef share_ifullg
       !redefine the per node communicator
       call MPI_Comm_split_type(comm_world, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, node_comm, ierr) ! Per node communictor
       call MPI_Comm_size(node_comm, node_nproc, ierr) ! Find number of processes on node
@@ -5964,7 +5964,8 @@ contains
    end subroutine proc_setup_dix
 
    subroutine cc2hist_work_close
-   
+
+   use indices_m   
    use interp_m
 #ifdef share_ifullg
    use shdata_m 
@@ -5976,13 +5977,21 @@ contains
    call freeshdata(nface_win)
    nullify(xg,yg)
    nullify(nface)
+   call freeshdata(in_win)
+   call freeshdata(is_win)
+   call freeshdata(ie_win)
+   call freeshdata(iw_win)
+   nullify(i_n, i_s, i_e, i_w)
 #else
    if ( allocated(xg) ) then
       deallocate(xg,yg)
       deallocate(nface)
    end if   
+   if ( allocated(i_n) then
+      deallocate( i_n, i_s, i_e, i_w )   
+   end if   
 #endif
-   
+  
    end subroutine cc2hist_work_close
 
    subroutine ccmpi_scatter_1d_r4_host(data_l,data_g)

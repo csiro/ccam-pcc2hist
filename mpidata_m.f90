@@ -1,6 +1,6 @@
 ! Conformal Cubic Atmospheric Model
     
-! Copyright 2015-2022 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+! Copyright 2015-2023 Commonwealth Scientific Industrial Research Organisation (CSIRO)
     
 ! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
 !
@@ -35,7 +35,7 @@ integer, save, public :: pil, pjl, pnpan, pnproc, lproc
 integer, save, public :: pil_g, pjl_g
 integer, save, public :: comm_world, comm_reduced
 integer, save, public :: myid_reduced, nproc_reduced
-#ifdef usempi3
+#ifdef share_ifullg
 integer, save, public :: node_comm, node_myid, node_nproc
 #endif
 
