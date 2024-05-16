@@ -375,7 +375,9 @@ program cc2hist
       ierr = nf90_inq_attname(ncid, nf90_global, i, attname )
       call check_ncerr(ierr, "Error getting attribute name")
       if ( attname/="il_g"       .and. attname/="jl_g"        .and. &
-           attname/="il"         .and. attname/="kl" ) then
+           attname/="il"         .and. attname/="kl"          .and. &
+           attname/="procmode"   .and. attname/="decomp"      .and. &
+           attname/="nproc"      .and. attname/="nrun" ) then
          ierr = nf90_inquire_attribute(ncid, nf90_global, attname, xtype=xtype, len=attlen )
          call check_ncerr(ierr, "Error getting attribute type and len")
          select case (xtype)

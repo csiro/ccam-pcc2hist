@@ -145,7 +145,7 @@ sitop_m.o: physparams.o utils_m.o netcdf_m.o
 staguv_m.o: indices_m.o newmpar_m.o 
 xyzinfo_m.o: precis_m.o 
 utilities.o: precis_m.o 
-history.o: interp_m.o utils_m.o ncutils_m.o newmpar_m.o mpidata_m.o logging_m.o netcdf_m.o
+history.o: interp_m.o logging_m.o mpidata_m.o ncutils_m.o netcdf_m.o newmpar_m.o parm_m.o utils_m.o
 utils_m.o: kinds_m.o 
 vertutils_m.o: hyblevs_m.o physparams.o 
 usage_m.o : mpidata_m.o

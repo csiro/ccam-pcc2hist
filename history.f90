@@ -28,43 +28,9 @@
 ! Also useful in diagnostic programs, anything that has to write a time 
 ! series of lat/lon data to a netcdf file.
 
-!**********************************************************************
-!***   WARNING: No user serviceable parts inside.
-!***   Opening the case will invalidate warranty.
-!***   Electric shock may result.
-!***
-!***   Seriously, you should not have to change anything in this module.
-!***   To add a new diagnostic just call addfld and savefld. If it's 
-!***   expensive to calculate you can add a call to needfld to check
-!***   if it's required.
-!***   If you really do need to change anything here then it's a failure
-!***   in my modular design and I'd rather fix it properly.
-!**********************************************************************
-
-! Things to do.
-
-! At the moment there's no way to specify an integer field like a land
-! sea mask.
-
-! One disadvantage of this scheme is that extra arrays are required to
-! hold the instantaneous winds. In the old scheme these are just taken 
-! from the standard model arrays required for the SLT.
-
-! Should it be an error to call savehist on a field which is not in the 
-! variable list or should it just be a warning. A warning might allow more
-! flexible ways of extending cc2hist?
-
-! Have added a nsoil argument to openhist. Might be cleaner to have a routine
-! to set up vertical axes. This would be more like how one would do in in
-! cdat for example.
-
 module history
 
-#ifdef usenc_mod
-   use netcdf
-#else
    use netcdf_m
-#endif
    use ncutils_m, only : check_ncerr
    use utils_m, only : fpequal
    implicit none
@@ -717,8 +683,8 @@ contains
 !     Create netCDF history files using information in histinfo array.
 !
       use interp_m, only : int_none
-      use mpidata_m
       use logging_m
+      use mpidata_m
 
       integer, intent(in) :: nx, ny, nl, ol, cptch, cchrt
       real, intent(in), dimension(:) :: sig
@@ -1413,16 +1379,16 @@ contains
          stop
       end if
           
-      do i=1,totflds
+      do i = 1,totflds
          inames(:,i) = hashkey ( histinfo(i)%name )
       end do
 
-      do i=1,totflds
+      do i = 1,totflds
 
 !        Find the first element in the rest of the list
          itemp(:) = inames(:,i)
          ipos = i
-         do j=i+1,totflds
+         do j = i+1,totflds
             if ( hash_lt(inames(:,j),itemp) ) then 
                itemp(:) = inames(:,j)
                ipos = j
@@ -1441,7 +1407,7 @@ contains
 
       if ( hist_debug > 1 ) then
          print*, "Sorted NAMES "
-         do i=1,totflds
+         do i = 1,totflds
             print*, histinfo(i)%name, inames(:,i)
          end do
       end if
@@ -1586,8 +1552,7 @@ contains
          ierr = nf90_put_att ( ncid, vid, "valid_max", vmax )
          call check_ncerr(ierr,"Error setting valid max attribute")
       end if
-
-      ! If the variable has cell_methods set, then compose this with the 
+      
       ! cell_methods from the history averaging process
 
       ! Possibly time:point should just be left out
@@ -1652,6 +1617,8 @@ contains
          call check_ncerr(ierr,"Error with coordinates attribute")
       end if
 
+      ierr = nf90_put_att ( ncid, vid, "grid_mapping", "crs" )      
+      
    end subroutine create_ncvar
   
 !---------------------------------------------------------------------------
@@ -1661,6 +1628,9 @@ contains
                  nsoil, zsoil, osig_found )
 
       use mpidata_m
+      use newmpar_m, only : il
+      use parm_m, only : schmidt
+
       character(len=*), intent(in) :: filename
       integer, intent(in) :: nxhis, nyhis, nlev, ol, cptch, cchrt
       logical, intent(in) :: multilev, use_plevs, use_meters, use_theta, use_pvort, use_depth, use_hyblevs
@@ -1680,6 +1650,8 @@ contains
       integer :: i, k
       character(len=80) :: histstr
       character(len=20) :: tmpname
+      character(len=160) :: griddes
+      character(len=20) :: gridsize, gridschmidt
       integer :: vid, cmode
 
       if ( hist_debug > 0 ) then
@@ -1796,6 +1768,16 @@ contains
       end if
       
       ierr = nf90_put_att ( ncid, NF90_GLOBAL, "modeling_realm", "atmos" )
+      
+      ! describe grid for CORDEX
+      write(gridsize,'(I0)') il
+      write(gridschmidt,'(G0.6)') real(nint(1.e5_8/real(schmidt,8))*1.e-5_8)
+      do i = len_trim(gridschmidt),1,-1
+         if (gridschmidt(i:i)/="0") exit
+      end do
+      griddes = "Unrotated latitude/longitude grid interpolated from a variable resolution "// &
+                "conformal cubic C"//trim(gridsize)//" grid with Schmidt="//trim(gridschmidt(1:i))
+      ierr = nf90_put_att( ncid, NF90_GLOBAL, "grid", griddes )
 
 !     Define attributes for the dimensions
 !     Is there any value in keeping long_name for latitude and longitude?
@@ -2052,6 +2034,16 @@ contains
          ierr = nf90_put_att ( ncid, vid, "positive",  "up")
          call check_ncerr(ierr)
       end do
+      
+      ! Define grid mapping for CF-1.11
+      ierr = nf90_def_var ( ncid, "crs", NF90_INT, vid )
+      call check_ncerr(ierr)
+      ierr = nf90_put_att ( ncid, vid, "grid_mapping_name", "latitude_longitude" )
+      call check_ncerr(ierr)
+      ierr = nf90_put_att ( ncid, vid, "semi_major_axis", 6371000. )
+      call check_ncerr(ierr)
+      ierr = nf90_put_att ( ncid, vid, "inverse_flattening", 0. )
+      call check_ncerr(ierr)      
 
    end subroutine create_ncfile
    
@@ -2613,19 +2605,16 @@ contains
                cnt = cnt + 1
                k_indx(cnt) = k
                rrank = ((cnt-1)*gap)/slab
-               if ( rrank /= histinfo(ifld)%procid ) then
-                  if ( myid == histinfo(ifld)%procid ) then
-                     dreq = dreq + 1
-                  else if ( myid == rrank ) then
-                     dreq = dreq + 1 
-                  end if
-               else
+               if ( rrank==histinfo(ifld)%procid .or. &
+                    myid==histinfo(ifld)%procid .or.  &
+                    myid==rrank ) then
                   dreq = dreq + 1 
                end if
             end do   ! k loop
 
          end do ! Loop over fields
       
+         ! reallocate MPI request and buffers if more memory is needed
          maxdreq = dreq
          if ( allocated( ireq ) ) then
             if ( size(ireq) < maxdreq ) then
