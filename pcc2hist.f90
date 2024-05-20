@@ -27,6 +27,10 @@ program cc2hist
 !  Modified by MJT to use MPI when reading parallel input files (pcc2hist).
 !  Further optimised by Paul Ryan and David Benn.
 
+! Preprocessor directives:
+!   usempimod    - Use fortran90 interface for MPI
+!   share_ifullg - Allow shared memory on a node with MPI (usempi3 is always active)
+
    use history
    use getopt_m
    use mpidata_m
@@ -611,9 +615,7 @@ program cc2hist
    call paraclose
 
    call END_LOG(model_end)
-#ifdef simple_timer
    call simple_timer_finalize
-#endif
 
    ! Complete
    if ( myid==0 ) then

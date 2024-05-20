@@ -22,11 +22,7 @@
 module work
 
    use mpidata_m
-#ifdef usenc_mod
-   use netcdf
-#else
    use netcdf_m
-#endif
    use ncutils_m, only : check_ncerr
    use gldata
    use precis_m, only : rx
@@ -1154,7 +1150,9 @@ contains
                   call osavehist( "kso", ocn_tmp )
                end if
             case ( "mrfsl" )
-               if ( needfld("mrfsl") .or. (kk>1.and.(needfld("mrfso").or.needfld("mrfsos"))) ) then 
+               ! mrfsol has been depreciated 
+               if ( needfld("mrfsl") .or. needfld('mrfsol') .or. &
+                    (kk>1.and.(needfld("mrfso").or.needfld("mrfsos"))) ) then 
                   mrfso = 0.
                   mrfsos = 0.
                   ierr = nf90_inq_varid (ncid, "mrfsol1", var_dum ) 
@@ -1184,6 +1182,9 @@ contains
                      if ( needfld("mrfsl") ) then
                         call savehist("mrfsl", tgg) ! water
                      end if   
+                    if ( needfld("mrfsol") ) then ! mrfsol has been depreciated
+                        call savehist("mrfsol", tgg) ! water
+                     end if                      
                   end if
                   ierr = nf90_inq_varid (ncid, "wbice1_ave", var_dum ) 
                   if ( ierr == nf90_noerr ) then
@@ -1213,6 +1214,9 @@ contains
                      if ( needfld("mrfsl") ) then
                         call savehist("mrfsl", tgg) ! water
                      end if   
+                     if ( needfld("mrfsol") ) then ! mrfsol has been depreciated
+                        call savehist("mrfsol", tgg) ! water
+                     end if                      
                   end if    
                end if 
             case ( "mrsol" )   
@@ -2199,11 +2203,7 @@ contains
                            kdate, ktime, ntracers, ksoil, kice, debug,        &
                            nqg )
 
-#ifdef usenc_mod
-      use netcdf
-#else
       use netcdf_m
-#endif
       use newmpar_m
       use history
       use xyzinfo_m
@@ -3107,6 +3107,10 @@ contains
             varlist(nvars)%vname = "mrfsl"
             varlist(nvars)%fixed = .false.
             varlist(nvars)%ndims = 4
+            nvars = nvars + 1 ! mrfsol has been depreciated
+            varlist(nvars)%vname = "mrfsol"
+            varlist(nvars)%fixed = .false.
+            varlist(nvars)%ndims = 4            
          end if  
          ierr = nf90_inq_varid (ncid, "wbice1_ave", ivar ) 
          if ( ierr==nf90_noerr .and. ksoil>0 ) then
@@ -3114,6 +3118,10 @@ contains
             varlist(nvars)%vname = "mrfsl"
             varlist(nvars)%fixed = .false.
             varlist(nvars)%ndims = 4
+            nvars = nvars + 1 ! mrfsol has been depreciated
+            varlist(nvars)%vname = "mrfsol"
+            varlist(nvars)%fixed = .false.
+            varlist(nvars)%ndims = 4            
          end if 
       end if    
 
@@ -3988,6 +3996,8 @@ contains
             ierr = nf90_inq_varid (ncid, "wbice1_ave", ivar ) 
             if ( ierr==nf90_noerr .and. ksoil>0 ) then
                call addfld('mrfsl','Frozen Water Content of Soil Layer','kg m-2',0.,1.,ksoil,soil=.true.)
+               ! mrfsol has been depreciated
+               call addfld('mrfsol','Frozen Water Content of Soil Layer','kg m-2',0.,1.,ksoil,soil=.true.)
             end if 
             ! add cordex pressure levels
             do j = 1,cordex_levels
@@ -4173,6 +4183,8 @@ contains
             ierr = nf90_inq_varid (ncid, "mrfsol1", ivar ) 
             if ( ierr==nf90_noerr .and. ksoil>0 ) then
                call addfld('mrfsl','Frozen Water Content of Soil Layer','kg m-2',0.,1.,ksoil,soil=.true.,sixhr=.true.)
+               ! mrfsol has been depreciated
+               call addfld('mrfsol','Frozen Water Content of Soil Layer','kg m-2',0.,1.,ksoil,soil=.true.,sixhr=.true.)
             end if 
          end if
          
@@ -4785,10 +4797,12 @@ contains
          stdname = "mass_content_of_water_in_soil_layer" 
       case ("mrsofc")
          stdname = "soil_moisture_content_at_field_capacity" 
-      case ("mrfso")
-         stdname = "soil_frozen_water_content" 
       case ("mrfsl")
          stdname = "mass_content_of_water_in_soil_layer" 
+      case ("mrfso")
+         stdname = "soil_frozen_water_content" 
+      case ("mrfsol") ! mrfsol has been depreciated
+         stdname = "mass_content_of_water_in_soil_layer"          
       case ("mrfsos")
          stdname = "mass_content_of_water_in_soil_layer" 
       case ("mrros")
@@ -5093,6 +5107,8 @@ contains
          if ( vname == tmpname ) is_soil_var = .true.
          write(tmpname,'(a,i1)') 'mrfsl', k
          if ( vname == tmpname ) is_soil_var = .true.
+         write(tmpname,'(a,i1)') 'mrfsol', k ! mrfsol has been depreciated
+         if ( vname == tmpname ) is_soil_var = .true.         
          if ( cordex_compliant ) then
             write(tmpname,'(a,i1)') 'tgg', k
             if ( vname == tmpname ) is_soil_var = .true.

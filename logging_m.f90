@@ -1,6 +1,6 @@
 ! Conformal Cubic Atmospheric Model
     
-! Copyright 2015-2022 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+! Copyright 2015-2024 Commonwealth Scientific Industrial Research Organisation (CSIRO)
     
 ! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
 !
@@ -21,11 +21,16 @@
     
 module logging_m
 
+#ifdef usempimod
+use mpi
+#endif   
 use mpidata_m
 
 implicit none
 
+#ifndef usempimod   
 include 'mpif.h'
+#endif 
 
 private
 
@@ -57,9 +62,7 @@ private
    integer, public, save :: mpisendrecv_begin, mpisendrecv_end
    integer, public, save :: putvar_begin, putvar_end
    integer, public, save :: mpibarrier_begin, mpibarrier_end
-#ifdef simple_timer
    public :: simple_timer_finalize
-#endif
    integer, parameter :: nevents = 26
    real(kind=8), dimension(nevents), save :: tot_time = 0., start_time
    character(len=15), dimension(nevents), save :: event_name
@@ -76,9 +79,7 @@ contains
 #ifdef vampir
       VT_USER_START(event_name(event))
 #endif
-#ifdef simple_timer
       start_time(event) = MPI_Wtime()
-#endif
    end subroutine start_log
 
    subroutine end_log ( event )
@@ -87,10 +88,7 @@ contains
 #ifdef vampir
       VT_USER_END(event_name(event))
 #endif
-
-#ifdef simple_timer
       tot_time(event) = tot_time(event) + MPI_Wtime() - start_time(event)
-#endif
    end subroutine end_log
 
    subroutine log_off()
@@ -108,12 +106,6 @@ contains
    subroutine log_setup()
       integer :: ierr
       integer :: classhandle
-#ifdef vampir
-#ifdef simple_timer
-      write(6,*) "ERROR: vampir and simple_timer should not be compiled together"
-      stop
-#endif
-#endif
 
       model_begin = 1
       model_end =  model_begin
@@ -221,7 +213,6 @@ contains
       
    end subroutine log_setup
 
-#ifdef simple_timer
    subroutine simple_timer_finalize()
       ! Calculate the mean, min and max times for each case
       integer :: i
@@ -247,6 +238,5 @@ contains
       end if
 
    end subroutine simple_timer_finalize
-#endif
 
 end module logging_m
