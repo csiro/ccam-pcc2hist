@@ -44,12 +44,9 @@ MPIFLAG =
 else
 MPIFLAG = -Dshare_ifullg
 endif
-FFLAGS = -O2 -mtune=native -march=native -fbacktrace $(MPIFLAG)
+FFLAGS = -O2 -fallow-argument-mismatch -march=native -fbacktrace $(MPIFLAG)
 PPFLAG90 = -x f95-cpp-input
 DEBUGFLAG = -g -Wall -Wextra -fbounds-check
-ifeq ($(ZEN3),yes)
-FFLAGS = -O2 -fallow-argument-mismatch -march=native -fbacktrace $(MPIFLAG)
-endif
 endif
 
 # Gfortran compiler options
