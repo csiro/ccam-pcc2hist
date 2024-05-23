@@ -39,11 +39,16 @@ endif
 ifeq ($(GFORTRAN),yes)
 MPIFC = gfortran
 MPIF77 = gfortran
-FFLAGS = -O2 -mtune=native -march=native -fbacktrace
+ifeq ($(NOMPI3),yes)
+MPIFLAG =
+else
+MPIFLAG = -Dshare_ifullg
+endif
+FFLAGS = -O2 -mtune=native -march=native -fbacktrace $(MPIFLAG)
 PPFLAG90 = -x f95-cpp-input
 DEBUGFLAG = -g -Wall -Wextra -fbounds-check
 ifeq ($(ZEN3),yes)
-FFLAGS = -O2 -fallow-argument-mismatch -march=native -fbacktrace
+FFLAGS = -O2 -fallow-argument-mismatch -march=native -fbacktrace $(MPIFLAG)
 endif
 endif
 
