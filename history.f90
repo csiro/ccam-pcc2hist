@@ -1773,7 +1773,7 @@ contains
       write(gridsize,'(I0)') il
       write(gridschmidt,'(G0.6)') real(nint(1.e5_8/real(schmidt,8))*1.e-5_8)
       do i = len_trim(gridschmidt),1,-1
-         if (gridschmidt(i:i)/="0") exit
+         if (gridschmidt(i:i) /= "0") exit
       end do
       griddes = "Unrotated latitude/longitude grid interpolated from a variable resolution "// &
                 "conformal cubic C"//trim(gridsize)//" grid with Schmidt="//trim(gridschmidt(1:i))
@@ -1989,7 +1989,7 @@ contains
          call check_ncerr(ierr)
          ierr = nf90_put_att ( ncid, dimvars%t, "axis", "T" )
          call check_ncerr(ierr)
-         if ( cf_compliant ) then
+         if ( cf_compliant .or. cordex_compliant ) then
             ierr = nf90_put_att ( ncid, dimvars%t, "bounds", "time_bnds" )
             call check_ncerr(ierr)
             ierr = nf90_def_var ( ncid, "time_bnds", NF90_FLOAT, (/dims%b, dims%t/), dimvars%t_b)
@@ -2233,8 +2233,8 @@ contains
    end subroutine savehist_work
 
 !-------------------------------------------------------------------
-   subroutine writehist ( istep, endofrun, year, month, interp, time, time_bnds, &
-                          dtime )
+   subroutine writehist( istep, endofrun, year, month, interp, time, time_bnds, &
+                         dtime )
 
       use mpidata_m
       use newmpar_m, only : cptch, cchrt
@@ -2369,6 +2369,7 @@ contains
       if ( endofday ) histset_daily = histset_daily + 1  
       if ( endof6hr ) histset_6hr = histset_6hr + 1
 
+      ! write time
       call START_LOG(putvar_begin)
       do i = 1,size(histid)
          if ( histfix(i) ) then
@@ -2401,7 +2402,7 @@ contains
                   ierr = nf90_put_var ( ncid, vid, timeout, start=(/histset_daily/) )
                end if
                call check_ncerr(ierr, "Error writing time")
-               if ( cf_compliant .and. present(time_bnds) ) then
+               if ( (cf_compliant.or.cordex_compliant) .and. present(time_bnds) ) then
                   ierr = nf90_inq_varid (ncid, "time_bnds", vid )
                   call check_ncerr(ierr, "Error getting time_bnds id")
                   if ( ihtype == hist_ave) then
@@ -2421,7 +2422,7 @@ contains
                   if ( ihtype == hist_ave) then
                      timeout = avetime/timecount
                      if ( cordex_compliant .and. .not.histinst(i) ) then
-                       timeout = avetime/timecount - 180.
+                        timeout = avetime/timecount - 180.
                      end if
                      ierr = nf90_put_var ( ncid, vid,   &
                           timeout, start=(/histset_6hr/) )
@@ -2441,7 +2442,7 @@ contains
                                         start=(/histset_6hr/) )
                end if
                call check_ncerr(ierr, "Error writing time")
-               if ( cf_compliant .and. present(time_bnds) ) then
+               if ( (cf_compliant.or.cordex_compliant) .and. present(time_bnds) ) then 
                   ierr = nf90_inq_varid (ncid, "time_bnds", vid )
                   call check_ncerr(ierr, "Error getting time_bnds id")
                   if ( ihtype == hist_ave) then
@@ -2480,7 +2481,7 @@ contains
                                      start=(/histset/) )
             end if
             call check_ncerr(ierr, "Error writing time")
-            if ( cf_compliant .and. present(time_bnds) ) then
+            if ( (cf_compliant.or.cordex_compliant) .and. present(time_bnds) ) then
                ierr = nf90_inq_varid (ncid, "time_bnds", vid )
                call check_ncerr(ierr, "Error getting time_bnds id")
                if ( ihtype == hist_ave) then

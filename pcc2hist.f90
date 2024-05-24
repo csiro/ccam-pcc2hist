@@ -81,7 +81,7 @@ program cc2hist
                     edate, stime, etime, hres, debug, ifile, ofile,   &
                     int_default, vextrap, cf_compliant,               &
                     cordex_compliant, save_ccam_parameters,           &
-                    ran_compliant, areps_compliant, safe_max,          &
+                    ran_compliant, areps_compliant, safe_max,         &
                     fao_potev
 
    include 'revision.h'
@@ -430,39 +430,20 @@ program cc2hist
    end if
    
    if ( calendar /= "" ) then
-      if ( cf_compliant ) then
-         call openhist( il, jl, nlev, xlevs(1:nlev), onlev, cptch, cchrt, oxlevs(1:onlev), &
-                        "_test", hlon, hlat, basetime, year=1, nxout=nxhis,     &
-                        nyout=nyhis, source=source, histfilename=ofile,         &
-                        pressure=use_plevs, height=use_meters, theta=use_theta, &
-                        pvort=use_pvort, depth=use_depth,                       &
-                        extra_atts=extra_atts, nsoil=ksoil, zsoil=zsoil,        &
-                        calendar=calendar )
-      else
-         call openhist( il, jl, nlev, xlevs(1:nlev), onlev, cptch, cchrt, oxlevs(1:onlev), &
-                         "_test", hlon, hlat, basetime, year=1, nxout=nxhis,     &
-                         nyout=nyhis, source=source, histfilename=ofile,         &
-                         pressure=use_plevs, height=use_meters, theta=use_theta, &
-                         pvort=use_pvort, depth=use_depth,                       &
-                         extra_atts=extra_atts, nsoil=ksoil, zsoil=zsoil,        &
-                         calendar=calendar )
-      end if
+      call openhist( il, jl, nlev, xlevs(1:nlev), onlev, cptch, cchrt, oxlevs(1:onlev), &
+                     "_test", hlon, hlat, basetime, year=1, nxout=nxhis,     &
+                     nyout=nyhis, source=source, histfilename=ofile,         &
+                     pressure=use_plevs, height=use_meters, theta=use_theta, &
+                     pvort=use_pvort, depth=use_depth,                       &
+                     extra_atts=extra_atts, nsoil=ksoil, zsoil=zsoil,        &
+                     calendar=calendar )
    else
-      if ( cf_compliant ) then
-         call openhist( il, jl, nlev, xlevs(1:nlev), onlev, cptch, cchrt, oxlevs(1:onlev), &
-                        "_test", hlon, hlat, basetime, year=1, nxout=nxhis,     &
-                        nyout=nyhis, source=source, histfilename=ofile,         &
-                        pressure=use_plevs, height=use_meters, theta=use_theta, &
-                        pvort=use_pvort, depth=use_depth,                       &
-                        extra_atts=extra_atts, nsoil=ksoil, zsoil=zsoil )
-      else
-         call openhist( il, jl, nlev, xlevs(1:nlev), onlev, cptch, cchrt, oxlevs(1:onlev), &
-                         "_test", hlon, hlat, basetime, year=1, nxout=nxhis,     &
-                         nyout=nyhis, source=source, histfilename=ofile,         &
-                         pressure=use_plevs, height=use_meters, theta=use_theta, &
-                         pvort=use_pvort, depth=use_depth,                       &
-                         extra_atts=extra_atts, nsoil=ksoil, zsoil=zsoil )  
-      end if   
+      call openhist( il, jl, nlev, xlevs(1:nlev), onlev, cptch, cchrt, oxlevs(1:onlev), &
+                     "_test", hlon, hlat, basetime, year=1, nxout=nxhis,     &
+                     nyout=nyhis, source=source, histfilename=ofile,         &
+                     pressure=use_plevs, height=use_meters, theta=use_theta, &
+                     pvort=use_pvort, depth=use_depth,                       &
+                     extra_atts=extra_atts, nsoil=ksoil, zsoil=zsoil )
    end if
 
    deallocate( xlevs, oxlevs )
@@ -482,6 +463,7 @@ program cc2hist
       stop
    end if
    
+   ! calculate time interval
    call getdtime( dtime, ktc )
    if ( cf_compliant ) then
       dtime = dtime/1440. ! Days
@@ -589,18 +571,25 @@ program cc2hist
 !        Need to extend to work over more than one month.
          time = (iday - base_day)*24 + ihr-base_hr
       end if
+      ! History data at time t, really represents values over the preceeding
+      ! period in the case of accumulated or average fields.
+      ! Should this be the history file time increment or the increment
+      ! set for cc2hist?
+      !
+      ! dtime is the time interval and is used to calculate the time-centre for
+      ! CORDEX DRS output.
       if ( cf_compliant ) then 
          time = time/1440. ! Days
-         ! History data at time t, really represents values over the preceeding
-         ! period in the case of accumulated or average fields.
-         ! Should this be the history file time increment or the increment
-         ! set for cc2hist?
          time_bnds = (/time_prev,time/)
          call writehist ( ktau, interp=ints, time=time, time_bnds=time_bnds, dtime=dtime )
          time_prev = time
       else if ( areps_compliant ) then
          time = time/60. ! Hours
          call writehist ( ktau, interp=ints, time=time, dtime=dtime ) 
+      else if ( cordex_compliant ) then
+         time_bnds = (/time_prev,time/)   
+        call writehist ( ktau, interp=ints, time=time, time_bnds=time_bnds, dtime=dtime )   
+        time_prev = time   
       else
          call writehist ( ktau, interp=ints, time=time, dtime=dtime )
       end if
