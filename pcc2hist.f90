@@ -588,8 +588,8 @@ program cc2hist
          call writehist ( ktau, interp=ints, time=time, dtime=dtime ) 
       else if ( cordex_compliant ) then
          time_bnds = (/time_prev,time/)   
-        call writehist ( ktau, interp=ints, time=time, time_bnds=time_bnds, dtime=dtime )   
-        time_prev = time   
+         call writehist ( ktau, interp=ints, time=time, time_bnds=time_bnds, dtime=dtime )   
+         time_prev = time   
       else
          call writehist ( ktau, interp=ints, time=time, dtime=dtime )
       end if
