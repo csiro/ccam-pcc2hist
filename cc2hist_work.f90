@@ -235,7 +235,7 @@ contains
 
    end subroutine getdate
    
-   subroutine getdtime(dtime,ktc)
+   subroutine getdtime( dtime, ktc )
 
       integer, intent(in) :: ktc
       integer :: ierr, vid
@@ -2223,7 +2223,7 @@ contains
       use mpi
 #else
       include 'mpif.h'
-#endif
+#endif      
 
       real, intent(inout)  :: hres
       real, intent(inout)  :: minlon, maxlon, dlon, minlat, maxlat, dlat
@@ -3286,6 +3286,32 @@ contains
          end if
          if ( varlist(ivar)%daily ) then
             varlist(ivar)%instant = .false.
+         end if
+         
+         ! Check if flux, average or maximum (name ends in _ave or _max)
+         ind = len_trim(varlist(ivar)%vname)
+         if ( varlist(ivar)%vname(ind-3:ind) == "_ave" ) then
+            varlist(ivar)%instant = .false.
+         end if
+         if ( varlist(ivar)%vname(ind-3:ind) == "_max" ) then
+            varlist(ivar)%instant = .false.
+         end if         
+         if ( varlist(ivar)%vname == "rnd" .or.      &
+              varlist(ivar)%vname == "rnc" .or.      &
+              varlist(ivar)%vname == "sno" .or.      &
+              varlist(ivar)%vname == "grpl" .or.     &
+              varlist(ivar)%vname == "cld" .or.      &
+              varlist(ivar)%vname == "clh" .or.      &
+              varlist(ivar)%vname == "clm" .or.      &
+              varlist(ivar)%vname == "cll" .or.      &
+              varlist(ivar)%vname == "dni" .or.      &
+              varlist(ivar)%vname == "taux" .or.     &
+              varlist(ivar)%vname == "tauy" .or.     &
+              varlist(ivar)%vname == "od550aer" .or. &
+              varlist(ivar)%vname == "snm" .or.      &
+              varlist(ivar)%vname == "runoff" .or.   &
+              varlist(ivar)%vname == "mrros" ) then
+            varlist(ivar)%instant = .false.
          end if   
 
          ! Is this really simpler than a string of if tests?
@@ -3570,7 +3596,7 @@ contains
             else if ( varlist(ivar)%vname == "snm" ) then
                varlist(ivar)%units = "kg m-2 s-1"
                varlist(ivar)%long_name = "Snowmelt"
-               varlist(ivar)%instant = .true.
+               varlist(ivar)%instant = .false.
                xmin = 0.
                xmax = 0.013
             else if ( varlist(ivar)%vname == "sno" ) then
