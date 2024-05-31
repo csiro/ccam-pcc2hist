@@ -3079,51 +3079,51 @@ contains
 !        Don't need to set extra parameters because there's an explicit 
 !        addfld call later.
       end if
-      !if ( cordex_compliant ) then
-      !   ierr = nf90_inq_varid (ncid, "tgg1", ivar ) 
-      !   if ( ierr==nf90_noerr .and. ksoil>0 ) then
-      !      nvars = nvars + 1
-      !      varlist(nvars)%vname = "tsl"
-      !      varlist(nvars)%fixed = .false.
-      !      varlist(nvars)%ndims = 4
-      !   end if
-      !   ierr = nf90_inq_varid (ncid, "mrsol1", ivar ) 
-      !   if ( ierr==nf90_noerr .and. ksoil>0 ) then
-      !      nvars = nvars + 1
-      !      varlist(nvars)%vname = "mrsol"
-      !      varlist(nvars)%fixed = .false.
-      !      varlist(nvars)%ndims = 4
-      !   end if
-      !   ierr = nf90_inq_varid (ncid, "wb1_ave", ivar ) 
-      !   if ( ierr==nf90_noerr .and. ksoil>0 ) then
-      !      nvars = nvars + 1
-      !      varlist(nvars)%vname = "mrsol"
-      !      varlist(nvars)%fixed = .false.
-      !      varlist(nvars)%ndims = 4
-      !   end if
-      !   ierr = nf90_inq_varid (ncid, "mrfsol1", ivar ) 
-      !   if ( ierr==nf90_noerr .and. ksoil>0 ) then
-      !      nvars = nvars + 1
-      !      varlist(nvars)%vname = "mrfsl"
-      !      varlist(nvars)%fixed = .false.
-      !      varlist(nvars)%ndims = 4
-      !      nvars = nvars + 1 ! mrfsol has been depreciated
-      !      varlist(nvars)%vname = "mrfsol"
-      !      varlist(nvars)%fixed = .false.
-      !      varlist(nvars)%ndims = 4            
-      !   end if  
-      !   ierr = nf90_inq_varid (ncid, "wbice1_ave", ivar ) 
-      !   if ( ierr==nf90_noerr .and. ksoil>0 ) then
-      !      nvars = nvars + 1
-      !      varlist(nvars)%vname = "mrfsl"
-      !      varlist(nvars)%fixed = .false.
-      !      varlist(nvars)%ndims = 4
-      !      nvars = nvars + 1 ! mrfsol has been depreciated
-      !      varlist(nvars)%vname = "mrfsol"
-      !      varlist(nvars)%fixed = .false.
-      !      varlist(nvars)%ndims = 4            
-      !   end if 
-      !end if    
+      if ( cordex_compliant ) then
+         ierr = nf90_inq_varid (ncid, "tgg1", ivar ) 
+         if ( ierr==nf90_noerr .and. ksoil>0 ) then
+            nvars = nvars + 1
+            varlist(nvars)%vname = "tsl"
+            varlist(nvars)%fixed = .false.
+            varlist(nvars)%ndims = 4
+         end if
+         ierr = nf90_inq_varid (ncid, "mrsol1", ivar ) 
+         if ( ierr==nf90_noerr .and. ksoil>0 ) then
+            nvars = nvars + 1
+            varlist(nvars)%vname = "mrsol"
+            varlist(nvars)%fixed = .false.
+            varlist(nvars)%ndims = 4
+         end if
+         ierr = nf90_inq_varid (ncid, "wb1_ave", ivar ) 
+         if ( ierr==nf90_noerr .and. ksoil>0 ) then
+            nvars = nvars + 1
+            varlist(nvars)%vname = "mrsol"
+            varlist(nvars)%fixed = .false.
+            varlist(nvars)%ndims = 4
+         end if
+         ierr = nf90_inq_varid (ncid, "mrfsol1", ivar ) 
+         if ( ierr==nf90_noerr .and. ksoil>0 ) then
+            nvars = nvars + 1
+            varlist(nvars)%vname = "mrfsl"
+            varlist(nvars)%fixed = .false.
+            varlist(nvars)%ndims = 4
+            nvars = nvars + 1 ! mrfsol has been depreciated
+            varlist(nvars)%vname = "mrfsol"
+            varlist(nvars)%fixed = .false.
+            varlist(nvars)%ndims = 4            
+         end if  
+         ierr = nf90_inq_varid (ncid, "wbice1_ave", ivar ) 
+         if ( ierr==nf90_noerr .and. ksoil>0 ) then
+            nvars = nvars + 1
+            varlist(nvars)%vname = "mrfsl"
+            varlist(nvars)%fixed = .false.
+            varlist(nvars)%ndims = 4
+            nvars = nvars + 1 ! mrfsol has been depreciated
+            varlist(nvars)%vname = "mrfsol"
+            varlist(nvars)%fixed = .false.
+            varlist(nvars)%ndims = 4            
+         end if 
+      end if    
 
 
       do ivar = 1,nvars
@@ -3310,7 +3310,8 @@ contains
               varlist(ivar)%vname == "od550aer" .or. &
               varlist(ivar)%vname == "snm" .or.      &
               varlist(ivar)%vname == "runoff" .or.   &
-              varlist(ivar)%vname == "mrros" ) then
+              varlist(ivar)%vname == "mrros" .or.    &
+              varlist(ivar)%vname == "sbl" ) then
             varlist(ivar)%instant = .false.
          end if   
 
