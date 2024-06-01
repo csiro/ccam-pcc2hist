@@ -3236,7 +3236,6 @@ contains
          ! names
          varlist(ivar)%daily = .false.
          varlist(ivar)%sixhr = .false.
-         varlist(ivar)%instant = .true.
          do ihr=3,24,3
             write(substr,"(i2,a)") ihr, "hr"
             if ( index(varlist(ivar)%long_name,trim(adjustl(substr))) /= 0 ) then
@@ -3270,30 +3269,44 @@ contains
             varlist(ivar)%sixhr = valid_att == "6hr"
          end if
          
-         ! Check if flux, average or maximum (name ends in _ave or _max)
+         ! Check if time_bnds are needed
+         varlist(ivar)%instant = .true.
          ind = len_trim(varlist(ivar)%vname)
-         if ( varlist(ivar)%vname(ind-3:ind) == "_ave" ) then
-            varlist(ivar)%instant = .false.
-         end if
-         if ( varlist(ivar)%vname(ind-3:ind) == "_max" ) then
+         if ( varlist(ivar)%vname(ind-3:ind) == "_ave" .or. &
+              varlist(ivar)%vname(ind-3:ind) == "_max" ) then
             varlist(ivar)%instant = .false.
          end if         
-         if ( varlist(ivar)%vname == "rnd" .or.      &
-              varlist(ivar)%vname == "rnc" .or.      &
-              varlist(ivar)%vname == "sno" .or.      &
-              varlist(ivar)%vname == "grpl" .or.     &
-              varlist(ivar)%vname == "cld" .or.      &
-              varlist(ivar)%vname == "clh" .or.      &
-              varlist(ivar)%vname == "clm" .or.      &
-              varlist(ivar)%vname == "cll" .or.      &
-              varlist(ivar)%vname == "dni" .or.      &
-              varlist(ivar)%vname == "taux" .or.     &
-              varlist(ivar)%vname == "tauy" .or.     &
-              varlist(ivar)%vname == "od550aer" .or. &
-              varlist(ivar)%vname == "snm" .or.      &
-              varlist(ivar)%vname == "runoff" .or.   &
-              varlist(ivar)%vname == "mrros" .or.    &
-              varlist(ivar)%vname == "sbl" ) then
+         if ( varlist(ivar)%vname == "rnd" .or.             &
+              varlist(ivar)%vname == "rnc" .or.             &
+              varlist(ivar)%vname == "sno" .or.             &
+              varlist(ivar)%vname == "grpl" .or.            &
+              varlist(ivar)%vname == "cld" .or.             &
+              varlist(ivar)%vname == "clh" .or.             &
+              varlist(ivar)%vname == "clm" .or.             &
+              varlist(ivar)%vname == "cll" .or.             &
+              varlist(ivar)%vname == "dni" .or.             &
+              varlist(ivar)%vname == "taux" .or.            &
+              varlist(ivar)%vname == "tauy" .or.            &
+              varlist(ivar)%vname == "od550aer" .or.        &
+              varlist(ivar)%vname == "snm" .or.             &
+              varlist(ivar)%vname == "runoff" .or.          &
+              varlist(ivar)%vname == "mrros" .or.           &
+              varlist(ivar)%vname == "sbl" .or.             &
+              varlist(ivar)%vname == "tmaxscr" .or.         &
+              varlist(ivar)%vname == "tminscr" .or.         &
+              varlist(ivar)%vname == "maxrnd" .or.          &
+              varlist(ivar)%vname == "prhmax" .or.          &
+              varlist(ivar)%vname == "rhmaxscr" .or.        &
+              varlist(ivar)%vname == "rhminscr" .or.        &
+              varlist(ivar)%vname == "u10max" .or.          &
+              varlist(ivar)%vname == "v10max" .or.          &
+              varlist(ivar)%vname == "u1max" .or.           &
+              varlist(ivar)%vname == "v1max" .or.           &
+              varlist(ivar)%vname == "u2max" .or.           &
+              varlist(ivar)%vname == "v2max" .or.           &
+              varlist(ivar)%vname == "urbantasmax" .or.     &
+              varlist(ivar)%vname == "urbantasmin" .or.     &
+              varlist(ivar)%vname == "wsgsmax"             ) then
             varlist(ivar)%instant = .false.
          end if   
          valid_att = ""
@@ -3302,9 +3315,6 @@ contains
             varlist(ivar)%instant = valid_att == "time: point"
             varlist(ivar)%fixed = valid_att == "time: fixed"
          end if   
-         if ( varlist(ivar)%daily ) then
-            varlist(ivar)%instant = .false.
-         end if
          
 
          ! Is this really simpler than a string of if tests?
