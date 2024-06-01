@@ -3308,6 +3308,7 @@ contains
          ierr = nf90_get_att(ncid, varlist(ivar)%vid, 'cell_methods',valid_att)
          if ( ierr == nf90_noerr ) then
             varlist(ivar)%instant = valid_att == "time: point"
+            varlist(ivar)%fixed = valid_att == "time: fixed"
          end if   
 
          ! Is this really simpler than a string of if tests?
