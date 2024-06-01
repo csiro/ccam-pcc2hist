@@ -3241,16 +3241,12 @@ contains
             write(substr,"(i2,a)") ihr, "hr"
             if ( index(varlist(ivar)%long_name,trim(adjustl(substr))) /= 0 ) then
                varlist(ivar)%daily = .true.
-               varlist(ivar)%instant = .false.
                exit
             end if
          end do
          if ( varlist(ivar)%vname == "tmaxscr" .or.         &
-              varlist(ivar)%vname == "tasmax" .or.          &
               varlist(ivar)%vname == "tminscr" .or.         &
-              varlist(ivar)%vname == "tasmin" .or.          &
               varlist(ivar)%vname == "maxrnd" .or.          &
-              varlist(ivar)%vname == "prmax" .or.           &
               varlist(ivar)%vname == "prhmax" .or.          &
               varlist(ivar)%vname == "rhmaxscr" .or.        &
               varlist(ivar)%vname == "rhminscr" .or.        &
@@ -3264,7 +3260,6 @@ contains
               varlist(ivar)%vname == "urbantasmin" .or.     &
               varlist(ivar)%vname == "wsgsmax" ) then
             varlist(ivar)%daily = .true.
-            varlist(ivar)%instant = .false.
          end if
          ! Also set daily if variable has a 'valid_time' attribute with the 
          ! value daily.
@@ -3273,9 +3268,6 @@ contains
          if ( ierr == nf90_noerr ) then
             varlist(ivar)%daily = valid_att == "daily"
             varlist(ivar)%sixhr = valid_att == "6hr"
-         end if
-         if ( varlist(ivar)%daily ) then
-            varlist(ivar)%instant = .false.
          end if
          
          ! Check if flux, average or maximum (name ends in _ave or _max)
@@ -3310,6 +3302,10 @@ contains
             varlist(ivar)%instant = valid_att == "time: point"
             varlist(ivar)%fixed = valid_att == "time: fixed"
          end if   
+         if ( varlist(ivar)%daily ) then
+            varlist(ivar)%instant = .false.
+         end if
+         
 
          ! Is this really simpler than a string of if tests?
          if ( match ( varlist(ivar)%vname, &
