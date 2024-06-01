@@ -3523,7 +3523,7 @@ contains
                varlist(ivar)%vname = "prc"
                varlist(ivar)%units = "kg m-2 s-1"
                varlist(ivar)%long_name = "Convective Precipitation"
-               varlist(ivar)%instant = .true.
+               varlist(ivar)%instant = .false.
                xmin = 0.
                xmax = 0.013
             else if ( varlist(ivar)%vname == "rnd" ) then
