@@ -2592,28 +2592,25 @@ contains
             hlat(1) = minlat
          else  
             hlat(1) = minlat 
-            do j = 2,nyhis-1
+            do j = 2,nyhis
                hlatr8 = real(minlat,8) + real(j-1,8)*(real(maxlat,8)-real(minlat,8))/real(nyhis-1,8)
                hlat(j) = real(real(nint(hlatr8*1.e5_8),8)*1.e-5_8)
             end do
-            hlat(nyhis) = maxlat
          end if   
          if ( maxlon - minlon == 360.0 ) then
             hlon(1) = minlon 
-            do i = 2,nxhis-1
+            do i = 2,nxhis
                hlonr8 = real(minlon,8) + real(i-1,8)*(real(maxlon,8)-real(minlon,8))/real(nxhis,8)  
                hlon(i) = real(real(nint(hlonr8*1.e5_8),8)*1.e-5_8)
             end do
-            hlon(nxhis) = maxlon
          else if ( nxhis == 1 ) then
             hlon(1) = minlon 
          else    
             hlon(1) = minlon 
-            do i = 2,nxhis-1
+            do i = 2,nxhis
                hlonr8 = real(minlon,8) + real(i-1,8)*(real(maxlon,8)-real(minlon,8))/real(nxhis-1,8) 
                hlon(i) = real(real(nint(hlonr8*1.e5_8),8)*1.e-5_8)
             end do
-            hlon(nxhis) = maxlon
          end if
       end if  
 
