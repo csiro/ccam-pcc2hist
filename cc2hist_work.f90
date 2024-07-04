@@ -1251,11 +1251,24 @@ contains
                         call savehist("mrsol", tgg) 
                      end if   
                   end if
-                  ierr = nf90_inq_varid (ncid, "wb1_ave", var_dum ) 
+                  ierr = nf90_inq_varid (ncid, "wb1", var_dum ) 
                   if ( ierr == nf90_noerr ) then
                      do k = 1,ksoil
-                        write(name,'(a,i1,a)') 'wb', k, '_ave'
+                        write(name,'(a,i1)') 'wb', k
                         call vread(name,tgg(:,:,k))
+                     end do
+                  else
+                     ! backwards compatible 
+                     ierr = nf90_inq_varid (ncid, "wb1_ave", var_dum )  
+                     if ( ierr == nf90_noerr ) then
+                        do k = 1,ksoil
+                           write(name,'(a,i1,a)') 'wb', k, '_ave'
+                           call vread(name,tgg(:,:,k))
+                        end do
+                     end if      
+                  end if
+                  if ( ierr == nf90_noerr ) then
+                     do k = 1,ksoil   
                         where ( tgg(:,:,k)/=nf90_fill_float )
                            mrso = mrso + tgg(:,:,k)*zse(k)*1000.
                            mrsos = mrsos + tgg(:,:,k)*shallow_zse(k)*1000.
@@ -3089,6 +3102,10 @@ contains
          ierr = nf90_inq_varid (ncid, "mrsol1", ivar ) 
          if ( ierr/=nf90_noerr ) then
             ierr = nf90_inq_varid (ncid, "wb1", ivar )     
+            if ( ierr/=nf90_noerr ) then
+               ! backwards compatible 
+               ierr = nf90_inq_varid (ncid, "wb1_ave", ivar )         
+            end if    
          end if
          if ( ierr==nf90_noerr .and. ksoil>0 ) then
             nvars = nvars + 1
@@ -4013,7 +4030,11 @@ contains
             if ( ierr==nf90_noerr .and. ksoil>0 ) then             
                call addfld('tsl','Soil temperature','K',100.,425.,ksoil,soil=.true.)
             end if
-            ierr = nf90_inq_varid (ncid, "wb1_ave", ivar ) 
+            ierr = nf90_inq_varid (ncid, "wb1", ivar ) 
+            if ( ierr/=nf90_noerr ) then
+               ! backwards compatible 
+               ierr = nf90_inq_varid (ncid, "wb1_ave", ivar )     
+            end if   
             if ( ierr==nf90_noerr .and. ksoil>0 ) then
                call addfld('mrsol','Total Water Content of Soil Layer','kg m-2',0.,1.,ksoil,soil=.true.) 
             end if    
