@@ -1251,10 +1251,10 @@ contains
                         call savehist("mrsol", tgg) 
                      end if   
                   end if
-                  ierr = nf90_inq_varid (ncid, "wb1", var_dum ) 
+                  ierr = nf90_inq_varid (ncid, "wb1_ave", var_dum ) 
                   if ( ierr == nf90_noerr ) then
                      do k = 1,ksoil
-                        write(name,'(a,i1)') 'wb', k
+                        write(name,'(a,i1,a)') 'wb', k, '_ave'
                         call vread(name,tgg(:,:,k))
                         where ( tgg(:,:,k)/=nf90_fill_float )
                            mrso = mrso + tgg(:,:,k)*zse(k)*1000.
@@ -1279,37 +1279,6 @@ contains
                      if ( needfld("mrsol") ) then
                         call savehist("mrsol", tgg) 
                      end if   
-                  else
-                     ! backwards compatibility - use wb1_ave
-                     ierr = nf90_inq_varid (ncid, "wb1_ave", var_dum ) 
-                     if ( ierr == nf90_noerr ) then
-                        do k = 1,ksoil
-                           write(name,'(a,i1,a)') 'wb', k,'_ave'
-                           call vread(name,tgg(:,:,k))
-                           where ( tgg(:,:,k)/=nf90_fill_float )
-                              mrso = mrso + tgg(:,:,k)*zse(k)*1000.
-                              mrsos = mrsos + tgg(:,:,k)*shallow_zse(k)*1000.
-                              tgg(:,:,k) = tgg(:,:,k)*zse(k)*1000.
-                           elsewhere
-                              mrso = nf90_fill_float
-                              mrsos = nf90_fill_float
-                           end where    
-                           where ( soilt <= 0.5 ) 
-                              tgg(:,:,k) = nf90_fill_float ! water
-                              mrso = nf90_fill_float
-                              mrsos = nf90_fill_float
-                           end where  
-                        end do
-                        if ( needfld("mrso") .and. kk>1 ) then
-                           call savehist("mrso", mrso)
-                        end if
-                        if ( needfld("mrsos") .and. kk>1 ) then
-                           call savehist("mrsos", mrsos)
-                        end if
-                        if ( needfld("mrsol") ) then
-                           call savehist("mrsol", tgg) 
-                        end if   
-                     end if    
                   end if   
                end if
             case ( "omega" )
@@ -4044,15 +4013,9 @@ contains
             if ( ierr==nf90_noerr .and. ksoil>0 ) then             
                call addfld('tsl','Soil temperature','K',100.,425.,ksoil,soil=.true.)
             end if
-            ierr = nf90_inq_varid (ncid, "wb1", ivar ) 
+            ierr = nf90_inq_varid (ncid, "wb1_ave", ivar ) 
             if ( ierr==nf90_noerr .and. ksoil>0 ) then
                call addfld('mrsol','Total Water Content of Soil Layer','kg m-2',0.,1.,ksoil,soil=.true.) 
-            else
-               ! backwards compatibility - use wb1_ave
-               ierr = nf90_inq_varid (ncid, "wb1_ave", ivar ) 
-               if ( ierr==nf90_noerr .and. ksoil>0 ) then
-                  call addfld('mrsol','Total Water Content of Soil Layer','kg m-2',0.,1.,ksoil,soil=.true.) 
-               end if         
             end if    
             ierr = nf90_inq_varid (ncid, "wbice1_ave", ivar ) 
             if ( ierr==nf90_noerr .and. ksoil>0 ) then
