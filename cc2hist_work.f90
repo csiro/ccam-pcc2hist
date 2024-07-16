@@ -843,11 +843,18 @@ contains
             case ( "snd" )
                if ( needfld("snd") .or. needfld("snc") .or. needfld("snw") ) then
                   call vread( "snd", sndw )
+                  where ( soilt<0.5 )
+                     sndw = nf90_fill_float
+                  end where
                   if ( needfld("snd") ) then
                      if ( cordex_compliant ) then
-                        dtmp = sndw/1000. 
+                        where ( sndw /= nf90_fill_float ) 
+                           dtmp = sndw/1000. 
+                        else where
+                           dtmp = nf90_fill_float 
+                        end where
                         call savehist ( "snd", dtmp )
-                     else  
+                     else
                         call savehist ( "snd", sndw )
                      end if   
                   end if   
@@ -1572,9 +1579,11 @@ contains
       end if
       
       if ( needfld("snc") ) then
-         where ( sndw>0. )
+         where ( sndw == nf90_fill_float )
+            dtmp = nf90_fill_float
+         else where ( sndw>0. )
             dtmp = 100.
-         elsewhere
+         else where
             dtmp = 0.  
          end where
          call savehist( "snc", dtmp )
