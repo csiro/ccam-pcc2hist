@@ -1043,7 +1043,17 @@ contains
                      dtmp = nf90_fill_float
                   end where
                   call savehist ( varlist(ivar)%vname, dtmp )
-               end if                  
+               end if     
+            case('wtd')
+               if ( needfld('wtd') ) then
+                  call vread( 'wtd', dtmp )
+                  where ( soilt > 0.5 )
+                     ctmp = dtmp
+                  elsewhere
+                     ctmp = nf90_fill_float
+                  end where 
+                  call savehist( 'wtd', ctmp )
+               end if    
             case ( "z0", "zolnd" )
                 if ( needfld( varlist(ivar)%vname ) ) then
                    call vread( "zolnd", dtmp ) 
@@ -1081,9 +1091,15 @@ contains
                      where ( dtmp<100. .and. dtmp/=nf90_fill_float )
                         dtmp = dtmp + 290. ! reference temperature
                      end where
+                     where ( soilt<0.5 )
+                        dtmp = nf90_fill_float ! flag for ocean  
+                     end where   
                      call savehist(varlist(ivar)%vname,dtmp)
                   end if   
-               else if ( match ( varlist(ivar)%vname, (/ "wb?_ave"/) ) ) then
+               else if ( match ( varlist(ivar)%vname, (/ "wb?"/) ) .or.        &
+                         match ( varlist(ivar)%vname, (/ "wb?_ave"/) ) .or.    &
+                         match ( varlist(ivar)%vname, (/ "wbice?_ave"/) ) .or. &
+                         match ( varlist(ivar)%vname, (/ "wetfrac?"/) ) ) then
                   if ( needfld(varlist(ivar)%vname) ) then                             
                      call vread( varlist(ivar)%vname, ctmp ) 
                      where ( soilt<0.5 )
@@ -1091,22 +1107,6 @@ contains
                      end where    
                      call savehist( varlist(ivar)%vname, ctmp )
                   end if
-               else if ( match ( varlist(ivar)%vname, (/ "wbice?_ave"/) ) ) then
-                  if ( needfld(varlist(ivar)%vname) ) then
-                     call vread( varlist(ivar)%vname, ctmp ) 
-                     where ( soilt<0.5 )
-                       ctmp = nf90_fill_float ! flag for ocean  
-                     end where    
-                     call savehist( varlist(ivar)%vname, ctmp )
-                  end if
-               else if ( match ( varlist(ivar)%vname, (/ "wetfrac?"/) ) ) then
-                  if ( needfld(varlist(ivar)%vname) ) then                             
-                     call vread( varlist(ivar)%vname, ctmp ) 
-                     where ( soilt<0.5 )
-                       ctmp = nf90_fill_float ! flag for ocean  
-                     end where    
-                     call savehist( varlist(ivar)%vname, ctmp )
-                  end if                  
                else
                   if ( needfld(varlist(ivar)%vname) ) then           
                      call vread( varlist(ivar)%vname, ctmp ) 
