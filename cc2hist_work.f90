@@ -800,7 +800,7 @@ contains
             case ( "siconca" )
                if ( needfld("siconca") ) then 
                   call vread2( "fracice", dtmp )
-                  where ( soilt>0.5 )
+                  where ( soilt>0.5 .or. soilt==-1 )
                      dtmp = 0.
                   elsewhere ( dtmp /= nf90_fill_float )
                      dtmp = max( dtmp*100., 0. )
