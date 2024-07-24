@@ -803,7 +803,7 @@ contains
                   where ( soilt>0.5 )
                      dtmp = 0.
                   elsewhere ( dtmp /= nf90_fill_float )
-                     dtmp = dtmp*100.
+                     dtmp = max( dtmp*100., 0. )
                   end where   
                   call savehist( "siconca", dtmp )
                end if   
