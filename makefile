@@ -53,7 +53,7 @@ ifeq ($(SETONIX),yes)
 MPIFC = ftn
 MPIF77 = ftn
 FC = ftn
-FFLAGS = -O2 -mtune=native -march=native -fbacktrace -fallow-argument-mismatch -Dsafe
+FFLAGS = -O2 -mtune=native -march=native -fbacktrace -fallow-argument-mismatch -Dsafe -I /opt/cray/pe/mpich/8.1.27/ofi/gnu/9.1/include
 INC =
 LIBS = -lnetcdf
 PPFLAG90 = -x f95-cpp-input

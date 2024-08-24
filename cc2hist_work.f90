@@ -115,39 +115,42 @@ contains
       use s2p_m
 
       integer, intent(in) :: il, jl, kl, ol, cptch, cchrt, ksoil, kice
+      integer pjl_long
       
-      allocate ( psl(pil,pjl*pnpan*lproc),   zs(pil,pjl*pnpan*lproc) )
-      allocate ( soilt(pil,pjl*pnpan*lproc), u(pil,pjl*pnpan*lproc,kl),  v(pil,pjl*pnpan*lproc,kl) )
-      allocate ( t(pil,pjl*pnpan*lproc,kl) )
-      allocate ( q(pil,pjl*pnpan*lproc,kl),  ql(pil,pjl*pnpan*lproc,kl), qf(pil,pjl*pnpan*lproc,kl) )
-      allocate ( qs(pil,pjl*pnpan*lproc,kl), qg(pil,pjl*pnpan*lproc,kl), omega(pil,pjl*pnpan*lproc,kl) )
-      allocate ( tgg(pil,pjl*pnpan*lproc,ksoil) )
-      allocate ( urban_frac(pil,pjl*pnpan*lproc), f_cor(pil,pjl*pnpan*lproc) )
+      pjl_long = pjl*pnpan*lproc
+      
+      allocate ( psl(pil,pjl_long),   zs(pil,pjl_long) )
+      allocate ( soilt(pil,pjl_long), u(pil,pjl_long,kl),  v(pil,pjl_long,kl) )
+      allocate ( t(pil,pjl_long,kl) )
+      allocate ( q(pil,pjl_long,kl),  ql(pil,pjl_long,kl), qf(pil,pjl_long,kl) )
+      allocate ( qs(pil,pjl_long,kl), qg(pil,pjl_long,kl), omega(pil,pjl_long,kl) )
+      allocate ( tgg(pil,pjl_long,ksoil) )
+      allocate ( urban_frac(pil,pjl_long), f_cor(pil,pjl_long) )
       if ( needfld("zg") ) then !.or. needfld("lvl")
          if ( use_plevs .or. use_meters ) then
-            allocate ( zstd(pil,pjl*pnpan*lproc,nplevs) )
+            allocate ( zstd(pil,pjl_long,nplevs) )
          end if
       end if
       if ( needfld("theta") ) then
          if ( use_theta ) then
-            allocate ( tstd(pil,pjl*pnpan*lproc,nplevs) )
+            allocate ( tstd(pil,pjl_long,nplevs) )
          end if    
       end if   
-      allocate( tmp3d(pil,pjl*pnpan*lproc,kl) )
-      allocate( hstd(pil,pjl*pnpan*lproc,kl) )
+      allocate( tmp3d(pil,pjl_long,kl) )
+      allocate( hstd(pil,pjl_long,kl) )
       ! ocean arrays
       if ( ol > 0 ) then
-         allocate( uo_tmp(pil,pjl*pnpan*lproc,ol), vo_tmp(pil,pjl*pnpan*lproc,ol) )
-         allocate( thetao_tmp(pil,pjl*pnpan*lproc,ol), so_tmp(pil,pjl*pnpan*lproc,ol) )
-         allocate( ocn_tmp(pil,pjl*pnpan*lproc,ol) )
-         allocate( ocn_mask(pil,pjl*pnpan*lproc,ol) )
+         allocate( uo_tmp(pil,pjl_long,ol), vo_tmp(pil,pjl_long,ol) )
+         allocate( thetao_tmp(pil,pjl_long,ol), so_tmp(pil,pjl_long,ol) )
+         allocate( ocn_tmp(pil,pjl_long,ol) )
+         allocate( ocn_mask(pil,pjl_long,ol) )
       end if
       ! POP arrays
       if ( cptch > 0 ) then
-         allocate( cp_tmp(pil,pjl*pnpan*lproc,cptch) )
+         allocate( cp_tmp(pil,pjl_long,cptch) )
       end if
       if ( cptch > 0 .and. cchrt > 0 ) then
-         allocate( cpc_tmp(pil,pjl*pnpan*lproc,cptch,cchrt) )
+         allocate( cpc_tmp(pil,pjl_long,cptch,cchrt) )
       end if
 
    end subroutine alloc_indata
@@ -339,9 +342,6 @@ contains
       real, dimension(pil,pjl*pnpan*lproc) :: u10max, v10max 
       real, dimension(pil,pjl*pnpan*lproc) :: u10m_max, v10m_max
       real, dimension(pil,pjl*pnpan*lproc) :: tscrn, qgscrn
-      !real, dimension(pil,pjl*pnpan*lproc) :: uten_stn
-      !real, dimension(pil,pjl*pnpan*lproc) :: u10max_stn, v10max_stn
-      !real, dimension(pil,pjl*pnpan*lproc) :: tscrn_stn, qgscrn_stn
       real, dimension(1) :: rlong_a, rlat_a, cos_zen, frac
       real :: fjd, bpyear, r1, dlt, alp, slag, dhr
       character(len=10) :: name
@@ -367,8 +367,6 @@ contains
       v10max = nf90_fill_float     ! daily
       u10m_max = nf90_fill_float   ! subdaily
       v10m_max = nf90_fill_float   ! subdaily
-      !u10max_stn = nf90_fill_float ! daily
-      !v10max_stn = nf90_fill_float ! daily
       rgdcs = nf90_fill_float      ! daily
       rgncs = nf90_fill_float      ! daily
       sgdcs = nf90_fill_float      ! daily
@@ -382,7 +380,7 @@ contains
             if ( first_in ) then
                select case ( varlist(ivar)%vname )
                case ( "cor" )
-                  call vread( "cor", f_cor )
+                  call vread( "cor", f_cor ) ! recorded for potential vorticity
                   if ( needfld("cor") ) then
                      call savehist( "cor", f_cor ) 
                   end if
@@ -393,11 +391,12 @@ contains
                         call savehist("map", dtmp )
                      end if   
                      if ( needfld("grid") ) then
-                        dtmp = 90.*112./(real(pil_g)*dtmp)
-                        call savehist("grid", dtmp)
+                        ctmp = 90.*112./(real(pil_g)*dtmp)
+                        call savehist("grid", ctmp)
                      end if   
                   end if
                case ( "mrsofc" )   
+                  ! soilt must load before mrsofc 
                   if ( needfld("mrsofc") ) then
                      call vread( "mrsofc", dtmp) 
                      where ( soilt <= 0.5 )
@@ -800,6 +799,7 @@ contains
             case ( "siconca" )
                if ( needfld("siconca") ) then 
                   call vread2( "fracice", dtmp )
+                  ! siconca is defined as sea-ice only (not frozen lakes)
                   where ( soilt>0.5 .or. soilt==-1 )
                      dtmp = 0.
                   elsewhere ( dtmp /= nf90_fill_float )
@@ -1579,10 +1579,10 @@ contains
       end if
       
       if ( needfld("snc") ) then
-         where ( sndw>1.e-6 )
+         where ( sndw>1.e-6 ) ! mm
             dtmp = 100.
          elsewhere
-            dtmp = 0.  
+            dtmp = 0.
          end where
          call savehist( "snc", dtmp )
       end if
@@ -2005,7 +2005,7 @@ contains
          
          ! cordex cape and cin
          if ( needfld("CAPE") .or. needfld("CIN") ) then
-            call capecalc( ctmp, dtmp, t, psl, sig ) 
+            call capecalc( ctmp, dtmp, t, q, psl, sig ) 
             if ( needfld("CAPE") ) then
                call savehist( "CAPE", ctmp ) 
             end if    
@@ -3344,15 +3344,11 @@ contains
                   "zolnd               ", "sigmf               ", "wetfrac             ", "wetfrac?            ", &
                   "tgg?                ", "tgg??               ", "sal??               ", "roadtgg?            ", &
                   "rooftgg?            ", "waletgg?            ", "walwtgg?            ", "dmse_ave            ", &
-                  "dmsso2_ave          ", "so2e_ave            ", "so2dd_ave           ", "so2wd_ave           ", &
-                  "so2so4_ave          ", "so4e_ave            ", "so4dd_ave           ", "so4wd_ave           ", &
-                  "bce_ave             ", "bcdd_ave            ", "bcwd_ave            ", "oce_ave             ", &
-                  "ocdd_ave            ", "ocwd_ave            ", "duste_ave           ", "dustdd_ave          ", &
-                  "dustwd_ave          ", "salte_ave           ", "saltdd_ave          ", "saltwd_ave          ", &
-                  "wb?_ave             ", "climate_biome       ", "climate_ivegt       ", "climate_min20       ", &
-                  "climate_max20       ", "climate_alpha20     ", "climate_agdd5       ", "climate_gmd         ", &
-                  "climate_dmoist_min20", "climate_dmoist_max20", "urbant              ", "u10max              ", &
-                  "v10max              ", "fracice             ", "siced               ", "wb?                 ", &
+                  "so2e_ave            ", "so4e_ave            ", "bce_ave             ", "oce_ave             ", &
+                  "duste_ave           ", "salte_ave           ", "wb?_ave             ", "climate_biome       ", &
+                  "climate_ivegt       ", "climate_min20       ", "climate_max20       ", "climate_alpha20     ", &
+                  "climate_agdd5       ", "climate_gmd         ", "climate_dmoist_min20", "climate_dmoist_max20", &
+                  "urbant              ", "fracice             ", "siced               ", "wb?                 ", &
                   "wbice?              ", "wbice?_ave          ", "tsl                 ", "mrsofc              ", &
                   "sftlaf              ", "sigmu               ", "dtb                 "                          &
                /)) .and. int_default /= int_none ) then
@@ -4540,11 +4536,11 @@ contains
 
    end subroutine cordex_height_interpolate         
 
-   subroutine capecalc(cape_d,cin_d,t,ps,sig)
+   subroutine capecalc(cape_d,cin_d,t,q,ps,sig)
       use moistfuncs   
       integer :: k, n, i, j, icount, nloop, ktop
       integer, parameter :: kmax = 1 ! default for source parcel at surface
-      real, dimension(pil,pjl*pnpan*lproc,kk), intent(in) :: t
+      real, dimension(pil,pjl*pnpan*lproc,kk), intent(in) :: t, q
       real, dimension(pil,pjl*pnpan*lproc,kk) :: pl, tl, pll, th, thv
       real, dimension(pil,pjl*pnpan*lproc), intent(out) :: cape_d, cin_d
       real, dimension(pil,pjl*pnpan*lproc), intent(in)  :: ps
@@ -4555,7 +4551,7 @@ contains
       real, dimension(kk), intent(in) :: sig
       real pl1, tl1, th1, qv1, ql1, qi1, thv1
       real tbarl, qvbar, qlbar, qibar, lhv, lhs, lhf
-      real rm, cpm, thlast, fliq, fice
+      real rm, cpm, thlast, fliq, fice, qsat_save
       !real, parameter :: pinc = 100. ! Pressure increment (Pa) - smaller is more accurate
       real, parameter :: pinc = 1000.
       real, parameter :: cp = 1004.64
@@ -4586,7 +4582,8 @@ contains
          tl(:,:,k) = t(:,:,k)
          pll(:,:,k) = (pl(:,:,k)/1.e5)**(rdry/cp)
          deles(:,:) = esdiffx(t(:,:,k))
-         qs(:,:) = epsil*deles(:,:)/pl(:,:,k)
+         !qs(:,:) = epsil*deles(:,:)/pl(:,:,k)
+         qs(:,:) = q(:,:,k)
          th(:,:,k) = tl(:,:,k)/pll(:,:,k)
          thv(:,:,k) = th(:,:,k)*(1.+1.61*qs(:,:))/(1.+qs(:,:))
       end do  
@@ -4597,8 +4594,9 @@ contains
       pl2(:,:) = pl(:,:,kmax)
       tl2(:,:) = tl(:,:,kmax)
       thv2(:,:) = thv(:,:,kmax)
-      deles(:,:) = esdiffx(tl(:,:,kmax))
-      qv2(:,:) = epsil*deles(:,:)/pl(:,:,kmax)
+      !deles(:,:) = esdiffx(tl(:,:,kmax))
+      !qv2(:,:) = epsil*deles(:,:)/pl(:,:,kmax)
+      qv2(:,:) = q(:,:,k)
       ql2(:,:) = 0.
       qi2(:,:) = 0.
       qt(:,:) = qv2(:,:)
@@ -4637,7 +4635,8 @@ contains
                      tl2(i,j) = thlast*pll2(i,j)
                      fliq = max(min((tl2(i,j)-233.15)/(273.15-233.15),1.),0.)
                      fice = 1. - fliq
-                     qv2(i,j) = min( qt(i,j), qsat(pl2(i,j),tl2(i,j)) )
+                     qsat_save = fliq*qsat(pl2(i,j),tl2(i,j)) + fice*qsati(pl2(i,j),tl2(i,j))
+                     qv2(i,j) = min( qt(i,j), qsat_save )
                      qi2(i,j) = max( fice*(qt(i,j)-qv2(i,j)), 0. )
                      ql2(i,j) = max( qt(i,j)-qv2(i,j)-qi2(i,j), 0. )
 
