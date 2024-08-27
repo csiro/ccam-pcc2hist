@@ -4074,10 +4074,10 @@ contains
                call addfld ( cname, lname, "m s-1", -130., 130., 1, instant=.true. )
             end do   
             ! add CAPE and CIN
-            call addfld ( "CAPE", "Convective Available Potential Energy", "J kg-1", 0., 35., 1, &
+            call addfld ( "CAPE", "Convective Available Potential Energy", "J kg-1", 0., 20000., 1, &
                        std_name="atmosphere_convective_available_potential_energy_wrt_surface",  &
                        instant=.true. )
-            call addfld ( "CIN", "Convective Inhibition", "J kg-1", 0., 35., 1,                 &
+            call addfld ( "CIN", "Convective Inhibition", "J kg-1", -20000., 0., 1,             &
                        std_name="atmosphere_convective_available_potential_energy_wrt_surface", &
                        instant=.true. )
                
@@ -4704,7 +4704,7 @@ contains
       end do ! k loop
     
       cape_d(:,:) = capel(:,:)
-      cin_d(:,:) = cinl(:,:)
+      cin_d(:,:) = -cinl(:,:)
 
    end subroutine capecalc
 
