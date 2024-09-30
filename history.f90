@@ -1020,13 +1020,14 @@ contains
          gap = max( nproc/maxcnt, 1 )
          cnt = 0
          do ifld = 1,totflds
-           if ( .not. histinfo(ifld)%used ) then
+            if ( .not. histinfo(ifld)%used ) then
                cycle
             end if  
             ave_type = histinfo(ifld)%ave_type
             nlev = histinfo(ifld)%nlevels
             if ( histset > 1 .and. ave_type == hist_fixed ) then
-               histinfo(ifld)%procid = 0
+               ! fixed variables stored on procid=0 
+               histinfo(ifld)%procid = 0 
                cycle
             end if
             rrank = (cnt*gap)/slab
@@ -1666,12 +1667,17 @@ contains
       if ( hist_debug > 0 ) then
          print*, "Creating file ", filename
       end if
+      if ( areps_compliant ) then
+         ! AREPS must use netcdf3 
+         ierr = nf90_create(filename, nf90_64bit_offset, ncid) 
+      else    
 #ifdef usenc3
-      ierr = nf90_create(filename, nf90_64bit_offset, ncid)
+         ierr = nf90_create(filename, nf90_64bit_offset, ncid)
 #else
-      !cmode = nf90_netcdf4 .or. nf90_classic_model
-      ierr = nf90_create(filename, nf90_netcdf4, ncid)
+         !cmode = nf90_netcdf4 .or. nf90_classic_model
+         ierr = nf90_create(filename, nf90_netcdf4, ncid)
 #endif
+      end if
       call check_ncerr ( ierr, "Error in creating history file "//trim(filename) )
                
       ! Create dimensions, lon, lat and rec
