@@ -1156,9 +1156,9 @@ contains
                   end do   
                   call osavehist( "kso", ocn_tmp )
                end if
-            case ( "mrfsl", "mrfsol" )
+            case ( "mrsfl", "mrfsol" )
                ! mrfsol has been depreciated 
-               if ( needfld("mrfsl") .or. needfld('mrfsol') .or. &
+               if ( needfld("mrsfl") .or. needfld('mrfsol') .or. &
                     (kk>1.and.(needfld("mrfso").or.needfld("mrfsos"))) ) then 
                   mrfso = 0.
                   mrfsos = 0.
@@ -1186,8 +1186,8 @@ contains
                      if ( needfld("mrfsos") .and. kk>1 ) then
                         call savehist("mrfsos", mrfsos)
                      endif
-                     if ( needfld("mrfsl") ) then
-                        call savehist("mrfsl", tgg) ! water
+                     if ( needfld("mrsfl") ) then
+                        call savehist("mrsfl", tgg) ! water
                      end if   
                     if ( needfld("mrfsol") ) then ! mrfsol has been depreciated
                         call savehist("mrfsol", tgg) ! water
@@ -1218,8 +1218,8 @@ contains
                      if ( needfld("mrfsos") .and. kk>1 ) then
                         call savehist("mrfsos", mrfsos)
                      endif
-                     if ( needfld("mrfsl") ) then
-                        call savehist("mrfsl", tgg) ! water
+                     if ( needfld("mrsfl") ) then
+                        call savehist("mrsfl", tgg) ! water
                      end if   
                      if ( needfld("mrfsol") ) then ! mrfsol has been depreciated
                         call savehist("mrfsol", tgg) ! water
@@ -3126,7 +3126,7 @@ contains
          end if
          if ( ierr==nf90_noerr .and. ksoil>0 ) then
             nvars = nvars + 1
-            varlist(nvars)%vname = "mrfsl"
+            varlist(nvars)%vname = "mrsfl"
             varlist(nvars)%fixed = .false.
             varlist(nvars)%ndims = 4
             nvars = nvars + 1 ! mrfsol has been depreciated
@@ -3330,11 +3330,13 @@ contains
               varlist(ivar)%vname == "wsgsmax"             ) then
             varlist(ivar)%instant = .false.
          end if   
-         valid_att = ""
-         ierr = nf90_get_att(ncid, varlist(ivar)%vid, 'cell_methods',valid_att)
+         cell_methods = ""
+         ierr = nf90_get_att(ncid, varlist(ivar)%vid, 'cell_methods',cell_methods)
          if ( ierr == nf90_noerr ) then
-            varlist(ivar)%instant = valid_att == "time: point"
-            varlist(ivar)%fixed = valid_att == "time: fixed"
+            varlist(ivar)%instant = cell_methods == "time: point"
+            varlist(ivar)%fixed = cell_methods == "time: fixed"
+         else
+            cell_methods = ""
          end if   
          
 
@@ -4043,7 +4045,7 @@ contains
             end if    
             ierr = nf90_inq_varid (ncid, "wbice1_ave", ivar ) 
             if ( ierr==nf90_noerr .and. ksoil>0 ) then
-               call addfld('mrfsl','Frozen Water Content of Soil Layer','kg m-2',0.,1.,ksoil,soil=.true.)
+               call addfld('mrsfl','Frozen Water Content of Soil Layer','kg m-2',0.,1.,ksoil,soil=.true.)
                ! mrfsol has been depreciated
                call addfld('mrfsol','Frozen Water Content of Soil Layer','kg m-2',0.,1.,ksoil,soil=.true.)
             end if 
@@ -4230,7 +4232,7 @@ contains
             end if    
             ierr = nf90_inq_varid (ncid, "mrfsol1", ivar ) 
             if ( ierr==nf90_noerr .and. ksoil>0 ) then
-               call addfld('mrfsl','Frozen Water Content of Soil Layer','kg m-2',0.,1.,ksoil,soil=.true.,sixhr=.true.)
+               call addfld('mrsfl','Frozen Water Content of Soil Layer','kg m-2',0.,1.,ksoil,soil=.true.,sixhr=.true.)
                ! mrfsol has been depreciated
                call addfld('mrfsol','Frozen Water Content of Soil Layer','kg m-2',0.,1.,ksoil,soil=.true.,sixhr=.true.)
             end if 
@@ -4736,14 +4738,21 @@ contains
       type(input_var), intent(in) :: vinfo
       integer :: j, press_level, height_level
       character(len=80), intent(out) :: stdname
-      character(len=80), intent(out) :: cell_methods
+      character(len=80), intent(inout) :: cell_methods ! may already be defined by CCAM
       character(len=60) :: vname, cname
 
       ! Some fields like rnd03 can't really be made CF compliant. Their time
       ! bounds don't match those of the overall file properly.
 
       stdname = ""
-      cell_methods = ""
+      if ( cell_methods == "" ) then
+         if ( vinfo%instant ) then
+            cell_methods = "time: point"
+         else
+            ! assume mean, if not defined by CCAM
+            cell_methods = "time: mean"
+         end if
+      end if
       ! Would some sort of external table be better
       ! Also return preferred variable name and units?
       vname = vinfo%vname
@@ -4848,7 +4857,7 @@ contains
          stdname = "mass_content_of_water_in_soil_layer" 
       case ("mrsofc")
          stdname = "soil_moisture_content_at_field_capacity" 
-      case ("mrfsl")
+      case ("mrsfl")
          stdname = "mass_content_of_water_in_soil_layer" 
       case ("mrfso")
          stdname = "soil_frozen_water_content" 
@@ -5156,7 +5165,7 @@ contains
       do k = 1,ksoil
          write(tmpname,'(a,i1)') 'mrsol', k
          if ( vname == tmpname ) is_soil_var = .true.
-         write(tmpname,'(a,i1)') 'mrfsl', k
+         write(tmpname,'(a,i1)') 'mrsfl', k
          if ( vname == tmpname ) is_soil_var = .true.
          write(tmpname,'(a,i1)') 'mrfsol', k ! mrfsol has been depreciated
          if ( vname == tmpname ) is_soil_var = .true.         
