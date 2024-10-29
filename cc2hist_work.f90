@@ -4583,7 +4583,7 @@ contains
          pl(:,:,k) = 100.*ps(:,:)*sig(k)
          tl(:,:,k) = t(:,:,k)
          pll(:,:,k) = (pl(:,:,k)/1.e5)**(rdry/cp)
-         deles(:,:) = esdiffx(t(:,:,k))
+         !deles(:,:) = esdiffx(t(:,:,k))
          !qs(:,:) = epsil*deles(:,:)/pl(:,:,k)
          qs(:,:) = q(:,:,k)
          th(:,:,k) = tl(:,:,k)/pll(:,:,k)
@@ -4598,7 +4598,7 @@ contains
       thv2(:,:) = thv(:,:,kmax)
       !deles(:,:) = esdiffx(tl(:,:,kmax))
       !qv2(:,:) = epsil*deles(:,:)/pl(:,:,kmax)
-      qv2(:,:) = q(:,:,k)
+      qv2(:,:) = q(:,:,kmax)
       ql2(:,:) = 0.
       qi2(:,:) = 0.
       qt(:,:) = qv2(:,:)

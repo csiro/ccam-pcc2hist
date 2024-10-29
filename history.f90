@@ -1521,10 +1521,12 @@ contains
       call check_ncerr(ierr,"Error creating variable "// local_name)
       vinfo%vid = vid
       
+#ifndef usenc3      
       if ( cordex_compliant ) then
          ierr = nf90_def_var_deflate( ncid, vid, 1, 1, 1 ) ! shuffle=1, deflate=1, deflate_level=1
          call check_ncerr(ierr)
       end if
+#endif      
 
       if ( len_trim(vinfo%long_name) /= 0 ) then
          ierr = nf90_put_att ( ncid, vid, "long_name", vinfo%long_name )
