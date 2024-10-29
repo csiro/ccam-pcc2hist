@@ -4555,7 +4555,7 @@ contains
       real tbarl, qvbar, qlbar, qibar, lhv, lhs, lhf
       real rm, cpm, thlast, fliq, fice, qsat_save
       !real, parameter :: pinc = 100. ! Pressure increment (Pa) - smaller is more accurate
-      real, parameter :: pinc = 1000.
+      real, parameter :: pinc = 500.
       real, parameter :: cp = 1004.64
       real, parameter :: cpv = 1869.46
       real, parameter :: rdry = 287.04
@@ -4580,7 +4580,7 @@ contains
       end do
       
       do k = 1,ktop
-         pl(:,:,k) = ps(:,:)*sig(k)
+         pl(:,:,k) = 100.*ps(:,:)*sig(k)
          tl(:,:,k) = t(:,:,k)
          pll(:,:,k) = (pl(:,:,k)/1.e5)**(rdry/cp)
          deles(:,:) = esdiffx(t(:,:,k))
