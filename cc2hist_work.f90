@@ -330,7 +330,7 @@ contains
       logical, intent(in)  :: skip
       integer :: j, k, ivar, ierr, var_dum
       integer :: rad_day, press_level, height_level
-      real, dimension(pil,pjl*pnpan*lproc) :: udir, dtmp, ctmp
+      real, dimension(pil,pjl*pnpan*lproc) :: udir, dtmp, ctmp, etmp
       real, dimension(pil,pjl*pnpan*lproc) :: uten, uastmp, vastmp
       real, dimension(pil,pjl*pnpan*lproc) :: mrso, mrfso
       real, dimension(pil,pjl*pnpan*lproc) :: mrsos, mrfsos
@@ -2004,14 +2004,17 @@ contains
          end do   
          
          ! cordex cape and cin
-         if ( needfld("CAPE") .or. needfld("CIN") ) then
-            call capecalc( ctmp, dtmp, t, q, psl, sig ) 
+         if ( needfld("CAPE") .or. needfld("CIN") .or. needfld("LI") ) then
+            call capecalc( ctmp, dtmp, etmp, t, q, psl, sig ) 
             if ( needfld("CAPE") ) then
                call savehist( "CAPE", ctmp ) 
             end if    
             if ( needfld("CIN") ) then
                call savehist( "CIN", dtmp ) 
-            end if             
+            end if
+            if ( needfld("LI") ) then
+               call savehist( "LI", etmp ) 
+            endif
          end if    
 
       else        
@@ -4074,14 +4077,7 @@ contains
                call cordex_name(cname,"va",height_level,"m")
                call cordex_name(lname,"Northward Wind at ",height_level,"m")
                call addfld ( cname, lname, "m s-1", -130., 130., 1, instant=.true. )
-            end do   
-            ! add CAPE and CIN
-            call addfld ( "CAPE", "Convective Available Potential Energy", "J kg-1", 0., 20000., 1, &
-                       std_name="atmosphere_convective_available_potential_energy_wrt_surface",  &
-                       instant=.true. )
-            call addfld ( "CIN", "Convective Inhibition", "J kg-1", -20000., 0., 1,             &
-                       std_name="atmosphere_convective_available_potential_energy_wrt_surface", &
-                       instant=.true. )
+            end do            
                
          else if ( cf_compliant ) then
             ! Define as an extra field for now
@@ -4108,6 +4104,17 @@ contains
                call addfld('wbice_ave','Avg soil ice','frac',0.,1.,ksoil,soil=.true.)
             end if   
          end if
+         
+          ! add CAPE, CIN and LI
+          call addfld ( "CAPE", "Convective Available Potential Energy", "J kg-1", 0., 20000., 1, &
+                     std_name="atmosphere_convective_available_potential_energy_wrt_surface",  &
+                     instant=.true. )
+          call addfld ( "CIN", "Convective Inhibition", "J kg-1", -20000., 0., 1,             &
+                     std_name="atmosphere_convective_available_potential_energy_wrt_surface", &
+                     instant=.true. )
+          call addfld ( "LI", "Lifted Index", "K", -100., 100., 1,             &
+                     std_name="temperature_difference_between_ambient_air_and_air_lifted_adiabatically_from_the_surface", &
+                     instant=.true. )   
       
          if ( int_default == int_tapm ) then
             call addfld('cos_zen', 'Cosine of solar zenith angle', 'none', -1., 1., 1 )
@@ -4538,38 +4545,45 @@ contains
 
    end subroutine cordex_height_interpolate         
 
-   subroutine capecalc(cape_d,cin_d,t,q,ps,sig)
+   subroutine capecalc(cape_d,cin_d,li_d,t,q,ps,sig)
       use moistfuncs   
       integer :: k, n, i, j, icount, nloop, ktop
+      integer :: iter
       integer, parameter :: kmax = 1 ! default for source parcel at surface
       real, dimension(pil,pjl*pnpan*lproc,kk), intent(in) :: t, q
       real, dimension(pil,pjl*pnpan*lproc,kk) :: pl, tl, pll, th, thv
       real, dimension(pil,pjl*pnpan*lproc), intent(out) :: cape_d, cin_d
       real, dimension(pil,pjl*pnpan*lproc), intent(in)  :: ps
-      real, dimension(pil,pjl*pnpan*lproc) :: th2, pll2, pl2, tl2, thv2, qv2, b2
+      real, dimension(pil,pjl*pnpan*lproc) :: th2, pl2, tl2, thv2, qv2, b2
       real, dimension(pil,pjl*pnpan*lproc) :: narea, ql2, qi2, qt, capel, cinl
-      real, dimension(pil,pjl*pnpan*lproc) :: dz, frac, parea, dp, b1, qs
-      real, dimension(pil,pjl*pnpan*lproc) :: deles
+      real, dimension(pil,pjl*pnpan*lproc) :: qs
       real, dimension(kk), intent(in) :: sig
+      real, dimension(pil,pjl*pnpan*lproc), intent(out) :: li_d
+      real, dimension(pil,pjl*pnpan*lproc,kk) :: dTvK
+      real, dimension(pil,pjl*pnpan*lproc) :: srcq, srctheta, plcl, srcthetaeK
       real pl1, tl1, th1, qv1, ql1, qi1, thv1
       real tbarl, qvbar, qlbar, qibar, lhv, lhs, lhf
       real rm, cpm, thlast, fliq, fice, qsat_save
-      !real, parameter :: pinc = 100. ! Pressure increment (Pa) - smaller is more accurate
-      real, parameter :: pinc = 500.
+      real b1, dp, pll2, dz, frac, parea
+      real pu, pd, lidxu, lidxd, srctK, srcp, srcqs, srcrh
+      real term1, term2, denom, tlclK, press, ptK, pw, ptvK, tvK, freeze
+      real tovtheta, smixr, thetaK, tcheck
       real, parameter :: cp = 1004.64
       real, parameter :: cpv = 1869.46
       real, parameter :: rdry = 287.04
       real, parameter :: rvap = 461.
       real, parameter :: grav = 9.80616
+      real, parameter :: epsil = 0.622    
+      real, parameter :: hl = 2.5104e6
+      !real, parameter :: pinc = 100. ! Pressure increment (Pa) - smaller is more accurate
+      real, parameter :: pinc = 500.
       real, parameter :: lv1 = 2501000. + (4190.-cpv)*273.15
       real, parameter :: lv2 = 4190. - cpv
       real, parameter :: ls1 = 2836017. + (2118.636-cpv)*273.15
       real, parameter :: ls2 = 2188.636 - cpv
-      real, parameter :: epsil = 0.622      
       logical not_converged
-
-      capel(:,:) = 0.
-      cinl(:,:) = 0.
+      logical, dimension(pil,pjl*pnpan*lproc) :: wflag
+      logical found
 
       ! Following code is based on Bryan (NCAR) citing
       ! Bolton 1980 MWR p1046 and Bryan and Fritsch 2004 MWR p2421
@@ -4583,8 +4597,6 @@ contains
          pl(:,:,k) = 100.*ps(:,:)*sig(k)
          tl(:,:,k) = t(:,:,k)
          pll(:,:,k) = (pl(:,:,k)/1.e5)**(rdry/cp)
-         !deles(:,:) = esdiffx(t(:,:,k))
-         !qs(:,:) = epsil*deles(:,:)/pl(:,:,k)
          qs(:,:) = q(:,:,k)
          th(:,:,k) = tl(:,:,k)/pll(:,:,k)
          thv(:,:,k) = th(:,:,k)*(1.+1.61*qs(:,:))/(1.+qs(:,:))
@@ -4592,31 +4604,28 @@ contains
 
       ! define initial parcel properties
       th2(:,:) = th(:,:,kmax)
-      pll2(:,:) = pll(:,:,kmax)
       pl2(:,:) = pl(:,:,kmax)
       tl2(:,:) = tl(:,:,kmax)
       thv2(:,:) = thv(:,:,kmax)
-      !deles(:,:) = esdiffx(tl(:,:,kmax))
-      !qv2(:,:) = epsil*deles(:,:)/pl(:,:,kmax)
       qv2(:,:) = q(:,:,kmax)
       ql2(:,:) = 0.
       qi2(:,:) = 0.
       qt(:,:) = qv2(:,:)
       b2(:,:) = 0.
       narea(:,:) = 0.
+      capel(:,:) = 0.
+      cinl(:,:) = 0.
 
       ! start ascent of parcel
       do k = kmax+1,ktop
-    
-         b1(:,:) = b2(:,:)  
-         dp(:,:) = pl(:,:,k-1) - pl(:,:,k)
-
          nloop = 1 + int( 1.e5*(sig(k-1)-sig(k))/pinc )
-         dp(:,:) = (pl(:,:,k-1)-pl(:,:,k))/real(nloop)  
+         do j = 1,pjl*pnpan*lproc
+            do i = 1,pil
+    
+               b1 = b2(i,j)  
+               dp = (pl(i,j,k-1)-pl(i,j,k))/real(nloop)  
   
-         do n = 1,nloop
-            do j = 1,pjl*pnpan*lproc
-               do i = 1,pil
+               do n = 1,nloop
                    
                   pl1 = pl2(i,j)
                   tl1 = tl2(i,j)
@@ -4626,88 +4635,181 @@ contains
                   qi1 = qi2(i,j)
                   thv1 = thv2(i,j)
      
-                  pl2(i,j) = pl2(i,j) - dp(i,j)
-                  pll2(i,j) = (pl2(i,j)/1.e5)**(rdry/cp)
+                  pl2(i,j) = pl2(i,j) - dp
+                  pll2 = (pl2(i,j)/1.e5)**(rdry/cp)
                   thlast = th1
       
-                  icount = 0
                   not_converged = .true.
-                  do while( not_converged .and. icount<51 )
-                     icount = icount + 1
-                     tl2(i,j) = thlast*pll2(i,j)
-                     fliq = max(min((tl2(i,j)-233.15)/(273.15-233.15),1.),0.)
-                     fice = 1. - fliq
-                     qsat_save = fliq*qsat(pl2(i,j),tl2(i,j)) + fice*qsati(pl2(i,j),tl2(i,j))
-                     qv2(i,j) = min( qt(i,j), qsat_save )
-                     qi2(i,j) = max( fice*(qt(i,j)-qv2(i,j)), 0. )
-                     ql2(i,j) = max( qt(i,j)-qv2(i,j)-qi2(i,j), 0. )
+                  do icount = 1,50
+                     if ( not_converged) then 
+                        tl2(i,j) = thlast*pll2
+                        fliq = max(min((tl2(i,j)-233.15)/(273.15-233.15),1.),0.)
+                        fice = 1. - fliq
+                        qsat_save = fliq*qsat(pl2(i,j),tl2(i,j)) + fice*qsati(pl2(i,j),tl2(i,j))
+                        qv2(i,j) = min( qt(i,j), qsat_save )
+                        qi2(i,j) = max( fice*(qt(i,j)-qv2(i,j)), 0. )
+                        ql2(i,j) = max( qt(i,j)-qv2(i,j)-qi2(i,j), 0. )
 
-                     tbarl = 0.5*(tl1+tl2(i,j))
-                     qvbar = 0.5*(qv1+qv2(i,j))
-                     qlbar = 0.5*(ql1+ql2(i,j))
-                     qibar = 0.5*(qi1+qi2(i,j))
+                        tbarl = 0.5*(tl1+tl2(i,j))
+                        qvbar = 0.5*(qv1+qv2(i,j))
+                        qlbar = 0.5*(ql1+ql2(i,j))
+                        qibar = 0.5*(qi1+qi2(i,j))
 
-                     lhv = lv1 - lv2*tbarl
-                     lhs = ls1 - ls2*tbarl
-                     lhf = lhs - lhv
+                        lhv = lv1 - lv2*tbarl
+                        lhs = ls1 - ls2*tbarl
+                        lhf = lhs - lhv
 
-                     rm = rdry + rvap*qvbar
-                     cpm = cp + cpv*qvbar + 4190.*qlbar + 2118.636*qibar
-                     th2(i,j) = th1*exp(  lhv*(ql2(i,j)-ql1)/(cpm*tbarl)    &
-                                         +lhs*(qi2(i,j)-qi1)/(cpm*tbarl)    &
-                                         +(rm/cpm-rdry/cp)*alog(pl2(i,j)/pl1) )
+                        rm = rdry + rvap*qvbar
+                        cpm = cp + cpv*qvbar + 4190.*qlbar + 2118.636*qibar
+                        th2(i,j) = th1*exp(  lhv*(ql2(i,j)-ql1)/(cpm*tbarl)    &
+                                            +lhs*(qi2(i,j)-qi1)/(cpm*tbarl)    &
+                                            +(rm/cpm-rdry/cp)*alog(pl2(i,j)/pl1) )
 
-                     if ( abs(th2(i,j)-thlast)>0.0002 ) then
-                       thlast=thlast+0.2*(th2(i,j)-thlast)
-                     else
-                       not_converged = .false.
-                     end if
-                  end do ! do while not_converged
+                        if ( abs(th2(i,j)-thlast)>0.0002 ) then
+                           thlast = thlast + 0.2*(th2(i,j)-thlast)
+                        else
+                           not_converged = .false.
+                        end if
+                     end if ! if not_converged   
+                  end do ! icount
 
                   ! pseudoadiabat
                   qt(i,j)  = qv2(i,j)
                   ql2(i,j) = 0.
                   qi2(i,j) = 0.
 
-               end do   ! i loop
-            end do      ! j loop   
-         end do         ! n loop  
+               end do         ! n loop  
 
-         thv2(:,:) = th2(:,:)*(1.+1.61*qv2(:,:))/(1.+qv2(:,:)+ql2(:,:)+qi2(:,:))
-         b2(:,:) = grav*( thv2(:,:)-thv(:,:,k) )/thv(:,:,k)
-         dz(:,:) = -(cp/grav)*0.5*(thv(:,:,k)+thv(:,:,k-1))*(pll(:,:,k)-pll(:,:,k-1))
-	
-         ! calculate contributions to CAPE and CIN
-         where ( b2>=0. .and. b1<0. )
-            ! first time entering positive region
-            frac = b2/(b2-b1)
-            parea = 0.5*b2*dz*frac
-            narea = narea - 0.5*b1*dz*(1.-frac)
-            cinl = cinl + narea
-            capel = capel + max(0.,parea)
-            narea = 0.
-         elsewhere ( b2<0. .and. b1>0. )  
-            ! first time entering negative region  
-            frac = b1/(b1-b2)
-            parea = 0.5*b1*dz*frac
-            narea = -0.5*b2*dz*(1.-frac)
-            capel = capel + max(0.,parea)
-         elsewhere ( b2<0. )  
-            ! continue negative buoyancy region
-            parea = 0.
-            narea = narea - 0.5*dz*(b1+b2)
-         elsewhere
-            ! continue positive buoyancy region  
-            parea = 0.5*dz*(b1+b2)
-            narea = 0.
-            capel = capel + max(0.,parea)
-         end where
-         
+               thv2(i,j) = th2(i,j)*(1.+1.61*qv2(i,j))/(1.+qv2(i,j)+ql2(i,j)+qi2(i,j))
+               b2(i,j) = grav*( thv2(i,j)-thv(i,j,k) )/thv(i,j,k)
+               dz = -(cp/grav)*0.5*(thv(i,j,k)+thv(i,j,k-1))*(pll(i,j,k)-pll(i,j,k-1))
+
+               ! calculate contributions to CAPE and CIN
+               if ( b2(i,j)>=0. .and. b1<0. ) then
+                  ! first time entering positive region
+                  frac = b2(i,j)/(b2(i,j)-b1)
+                  parea = 0.5*b2(i,j)*dz*frac
+                  narea(i,j) = narea(i,j) - 0.5*b1*dz*(1.-frac)
+                  cinl(i,j) = cinl(i,j) + narea(i,j)
+                  capel(i,j) = capel(i,j) + max(0.,parea)
+                  narea(i,j) = 0.
+               else if ( b2(i,j)<0. .and. b1>0. ) then
+                  ! first time entering negative region  
+                  frac = b1/(b1-b2(i,j))
+                  parea = 0.5*b1*dz*frac
+                  narea(i,j) = -0.5*b2(i,j)*dz*(1.-frac)
+                  capel(i,j) = capel(i,j) + max(0.,parea)
+               else if ( b2(i,j)<0. ) then
+                  ! continue negative buoyancy region
+                  parea = 0.
+                  narea(i,j) = narea(i,j) - 0.5*dz*(b1+b2(i,j))
+               else
+                  ! continue positive buoyancy region  
+                  parea = 0.5*dz*(b1+b2(i,j))
+                  narea(i,j) = 0.
+                  capel(i,j) = capel(i,j) + max(0.,parea)
+               end if
+      
+            end do   ! i loop
+         end do      ! j loop   
       end do ! k loop
     
       cape_d(:,:) = capel(:,:)
       cin_d(:,:) = -cinl(:,:)
+      
+     
+      ! Calculate Lifted Index
+      do j = 1,pjl*pnpan*lproc
+         do i = 1,pil
+            srctK = t(i,j,1)
+            srcp = 100.*ps(i,j)*sig(1)
+            srcqs = qsat(srcp,srctK)
+            srcq(i,j) = q(i,j,1)
+            srctheta(i,j) = srctK*((1.e5/srcp)**(rdry/cp))
 
+            ! calculate temperature of LCL
+            term1 = 1./(srctK-55.)
+            srcrh = (srcq(i,j)/srcqs)*100.
+            term2 = log(max(srcrh,0.1)/100.)/2840.
+            denom = term1 - term2
+            tlclK = 1./denom + 55.
+
+            ! calculate pressure of LCL
+            plcl(i,j) = srcp*((tlclK/srctK)**(rdry/cp))
+            ! calculate equivilent potential temperature
+            srcthetaeK(i,j) = srctK*(1.e5/srcp)**(rdry/cp)*exp(hl*srcqs/(cp*tlclK))
+  
+            wflag(i,j) = .false.  
+            li_d(i,j) = -9999. ! flag for missing value
+         end do   
+      end do  
+  
+      do k = 1,kk
+         do j = 1,pjl*pnpan*lproc
+            do i = 1,pil
+               press = 100.*ps(i,j)*sig(k)
+               if ( press<=plcl(i,j) ) then
+                  if ( wflag(i,j) ) then
+                     ! initial guess
+                     tovtheta = (press/1.e5)**(rdry/cp)
+                     ptK = srcthetaeK(i,j)/exp(hl*.012/(cp*295.))*tovtheta
+                     found = .false.
+                     do iter = 1,105
+                        if ( .not.found ) then  
+                           smixr = qsat(press,ptK)
+                           thetaK = srcthetaeK(i,j)/exp(hl*smixr/(cp*ptK)) ! Holton 1972
+                           tcheck = thetaK*tovtheta
+                           if ( abs(ptK-tcheck) < .05 ) then
+                              found = .true.
+                           else
+                              ptK = ptK + (tcheck - ptK)*.3
+                           end if
+                        end if ! .not.found
+                     end do   ! iter loop
+                     pw = qsat(press,ptK)
+                     ptvK = ptK*(1.+(srcq(i,j)/0.622))/(1.+srcq(i,j))
+                     tvK = t(i,j,k)*(1.+(qg(i,j,k)/0.622))/(1.+qg(i,j,k))
+                     freeze = 0.033 * ( 263.15 - pTvK )
+                     freeze = min( freeze, 1. )
+                     freeze = max( freeze, 0. )
+                     freeze = freeze * 333700.0 * ( srcq(i,j) - pw ) / 1005.7
+                     pTvK = ptvK - ptvK * ( srcq(i,j) - pw ) + freeze
+                     dTvK(i,j,k) = ptvK - tvK
+                  else
+                     ptK = srctheta(i,j)/((1.e5/press)**(rdry/cp))
+                     ptvK = ptK*(1.+(srcq(i,j)/0.622))/(1.+srcq(i,j))
+                     tvK = t(i,j,k)*(1.+(qg(i,j,k)/0.622))/(1.+qg(i,j,k))
+                     dTvK(i,j,k) = ptvK - tvK
+                     wflag(i,j) = .true.
+                  end if
+               else
+                  ptK = srctheta(i,j)/((1.e5/press)**(rdry/cp))
+                  ptvK = ptK*(1.+(srcq(i,j)/0.622))/(1.+srcq(i,j))
+                  tvK = t(i,j,k)*(1.+(qg(i,j,k)/0.622))/(1.+qg(i,j,k))
+                  dTvK(i,j,k) = ptvK - tvK
+               end if   
+            end do ! i loop
+         end do    ! j loop
+      end do       ! k loop
+  
+      do k = 2,kk
+         do j = 1,pjl*pnpan*lproc
+            do i = 1,pil
+               if ( li_d(i,j)<-999. ) then
+                  pu = 100.*ps(i,j)*sig(k)
+                  pd = 100.*ps(i,j)*sig(k-1)
+                  if ( pd <= 5.e4 ) then
+                     li_d(i,j) = 0.
+                  else if ( pu<=5.e4 .and. pd>=5.e4 ) then
+                     lidxu = -dTvK(i,j,k)*(pu/1.e5)**(rdry/cp)
+                     lidxd = -dTvK(i,j,k-1)*(pd/1.e5)**(rdry/cp)
+                     li_d(i,j) = ( lidxu*(5.e4-pd) + lidxd*(pu-5.e4) )/(pu-pd)
+                  end if
+               end if  
+            end do ! i loop
+         end do    ! j loop   
+      end do       ! k loop
+      
    end subroutine capecalc
 
 
