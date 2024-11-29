@@ -126,7 +126,7 @@ contains
       allocate ( qs(pil,pjl_long,kl), qg(pil,pjl_long,kl), omega(pil,pjl_long,kl) )
       allocate ( tgg(pil,pjl_long,ksoil) )
       allocate ( urban_frac(pil,pjl_long), f_cor(pil,pjl_long) )
-      if ( needfld("zg") ) then !.or. needfld("lvl")
+      if ( needfld("zg") .or. needfld("topoft") ) then !.or. needfld("lvl")
          if ( use_plevs .or. use_meters ) then
             allocate ( zstd(pil,pjl_long,nplevs) )
          end if
@@ -554,21 +554,13 @@ contains
                end if   
             case ( "hfss" )
                call readsave2 ( "hfss", input_name="fg_ave")
-            case ( "hurs", "rhscrn" ) !, "rhscrn_stn" )   
+            case ( "hurs", "rhscrn" )
                if ( needfld("hurs") ) then 
                   call readsave2 ( "hurs", input_name="rhscrn")
                end if   
                if ( needfld("rhscrn") ) then
                   call readsave2( "rhscrn" )
                end if
-               !if ( needfld("rhscrn_stn") ) then ! to be depreciated
-               !   ierr = nf90_inq_varid (ncid, "rhscrn_stn", var_dum )
-               !   if ( ierr == nf90_noerr ) then
-               !      call readsave2( "rhscrn_stn" )  
-               !   else    
-               !      call readsave2( "rhscrn_stn", input_name="rhscrn" ) 
-               !   end if    
-               !end if               
             case ( "huss", "qgscrn") !, "huss_stn", "qgscrn_stn" )
                if ( needfld("huss") .or. needfld("qgscrn") .or. needfld("tdew") ) then 
                   call vread( "qgscrn", qgscrn )
@@ -1791,37 +1783,41 @@ contains
             call vsavehist ( "wa", tmp3d )
          end if
          
-         if ( needfld("zg") ) then
+         if ( needfld("zg") .or. needfld("topoft") ) then
             if ( use_plevs ) then
                call height ( t, q, zs, psl, sig, zstd, plevs(1:nplevs) )
-               if ( areps_compliant ) then
+               if ( needfld("topoft") ) then
                   tmp3d = zstd*3.28028 ! convert from m to ft 
                   call savehist ( "topoft", tmp3d ) 
-               else    
+               end if
+               if ( needfld("zg") ) then
                   call savehist ( "zg", zstd )
                end if   
             else if ( use_meters ) then
                do k = 1,nplevs
                   zstd(:,:,k) = mlevs(k)/mlevs(nplevs)*(mlevs(nplevs)-zs) + zs
                end do
-               if ( areps_compliant ) then
+               if ( needfld("topoft") ) then
                   tmp3d = zstd*3.28028 ! convert from m to ft 
                   call savehist ( "topoft", tmp3d ) 
-               else    
+               end if
+               if ( needfld("zg") ) then
                   call savehist ( "zg", zstd )
                end if   
             else if ( use_theta .or. use_pvort ) then
-               if ( areps_compliant ) then
+               if ( needfld("topoft") ) then
                   tmp3d = hstd*3.28028 ! convert from m to ft 
                   call savehist ( "topoft", tmp3d ) 
-               else    
-                  call vsavehist( "zg", hstd )
+               end if
+               if ( needfld("zg") ) then
+                  call savehist ( "zg", zstd )
                end if   
             else
-               if ( areps_compliant ) then
+               if ( needfld("topoft") ) then
                   tmp3d(:,:,minlev:maxlev) = hstd(:,:,minlev:maxlev)*3.28028 ! convert from m to ft  
                   call savehist ( "topoft", tmp3d(:,:,minlev:maxlev) ) 
-               else    
+               end if
+               if ( needfld("zg") ) then
                   call savehist ( "zg", hstd(:,:,minlev:maxlev) )
                end if   
             end if
@@ -2866,7 +2862,7 @@ contains
       character(len=100) :: long_name, tmpname, valid_att, std_name, cell_methods
       ! Perhaps should read these from the input?
       integer, parameter :: vmin=-32500, vmax=32500
-      real :: xmin, xmax, aoff, sf, topsig, topheight
+      real :: xmin, xmax, aoff, sf, topsig, topheight, topheight_ft
       real :: coord_height
 
       ierr = nf90_inquire(ncid, ndimensions=ndimensions, nvariables=nvariables)
@@ -3972,16 +3968,19 @@ contains
          ! give an underestimate.
          topheight = -rdry*300./grav * log(topsig)
          ! Round to next highest 1000 m
-         topheight = 1000*(floor(0.001*topheight)+1)
+         topheight_ft = 1000.*(floor(0.001*3.28028*topheight)+1.)
+         topheight = 1000.*(floor(0.001*topheight)+1.)
          if ( areps_compliant ) then
-            call addfld ( "topoft", "Geopotential Height", "ft", 0., topheight, nlev,    &
-                           multilev=.true., std_name="geopotential_height",              &
+            call addfld ( "topoft", "Geopotential Height", "ft", -400.,             &
+                           topheight_ft, nlev,                                      &
+                           multilev=.true., std_name="geopotential_height",         &
                            areps_type=.true. )
             call addfld ( "press", "Air pressure", "mb", 0., 1500., nlev,           &
                            multilev=.true., std_name="air_pressure",                &
                            ran_type=.true., areps_type=.true. )
          else    
-            call addfld ( "zg", "Geopotential Height", "m", 0., topheight, nlev,    &
+            call addfld ( "zg", "Geopotential Height", "m", -100.,                  &
+                           topheight, nlev,                                         &
                            multilev=.true., std_name="geopotential_height",         &
                            ran_type=.true. )
             call addfld ( "press", "Air pressure", "hPa", 0., 1500., nlev,          &
@@ -4119,31 +4118,6 @@ contains
          if ( int_default == int_tapm ) then
             call addfld('cos_zen', 'Cosine of solar zenith angle', 'none', -1., 1., 1 )
          end if
-         
-         ! to be depreciated
-         !ierr = nf90_inq_varid (ncid, "u10_stn", ivar )
-         !if ( ierr /= nf90_noerr ) then
-         !  call addfld ( "rhscrn_stn", "Near-Surface Relative Humidity", "%", 0.0, 200.0, 1, std_name="relative_humidity" )
-         !  call addfld ( "rhmaxscr_stn", "Maximum screen relative humidity", "%", 0.0, 200.0, 1, std_name="relative_humidity", &
-         !                daily=.true. )
-         !  call addfld ( "rhminscr_stn", "Minimum screen relative humidity", "%", 0.0, 200.0, 1, std_name="relative_humidity", &
-         !                daily=.true.)
-         !  call addfld ( "tscrn_stn", "Near-Surface Air Temperature", "K", 100.0, 425.0, 1, std_name="air_temperature" )
-         !  call addfld ( "tmaxscr_stn", "Daily Maximum Near-Surface Air Temperature", "K", 100.0, 425.0, 1, &
-         !                std_name="air_temperature", daily=.true. )
-         !  call addfld ( "tminscr_stn", "Daily Minimum Near-Surface Air Temperature", "K", 100.0, 425.0, 1, &
-         !                std_name="air_temperature", daily=.true. )
-         !  call addfld ( "u10_stn", "Near-Surface Wind Speed", "m s-1", 0.0, 130.0, 1, std_name="wind_speed" )
-         !  call addfld ( "u10max_stn", "x-component max 10m wind (daily)", "m s-1", -99.0, 99.0, 1, std_name="wind_speed", &
-         !                daily=.true.)
-         !  call addfld ( "v10max_stn", "y-component max 10m wind (daily)", "m s-1", -99.0, 99.0, 1, std_name="wind_speed", &
-         !                daily=.true.)
-         !end if    
-         !call addfld ( "uas_stn", "x-component 10m wind", "m s-1", -100.0, 100.0, 1, std_name="wind_speed", ran_type=.false. )
-         !call addfld ( "vas_stn", "y-component 10m wind", "m s-1", -100.0, 100.0, 1, std_name="wind_speed", ran_type=.false. )
-         !call addfld ( "sfcWindmax_stn", "Maximum 10m wind speed (station)", "m s-1", 0.0, 200.0, 1, std_name="wind_speed", &
-         !              instant=.false., all_positive=.true. ) 
-         !call addfld ( "tdscrn_stn", "Dew point screen temperature (station)", "K", 100.0, 400.0, 1, std_name="air_temperature" )
          
       else
          ! high-frequency output
@@ -4370,7 +4344,7 @@ contains
          deles = esdiffx(tliq)
          qsl = qsi + epsil*deles/p
          qsw = fice*qsi + (1.-fice)*qsl
-         rh(:,:,k) = 100.*q(:,:,k)/qsw
+         rh(:,:,k) = 100.*min(q(:,:,k)/qsw, 1.)
          !rh(:,:,k) = 100.*relhum(p,q(:,:,k),t(:,:,k))
       end do
    end subroutine calc_rh
@@ -4683,7 +4657,7 @@ contains
                thv2(i,j) = th2(i,j)*(1.+1.61*qv2(i,j))/(1.+qv2(i,j)+ql2(i,j)+qi2(i,j))
                b2(i,j) = grav*( thv2(i,j)-thv(i,j,k) )/thv(i,j,k)
                dz = -(cp/grav)*0.5*(thv(i,j,k)+thv(i,j,k-1))*(pll(i,j,k)-pll(i,j,k-1))
-
+	
                ! calculate contributions to CAPE and CIN
                if ( b2(i,j)>=0. .and. b1<0. ) then
                   ! first time entering positive region
