@@ -276,6 +276,10 @@ module history
    integer, private, save :: nx_g, ny_g
    real, dimension(:,:,:,:), allocatable, save, private :: hist_a
    
+! chunk size
+   integer, public, save :: chunk_grid = -1 ! recommend 24
+   
+! flush output file buffers
    integer, public, save :: safe_max = 3
 
 contains
@@ -329,7 +333,8 @@ contains
            hbytes,  &
            hist_debug, & 
            ihdb, jhdb, khdb,  &
-           amipnames
+           amipnames, &
+           chunk_grid
       integer :: i, j, ierr
       logical :: fatal
 
@@ -1462,6 +1467,8 @@ contains
       character(len=MAX_NAMELEN) :: local_name, new_name
       character(len=80) :: cell_methods, coord_name
       integer :: ierr, vtype, vid, zdim, wdim
+      integer :: ndims
+      integer, dimension(5) :: chunks
       
       integer(kind=2), parameter :: fill_short = NF90_FILL_SHORT
 
@@ -1499,20 +1506,25 @@ contains
          if ( vinfo%ave_type == hist_fixed ) then
             ierr = nf90_def_var ( ncid, local_name, vtype, &
                                 (/ dims%x, dims%y, zdim /), vid )
+            ndims = 3
          else if ( vinfo%pop4d ) then
             ierr = nf90_def_var ( ncid, local_name, vtype, &
                                 (/ dims%x, dims%y, zdim, wdim, dims%t /), vid )
+            ndims = 5
          else
             ierr = nf90_def_var ( ncid, local_name, vtype, &
                                 (/ dims%x, dims%y, zdim, dims%t /), vid )
+            ndims = 4
          end if
       else
          if ( vinfo%ave_type == hist_fixed ) then
             ierr = nf90_def_var ( ncid, local_name, vtype, &
                                 (/ dims%x, dims%y /), vid )
+            ndims = 2
          else
             ierr = nf90_def_var ( ncid, local_name, vtype, &
                                 (/ dims%x, dims%y, dims%t /), vid )
+            ndims = 3
          end if
       end if
       if ( ierr /= 0 ) then
@@ -1521,11 +1533,19 @@ contains
       call check_ncerr(ierr,"Error creating variable "// local_name)
       vinfo%vid = vid
       
+      ! Deflate and chunking
 #ifndef usenc3      
       if ( cordex_compliant ) then
          ierr = nf90_def_var_deflate( ncid, vid, 1, 1, 1 ) ! shuffle=1, deflate=1, deflate_level=1
          call check_ncerr(ierr)
       end if
+      chunks(:) = 1
+      if ( chunk_grid>0 ) then
+         chunks(1) = min( nxhis, chunk_grid ) 
+         chunks(2) = min( nyhis, chunk_grid )
+         ierr = nf90_def_var_chunking( ncid, vid, NF90_CHUNKED, chunks(1:ndims) )
+         call check_ncerr(ierr)
+      end if  
 #endif      
 
       if ( len_trim(vinfo%long_name) /= 0 ) then
