@@ -371,6 +371,43 @@ contains
       rgncs = nf90_fill_float      ! daily
       sgdcs = nf90_fill_float      ! daily
       sgncs = nf90_fill_float      ! daily
+
+      ! Force soil data to load first for land-sea mask
+      call vread( "soilt", soilt )
+      if ( needfld("soilt") ) then
+         call savehist("soilt", soilt)
+      end if   
+      if ( needfld("land_mask") .or. needfld("land") ) then
+         where ( soilt > 0.5 )
+            dtmp = 1.
+         elsewhere
+            dtmp = 0.
+         end where
+         if ( needfld("land_mask") ) then
+            call savehist("land_mask", dtmp)
+         end if   
+         if ( needfld("land") ) then
+            call savehist("land", dtmp)
+         end if   
+      else if ( needfld("sftlf") ) then
+         where ( soilt > 0.5 )
+            dtmp = 100.
+         elsewhere
+            dtmp = 0.
+         end where
+         call savehist("sftlf", dtmp)
+      endif
+      if ( needfld("sftlaf") ) then
+         where ( soilt == -1 )
+            dtmp = 100.  
+         elsewhere ( soilt > 0.5 )
+            dtmp = 0.
+         elsewhere
+            dtmp = nf90_fill_float
+         end where    
+         call savehist("sftlaf", dtmp)
+      end if                  
+
       
       do ivar = 1,nvars
          ! Just write the input with no further processing
@@ -406,64 +443,39 @@ contains
                   end if 
                case ( "ocndepth" )
                   call vread( "ocndepth", dtmp )
-                  if ( needfld("ocndepth") ) then
-                     call savehist( "ocndepth", dtmp )
-                  end if   
                   if ( use_depth ) call ditop_setup( gosig, dlevs(1:onplevs), dtmp )
                   ! define ocean mask
                   if ( all(gosig<=1.) ) then
-                     !sigma levels
+                     !sigma levels - depreciated
                      do k = 1,ol
                        ocn_mask(:,:,k) = dtmp>0.001
                      end do
                   else
                      ! zstar levels
                      do k = 1,ol
-                       ocn_mask(:,:,k) = gosig(k)<=dtmp
+                       ocn_mask(:,:,k) = gosig(k)+0.1<dtmp
                      end do  
                   end if    
+                  if ( needfld("ocndepth") ) then
+                     where ( soilt >= 0.5 )
+                        dtmp = nf90_fill_float
+                     end where   
+                     call savehist( "ocndepth", dtmp )
+                  end if
                case ( "sfturf", "sigmu" )
                   call vread( "sigmu", urban_frac ) 
+                  dtmp = urban_frac
+                  where ( soilt < 0.5 )
+                     dtmp = nf90_fill_float
+                  end where  
                   if ( needfld("sfturf") ) then
-                     dtmp = urban_frac*100.
+                     where ( dtmp /= nf90_fill_float ) 
+                        dtmp = dtmp*100.
+                     end where   
                      call savehist("sfturf", dtmp)
+                  else if ( needfld("sigmu") ) then
+                     call savehist("sigmu", dtmp)
                   end if
-                  if ( needfld("sigmu") ) then
-                     call savehist("sigmu", urban_frac)
-                  end if
-               case ( "soilt" )
-                  call vread( "soilt", soilt )
-                  if ( needfld("soilt") ) then
-                     call savehist("soilt", soilt)
-                  end if   
-                  if ( needfld("land_mask") .or. needfld("land") ) then
-                     where ( soilt > 0.5 )
-                        dtmp = 1.
-                     elsewhere
-                        dtmp = 0.
-                     end where
-                     if ( needfld("land_mask") ) then
-                        call savehist("land_mask", dtmp)
-                     end if   
-                     if ( needfld("land") ) then
-                        call savehist("land", dtmp)
-                     end if   
-                  else if ( needfld("sftlf") ) then
-                     where ( soilt > 0.5 )
-                        dtmp = 100.
-                     elsewhere
-                        dtmp = 0.
-                     end where
-                     call savehist("sftlf", dtmp)
-                  endif
-                  if ( needfld("sftlaf") ) then
-                     where ( soilt == -1 )
-                        dtmp = 100.  
-                     elsewhere
-                        dtmp = 0. 
-                     end where    
-                     call savehist("sftlaf", dtmp)
-                  end if                  
                case ( "zs", "orog" )
                   ! This could also be done with the output_scale
                   call vread( "zht", zs )
@@ -472,7 +484,33 @@ contains
                      call savehist ( varlist(ivar)%vname, zs )
                   end if
                case default
-                  call readsave2 ( varlist(ivar)%vname )
+                  if ( varlist(ivar)%vector) then
+                     if (varlist(ivar)%xcmpnt) then
+                        ! Process both x and y now, skip over y when we come to 
+                        ! it later. Use taux and tauy as temporary arrays
+                        ! name of other component
+                        name = varlist(varlist(ivar)%othercmpnt)%vname
+                        if ( needfld(varlist(ivar)%vname) .or. needfld(name) ) then
+                           call vread( varlist(ivar)%vname, ctmp)
+                           call vread( name, dtmp)
+                           if ( varlist(ivar)%vname == "uriver" ) then
+                              where ( soilt < 0.5 )
+                                 ctmp = nf90_fill_float
+                                 dtmp = nf90_fill_float
+                              end where 
+                           end if
+                           call fix_winds(ctmp, dtmp)
+                           if ( needfld(varlist(ivar)%vname) ) then
+                              call savehist ( varlist(ivar)%vname, ctmp )
+                           end if
+                           if ( needfld(name) ) then
+                              call savehist ( name, dtmp )
+                           end if   
+                        end if
+                     endif
+                  else
+                     call readsave2 ( varlist(ivar)%vname )
+                  end if   
                end select
             end if
             cycle ! Otherwise will match the following if test as well
@@ -500,23 +538,19 @@ contains
                   end where
                   call savehist ( varlist(ivar)%vname, dtmp )
                end if   
-            case ( "clh", "cll", "clm" )
+            case ( "clh", "cll", "clm", "clt" )
                if ( needfld(varlist(ivar)%vname) ) then 
-                  call vread( varlist(ivar)%vname, dtmp )
+                  if ( varlist(ivar)%vname == "clt" ) then
+                     call vread( "cld", dtmp )    
+                  else    
+                     call vread( varlist(ivar)%vname, dtmp )
+                  end if   
                   if ( cordex_compliant ) then
                      where ( dtmp /= nf90_fill_float )
                         dtmp = max(dtmp*100.,0.)
                      end where  
                   end if
                   call savehist ( varlist(ivar)%vname, dtmp )
-               end if   
-            case ( "clt" )
-               if ( needfld("clt") ) then 
-                  call vread( "cld", dtmp )
-                  where ( dtmp /= nf90_fill_float )
-                     dtmp = max(dtmp*100.,0.)
-                  end where   
-                  call savehist ( "clt", dtmp )
                end if   
             case ( "dpsdt" )
                 call vread( "dpsdt", dpsdt )
@@ -538,6 +572,19 @@ contains
                      dtmp = dtmp/2.501e6 ! Latent heat of vaporisation (J kg^-1)
                   end where   
                   call savehist ( "evspsblpot", dtmp )
+               end if   
+            case ( "fracice", "sicedep", "siconca" )
+               if ( needfld(varlist(ivar)%vname) ) then 
+                  call vread2( varlist(ivar)%vname, dtmp )
+                  where ( soilt>0.5 )
+                     dtmp = nf90_fill_float
+                  end where   
+                  if ( varlist(ivar)%vname == "siconca" ) then
+                     where ( dtmp /= nf90_fill_float )
+                        dtmp = max( dtmp*100., 0. )
+                     end where   
+                  end if
+                  call savehist( varlist(ivar)%vname, dtmp )
                end if   
             case ( "hfls" )
                ierr = nf90_inq_varid (ncid, "evspsbl", var_dum )
@@ -605,16 +652,18 @@ contains
                   end where
                   call savehist(varlist(ivar)%vname, ctmp)
                end if 
-            case ( "mrro" )
-               if ( needfld("mrro") ) then 
+            case ( "mrro", "runoff" )
+               if ( needfld(varlist(ivar)%vname) ) then 
                   call vread( "runoff", ctmp )
-                  where ( ctmp /= nf90_fill_float )
-                     ctmp = ctmp/86400.
-                  end where
+                  if ( varlist(ivar)%vname == "mrro" ) then
+                     where ( ctmp /= nf90_fill_float )
+                        ctmp = ctmp/86400.
+                     end where
+                  end if   
                   where ( soilt <= 0.5 )
                      ctmp = nf90_fill_float  
                   end where    
-                  call savehist ( "mrro", ctmp )
+                  call savehist ( varlist(ivar)%vname, ctmp )
                end if   
             case ( "mrros" )
                if ( needfld("mrros") ) then 
@@ -774,6 +823,14 @@ contains
                call readsave2( varlist(ivar)%vname, input_name="rtu_ave" )
             case ( "rlutcs" )
                call readsave2( varlist(ivar)%vname, input_name="rtc_ave" )
+            case ( "ga_ave", "lai", "rs", "rsmin", "sigmf", "sdischarge", "sigmu", "swater", "wetfac" )
+               if ( needfld(varlist(ivar)%vname) ) then
+                  call vread2( varlist(ivar)%vname, dtmp )
+                  where ( soilt < 0.5 )
+                     dtmp = nf90_fill_float
+                  end where
+                  call savehist( varlist(ivar)%vname, dtmp )
+               end if
             case ( "rsdt" )
                call readsave2 (varlist(ivar)%vname, input_name="sint_ave")
             case ( "rsut" )
@@ -788,17 +845,6 @@ contains
                   end if
                   call savehist ( "sbl", dtmp )
                end if 
-            case ( "siconca" )
-               if ( needfld("siconca") ) then 
-                  call vread2( "fracice", dtmp )
-                  ! siconca is defined as sea-ice only (not frozen lakes)
-                  where ( soilt>0.5 .or. soilt==-1 )
-                     dtmp = 0.
-                  elsewhere ( dtmp /= nf90_fill_float )
-                     dtmp = max( dtmp*100., 0. )
-                  end where   
-                  call savehist( "siconca", dtmp )
-               end if   
             case ( "sgc_ave" )
                if ( needfld("sgc_ave") .or. needfld("rsuscs") ) then 
                   call vread( "sgc_ave", sgncs )
@@ -838,11 +884,13 @@ contains
                if ( needfld("snd") .or. needfld("snc") .or. needfld("snw") ) then
                   call vread( "snd", sndw )
                   where ( soilt<0.5 )
-                     sndw = 0.
+                     sndw = nf90_fill_float
                   end where   
                   if ( needfld("snd") ) then
                      if ( cordex_compliant ) then
-                        dtmp = sndw/1000. 
+                        where ( sndw /= nf90_fill_float ) 
+                          dtmp = sndw/1000. 
+                        end where  
                         call savehist ( "snd", dtmp )
                      else  
                         call savehist ( "snd", sndw )
@@ -853,7 +901,7 @@ contains
                if ( needfld("snm") ) then 
                   call vread( "snm", dtmp )
                   where ( soilt<0.5 )
-                     dtmp = 0.
+                     dtmp = nf90_fill_float
                   else where ( dtmp /= nf90_fill_float )
                      dtmp = dtmp/86400.
                   end where   
@@ -1046,18 +1094,13 @@ contains
             case('wtd')
                if ( needfld('wtd') ) then
                   call vread( 'wtd', dtmp )
-                  where ( soilt > 0.5 )
-                     ctmp = dtmp
-                  elsewhere
-                     ctmp = nf90_fill_float
+                  where ( soilt <= 0.5 )
+                     dtmp = nf90_fill_float
                   end where 
-                  call savehist( 'wtd', ctmp )
+                  call savehist( 'wtd', dtmp )
                end if    
             case ( "z0", "zolnd" )
-                if ( needfld( varlist(ivar)%vname ) ) then
-                   call vread( "zolnd", dtmp ) 
-                   call savehist( varlist(ivar)%vname, dtmp )
-                end if   
+               call readsave2 (varlist(ivar)%vname, input_name="zolnd")
             case ( "zmla" )
                call readsave2 (varlist(ivar)%vname, input_name="pblh")
             case default
@@ -1101,7 +1144,7 @@ contains
                          match ( varlist(ivar)%vname, (/ "wetfrac?"/) ) ) then
                   if ( needfld(varlist(ivar)%vname) ) then                             
                      call vread( varlist(ivar)%vname, ctmp ) 
-                     where ( soilt<0.5 )
+                     where ( soilt < 0.5 )
                        ctmp = nf90_fill_float ! flag for ocean  
                      end where    
                      call savehist( varlist(ivar)%vname, ctmp )
@@ -1571,7 +1614,9 @@ contains
       end if
       
       if ( needfld("snc") ) then
-         where ( sndw>1.e-6 ) ! mm
+         where ( sndw==nf90_fill_float )
+            dtmp = nf90_fill_float 
+         elsewhere ( sndw>1.e-6 ) ! mm
             dtmp = 100.
          elsewhere
             dtmp = 0.
@@ -2078,6 +2123,7 @@ contains
             call savehist( "tos", thetao_tmp(:,:,1) )
          end if   
       end if
+      
       
       ! only for TAPM output
       if ( needfld("cos_zen") ) then
@@ -2853,7 +2899,7 @@ contains
       integer :: ierr, ndimensions, nvariables, ndims, ivar, int_type, xtype
       integer :: londim, latdim, levdim, olevdim, procdim, timedim, vid, ihr, ind
       integer :: cptchdim, cchrtdim, tn_type, j, press_level, height_level
-      integer :: idim
+      integer :: idim, int_nearest_local
       integer, dimension(nf90_max_var_dims) :: dimids
       logical :: procformat, ran_type, areps_type
       character(len=10) :: substr
@@ -3137,6 +3183,7 @@ contains
 
 
       do ivar = 1,nvars
+
          ! Check is variable is a component of a vector
          ! For now test both x-component and x-direction. Eventually
          ! only the former should be needed but older files use the
@@ -3166,13 +3213,11 @@ contains
             varlist(ivar)%vector = .false.
          end if
 
-      end do
 
-      ! Fix up the names of the vector fields. This comes after the checking
-      ! to make sure that it doesn't muck up finding the matching component
-      ! Some variables use x-compt rather than x-component which makes things
-      ! more complicated.
-      do ivar = 1,nvars
+         ! Fix up the names of the vector fields. This comes after the checking
+         ! to make sure that it doesn't muck up finding the matching component
+         ! Some variables use x-compt rather than x-component which makes things
+         ! more complicated.
          if ( varlist(ivar)%vector ) then
             if ( varlist(ivar)%xcmpnt ) then
                ind = index(varlist(ivar)%long_name,"x-comp")
@@ -3189,9 +3234,9 @@ contains
                end if
             end if
          end if
-      end do
 
-      do ivar = 1,nvars
+         
+         ! old method
          if ( varlist(ivar)%vname == "thetao" .or. varlist(ivar)%vname == "so" .or. &
               varlist(ivar)%vname == "uo" .or. varlist(ivar)%vname == "vo" .or.     &
               varlist(ivar)%vname == "wo" .or. varlist(ivar)%vname == "kmo" .or.    &
@@ -3201,17 +3246,15 @@ contains
          else 
             varlist(ivar)%water = .false. 
          end if
-      end do  
       
-      do ivar = 1,nvars
+      
          if ( match ( varlist(ivar)%vname, (/ "trsf????", "trem????" /) ) ) then    
             varlist(ivar)%tracer = .true. 
          else 
             varlist(ivar)%tracer = .false. 
          end if
-      end do
-      
-      do ivar = 1,nvars
+
+         
          if ( varlist(ivar)%vname(3:12) == "_pop_grid_" ) then
             if ( varlist(ivar)%ndims == 2 ) then    
                varlist(ivar)%pop2d = .true. 
@@ -3233,17 +3276,15 @@ contains
             varlist(ivar)%pop3d = .false.
             varlist(ivar)%pop4d = .false.
          end if
-      end do   
-      
-      do ivar = 1,nvars
+
+         
          if ( varlist(ivar)%vname == "u10" .or. varlist(ivar)%vname == "uscrn" ) then
             varlist(ivar)%all_positive = .true. 
          else 
             varlist(ivar)%all_positive = .false. 
          end if
-      end do 
-      
-      do ivar = 1,nvars
+
+         
          xmin = varlist(ivar)%add_offset + varlist(ivar)%scale_factor*vmin
          xmax = varlist(ivar)%add_offset + varlist(ivar)%scale_factor*vmax
          ! As a check re-calc offset, scalef
@@ -3256,6 +3297,7 @@ contains
          ! names
          varlist(ivar)%daily = .false.
          varlist(ivar)%sixhr = .false.
+         ! legacy method
          do ihr=3,24,3
             write(substr,"(i2,a)") ihr, "hr"
             if ( index(varlist(ivar)%long_name,trim(adjustl(substr))) /= 0 ) then
@@ -3263,6 +3305,7 @@ contains
                exit
             end if
          end do
+         ! legacy method
          if ( varlist(ivar)%vname == "tmaxscr" .or.         &
               varlist(ivar)%vname == "tminscr" .or.         &
               varlist(ivar)%vname == "maxrnd" .or.          &
@@ -3280,7 +3323,8 @@ contains
               varlist(ivar)%vname == "wsgsmax" ) then
             varlist(ivar)%daily = .true.
          end if
-         ! Also set daily if variable has a 'valid_time' attribute with the 
+         ! preferred method
+         ! Set daily if variable has a 'valid_time' attribute with the 
          ! value daily.
          valid_att = ""
          ierr = nf90_get_att(ncid, varlist(ivar)%vid, 'valid_time',valid_att)
@@ -3291,11 +3335,13 @@ contains
          
          ! Check if time_bnds are needed
          varlist(ivar)%instant = .true.
+         ! legacy method
          ind = len_trim(varlist(ivar)%vname)
          if ( varlist(ivar)%vname(ind-3:ind) == "_ave" .or. &
               varlist(ivar)%vname(ind-3:ind) == "_max" ) then
             varlist(ivar)%instant = .false.
          end if         
+         ! legacy method
          if ( varlist(ivar)%vname == "rnd" .or.             &
               varlist(ivar)%vname == "rnc" .or.             &
               varlist(ivar)%vname == "sno" .or.             &
@@ -3329,6 +3375,7 @@ contains
               varlist(ivar)%vname == "wsgsmax"             ) then
             varlist(ivar)%instant = .false.
          end if   
+         ! preferred method              
          cell_methods = ""
          ierr = nf90_get_att(ncid, varlist(ivar)%vid, 'cell_methods',cell_methods)
          if ( ierr == nf90_noerr ) then
@@ -3338,25 +3385,24 @@ contains
             cell_methods = ""
          end if   
          
+         
+         if ( int_default == int_none ) then
+            int_nearest_local = int_default 
+         else   
+            int_nearest_local = int_nearest
+         end if   
+         
 
          ! Is this really simpler than a string of if tests?
          if ( match ( varlist(ivar)%vname, &
-               (/ "vegt                ", "soilt               ", "rsmin               ", "rs                  ", &
-                  "zolnd               ", "sigmf               ", "wetfrac             ", "wetfrac?            ", &
-                  "tgg?                ", "tgg??               ", "sal??               ", "roadtgg?            ", &
-                  "rooftgg?            ", "waletgg?            ", "walwtgg?            ", "dmse_ave            ", &
-                  "so2e_ave            ", "so4e_ave            ", "bce_ave             ", "oce_ave             ", &
-                  "duste_ave           ", "salte_ave           ", "wb?_ave             ", "climate_biome       ", &
-                  "climate_ivegt       ", "climate_min20       ", "climate_max20       ", "climate_alpha20     ", &
-                  "climate_agdd5       ", "climate_gmd         ", "climate_dmoist_min20", "climate_dmoist_max20", &
-                  "urbant              ", "fracice             ", "siced               ", "wb?                 ", &
-                  "wbice?              ", "wbice?_ave          ", "tsl                 ", "mrsofc              ", &
-                  "sftlaf              ", "sigmu               ", "dtb                 "                          &
+               (/ "vegt                ", "soilt               ", "roadtgg?            ", "rooftgg?            ", &
+                  "waletgg?            ", "walwtgg?            ", "urbant              ", "dtb                 ", &
+                  "sigmu               "                                                                          &
                /)) .and. int_default /= int_none ) then
-            int_type = int_nearest
+            int_type = int_nearest_local
          else if ( match ( varlist(ivar)%vname, (/ "t?_pop_grid_patch_id              ", "t?_pop_grid_patch_layer1_cohort_id" /)) &
                    .and. int_default /= int_none ) then
-            int_type = int_nearest
+            int_type = int_nearest_local
          else
             int_type = int_default
          end if
@@ -3372,6 +3418,7 @@ contains
             ran_type = .false.
          end if
          areps_type = .false.
+         ! tn_type to be depreciated?
          tn_type = 0
          if ( index(varlist(ivar)%vname,'t1_pop_grid_') /= 0 ) then 
             tn_type = 1
@@ -3870,25 +3917,14 @@ contains
               call addfld ( "evspsbl", "Evaporation", "kg m-2 s-1", 0., 0.001, 1, std_name="water_evaporation_flux", &
                             instant=.false. )  
             end if    
-            if ( int_type /= int_none ) then
-               call addfld ( "mrso", "Total soil moisture content", "kg m-2", 0., 100.0, 1, &
-                             std_name="mass_content_of_water_in_soil", int_type = int_nearest )          
-               call addfld ( "mrsos", "Moisture in Upper Portion of Soil Column", "kg m-2", 0., 100.0, 1, &
-                             std_name="mass_content_of_water_in_soil_layer", int_type = int_nearest )
-               call addfld ( "mrfso", "Soil frozen water content", "kg m-2", 0., 100.0, 1, &
-                             std_name="soil_frozen_water_content", int_type = int_nearest )
-               call addfld ( "mrfsos", "Frozen Water Content in Upper Portion of Soil Column", "kg m-2", 0., 100.0, 1, &
-                             std_name="frozen_water_content_of_soil_layer", int_type = int_nearest )
-            else
-               call addfld ( "mrso", "Total soil moisture content", "kg m-2", 0., 100.0, 1, &
-                             std_name="mass_content_of_water_in_soil", int_type = int_none )          
-               call addfld ( "mrsos", "Moisture in Upper Portion of Soil Column", "kg m-2", 0., 100.0, 1, &
-                             std_name="mass_content_of_water_in_soil_layer", int_type = int_none )      
-               call addfld ( "mrfso", "Soil frozen water content", "kg m-2", 0., 100.0, 1, &
-                             std_name="soil_frozen_water_content", int_type = int_none )
-               call addfld ( "mrfsos", "Frozen Water Content in Upper Portion of Soil Column", "kg m-2", 0., 100.0, 1, &
-                             std_name="frozen_water_content_of_soil_layer", int_type = int_none )
-            end if    
+            call addfld ( "mrso", "Total soil moisture content", "kg m-2", 0., 100.0, 1, &
+                          std_name="mass_content_of_water_in_soil", int_type = int_nearest_local )          
+            call addfld ( "mrsos", "Moisture in Upper Portion of Soil Column", "kg m-2", 0., 100.0, 1, &
+                          std_name="mass_content_of_water_in_soil_layer", int_type = int_nearest_local )
+            call addfld ( "mrfso", "Soil frozen water content", "kg m-2", 0., 100.0, 1, &
+                          std_name="soil_frozen_water_content", int_type = int_nearest_local )
+            call addfld ( "mrfsos", "Frozen Water Content in Upper Portion of Soil Column", "kg m-2", 0., 100.0, 1, &
+                          std_name="frozen_water_content_of_soil_layer", int_type = int_nearest_local )
             call addfld ( "prw", "Water Vapor Path", "kg m-2", 0.0, 100.0, 1,  &
                            std_name="atmosphere_water_vapor_content" )
             call addfld ( "clwvi", "Condensed Water Path", "kg m-2", 0.0, 100.0, 1,  &
@@ -3920,23 +3956,13 @@ contains
                           std_name="lake_area_fraction" )
          else    
             if ( areps_compliant ) then 
-               if ( int_type /= int_none ) then
-                  call addfld ( "land", "Land-sea mask", "",  0.0, 1.0, 1,                                               &
-                                 ave_type="fixed", int_type=int_nearest, std_name="land_area_fraction", ran_type=.true., &
-                                 areps_type=.true. )
-               else
-                  call addfld ( "land", "Land-sea mask", "",  0.0, 1.0, 1,                                            &
-                                 ave_type="fixed", int_type=int_none, std_name="land_area_fraction", ran_type=.true., &
-                                 areps_type=.true. )
-               end if
+               call addfld ( "land", "Land-sea mask", "",  0.0, 1.0, 1,                                               &
+                              ave_type="fixed", int_type=int_nearest_local, std_name="land_area_fraction",            &
+                              ran_type=.true., areps_type=.true. )
             else    
-               if ( int_type /= int_none ) then
-                  call addfld ( "land_mask", "Land-sea mask", "",  0.0, 1.0, 1,                                          &
-                                 ave_type="fixed", int_type=int_nearest, std_name="land_area_fraction", ran_type=.true. )
-               else
-                  call addfld ( "land_mask", "Land-sea mask", "",  0.0, 1.0, 1, &
-                                 ave_type="fixed", int_type=int_none, std_name="land_area_fraction", ran_type=.true. )
-               end if
+               call addfld ( "land_mask", "Land-sea mask", "",  0.0, 1.0, 1,                                          &
+                              ave_type="fixed", int_type=int_nearest_local, std_name="land_area_fraction",            &
+                              ran_type=.true. )
             end if   
             call addfld ( "ps", "Surface Air Pressure", "hPa", 0., 1200., 1, &
                            std_name="surface_air_pressure", ran_type=.true. )
@@ -4124,27 +4150,17 @@ contains
          ierr = nf90_inq_varid (ncid, "soilt", ivar )
          if ( ierr == nf90_noerr ) then
             if ( cordex_compliant ) then
-               if ( int_type /= int_none ) then
-                  call addfld ( "sftlf", "Land-sea mask", "%",  0.0, 100.0, 1, &
-                                 ave_type="fixed", int_type=int_nearest,       &
-                                 std_name="land_area_fraction" )
-               else
-                  call addfld ( "sftlf", "Land-sea mask", "%",  0.0, 100.0, 1, &
-                                 ave_type="fixed", int_type=int_none,          &
-                                 std_name="land_area_fraction" )
-               end if
+               call addfld ( "sftlf", "Land-sea mask", "%",  0.0, 100.0, 1, &
+                              ave_type="fixed", int_type=int_nearest_local, &
+                              std_name="land_area_fraction" )
                call addfld ( "sfcWindmax", "Maximum 10m wind speed", "m s-1", 0.0, 200.0, 1, std_name="wind_speed", &
                              daily=.true., instant=.false., all_positive=.true. )
                call addfld ( "sftlaf", "Lake Area Fraction", "%", 0.0, 100.0, 1, ave_type="fixed", &
                              std_name="lake_area_fraction" )
             else    
-               if ( int_type /= int_none ) then
-                  call addfld ( "land_mask", "Land-sea mask", "",  0.0, 1.0, 1, &
-                                 ave_type="fixed", int_type=int_nearest, std_name="land_area_fraction", ran_type=.true. )
-               else
-                  call addfld ( "land_mask", "Land-sea mask", "",  0.0, 1.0, 1, &
-                              ave_type="fixed", int_type=int_none, std_name="land_area_fraction", ran_type=.true. )
-               end if 
+               call addfld ( "land_mask", "Land-sea mask", "",  0.0, 1.0, 1, &
+                              ave_type="fixed", int_type=int_nearest_local,  &
+                              std_name="land_area_fraction", ran_type=.true. )
             end if   
          end if  
          ierr = nf90_inq_varid (ncid, "u10m_max", ivar )
