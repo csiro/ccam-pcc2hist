@@ -573,9 +573,9 @@ contains
                   end where   
                   call savehist ( "evspsblpot", dtmp )
                end if   
-            case ( "fracice", "sicedep", "siconca" )
+            case ( "fracice", "siconca" )
                if ( needfld(varlist(ivar)%vname) ) then 
-                  call vread2( varlist(ivar)%vname, dtmp )
+                  call vread2( "fracice", dtmp )
                   where ( soilt>0.5 )
                      dtmp = nf90_fill_float
                   end where   
@@ -879,6 +879,14 @@ contains
                   if ( needfld("sgn_ave") ) then
                      call savehist( "sgn_ave", sgn )
                   end if   
+               end if
+            case ( "sicedep" )
+               if ( needfld(varlist(ivar)%vname) ) then 
+                  call vread2( varlist(ivar)%vname, dtmp )
+                  where ( soilt>0.5 )
+                     dtmp = nf90_fill_float
+                  end where   
+                  call savehist( varlist(ivar)%vname, dtmp )
                end if   
             case ( "snd" )
                if ( needfld("snd") .or. needfld("snc") .or. needfld("snw") ) then
