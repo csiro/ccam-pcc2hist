@@ -239,12 +239,16 @@ contains
          else
             call sitop ( array, parray, vextrap )
          end if
+         ! correct for cubic-spline generating values that are out-of-range
          if ( name=="qlg" .or. name=="qfg" .or. name=="mixr" .or. name=="hus" ) then
             ! special fix 
             parray = max( parray, 0. )
          else if ( name=="rh" ) then
             ! special fix 
             parray = min( max( parray, 0. ), 100. )
+         else if ( name=="cfrac" .or. name=="stratcf" ) then
+            ! special fix 
+            parray = min( max( parray, 0. ), 1. )
          end if    
          call savehist ( name, parray )
       else

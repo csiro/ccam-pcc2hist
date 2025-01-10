@@ -1,6 +1,6 @@
 ! Conformal Cubic Atmospheric Model
     
-! Copyright 2015-2024 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+! Copyright 2015-2025 Commonwealth Scientific Industrial Research Organisation (CSIRO)
     
 ! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
 !
@@ -476,6 +476,12 @@ contains
                   else if ( needfld("sigmu") ) then
                      call savehist("sigmu", dtmp)
                   end if
+               case ( "urbant" )
+                  call vread( "urbant", dtmp ) 
+                  where ( soilt < 0.5 )
+                     dtmp = nf90_fill_float
+                  end where 
+                  call savehist("urbant", dtmp)
                case ( "zs", "orog" )
                   ! This could also be done with the output_scale
                   call vread( "zht", zs )
@@ -547,7 +553,7 @@ contains
                   end if   
                   if ( cordex_compliant ) then
                      where ( dtmp /= nf90_fill_float )
-                        dtmp = max(dtmp*100.,0.)
+                        dtmp = min(max(dtmp*100.,0.),100.)
                      end where  
                   end if
                   call savehist ( varlist(ivar)%vname, dtmp )
@@ -823,7 +829,7 @@ contains
                call readsave2( varlist(ivar)%vname, input_name="rtu_ave" )
             case ( "rlutcs" )
                call readsave2( varlist(ivar)%vname, input_name="rtc_ave" )
-            case ( "ga_ave", "lai", "rs", "rsmin", "sigmf", "sdischarge", "sigmu", "swater", "wetfac" )
+            case ( "ga_ave", "lai", "rnet_ave", "rs", "rsmin", "sigmf", "sdischarge", "sigmu", "swater", "wetfac" )
                if ( needfld(varlist(ivar)%vname) ) then
                   call vread2( varlist(ivar)%vname, dtmp )
                   where ( soilt < 0.5 )
@@ -1070,6 +1076,14 @@ contains
                !end if   
             case ( "uas" )
                 call vread( "uas", uastmp )         ! only for high-frequency output
+            case ( "urbantas", "urbantasmax", "urbantasmin" )
+               if ( needfld(varlist(ivar)%vname) ) then
+                  call vread( varlist(ivar)%vname, dtmp )
+                  where ( urban_frac <= 0. )
+                     dtmp = nf90_fill_float
+                  end where
+                  call savehist ( varlist(ivar)%vname, dtmp )
+               end if     
             case ( "v10m_max" )
                if ( needfld('u10m_max') .or. needfld('v10m_max') .or. &
                     needfld('sfcWind_max') ) then                 
@@ -1091,14 +1105,6 @@ contains
                !end if   
             case ( "vas" )
                 call vread( "vas", vastmp )         ! only for high-frequency output
-            case ( "urbantas", "urbantasmax", "urbantasmin" )
-               if ( needfld(varlist(ivar)%vname) ) then
-                  call vread( varlist(ivar)%vname, dtmp )
-                  where ( urban_frac <= 0. )
-                     dtmp = nf90_fill_float
-                  end where
-                  call savehist ( varlist(ivar)%vname, dtmp )
-               end if     
             case('wtd')
                if ( needfld('wtd') ) then
                   call vread( 'wtd', dtmp )
@@ -2015,7 +2021,7 @@ contains
             end if
             call cordex_name( cname, "ta", press_level )
             if ( needfld( cname ) ) then
-               call cordex_interpolate( ctmp, t, press_level, psl, sig )
+               call cordex_interpolate( ctmp, t, press_level, psl, sig, lapsemode=.true. )
                call savehist( cname, ctmp )
             end if
             call cordex_name( cname, "hus", press_level )
@@ -2898,7 +2904,7 @@ contains
    subroutine get_var_list(varlist, nvars)
       ! Get a list of the variables in the input file
       use history, only : addfld, int_default, cf_compliant, cordex_compliant, areps_compliant
-      use interp_m, only : int_nearest, int_none, int_tapm
+      use interp_m, only : int_nearest, int_none, int_tapm, int_lin
       use newmpar_m, only : ol, cptch, cchrt
       use physparams, only : grav, rdry
       use s2p_m, only: use_plevs, plevs, use_meters, mlevs
@@ -3414,6 +3420,13 @@ contains
          else
             int_type = int_default
          end if
+         if ( match ( varlist(ivar)%vname,                                                &
+               (/ "cfrac               ", "stratcf             ", "clt                 ", &
+                  "cll                 ", "clm                 ", "clh                 ", &
+                  "cld                 " /)) .and. int_default /= int_none ) then
+            int_type = int_lin
+         end if   
+         
          if ( match ( varlist(ivar)%vname, &
                (/ "cape_ave  ", "cape_max  ", "cbas_ave  ", "cfrac     ", "cld       ", "clh       ", "cll       ", &
                   "clm       ", "convh_ave ", "ctop_ave  ", "lwp_ave   ", "maxrnd    ", "omega     ", "pblh      ", &
@@ -4487,8 +4500,8 @@ contains
       
    end subroutine calc_tdscrn
 
-   subroutine cordex_interpolate( utmp, u, press_level, psl, sig )
-   
+   subroutine cordex_interpolate( utmp, u, press_level, psl, sig, lapsemode )
+      use physparams, only : grav, rdry
       integer, intent(in) :: press_level
       integer i, j, k, n
       real, dimension(pil,pjl*pnpan*lproc,kk), intent(in) :: u
@@ -4496,21 +4509,26 @@ contains
       real, dimension(kk), intent(in) :: sig
       real, dimension(pil,pjl*pnpan*lproc), intent(out) :: utmp
       real :: xx
+      logical, optional :: lapsemode
+      logical tempmode
+      
+      tempmode = .false.
+      if ( present(lapsemode) ) then
+         tempmode = lapsemode
+      end if
 
       ! psl and press_level are both in hPa
       do j = 1,pjl*pnpan*lproc
          do i = 1,pil
-            n = 1
-            do k = 1,kk-1
-               if ( psl(i,j)*sig(k)>real(press_level) ) then
-                  n = k
-               else
-                  exit
-               end if
-            end do
-            xx = (real(press_level) - psl(i,j)*sig(n)) / &
-                 (psl(i,j)*(sig(n+1)-sig(n)))
-            utmp(i,j) = u(i,j,n)*(1.-xx) + u(i,j,n+1)*xx   
+            if ( tempmode .and. (real(press_level) > psl(i,j)*sig(1)) ) then
+               utmp(i,j) = u(i,j,1)*(real(press_level)/(psl(i,j)*sig(1)))**(6.5e-3*rdry/grav)
+            else    
+               n = bisect(real(press_level), psl(i,j), sig) 
+               xx = (real(press_level) - psl(i,j)*sig(n)) / &
+                    (psl(i,j)*(sig(n+1)-sig(n)))
+               xx = min( max( xx, 0. ), 1. )    
+               utmp(i,j) = u(i,j,n)*(1.-xx) + u(i,j,n+1)*xx   
+            end if   
          end do
       end do   
 
@@ -4537,11 +4555,40 @@ contains
             end do
             xx = ( real(height_level) - hstd(i,j,n) ) / &
                  ( hstd(i,j,n+1) - hstd(i,j,n) )
+            xx = min( max( xx, 0. ), 1. )
             utmp(i,j) = u(i,j,n)*(1.-xx) + u(i,j,n+1)*xx   
          end do
       end do   
 
-   end subroutine cordex_height_interpolate         
+   end subroutine cordex_height_interpolate
+   
+   ! Find pressure level
+   pure function bisect(press_target, ps, sig) result(ans)
+      real, intent(in) :: press_target, ps
+      real, dimension(:), intent(in) :: sig
+      integer :: ans
+      integer a, b, i, kx
+
+      kx = size(sig)
+      a = 1
+      b = kx
+      do while ( b-a > 1 )
+         i = (a+b)/2
+         if ( press_target > ps*sig(i) ) then
+            b = i
+         else
+            a = i
+         end if
+      end do
+      if ( ps*sig(a)>=press_target .and. ps*sig(b)>=press_target ) then
+         ans = b
+      else
+         ans = a
+      end if
+      ans = min( ans, kx-1 )
+
+end function bisect
+   
 
    subroutine capecalc(cape_d,cin_d,li_d,t,q,ps,sig)
       use moistfuncs   
