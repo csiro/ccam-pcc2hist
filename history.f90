@@ -1,6 +1,6 @@
 ! Conformal Cubic Atmospheric Model
     
-! Copyright 2015-2024 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+! Copyright 2015-2025 Commonwealth Scientific Industrial Research Organisation (CSIRO)
     
 ! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
 !
@@ -978,13 +978,21 @@ contains
          
       if ( single_output ) then
          if ( myid == 0 ) then 
+            ! check if soil dimensions are required 
+            nsoil_fld = 0
+            do ifld = 1,totflds
+               if ( histinfo(ifld)%soil ) then
+                  nsoil_fld = nsoil ! include soil dimension if a soil variable is found
+                  exit              ! no need to continue search if a soil variable is found
+               end if    
+            end do
             allocate( histid(1), histday(1), hist6hr(1), histfix(1), histdimvars(1) )
             allocate( histinst(1), histnlevels(1), histocean(1), histsoil(1) )
             allocate( histcablepatch(1), histcablecohort(1) )
             call create_ncfile ( filename, nxhis, nyhis, size(sig), ol, cptch, cchrt, multilev, &
                  use_plevs, use_meters, use_theta, use_pvort, use_depth, use_hyblevs, basetime, &
                  coord_heights(1:ncoords), ncid, dims, dimvars, source, extra_atts, calendar,   &
-                 nsoil, zsoil, osig_found, instant=.false. )
+                 nsoil_fld, osig_found, instant=.false. )
             histid(1) = ncid
             histday(1) = .false.
             histinst(1) = .true.
@@ -1085,12 +1093,12 @@ contains
                   call create_ncfile ( singlefilename, nxhis, nyhis, nlevels_fld, ol_fld, cptch_fld, cchrt_fld, &
                        multilev_fld, use_plevs, use_meters, use_theta, use_pvort, use_depth, use_hyblevs,       &
                        "none", coord_heights(1:ncoords), ncid, dims, dimvars, source, extra_atts, calendar,     &
-                       nsoil_fld, zsoil, osig_found, instant=histinfo(ifld)%instant )
+                       nsoil_fld, osig_found, instant=histinfo(ifld)%instant )
                else    
                   call create_ncfile ( singlefilename, nxhis, nyhis, nlevels_fld, ol_fld, cptch_fld, cchrt_fld, &
                        multilev_fld, use_plevs, use_meters, use_theta, use_pvort, use_depth, use_hyblevs,       &
                        basetime, coord_heights(1:ncoords), ncid, dims, dimvars, source, extra_atts, calendar,   &
-                       nsoil_fld, zsoil, osig_found, instant=histinfo(ifld)%instant )
+                       nsoil_fld, osig_found, instant=histinfo(ifld)%instant )
                end if
                histid(i) = ncid
                histday(i) = histinfo(ifld)%daily
@@ -1648,7 +1656,7 @@ contains
    subroutine create_ncfile ( filename, nxhis, nyhis, nlev, ol, cptch, cchrt, multilev,         &
                  use_plevs, use_meters, use_theta, use_pvort, use_depth, use_hyblevs, basetime, &
                  coord_heights, ncid, dims, dimvars, source, extra_atts, calendar,              &
-                 nsoil, zsoil, osig_found, instant )
+                 nsoil, osig_found, instant )
 
       use mpidata_m
       use newmpar_m, only : il
@@ -1666,8 +1674,6 @@ contains
       type(hist_att), dimension(:), optional :: extra_atts
       character(len=*), intent(in), optional :: calendar
       integer, intent(in), optional :: nsoil ! Number of soil levels
-      ! Soil depths
-      real, dimension(:), intent(in), optional :: zsoil
       logical, intent(in), optional :: instant
 
       integer :: ierr
@@ -1983,10 +1989,6 @@ contains
       end if
 
       if ( present(nsoil) ) then
-         if ( .not. present(zsoil) ) then
-            print*, "Error - missing zsoil argument"
-            stop
-         end if
          if ( nsoil>0 ) then
             ierr = nf90_def_var ( ncid, "depth", NF90_FLOAT, dims%zsoil, dimvars%zsoil)
             call check_ncerr(ierr)
@@ -2703,7 +2705,7 @@ contains
                   end if
                   if ( histinfo(ifld)%all_positive ) then
                      htemp = max( htemp, 0. )
-                  end if                 
+                  end if   
                end if
 
                call START_LOG(mpisendrecv_begin)
