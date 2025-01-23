@@ -978,32 +978,52 @@ contains
          
       if ( single_output ) then
          if ( myid == 0 ) then 
-            ! check if soil dimensions are required 
+            ! check what dimensions need to be written 
+            multilev_fld = .false.
+            nlevels_fld = 1
+            ol_fld = 0
             nsoil_fld = 0
+            cptch_fld = 0
+            cchrt_fld = 0
             do ifld = 1,totflds
-               if ( histinfo(ifld)%soil ) then
-                  nsoil_fld = nsoil ! include soil dimension if a soil variable is found
-                  exit              ! no need to continue search if a soil variable is found
+               if ( histinfo(ifld)%nlevels > 1 .or. histinfo(ifld)%multilev ) then
+                  multilev_fld = .true.
+               end if   
+               if ( .not.histinfo(ifld)%water .and. .not.histinfo(ifld)%soil .and.  &
+                    .not.histinfo(ifld)%pop2d .and. .not.histinfo(ifld)%pop3d .and. &
+                    .not.histinfo(ifld)%pop4d ) then
+                  nlevels_fld = size(sig) 
                end if    
+               if ( histinfo(ifld)%water ) then
+                  ol_fld = ol
+               end if                
+               if ( histinfo(ifld)%soil ) then
+                  nsoil_fld = nsoil
+               end if    
+               if ( histinfo(ifld)%pop2d .or. histinfo(ifld)%pop3d .or. &
+                    histinfo(ifld)%pop4d ) then
+                  cptch_fld = cptch
+                  cchrt_fld = cchrt
+               end if
             end do
             allocate( histid(1), histday(1), hist6hr(1), histfix(1), histdimvars(1) )
             allocate( histinst(1), histnlevels(1), histocean(1), histsoil(1) )
             allocate( histcablepatch(1), histcablecohort(1) )
-            call create_ncfile ( filename, nxhis, nyhis, size(sig), ol, cptch, cchrt, multilev, &
-                 use_plevs, use_meters, use_theta, use_pvort, use_depth, use_hyblevs, basetime, &
-                 coord_heights(1:ncoords), ncid, dims, dimvars, source, extra_atts, calendar,   &
-                 nsoil_fld, osig_found, instant=.false. )
+            call create_ncfile ( filename, nxhis, nyhis, nlevels_fld, ol_fld, cptch_fld, cchrt_fld, &
+                 multilev_fld, use_plevs, use_meters, use_theta, use_pvort, use_depth, use_hyblevs, &
+                 basetime, coord_heights(1:ncoords), ncid, dims, dimvars, source, extra_atts,       &
+                 calendar, nsoil_fld, osig_found, instant=.false. )
             histid(1) = ncid
             histday(1) = .false.
             histinst(1) = .true.
             hist6hr(1) = .false.
             histfix(1) = .false.
             histdimvars(1) = dimvars
-            histnlevels(1) = nlevels
-            histocean(1) = ol > 0
-            histsoil(1) = nsoil > 0
-            histcablepatch(1) = cptch > 0
-            histcablecohort(1) = cchrt > 0
+            histnlevels(1) = nlevels_fld
+            histocean(1) = ol_fld > 0
+            histsoil(1) = nsoil_fld > 0
+            histcablepatch(1) = cptch_fld > 0
+            histcablecohort(1) = cchrt_fld > 0
             do ifld = 1,totflds
                histinfo(ifld)%ncid = ncid
                histinfo(ifld)%procid = 0
