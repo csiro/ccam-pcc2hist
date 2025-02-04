@@ -1,6 +1,6 @@
 ! Conformal Cubic Atmospheric Model
     
-! Copyright 2015-2024 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+! Copyright 2015-2025 Commonwealth Scientific Industrial Research Organisation (CSIRO)
     
 ! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
 !
@@ -62,8 +62,15 @@ private
    integer, public, save :: mpisendrecv_begin, mpisendrecv_end
    integer, public, save :: putvar_begin, putvar_end
    integer, public, save :: mpibarrier_begin, mpibarrier_end
+   integer, public, save :: cape_begin, cape_end
+   integer, public, save :: p1_begin, p1_end
+   integer, public, save :: p2_begin, p2_end
+   integer, public, save :: p3_begin, p3_end
+   integer, public, save :: p4_begin, p4_end
+   integer, public, save :: p5_begin, p5_end
+   integer, public, save :: p6_begin, p6_end
    public :: simple_timer_finalize
-   integer, parameter :: nevents = 26
+   integer, parameter :: nevents = 33
    real(kind=8), dimension(nevents), save :: tot_time = 0., start_time
    character(len=15), dimension(nevents), save :: event_name
 
@@ -167,41 +174,41 @@ contains
       paravar4a_end =  paravar4a_begin
       event_name(paravar4a_begin) = "Paravar4a"
 
-      mpiscatter_begin = 16
-      mpiscatter_end =  mpiscatter_begin
-      event_name(mpiscatter_begin) = "MPIScatter"
-
-      fillcc_begin = 17
+      fillcc_begin = 16
       fillcc_end =  fillcc_begin
       event_name(fillcc_begin) = "Fillcc"
 
-      fillcc0_begin = 18
+      fillcc0_begin = 17
       fillcc0_end =  fillcc0_begin
       event_name(fillcc0_begin) = "Fillcc0"
 
-      finalinit_begin = 19
+      finalinit_begin = 18
       finalinit_end =  finalinit_begin
       event_name(finalinit_begin) = "Finalinit"
 
-      mpibcast_begin = 20
+      mpibcast_begin = 19
       mpibcast_end =  mpibcast_begin
       event_name(mpibcast_begin) = "MPIBcast"
 
-      mpigather_begin = 21
+      mpigather_begin = 20
       mpigather_end =  mpigather_begin
       event_name(mpigather_begin) = "MPIGather"
 
-      gatherwrap_begin = 22
+      mpiscatter_begin = 21
+      mpiscatter_end =  mpiscatter_begin
+      event_name(mpiscatter_begin) = "MPIScatter"
+
+      mpisendrecv_begin = 22
+      mpisendrecv_end =  mpisendrecv_begin
+      event_name(mpisendrecv_begin) = "MPISendRecv"
+      
+      gatherwrap_begin = 23
       gatherwrap_end =  gatherwrap_begin
       event_name(gatherwrap_begin) = "Gatherwrap"
 
-      getdate_begin = 23
+      getdate_begin = 24
       getdate_end =  getdate_begin
       event_name(getdate_begin) = "Getdate"
-
-      mpisendrecv_begin = 24
-      mpisendrecv_end =  mpisendrecv_begin
-      event_name(mpisendrecv_begin) = "MPISendRecv"
 
       putvar_begin = 25
       putvar_end = putvar_begin
@@ -210,6 +217,34 @@ contains
       mpibarrier_begin = 26
       mpibarrier_end = mpibarrier_begin
       event_name(mpibarrier_begin) = "MPIBarrier"
+
+      cape_begin = 27
+      cape_end = cape_begin
+      event_name(cape_begin) = "CAPE"
+
+      p1_begin = 28
+      p1_end = p1_begin
+      event_name(p1_begin) = "Probe 1"
+
+      p2_begin = 29
+      p2_end = p2_begin
+      event_name(p2_begin) = "Probe 2"
+
+      p3_begin = 30
+      p3_end = p3_begin
+      event_name(p3_begin) = "Probe 3"
+
+      p4_begin = 31
+      p4_end = p4_begin
+      event_name(p4_begin) = "Probe 4"
+      
+      p5_begin = 32
+      p5_end = p5_begin
+      event_name(p5_begin) = "Probe 5"
+
+      p6_begin = 33
+      p6_end = p6_begin
+      event_name(p6_begin) = "Probe 6"
       
    end subroutine log_setup
 

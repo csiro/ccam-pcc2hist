@@ -202,9 +202,9 @@ subroutine ints ( s_in, array, int_type )  ! input array (twice), output array
               emul_2 = (1.-yyg)*(2.-yyg)*(1.+yyg)/2.
               emul_3 = yyg*(1.+yyg)*(2.-yyg)/2.
               emul_4 = (1.-yyg)*(-yyg)*(1.+yyg)/6.
-              cmin = min(sx(idel,  jdel,n),sx(idel+1,jdel,  n), &
+              cmin = min(sx(idel,jdel  ,n),sx(idel+1,jdel,  n), &
                          sx(idel,jdel+1,n),sx(idel+1,jdel+1,n))
-              cmax = max(sx(idel,  jdel,n),sx(idel+1,jdel,  n), &
+              cmax = max(sx(idel,jdel  ,n),sx(idel+1,jdel,  n), &
                          sx(idel,jdel+1,n),sx(idel+1,jdel+1,n))
               rmul_1 = sx(idel,  jdel-1,n)*dmul_2 + sx(idel+1,jdel-1,n)*dmul_3
               rmul_2 = sx(idel-1,jdel,  n)*cmul_1 + sx(idel,  jdel,  n)*cmul_2 + &

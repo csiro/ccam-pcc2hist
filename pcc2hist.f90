@@ -1,6 +1,6 @@
 ! Conformal Cubic Atmospheric Model
     
-! Copyright 2015-2024 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+! Copyright 2015-2025 Commonwealth Scientific Industrial Research Organisation (CSIRO)
     
 ! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
 !
@@ -454,12 +454,14 @@ program cc2hist
    call initheight( kl, sig )
 
 !  If ktc is still -1 and ndate and ntime aren't set then process all fields
-   if ( ktc == -1 ) then
-      call getstep(ktc)
-   end if
+   call getstep(kta,ktc)
 
-   if ( ktc == 0 ) then
-      write(6,*) "ERROR: ktc must not equal zero"
+   if ( ktc <= 0 ) then
+      write(6,*) "ERROR: ktc must be greater than zero"
+      stop
+   end if
+   if ( kta < 0 ) then
+      write(6,*) "ERROR: kta must be greater or equal to zero"
       stop
    end if
    
@@ -478,7 +480,7 @@ program cc2hist
          print*, "KT", kt
       end if
       do ! Loop through until time found
-         call getdate( kdate, ktime, ieof )
+         call getdate( kdate, ktime, ieof ) ! writes date to output log/screen
          if ( ieof /= 0 ) then  ! END OF FILE
             exit timeloop
          end if
@@ -529,7 +531,8 @@ program cc2hist
 
          if ( kt < ktau ) then
            if ( myid == 0 ) then             
-              print*, "WARNING: Searching for step", kt
+              print*, "WARNING: Searching for step kt=", kt
+              print*, "         but found step ktau=",ktau
            end if
          end if
 
@@ -554,7 +557,7 @@ program cc2hist
             cycle timeloop
          end if
 
-      end do
+      end do ! loop until found
 
       if ( skip ) then
          cycle
