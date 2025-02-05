@@ -1,6 +1,6 @@
 ! Conformal Cubic Atmospheric Model
     
-! Copyright 2015-2023 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+! Copyright 2015-2025 Commonwealth Scientific Industrial Research Organisation (CSIRO)
     
 ! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
 !
@@ -39,6 +39,8 @@ module interp_m
    integer, parameter, public :: int_tapm=9
 !  No interplation at all (output on CC grid)
    integer, parameter, public :: int_none=5
+!  Special treatment of d10 and direction
+   integer, parameter, public :: int_lin_d10=6
 
 contains 
 
@@ -69,6 +71,7 @@ subroutine ints ( s_in, array, int_type )  ! input array (twice), output array
    real, dimension(2) :: r
    real dmul_2, dmul_3, cmul_1, cmul_2, cmul_3, cmul_4
    real emul_1, emul_2, emul_3, emul_4, rmul_1, rmul_2, rmul_3, rmul_4
+   real diff
    integer :: i, j, n, nn
    integer :: idel, jdel
    integer :: n_n, n_e, n_w, n_s
@@ -183,7 +186,7 @@ subroutine ints ( s_in, array, int_type )  ! input array (twice), output array
                  jdel = nint(yg(i,j))
                  array(i,j) = sx(idel,jdel,n) 
               else 
-                 xxg = xg(i,j)-idel
+                 xxg = xg(i,j)-idel ! use bilinear
                  yyg = yg(i,j)-jdel
                  r(1) = sx(idel,jdel,n) + (sx(idel+1,jdel,n)-sx(idel,jdel,n))*xxg
                  r(2) = sx(idel,jdel+1,n) + (sx(idel+1,jdel+1,n)-sx(idel,jdel+1,n))*xxg
@@ -202,9 +205,9 @@ subroutine ints ( s_in, array, int_type )  ! input array (twice), output array
               emul_2 = (1.-yyg)*(2.-yyg)*(1.+yyg)/2.
               emul_3 = yyg*(1.+yyg)*(2.-yyg)/2.
               emul_4 = (1.-yyg)*(-yyg)*(1.+yyg)/6.
-              cmin = min(sx(idel,jdel  ,n),sx(idel+1,jdel,  n), &
+              cmin = min(sx(idel,jdel,  n),sx(idel+1,jdel,  n), &
                          sx(idel,jdel+1,n),sx(idel+1,jdel+1,n))
-              cmax = max(sx(idel,jdel  ,n),sx(idel+1,jdel,  n), &
+              cmax = max(sx(idel,jdel,  n),sx(idel+1,jdel,  n), &
                          sx(idel,jdel+1,n),sx(idel+1,jdel+1,n))
               rmul_1 = sx(idel,  jdel-1,n)*dmul_2 + sx(idel+1,jdel-1,n)*dmul_3
               rmul_2 = sx(idel-1,jdel,  n)*cmul_1 + sx(idel,  jdel,  n)*cmul_2 + &
@@ -219,18 +222,18 @@ subroutine ints ( s_in, array, int_type )  ! input array (twice), output array
      enddo ! j loop
   case (int_nearest)
      ! This case handles the missing values automatically.
-     do j=1,nyhis
-        do i=1,nxhis
-           n=nface(i,j)
-           idel=nint(xg(i,j))
-           jdel=nint(yg(i,j))
+     do j = 1,nyhis
+        do i = 1,nxhis
+           n = nface(i,j)
+           idel = nint(xg(i,j))
+           jdel = nint(yg(i,j))
            array(i,j) = sx(idel,jdel,n)
         end do
      end do
   case (int_lin)
      ! Bi-linear. This will probably only be used with vextrap=missing.
-     do j=1,nyhis
-        do i=1,nxhis
+     do j = 1,nyhis
+        do i = 1,nxhis
            n = nface(i,j)
            idel = int(xg(i,j))
            jdel = int(yg(i,j))
@@ -251,6 +254,42 @@ subroutine ints ( s_in, array, int_type )  ! input array (twice), output array
            end if
         end do
      end do
+  case (int_lin_d10)
+     ! Bi-linear. Special treatment for direction
+     do j = 1,nyhis
+        do i = 1,nxhis
+           n = nface(i,j)
+           idel = int(xg(i,j))
+           jdel = int(yg(i,j))
+           ! Set missing if any are missing
+           if ( sx(idel,jdel,n) == NF90_FILL_FLOAT .or.  &
+                sx(idel+1,jdel,n) == NF90_FILL_FLOAT .or. &
+                sx(idel+1,jdel+1,n) == NF90_FILL_FLOAT .or. &
+                sx(idel,jdel+1,n) == NF90_FILL_FLOAT ) then
+              idel = nint(xg(i,j)) ! use nearest
+              jdel = nint(yg(i,j))
+              array(i,j) = sx(idel,jdel,n) 
+           else
+              xxg = xg(i,j)-idel
+              yyg = yg(i,j)-jdel
+              diff = sx(idel+1,jdel,n) - sx(idel,jdel,n)
+              if ( diff < -180. ) diff = diff + 360.
+              if ( diff > 180. ) diff = diff - 360.
+              r(1) = sx(idel,jdel,n) + diff*xxg
+              diff = sx(idel+1,jdel+1,n) - sx(idel,jdel+1,n)
+              if ( diff < -180. ) diff = diff + 360.
+              if ( diff > 180. ) diff = diff - 360.
+              r(2) = sx(idel,jdel+1,n) + diff*xxg
+              diff = r(2) - r(1)
+              if ( diff < -180. ) diff = diff + 360.
+              if ( diff > 180. ) diff = diff - 360.
+              array(i,j) = r(1) + diff*yyg
+              if ( array(i,j) > 360. ) array(i,j) = array(i,j) - 360.
+              if ( array(i,j) < 0. ) array(i,j) = array(i,j) + 360.
+           end if
+        end do
+     end do
+
   case default
      print*, "Error, unexpected interpolation option", int_type
   end select

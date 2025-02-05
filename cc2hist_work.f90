@@ -1628,6 +1628,7 @@ contains
          if ( kk>1 ) then 
            ctmp = uten
          else
+           ! this is only defined for high-frequency output (kk==1)  
            ctmp = sqrt(uastmp**2 + vastmp**2)  
          end if
          call calc_faoet( dtmp, sgd, rgn, tscrn, ctmp, psl, qgscrn ) 
@@ -1811,23 +1812,20 @@ contains
             end where    
             call savehist ( "vas", dtmp )    
          end if
-         if ( needfld("direction") ) then
-            tmp3d = atan2(u,v)*45./atan(1.) + 180.
-            call vsavehist ( "direction", tmp3d )
-         end if
-         if ( needfld("speed") ) then
-            tmp3d = sqrt(u**2+v**2)
-            call vsavehist ( "speed", tmp3d )
-         end if
          if ( needfld("d10") ) then
-            udir = atan2(-u(:,:,1),-v(:,:,1))*180./3.1415927
-            where ( udir < 0. )
-               udir = udir + 360.
-            end where
+            udir = atan2(u(:,:,1),v(:,:,1))*45./atan(1.) + 180.
             if ( needfld("d10") ) then
                call savehist( "d10", udir )        
             end if
          end if   
+         if ( needfld("speed") ) then
+            tmp3d = sqrt(u**2+v**2)
+            call vsavehist ( "speed", tmp3d )
+         end if
+         if ( needfld("direction") ) then
+            tmp3d = atan2(u,v)*45./atan(1.) + 180.
+            call vsavehist ( "direction", tmp3d )
+         end if
 
          ! Note that these are just vertical averages, not vertical integrals
          ! Use the winds that have been rotatated to the true directions
@@ -1958,12 +1956,9 @@ contains
          if ( needfld("d10") ) then
             where ( uastmp/=nf90_fill_float .and. &
                     vastmp/=nf90_fill_float )
-               dtmp = atan2(-uastmp,-vastmp)*180./3.1415927
+               dtmp = atan2(uastmp,vastmp)*45./atan(1.) + 180.
             elsewhere
                dtmp = nf90_fill_float
-            end where
-            where ( dtmp<0. .and. dtmp/=nf90_fill_float )
-               dtmp = dtmp + 360.
             end where
             if ( needfld("d10") ) then
                call savehist( "d10", dtmp )
@@ -2750,7 +2745,7 @@ contains
    subroutine get_var_list(varlist, nvars)
       ! Get a list of the variables in the input file
       use history, only : addfld, int_default, cf_compliant, cordex_compliant, areps_compliant
-      use interp_m, only : int_nearest, int_none, int_tapm, int_lin
+      use interp_m, only : int_nearest, int_none, int_tapm, int_lin, int_lin_d10
       use newmpar_m, only : ol, cptch, cchrt
       use physparams, only : grav, rdry
       use s2p_m, only: use_plevs, plevs, use_meters, mlevs
@@ -2759,7 +2754,7 @@ contains
       integer :: ierr, ndimensions, nvariables, ndims, ivar, int_type, xtype
       integer :: londim, latdim, levdim, olevdim, procdim, timedim, vid, ihr, ind
       integer :: cptchdim, cchrtdim, tn_type, j, press_level, height_level
-      integer :: idim, int_nearest_local
+      integer :: idim, int_nearest_local, int_direction_local
       integer, dimension(nf90_max_var_dims) :: dimids
       logical :: procformat, ran_type, areps_type
       character(len=10) :: substr
@@ -3250,8 +3245,10 @@ contains
          
          if ( int_default == int_none ) then
             int_nearest_local = int_default 
+            int_direction_local = int_default
          else   
             int_nearest_local = int_nearest
+            int_direction_local = int_lin_d10
          end if   
          
 
@@ -3268,6 +3265,8 @@ contains
          else
             int_type = int_default
          end if
+         ! assign variables to bilinear interpolation to avoid overshoot (e.g., clouds)
+         ! also avoid rnc>rnd by using bilinear
          if ( match ( varlist(ivar)%vname,                                                &
                (/ "cfrac               ", "stratcf             ", "clt                 ", &
                   "cll                 ", "clm                 ", "clh                 ", &
@@ -3899,7 +3898,8 @@ contains
                         multilev=.true., ran_type=.true. ) 
          if ( areps_compliant ) then
             call addfld ( "direction", "Wind Direction", "degrees", 0., 360.,     &
-                          nlev, multilev=.true., areps_type=.true. )
+                          nlev, multilev=.true., areps_type=.true.,               &
+                          int_type=int_direction_local )
             call addfld ( "speed", "Wind Speed", "m/s", 0., 150.,                 &
                           nlev, multilev=.true., areps_type=.true. )
          end if
@@ -4097,7 +4097,7 @@ contains
          
       end if ! kk>1 ..else..
       
-      call addfld ( "d10", "10m wind direction", "deg", 0.0, 360.0, 1, ran_type=.true. )
+      call addfld ( "d10", "10m wind direction", "deg", 0.0, 360.0, 1, ran_type=.true., int_type=int_direction_local )
       
       if ( ok > 1 ) then
          call addfld( "uos", "x-component surface current", "m s-1", -100., 100., 1 )
