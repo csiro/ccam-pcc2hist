@@ -265,28 +265,23 @@ contains
    subroutine getstep(kta,ktc)
    
       integer, intent(inout) :: kta, ktc
-      integer :: vid, ierr, ktau0, ktau1
+      integer :: vid, ierr, ktau0, ktau1, diff
    
       ierr = nf90_inq_varid (ncid, "time", vid )
       call check_ncerr(ierr, "Error getting time id")
       
       ierr = nf90_get_var( ncid, vid, ktau0, start=(/ 1 /) )
       call check_ncerr(ierr, "Error getting time")
-      if ( kta < 0 ) then 
-         kta = ktau0
-      end if   
+      kta = max(kta, ktau0 )
 
       ierr = nf90_get_var( ncid, vid, ktau1, start=(/ 2 /) )
       if ( ierr == nf90_noerr ) then
-         if ( ktc <=0 ) then 
-            ktc = max( ktau1 - ktau0, 1 )
-         end if
+         diff = max( ktau1 - ktau0, 1 )
+         ktc = max( ktc, diff )
       else
-         if ( ktc <=0 ) then  
-            print *,"WARN: Cannot locate second time-step in input file" 
-            ktc = 1 
-         end if   
-      end if    
+         print *,"WARN: Cannot locate second time-step in input file" 
+         ktc = max( ktc, 1 )
+      end if
    
    end subroutine getstep
 
@@ -366,7 +361,44 @@ contains
       call START_LOG(infile_begin)
       if ( first_in ) then
          call alloc_indata ( ik, jk, kk, ol, cptch, cchrt, ksoil, kice )
+         
+         ! Force soil data to load first for land-sea mask
+         call vread( "soilt", soilt )
+         if ( needfld("soilt") ) then
+            call savehist("soilt", soilt)
+         end if   
+         if ( needfld("land_mask") .or. needfld("land") ) then
+            where ( soilt > 0.5 )
+               dtmp = 1.
+            elsewhere
+               dtmp = 0.
+            end where
+            if ( needfld("land_mask") ) then
+               call savehist("land_mask", dtmp)
+            end if   
+            if ( needfld("land") ) then
+               call savehist("land", dtmp)
+            end if   
+         else if ( needfld("sftlf") ) then
+            where ( soilt > 0.5 )
+               dtmp = 100.
+            elsewhere
+               dtmp = 0.
+            end where
+            call savehist("sftlf", dtmp)
+         endif
+         if ( needfld("sftlaf") ) then
+            where ( soilt == -1 )
+               dtmp = 100.  
+            elsewhere ( soilt > 0.5 )
+               dtmp = 0.
+            elsewhere
+               dtmp = nf90_fill_float
+            end where    
+            call savehist("sftlaf", dtmp)
+         end if
       end if
+
       
       q = 0.
       ql = 0.
@@ -380,41 +412,6 @@ contains
       sgdcs = nf90_fill_float      ! daily
       sgncs = nf90_fill_float      ! daily
 
-      ! Force soil data to load first for land-sea mask
-      call vread( "soilt", soilt )
-      if ( needfld("soilt") ) then
-         call savehist("soilt", soilt)
-      end if   
-      if ( needfld("land_mask") .or. needfld("land") ) then
-         where ( soilt > 0.5 )
-            dtmp = 1.
-         elsewhere
-            dtmp = 0.
-         end where
-         if ( needfld("land_mask") ) then
-            call savehist("land_mask", dtmp)
-         end if   
-         if ( needfld("land") ) then
-            call savehist("land", dtmp)
-         end if   
-      else if ( needfld("sftlf") ) then
-         where ( soilt > 0.5 )
-            dtmp = 100.
-         elsewhere
-            dtmp = 0.
-         end where
-         call savehist("sftlf", dtmp)
-      endif
-      if ( needfld("sftlaf") ) then
-         where ( soilt == -1 )
-            dtmp = 100.  
-         elsewhere ( soilt > 0.5 )
-            dtmp = 0.
-         elsewhere
-            dtmp = nf90_fill_float
-         end where    
-         call savehist("sftlaf", dtmp)
-      end if
       
       do ivar = 1,nvars
          ! Just write the input with no further processing
@@ -440,7 +437,6 @@ contains
                      end if   
                   end if
                case ( "mrsofc" )   
-                  ! soilt must load before mrsofc 
                   if ( needfld("mrsofc") ) then
                      call vread( "mrsofc", dtmp) 
                      where ( soilt <= 0.5 )

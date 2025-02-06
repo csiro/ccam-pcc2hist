@@ -1,6 +1,6 @@
 ! Conformal Cubic Atmospheric Model
     
-! Copyright 2015-2022 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+! Copyright 2015-2025 Commonwealth Scientific Industrial Research Organisation (CSIRO)
     
 ! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
 !
@@ -82,7 +82,7 @@ module usage_m
    print*, " NAME        TYPE     DEFAULT   FUNCTION"
    print*, ""
    print*, "       Selection of time steps"
-   print*, " kta         int      0         First timestep to process"
+   print*, " kta         int      0         First timestep to process (-1 means first timestep)"
    print*, " ktb         int      9999999   Last timestep to process"
    print*, " ktc         int      -1        Timestep increment (-1 means do all)"
    print*, ""
@@ -155,6 +155,7 @@ module usage_m
    print*, "cf_compliant         = true or false"
    print*, "cordex_compliant     = true or false"
    print*, "save_ccam_parameters = true or false"
+   print*, "fao_potev            = true or false"
    print*, ""
    print*, "pcc2hist version ", trim(version)
  

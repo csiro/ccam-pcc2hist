@@ -55,7 +55,7 @@ module history
 !  Private internal routines
    private :: bindex_hname, sortlist, create_ncvar,                     &
               create_ncfile,                                            &
-              hashkey, qindex_hname, savehist_work,                     &
+              hashkey, savehist_work,                                   &
               gsavehist2D, gsavehist3D, gsavehist4D
    private :: fill_cc1
    !private :: create_oldfile
@@ -1049,6 +1049,11 @@ contains
          histset = 0
          ! return maxcnt,slab,gap
          call interpolate_count(maxcnt,slab,gap,nproc,.true.,.true.) ! include 6hr and daily output in count
+         ! Need to determine which files are written from which process.  Ideally the
+         ! process responsible for interpolation would also write the file, reducing the
+         ! required amount of message passing.  However, the number of variables written
+         ! to file changes with time-step due to some variables being fixed, 6-hourly,
+         ! or daily variables.  Hence here we construct a simple list
          cnt = 0
          i = 0 ! count output files
          do ifld = 1,totflds
@@ -2177,7 +2182,7 @@ contains
 
 !     Loop over history files because variable could occur in several.
 
-      ifld = qindex_hname(name,inames(:,1:totflds),totflds)
+      ifld = bindex_hname(name,inames(:,1:totflds),totflds)
       if ( ifld == 0 ) then
          print*, "Error - history variable ", name, " is not known. "
          stop
@@ -2533,6 +2538,15 @@ contains
 
       ! Gather variable information on a single process for interpolation
       
+      ! Work for interpolate can vary between time-steps due to some output being
+      ! 6-hourly or daily.  So we update the number of levels to be interpolated
+      ! as maxcnt every time-step.  slab and gap determine which processes undertake
+      ! the interpolation with slab>1 if the number of variables is greater than the
+      ! number of processes.  gap>1 if the number of variables is less than the number
+      ! of processes.  Once interpolated, the data is sent to the output process
+      ! which remains the same for every time-step.  sreq and rreq are the number of
+      ! levels to be sent or recieved from the current process, respectively.
+      
 !     first pass
 !     find total number of levels to interpolate for this time-step
       call interpolate_count(maxcnt,slab,gap,nproc,endof6hr,endofday)
@@ -2540,7 +2554,7 @@ contains
       maxdreq = sreq + rreq
 
       if ( maxcnt > 0 ) then
-          
+      
          ! allocate memory on required processes 
          if ( interpolate_test(myid,slab,gap,maxcnt) ) then
             allocate( hist_a(pil,pjl*pnpan,pnproc,1+slab*myid/gap:slab*(myid/gap+1)) ) 
@@ -2555,6 +2569,7 @@ contains
          else
             allocate( hist_a(0,0,0,0) )  
          end if
+         ! memory for map of histarray index for selected output variables
          if ( allocated( k_indx ) ) then
             if ( size(k_indx) < maxcnt ) then
                deallocate( k_indx )
@@ -2569,9 +2584,11 @@ contains
                deallocate( htemp_buff )
             end if
          end if
+         ! Buffer for storing interpolated messages sent to output process
          if ( .not.allocated( htemp_buff ) ) then
             allocate( htemp_buff(nxhis,nyhis,maxdreq) )
          end if
+         ! Buffer for sent requests
          if ( allocated( ireq_s ) ) then
             if ( size(ireq_s) < sreq ) then
                deallocate( ireq_s )
@@ -2580,6 +2597,7 @@ contains
          if ( .not.allocated( ireq_s ) ) then
             allocate( ireq_s(sreq) )
          end if
+         ! Buffers for recieved requests         
          if ( allocated( ireq_r ) ) then
             if ( size(ireq_r) < rreq ) then
                deallocate( ireq_r, ifld_r, k_r, ireq_d )
@@ -2632,13 +2650,13 @@ contains
 
          end do ! Loop over fields
          
-!        now send data across processes
+!        now distribute level data across processes to be interpolated
          if ( slab > 0 ) then
             call gather_wrap(histarray,hist_a,slab,gap,maxcnt,k_indx)
          end if
 
 !        third pass
-!        perform the interpolation
+!        perform the interpolation on level data and send to output process
          cnt = 0
          sreq = 0
          rreq = 0
@@ -2678,7 +2696,7 @@ contains
                      end if   
                   end if ! myid==rrank
 
-                  ! send variable data to process responsible for writing data
+                  ! send interpolated variable data to process responsible for writing data
                   call START_LOG(mpisendrecv_begin)
                   itag = 1000 + cnt
                   if ( myid == histinfo(ifld)%procid_output ) then
@@ -2704,6 +2722,7 @@ contains
 
          end do ! Loop over fields
 
+         ! Recieve interpolated output and write to output file
          rcount = rreq
          do while ( rcount > 0 )
             call START_LOG(mpisendrecv_begin) 
@@ -2712,6 +2731,8 @@ contains
             rcount = rcount - 1
             ifld = ifld_r(req)
             istart = histinfo(ifld)%ptr
+            ncid = histinfo(ifld)%ncid
+            vid = histinfo(ifld)%vid
             dreq = ireq_d(req)
             k = k_r(req)
             htemp = htemp_buff(:,:,dreq)
@@ -2735,8 +2756,6 @@ contains
             end if    
                    
             call START_LOG(putvar_begin)
-            ncid = histinfo(ifld)%ncid
-            vid = histinfo(ifld)%vid
             if ( histinfo(ifld)%daily .and. .not.single_output ) then
                if ( endofday ) then
                   if ( histinfo(ifld)%pop4d ) then
@@ -2804,7 +2823,7 @@ contains
       ! reset timers
       histarray(:,:,:) = nf90_fill_float
       histinfo(:)%count = 0
-      avetime = 0.0
+      avetime = 0.
       ! Initialisation so min/max work
       avetime_bnds(:) = (/huge(1.), -huge(1.)/)
       timecount = 0
@@ -3053,7 +3072,7 @@ contains
 
 !     Check if name is in the list for any of the history files
       needed = .false.
-      ifld = qindex_hname ( name, inames(:,1:totflds), totflds)
+      ifld = bindex_hname ( name, inames(:,1:totflds), totflds)
       if ( ifld == 0 ) then
          ! Name not known at all in this case
          needed = .false.
@@ -3097,20 +3116,6 @@ contains
       end do
 
    end function bindex_hname
-!-------------------------------------------------------------------
-   function qindex_hname ( name, table, nflds ) result(ifld)
-      character(len=*), intent(in)    :: name
-      integer, intent(in) :: nflds
-      integer ( bigint ), intent(in), dimension(MAX_KEYINDEX,nflds) :: table
-      integer :: ifld
-
-      ifld = bindex_hname ( name, table, nflds )
-      if ( ifld == 0 ) then
-         ! Name is not known, return without updating internal fields
-         return
-      end if         
-
-   end function qindex_hname
 !-------------------------------------------------------------------
    function hashkey ( name ) result (key)
 !  Generate an integer from a string

@@ -454,17 +454,8 @@ program cc2hist
    call initheight( kl, sig )
 
 !  If ktc is still -1 and ndate and ntime aren't set then process all fields
-   call getstep(kta,ktc)
+   call getstep( kta, ktc )
 
-   if ( ktc <= 0 ) then
-      write(6,*) "ERROR: ktc must be greater than zero"
-      stop
-   end if
-   if ( kta < 0 ) then
-      write(6,*) "ERROR: kta must be greater or equal to zero"
-      stop
-   end if
-   
    ! calculate time interval
    call getdtime( dtime, ktc )
    if ( cf_compliant ) then
