@@ -349,7 +349,7 @@ contains
       real :: fjd, bpyear, r1, dlt, alp, slag, dhr
       character(len=10) :: name
       character(len=60) :: cname
-      logical :: validvar
+      logical :: validvar, have_soilt
       real, parameter :: tfreeze = 271.38
 
       ! With a netcdf file there's no need to read in order to skip.
@@ -362,41 +362,52 @@ contains
       if ( first_in ) then
          call alloc_indata ( ik, jk, kk, ol, cptch, cchrt, ksoil, kice )
          
+         ! check for soilt data
+         have_soilt = .false.
+         do ivar = 1,nvars
+            if ( varlist(ivar)%vname == "soilt" ) then
+               have_soilt = .true.
+               exit
+            end if
+         end do
+         
          ! Force soil data to load first for land-sea mask
-         call vread( "soilt", soilt )
-         if ( needfld("soilt") ) then
-            call savehist("soilt", soilt)
-         end if   
-         if ( needfld("land_mask") .or. needfld("land") ) then
-            where ( soilt > 0.5 )
-               dtmp = 1.
-            elsewhere
-               dtmp = 0.
-            end where
-            if ( needfld("land_mask") ) then
-               call savehist("land_mask", dtmp)
+         if ( have_soilt ) then
+            call vread( "soilt", soilt )
+            if ( needfld("soilt") ) then
+               call savehist("soilt", soilt)
             end if   
-            if ( needfld("land") ) then
-               call savehist("land", dtmp)
-            end if   
-         else if ( needfld("sftlf") ) then
-            where ( soilt > 0.5 )
-               dtmp = 100.
-            elsewhere
-               dtmp = 0.
-            end where
-            call savehist("sftlf", dtmp)
-         endif
-         if ( needfld("sftlaf") ) then
-            where ( soilt == -1 )
-               dtmp = 100.  
-            elsewhere ( soilt > 0.5 )
-               dtmp = 0.
-            elsewhere
-               dtmp = nf90_fill_float
-            end where    
-            call savehist("sftlaf", dtmp)
-         end if
+            if ( needfld("land_mask") .or. needfld("land") ) then
+               where ( soilt > 0.5 )
+                  dtmp = 1.
+               elsewhere
+                  dtmp = 0.
+               end where
+               if ( needfld("land_mask") ) then
+                  call savehist("land_mask", dtmp)
+               end if   
+               if ( needfld("land") ) then
+                  call savehist("land", dtmp)
+               end if   
+            else if ( needfld("sftlf") ) then
+               where ( soilt > 0.5 )
+                  dtmp = 100.
+               elsewhere
+                  dtmp = 0.
+               end where
+               call savehist("sftlf", dtmp)
+            endif
+            if ( needfld("sftlaf") ) then
+               where ( soilt == -1 )
+                  dtmp = 100.  
+               elsewhere ( soilt > 0.5 )
+                  dtmp = 0.
+               elsewhere
+                  dtmp = nf90_fill_float
+               end where    
+               call savehist("sftlaf", dtmp)
+            end if
+         end if ! have_soilt    
       end if
 
       
@@ -5436,12 +5447,12 @@ end function bisect
             end if   
          end if
          
-        jdum(1) = pnproc
-        if ( resprocformat ) then
-          jdum(2) = 1 ! indicates true for resprocformat
-        else
-          jdum(2) = 0 ! indicates false for resprocformat
-        end if
+         jdum(1) = pnproc
+         if ( resprocformat ) then
+           jdum(2) = 1 ! indicates true for resprocformat
+         else
+           jdum(2) = 0 ! indicates false for resprocformat
+         end if
 
       end if ! myid==0
       
