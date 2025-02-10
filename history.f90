@@ -55,7 +55,7 @@ module history
 !  Private internal routines
    private :: bindex_hname, sortlist, create_ncvar,                     &
               create_ncfile,                                            &
-              hashkey, savehist_work,                                   &
+              hashkey, qindex_hname, savehist_work,                     &
               gsavehist2D, gsavehist3D, gsavehist4D
    private :: fill_cc1
    !private :: create_oldfile
@@ -149,7 +149,7 @@ module history
       integer            :: count      ! Used for scaling
       integer            :: ave_type   ! Type of averaging
       integer            :: ncid ! netCDF file identifier
-      integer            :: procid_output
+      integer            :: procid
       real               :: addoff
       real               :: scalef
       integer            :: int_type   ! Type of interpolation
@@ -211,20 +211,6 @@ module history
       integer :: zsoil_b = -1
    end type dimarray
 
-   ! info for output file dimensions and time-steps
-   type, private :: hfile
-      integer :: id
-      integer :: nlevels
-      logical :: day
-      logical :: sixhr
-      logical :: fix
-      logical :: inst
-      logical :: ocean
-      logical :: soil
-      logical :: cablepatch
-      logical :: cablecohort
-   end type hfile
-   
 !  Array for accumulating history data.
    real, dimension(:,:,:), allocatable :: histarray
 
@@ -235,7 +221,11 @@ module history
    integer :: histset_daily, histset_6hr
 
 !   netCDF file ID of history file
-   type(hfile), dimension(:), allocatable, save :: histfile
+   integer, dimension(:), allocatable, save :: histid, histnlevels
+   logical, dimension(:), allocatable, save :: histday, hist6hr, histfix
+   logical, dimension(:), allocatable, save :: histinst
+   logical, dimension(:), allocatable, save :: histocean, histsoil
+   logical, dimension(:), allocatable, save :: histcablepatch, histcablecohort
    type(dimarray), dimension(:), allocatable, save :: histdimvars
 
 !  Total number of fields defined (not necessarily used).
@@ -279,7 +269,7 @@ module history
    
    logical, public :: areps_compliant = .false.
    
-! Save CCAM parameters as global attributes
+! Save CCAM parameters
    logical, public :: save_ccam_parameters = .true.
 
 !  Working arrays
@@ -304,13 +294,14 @@ contains
       character(len=*), intent(out) :: hstr
       !character(len=100) :: logname, hostname
       integer, dimension(8) :: idatetime
-      character(len=40) :: str
+      character(len=1000) :: str
    
       !logname = ""
       !call get_environment_variable("LOGNAME",logname)
       !hostname = ""
       !call get_environment_variable("HOSTNAME",hostname)
       call date_and_time(values=idatetime)
+      
       ! Avoid overflow in the output string by writing to a long internal string
       str = ""
       write(str,'("Created on ", i4.4,"-", i2.2,"-",i2.2," ",i2.2,":",i2.2,":", i2.2)') &
@@ -526,6 +517,8 @@ contains
          select case (adjustl(ave_type))
          case ("ave")
             atype = hist_ave
+         !case ("oave")
+         !   atype = hist_oave
          case ("max")
             atype = hist_max
          case ("min")
@@ -594,25 +587,25 @@ contains
       else
          histinfo(totflds)%std_name    = ""
       end if
-      histinfo(totflds)%units         = units  
-      histinfo(totflds)%valid_min     = valid_min
-      histinfo(totflds)%valid_max     = valid_max
-      histinfo(totflds)%nlevels       = nlevels   ! number of levels
-      histinfo(totflds)%std           = lstd
-      histinfo(totflds)%ran           = lran
-      histinfo(totflds)%areps         = lareps
-      histinfo(totflds)%tracer        = ltracer
-      histinfo(totflds)%tn            = ltn
-      histinfo(totflds)%output_scale  = scale
-      histinfo(totflds)%used          = .FALSE.   ! Value for now
-      histinfo(totflds)%vid           = 0
-      histinfo(totflds)%ptr           = 0         ! start index in history array
-      histinfo(totflds)%count         = 0         ! count for averaging
-      histinfo(totflds)%ave_type      = atype     ! Default if not over-ridden
-      histinfo(totflds)%addoff        = 0.
-      histinfo(totflds)%scalef        = 0.
-      histinfo(totflds)%ncid          = 0         ! Value for now
-      histinfo(totflds)%procid_output = 0         ! Output process
+      histinfo(totflds)%units        = units  
+      histinfo(totflds)%valid_min    = valid_min
+      histinfo(totflds)%valid_max    = valid_max
+      histinfo(totflds)%nlevels      = nlevels   ! number of levels
+      histinfo(totflds)%std          = lstd
+      histinfo(totflds)%ran          = lran
+      histinfo(totflds)%areps        = lareps
+      histinfo(totflds)%tracer       = ltracer
+      histinfo(totflds)%tn           = ltn
+      histinfo(totflds)%output_scale = scale
+      histinfo(totflds)%used         = .FALSE.   ! Value for now
+      histinfo(totflds)%vid          = 0
+      histinfo(totflds)%ptr          = 0         ! start index in history array
+      histinfo(totflds)%count        = 0         ! count for averaging
+      histinfo(totflds)%ave_type     = atype     ! Default if not over-ridden
+      histinfo(totflds)%addoff       = 0.
+      histinfo(totflds)%scalef       = 0.
+      histinfo(totflds)%ncid         = 0         ! Value for now
+      histinfo(totflds)%procid       = 0         ! Output process
       if (present(int_type)) then
          histinfo(totflds)%int_type  = int_type
       else
@@ -744,7 +737,7 @@ contains
       integer :: ol_fld, nsoil_fld, cptch_fld, cchrt_fld
       logical :: osig_found
       integer :: i, j
-      real, dimension(:), allocatable :: cabledata ! for cable dimension values
+      real, dimension(:), allocatable :: cabledata
       real(kind=8) :: dx, dy
       real(kind=8) :: hlonr8, hlatr8
       integer :: ave_type, nlev, rrank
@@ -983,12 +976,9 @@ contains
          osig_found = .true.
       end if    
          
-      ! Create output file.  Different configurations depending on whether single,
-      ! or multiple output file mode is used.  Also depends on variables to be
-      ! write to a given output file.
       if ( single_output ) then
          if ( myid == 0 ) then 
-            ! check what dimensions need to be written in output file
+            ! check what dimensions need to be written 
             multilev_fld = .false.
             nlevels_fld = 1
             ol_fld = 0
@@ -1016,90 +1006,107 @@ contains
                   cchrt_fld = cchrt
                end if
             end do
-            allocate( histfile(1), histdimvars(1) )
+            allocate( histid(1), histday(1), hist6hr(1), histfix(1), histdimvars(1) )
+            allocate( histinst(1), histnlevels(1), histocean(1), histsoil(1) )
+            allocate( histcablepatch(1), histcablecohort(1) )
             call create_ncfile ( filename, nxhis, nyhis, nlevels_fld, ol_fld, cptch_fld, cchrt_fld, &
                  multilev_fld, use_plevs, use_meters, use_theta, use_pvort, use_depth, use_hyblevs, &
                  basetime, coord_heights(1:ncoords), ncid, dims, dimvars, source, extra_atts,       &
                  calendar, nsoil_fld, osig_found, instant=.false. )
-            histfile(1)%id = ncid
-            histfile(1)%day = .false.
-            histfile(1)%sixhr = .false.
-            histfile(1)%fix = .false.
-            histfile(1)%inst = .true.
-            histfile(1)%nlevels = nlevels_fld
-            histfile(1)%ocean = ol_fld > 0
-            histfile(1)%soil = nsoil_fld > 0
-            histfile(1)%cablepatch = cptch_fld > 0
-            histfile(1)%cablecohort = cchrt_fld > 0
+            histid(1) = ncid
+            histday(1) = .false.
+            histinst(1) = .true.
+            hist6hr(1) = .false.
+            histfix(1) = .false.
             histdimvars(1) = dimvars
+            histnlevels(1) = nlevels_fld
+            histocean(1) = ol_fld > 0
+            histsoil(1) = nsoil_fld > 0
+            histcablepatch(1) = cptch_fld > 0
+            histcablecohort(1) = cchrt_fld > 0
             do ifld = 1,totflds
                histinfo(ifld)%ncid = ncid
-               histinfo(ifld)%procid_output = 0
+               histinfo(ifld)%procid = 0
                histdims(ifld) = dims
             end do   
          else  
-            allocate( histfile(0), histdimvars(0) )
+            allocate( histid(0), histday(0), hist6hr(0), histfix(0), histdimvars(0) ) 
+            allocate( histinst(0), histnlevels(0), histocean(0), histsoil(0) )
+            allocate( histcablepatch(0), histcablecohort(0) )
          end if  
-      else ! single_output ..else..
-         ! calculate which process is responsible for interpolating a variable
-         ! This code will try to distribute variables across nodes to access
-         ! more computer memory and to reduce MPI communication bottlenecks.
-         ! slab>1 is for more variables than nproc and gap>1 is for more nproc
-         ! than variables.
-         histset = 0
-         ! return maxcnt,slab,gap
-         call interpolate_count(maxcnt,slab,gap,nproc,.true.,.true.) ! include 6hr and daily output in count
-         ! Need to determine which files are written from which process.  Ideally the
-         ! process responsible for interpolation would also write the file, reducing the
-         ! required amount of message passing.  However, the number of variables written
-         ! to file changes with time-step due to some variables being fixed, 6-hourly,
-         ! or daily variables.  Hence here we construct a simple list
+      else
+         ! count number of output variables 
          cnt = 0
-         i = 0 ! count output files
          do ifld = 1,totflds
-            if ( histinfo(ifld)%used ) then
-               rrank = (cnt*gap)/slab
-               histinfo(ifld)%procid_output = rrank
-               nlev = histinfo(ifld)%nlevels
-               cnt = cnt + nlev
-               ! count output files
-               if ( histinfo(ifld)%procid_output == myid ) then
-                  i = i + 1
-               end if
-            end if   
-         end do
-         ! allocate memory for file properties
-         allocate( histfile(i), histdimvars(i) )
+           if ( .not. histinfo(ifld)%used ) then
+               cycle
+            end if  
+            ave_type = histinfo(ifld)%ave_type
+            nlev = histinfo(ifld)%nlevels
+            if ( histset > 1 .and. ave_type == hist_fixed ) then
+               cycle
+            end if
+            cnt = cnt + nlev
+         end do  
+         maxcnt = cnt
+         slab = ceiling(real(maxcnt,8)/real(nproc,8))
+         gap = max( nproc/maxcnt, 1 )
+         cnt = 0
+         do ifld = 1,totflds
+            if ( .not. histinfo(ifld)%used ) then
+               cycle
+            end if  
+            ave_type = histinfo(ifld)%ave_type
+            nlev = histinfo(ifld)%nlevels
+            if ( histset > 1 .and. ave_type == hist_fixed ) then
+               ! fixed variables stored on procid=0 
+               histinfo(ifld)%procid = 0 
+               cycle
+            end if
+            rrank = (cnt*gap)/slab
+            histinfo(ifld)%procid = rrank
+            cnt = cnt + nlev            
+         end do   
+         ! create output files
          i = 0
          do ifld = 1,totflds
-            if ( histinfo(ifld)%used .and. histinfo(ifld)%procid_output==myid ) then 
-               multilev_fld = histinfo(ifld)%nlevels > 1 .or. &
-                              histinfo(ifld)%multilev
-               if ( histinfo(ifld)%water .or. histinfo(ifld)%soil .or.  &
-                    histinfo(ifld)%pop2d .or. histinfo(ifld)%pop3d .or. &
-                    histinfo(ifld)%pop4d ) then
-                  nlevels_fld = 1
-               else
-                  nlevels_fld = histinfo(ifld)%nlevels
-               end if    
-               if ( histinfo(ifld)%water ) then
-                  ol_fld = ol
-               else
-                  ol_fld = 0
-               end if
-               if ( histinfo(ifld)%soil ) then
-                  nsoil_fld = nsoil 
-               else
-                  nsoil_fld = 0
-               end if
-               if ( histinfo(ifld)%pop2d .or. histinfo(ifld)%pop3d .or. &
-                    histinfo(ifld)%pop4d ) then
-                  cptch_fld = cptch
-                  cchrt_fld = cchrt
-               else
-                  cptch_fld = 0
-                  cchrt_fld = 0
-               end if
+            if ( histinfo(ifld)%used .and. histinfo(ifld)%procid==myid ) then
+               i = i + 1 
+            end if    
+         end do
+         allocate( histid(i), histday(i), hist6hr(i), histfix(i), histdimvars(i) )
+         allocate( histinst(i), histnlevels(i), histocean(i), histsoil(i) )
+         allocate( histcablepatch(i), histcablecohort(i) )
+         i = 0
+         do ifld = 1,totflds
+            multilev_fld = histinfo(ifld)%nlevels > 1 .or. &
+                           histinfo(ifld)%multilev
+            if ( histinfo(ifld)%water .or. histinfo(ifld)%soil .or.  &
+                 histinfo(ifld)%pop2d .or. histinfo(ifld)%pop3d .or. &
+                 histinfo(ifld)%pop4d ) then
+               nlevels_fld = 1
+            else
+               nlevels_fld = histinfo(ifld)%nlevels
+            end if    
+            if ( histinfo(ifld)%water ) then
+               ol_fld = ol
+            else
+               ol_fld = 0
+            end if
+            if ( histinfo(ifld)%soil ) then
+               nsoil_fld = nsoil 
+            else
+               nsoil_fld = 0
+            end if
+            if ( histinfo(ifld)%pop2d .or. histinfo(ifld)%pop3d .or. &
+                 histinfo(ifld)%pop4d ) then
+               cptch_fld = cptch
+               cchrt_fld = cchrt
+            else
+               cptch_fld = 0
+               cchrt_fld = 0
+            end if
+            if ( histinfo(ifld)%used .and. histinfo(ifld)%procid==myid ) then 
                i = i + 1
                singlefilename = calcfilename(histinfo(ifld)%name,filename)
                if ( histinfo(ifld)%ave_type == hist_fixed ) then
@@ -1113,35 +1120,33 @@ contains
                        basetime, coord_heights(1:ncoords), ncid, dims, dimvars, source, extra_atts, calendar,   &
                        nsoil_fld, osig_found, instant=histinfo(ifld)%instant )
                end if
-               histfile(i)%id = ncid
-               histfile(i)%day = histinfo(ifld)%daily
-               histfile(i)%inst = histinfo(ifld)%instant
-               histfile(i)%sixhr = histinfo(ifld)%sixhr
-               histfile(i)%fix = histinfo(ifld)%ave_type == hist_fixed
-               histfile(i)%nlevels = nlevels_fld
-               histfile(i)%ocean = ol_fld > 0
-               histfile(i)%soil = nsoil_fld > 0
-               histfile(i)%cablepatch = cptch_fld > 0
-               histfile(i)%cablecohort = cchrt_fld > 0
+               histid(i) = ncid
+               histday(i) = histinfo(ifld)%daily
+               histinst(i) = histinfo(ifld)%instant
+               hist6hr(i) = histinfo(ifld)%sixhr
+               histfix(i) = histinfo(ifld)%ave_type == hist_fixed
                histdimvars(i) = dimvars
+               histnlevels(i) = nlevels_fld
+               histocean(i) = ol_fld > 0
+               histsoil(i) = nsoil_fld > 0
+               histcablepatch(i) = cptch_fld > 0
+               histcablecohort(i) = cchrt_fld > 0
                histinfo(ifld)%ncid = ncid
                histdims(ifld) = dims
-            end if    ! histinfo(ifld)%used .and. histinfo(ifld)%procid_output==myid
-         end do ! iflds = 1,totflds (i=i+1)
-      end if    ! single_output ..else..
+            end if   
+         end do
+      end if  
       
-      ! define output variables in output file
       do ifld = 1,totflds
-         if ( histinfo(ifld)%used .and. myid==histinfo(ifld)%procid_output ) then
+         if ( histinfo(ifld)%used .and. myid==histinfo(ifld)%procid ) then
             ncid = histinfo(ifld)%ncid
             dims = histdims(ifld)
             call create_ncvar(histinfo(ifld), ncid, dims)
          end if
       end do
 
-      ! end definition mode
-      do i = 1,size(histfile) 
-         ncid = histfile(i)%id 
+      do i = 1,size(histid) 
+         ncid = histid(i) 
          dimvars = histdimvars(i)
          !        Leave define mode 
          ierr = nf90_enddef ( ncid )
@@ -1155,7 +1160,6 @@ contains
          call check_ncerr(ierr,"Error writing longitudes")
       end do
             
-      ! create bounds if required
       if ( cf_compliant .or. cordex_compliant ) then
          ! Calculate bounds assuming a regular lat-lon grid
          ! Perhaps have optional arguments for the other cases?
@@ -1173,8 +1177,8 @@ contains
             do i = 2,size(hlon)
                lon_bnds(1,i) = lon_bnds(2,i-1)
             end do
-            do i = 1,size(histfile)
-               ncid = histfile(i)%id 
+            do i = 1,size(histid)
+               ncid = histid(i) 
                dimvars = histdimvars(i)
                ierr = nf90_put_var ( ncid, dimvars%x_b, lon_bnds )
                call check_ncerr(ierr,"Error writing longitude bounds")
@@ -1198,20 +1202,18 @@ contains
             do i = 2,size(hlat)
                lat_bnds(1,i) = lat_bnds(2,i-1)
             end do    
-            do i = 1,size(histfile)
-               ncid = histfile(i)%id 
+            do i = 1,size(histid)
+               ncid = histid(i) 
                dimvars = histdimvars(i)
                ierr = nf90_put_var ( ncid, dimvars%y_b, lat_bnds )
                call check_ncerr(ierr,"Error writing latitude bounds")
             end do   
          end if
       end if
-      
-      ! define atmosphere vertical levels
       if ( multilev ) then
-         do i = 1,size(histfile)
-            if ( histfile(i)%nlevels > 1 ) then
-               ncid = histfile(i)%id 
+         do i = 1,size(histid)
+            if ( histnlevels(i) > 1 ) then
+               ncid = histid(i) 
                dimvars = histdimvars(i)
                ierr = nf90_put_var ( ncid, dimvars%z, sig )
                call check_ncerr(ierr,"Error writing levels")
@@ -1222,9 +1224,9 @@ contains
                print*, "Error, missing anf argument"
                stop
             end if
-            do i = 1,size(histfile)
-               if ( histfile(i)%nlevels > 1 ) then
-                  ncid = histfile(i)%id
+            do i = 1,size(histid)
+               if ( histnlevels(i) > 1 ) then
+                  ncid = histid(i) 
                   ierr = nf90_inq_varid(ncid, "anf", vid)
                   call check_ncerr(ierr,"Error getting vid for anf")
                   ierr = nf90_put_var(ncid, vid, anf)
@@ -1249,28 +1251,24 @@ contains
             end do   
          end if
       end if
-      
-      ! define ocean vertical levels
       if ( ol > 0 ) then
-         do i = 1,size(histfile)
-            if ( histfile(i)%ocean ) then 
-               ncid = histfile(i)%id 
+         do i = 1,size(histid)
+            if ( histocean(i) ) then 
+               ncid = histid(i) 
                dimvars = histdimvars(i)
                ierr = nf90_put_var ( ncid, dimvars%oz, gosig )
                call check_ncerr(ierr,"Error writing olev")
             end if   
          end do   
       end if
-      
-      ! define cable vertical levels
       if ( cptch > 0 ) then
          allocate( cabledata(cptch) )
          do i = 1,cptch
             cabledata(i) = real(i)
          end do
-         do i = 1,size(histfile)
-            if ( histfile(i)%cablepatch ) then 
-               ncid = histfile(i)%id 
+         do i = 1,size(histid)
+            if ( histcablepatch(i) ) then 
+               ncid = histid(i) 
                dimvars = histdimvars(i)
                ierr = nf90_put_var ( ncid, dimvars%cptch, cabledata )
                call check_ncerr(ierr,"Error writing cable_patch")
@@ -1283,9 +1281,9 @@ contains
          do i = 1,cchrt
             cabledata(i) = real(i)
          end do
-         do i = 1,size(histfile)
-            if ( histfile(i)%cablecohort ) then 
-               ncid = histfile(i)%id 
+         do i = 1,size(histid)
+            if ( histcablecohort(i) ) then 
+               ncid = histid(i) 
                dimvars = histdimvars(i)
                ierr = nf90_put_var ( ncid, dimvars%cchrt, cabledata )
                call check_ncerr(ierr,"Error writing cable_cohort")
@@ -1293,13 +1291,11 @@ contains
          end do   
          deallocate( cabledata )
       end if
-      
-      ! define soil vertical levels
       if ( present(zsoil) .and. present(nsoil) ) then
          if ( nsoil>0 ) then
-            do i = 1,size(histfile)
-               if ( histfile(i)%soil ) then 
-                  ncid = histfile(i)%id 
+            do i = 1,size(histid)
+               if ( histsoil(i) ) then 
+                  ncid = histid(i) 
                   dimvars = histdimvars(i)
                   ierr = nf90_put_var ( ncid, dimvars%zsoil, zsoil )
                   call check_ncerr(ierr,"Error writing depths")
@@ -1315,9 +1311,9 @@ contains
                   zsoil_bnds(2,k) = zsoil_bnds(2,k-1) + 2.*(zsoil(k)-zsoil_bnds(2,k-1))
                   zsoil_bnds(1,k) = zsoil_bnds(2,k-1)
                end do
-               do i = 1,size(histfile)
-                  if ( histfile(i)%soil ) then 
-                     ncid = histfile(i)%id
+               do i = 1,size(histid)
+                  if ( histsoil(i) ) then 
+                     ncid = histid(i)
                      dimvars = histdimvars(i)
                      ierr = nf90_put_var ( ncid, dimvars%zsoil_b, zsoil_bnds )
                      call check_ncerr(ierr,"Error writing depths")
@@ -1328,15 +1324,14 @@ contains
          end if
       end if
 
-      ! special coordinate heights (e.g., 2m and 10m)
       do kc = 1,ncoords
          if ( coord_heights(kc) < 10 ) then
             write(vname, "(a,i1.1)") "height", coord_heights(kc)
          else
             write(vname, "(a,i2.2)") "height", coord_heights(kc)
          end if
-         do i = 1,size(histfile)
-            ncid = histfile(i)%id 
+         do i = 1,size(histid)
+            ncid = histid(i) 
             ierr = nf90_inq_varid(ncid, vname, vid)
             call check_ncerr(ierr,"Error getting vid for height coord")
             ierr = nf90_put_var ( ncid, vid, real(coord_heights(kc)))
@@ -1407,7 +1402,7 @@ contains
    subroutine sortlist
 
 !     Simple insertion sort of the list of names.
-!     Valid for names with both upper and lower case characters
+!     Assumes all lower case. This should be enforced or checked somewhere
 
       integer :: i, ipos, j
       type(hinfo) :: temp
@@ -1610,9 +1605,11 @@ contains
       end if
       
       ! cell_methods from the history averaging process
+
       ! Possibly time:point should just be left out
 
       select case (vinfo%ave_type)
+      !case (hist_ave, hist_oave)
       case (hist_ave )    
          cell_methods = "time: mean"
       case (hist_max)
@@ -1701,11 +1698,11 @@ contains
 
       integer :: ierr
       integer :: i, k
-      integer :: vid, cmode
       character(len=80) :: histstr
       character(len=20) :: tmpname
       character(len=160) :: griddes
       character(len=20) :: gridsize, gridschmidt
+      integer :: vid, cmode
       logical :: do_time_bnds
 
       do_time_bnds = .true. 
@@ -2116,11 +2113,16 @@ contains
       integer :: ierr, i
      
       call START_LOG(closehist_begin)
-      do i = 1,size(histfile)
-         ierr = nf90_close ( histfile(i)%id )
+      
+!     The hist_oave files are closed individually in writehist.
+      do i = 1,size(histid)
+         ierr = nf90_close ( histid(i) )
          call check_ncerr(ierr,"Error closing history file")
       end do
-      deallocate( histfile, histdimvars )      
+      deallocate( histid, histday, hist6hr, histfix, histdimvars )
+      deallocate( histinst, histnlevels, histocean, histsoil )
+      deallocate( histcablepatch, histcablecohort )
+      
       call END_LOG(closehist_end)
       
    end subroutine closehist
@@ -2133,10 +2135,12 @@ contains
       real, dimension(size(array,1),size(array,2),1) :: temp
 
       call START_LOG(savehist_begin)      
+
 !     Copy to the 3D array that savehist_work expects. The extra level of
 !     subroutines is necessary to avoid multiple versions.
       temp(:,:,1) = array
       call savehist_work  ( name, temp, size(array,2) )
+
       call END_LOG(savehist_end)
 
    end subroutine gsavehist2D
@@ -2145,9 +2149,12 @@ contains
       use logging_m
       character(len=*), intent(in) :: name
       real, dimension(:,:,:) :: array
+      real, dimension(size(array,1),size(array,2),size(array,3)) :: temp
 
       call START_LOG(savehist_begin)
+
       call savehist_work ( name, array, size(array,2) )
+
       call END_LOG(savehist_end)
 
    end subroutine gsavehist3D
@@ -2159,8 +2166,10 @@ contains
       real, dimension(size(array,1),size(array,2),size(array,3)*size(array,4)) :: temp
 
       call START_LOG(savehist_begin)
+
       temp(:,:,:) = reshape(array,(/ size(array,1), size(array,2), size(array,3)*size(array,4) /) )
       call savehist_work ( name, temp, size(array,2) )
+
       call END_LOG(savehist_end)
 
    end subroutine gsavehist4D
@@ -2182,7 +2191,7 @@ contains
 
 !     Loop over history files because variable could occur in several.
 
-      ifld = bindex_hname(name,inames(:,1:totflds),totflds)
+      ifld = qindex_hname(name,inames(:,1:totflds),totflds)
       if ( ifld == 0 ) then
          print*, "Error - history variable ", name, " is not known. "
          stop
@@ -2288,12 +2297,7 @@ contains
       use mpidata_m
       use newmpar_m, only : cptch, cchrt
       use logging_m
-#ifdef usempimod
-      use mpi
-#endif
-#ifndef usempimod
       include 'mpif.h'
-#endif
       
       integer, intent(in) :: istep
       logical, intent(in), optional :: endofrun
@@ -2328,9 +2332,8 @@ contains
       integer, save :: safe_count = 0
       integer :: cnt, maxcnt, slab, gap, offset
       integer :: rrank, sizehis, itag
-      integer :: dreq, rreq, maxdreq, sreq, rcount, req
-      integer, dimension(:), allocatable, save :: ireq_s, ireq_r, ireq_d
-      integer, dimension(:), allocatable, save :: ifld_r, k_r
+      integer :: nreq, dreq, rreq, maxdreq, maxrreq
+      integer, dimension(:), allocatable, save :: ireq, ireq_r, ireq_d
       real, dimension(:,:,:), allocatable, save :: htemp_buff
       
       if ( require_interp .and. .not. present(interp) ) then
@@ -2427,12 +2430,12 @@ contains
 
       ! write time
       call START_LOG(putvar_begin)
-      do i = 1,size(histfile)
-         if ( histfile(i)%fix ) then
+      do i = 1,size(histid)
+         if ( histfix(i) ) then
             ! do nothing 
-         else if ( histfile(i)%day ) then
+         else if ( histday(i) ) then
             ! output only contains daily data 
-            ncid = histfile(i)%id
+            ncid = histid(i)
             ierr = nf90_inq_varid (ncid, "time", vid )
             call check_ncerr(ierr, "Error getting time id")
             if ( endofday ) then
@@ -2445,13 +2448,13 @@ contains
                else
                   timeout = real(histset*hfreq)
                end if
-               if ( cordex_compliant .and. .not.histfile(i)%inst ) then
+               if ( cordex_compliant .and. .not.histinst(i) ) then
                   timeout = timeout - 720. 
                end if   
                ierr = nf90_put_var ( ncid, vid, timeout, start=(/histset_daily/) )
                call check_ncerr(ierr, "Error writing time")
                if ( (cf_compliant.or.cordex_compliant) .and. present(time_bnds) .and. &
-                    .not.(histfile(i)%inst.and.ihtype==hist_inst) .and.               &
+                    .not.(histinst(i).and.ihtype==hist_inst) .and.                    &
                     .not.(ihtype==hist_fixed) ) then
                   ierr = nf90_inq_varid (ncid, "time_bnds", vid )
                   call check_ncerr(ierr, "Error getting time_bnds id")
@@ -2465,9 +2468,9 @@ contains
                   call check_ncerr(ierr, "Error writing time_bnds")
                end if   
             end if 
-         else if ( histfile(i)%sixhr ) then
+         else if ( hist6hr(i) ) then
             ! output only contains 6-hourly data 
-            ncid = histfile(i)%id
+            ncid = histid(i)
             ierr = nf90_inq_varid (ncid, "time", vid )
             call check_ncerr(ierr, "Error getting time id")
             if ( endof6hr ) then
@@ -2480,13 +2483,13 @@ contains
                else
                   timeout = real(histset*hfreq) 
                end if
-               if ( cordex_compliant .and. .not.histfile(i)%inst ) then
+               if ( cordex_compliant .and. .not.histinst(i) ) then
                   timeout = timeout - 180.
                end if
                ierr = nf90_put_var ( ncid, vid, timeout, start=(/histset_6hr/) )
                call check_ncerr(ierr, "Error writing time")
                if ( (cf_compliant.or.cordex_compliant) .and. present(time_bnds) .and. &
-                    .not.(histfile(i)%inst.and.ihtype==hist_inst) .and.               &
+                    .not.(histinst(i).and.ihtype==hist_inst) .and.                    &
                     .not.(ihtype==hist_fixed) ) then
                   ierr = nf90_inq_varid (ncid, "time_bnds", vid )
                   call check_ncerr(ierr, "Error getting time_bnds id")
@@ -2502,7 +2505,7 @@ contains
             end if  
          else
             ! output contains instantaneous or mixed data 
-            ncid = histfile(i)%id
+            ncid = histid(i)
             ierr = nf90_inq_varid (ncid, "time", vid )
             call check_ncerr(ierr, "Error getting time id")
             if ( present(time) ) then
@@ -2514,13 +2517,13 @@ contains
             else
                timeout = real(histset*hfreq)
             end if
-            if ( cordex_compliant .and. .not.histfile(i)%inst .and. present(dtime) ) then
+            if ( cordex_compliant .and. .not.histinst(i) .and. present(dtime) ) then
                timeout = timeout - 0.5*dtime 
             end if
             ierr = nf90_put_var ( ncid, vid, timeout, start=(/histset/) )
             call check_ncerr(ierr, "Error writing time")
             if ( (cf_compliant.or.cordex_compliant) .and. present(time_bnds) .and. &
-                 .not.(histfile(i)%inst.and.ihtype==hist_inst) .and.               &
+                 .not.(histinst(i).and.ihtype==hist_inst) .and.                    &
                  .not.(ihtype==hist_fixed) ) then
                ierr = nf90_inq_varid (ncid, "time_bnds", vid )
                call check_ncerr(ierr, "Error getting time_bnds id")
@@ -2535,28 +2538,66 @@ contains
       end do
       call END_LOG(putvar_end)
 
-
-      ! Gather variable information on a single process for interpolation
-      
-      ! Work for interpolate can vary between time-steps due to some output being
-      ! 6-hourly or daily.  So we update the number of levels to be interpolated
-      ! as maxcnt every time-step.  slab and gap determine which processes undertake
-      ! the interpolation with slab>1 if the number of variables is greater than the
-      ! number of processes.  gap>1 if the number of variables is less than the number
-      ! of processes.  Once interpolated, the data is sent to the output process
-      ! which remains the same for every time-step.  sreq and rreq are the number of
-      ! levels to be sent or recieved from the current process, respectively.
-      
+      cnt = 0
 !     first pass
-!     find total number of levels to interpolate for this time-step
-      call interpolate_count(maxcnt,slab,gap,nproc,endof6hr,endofday)
-      call interpolate_requests(sreq,rreq,slab,gap,myid,endof6hr,endofday)
-      maxdreq = sreq + rreq
+!     find total number of levels to store
+      do ifld = 1,totflds
+         if ( .not. histinfo(ifld)%used ) then
+            cycle
+         end if
+         ave_type = histinfo(ifld)%ave_type
+         nlev = histinfo(ifld)%nlevels
+         ncount = histinfo(ifld)%count
 
+!        Only write fixed variables in the first history set
+         if ( histset > 1 .and. ave_type == hist_fixed ) then
+            cycle
+         end if
+         if ( histinfo(ifld)%daily .and. .not.single_output .and. .not.endofday ) then
+            cycle
+         end if   
+         if ( histinfo(ifld)%sixhr .and. .not.single_output .and. .not.endof6hr ) then
+            cycle
+         end if 
+
+         istart = histinfo(ifld)%ptr
+         iend = istart + nlev - 1
+         if ( ave_type == hist_ave ) then    
+            if ( hist_debug >= 4 ) then
+               print*, "Raw history at point ", histinfo(ifld)%name, &
+                 histarray(ihdb,jhdb,istart+khdb-1), ncount
+            end if
+            where ( histarray(:,:,istart:iend) /= NF90_FILL_FLOAT )
+               histarray(:,:,istart:iend) =   &
+                 histarray(:,:,istart:iend) / max( ncount, 1 )
+            end where  
+         end if
+         if ( histinfo(ifld)%output_scale /= 0 ) then
+            where ( histarray(:,:,istart:iend) /= NF90_FILL_FLOAT ) 
+               histarray(:,:,istart:iend) = histarray(:,:,istart:iend) * &
+                 histinfo(ifld)%output_scale
+            end where   
+         end if
+         if ( hist_debug >= 4 ) then
+            print*, "History written at point ", histinfo(ifld)%name, &
+                 histarray(ihdb,jhdb,istart+khdb-1)
+         end if
+
+!        Even multilevel variables are written one level at a time
+         cnt = cnt + iend - istart + 1
+               
+      end do ! Loop over fields
+      
+      maxcnt = cnt
       if ( maxcnt > 0 ) then
       
-         ! allocate memory on required processes 
-         if ( interpolate_test(myid,slab,gap,maxcnt) ) then
+         slab = ceiling(real(maxcnt,8)/real(nproc,8))
+         gap = max( nproc/maxcnt, 1 )
+         if ( slab > 1 .and. gap > 1 ) then
+            print *, "Internal error defining slab and gap ",slab,gap
+            stop
+         end if
+         if ( mod( myid, gap ) == 0 .and. myid < gap*ceiling(real(maxcnt,8)/real(slab,8)) ) then
             allocate( hist_a(pil,pjl*pnpan,pnproc,1+slab*myid/gap:slab*(myid/gap+1)) ) 
             if ( allocated( hist_g ) ) then
                if ( size(hist_g,1) /= nx_g .or. size(hist_g,2) /= ny_g ) then
@@ -2569,261 +2610,285 @@ contains
          else
             allocate( hist_a(0,0,0,0) )  
          end if
-         ! memory for map of histarray index for selected output variables
          if ( allocated( k_indx ) ) then
             if ( size(k_indx) < maxcnt ) then
-               deallocate( k_indx )
+               deallocate( k_indx, ireq_r, ireq_d )
             end if
          end if
          if ( .not.allocated( k_indx ) ) then
-            allocate( k_indx(maxcnt) )
-         end if
-         ! allocate MPI request list and buffers
-         if ( allocated( htemp_buff ) ) then
-            if ( size(htemp_buff,3) < maxdreq ) then
-               deallocate( htemp_buff )
-            end if
-         end if
-         ! Buffer for storing interpolated messages sent to output process
-         if ( .not.allocated( htemp_buff ) ) then
-            allocate( htemp_buff(nxhis,nyhis,maxdreq) )
-         end if
-         ! Buffer for sent requests
-         if ( allocated( ireq_s ) ) then
-            if ( size(ireq_s) < sreq ) then
-               deallocate( ireq_s )
-            end if
-         end if
-         if ( .not.allocated( ireq_s ) ) then
-            allocate( ireq_s(sreq) )
-         end if
-         ! Buffers for recieved requests         
-         if ( allocated( ireq_r ) ) then
-            if ( size(ireq_r) < rreq ) then
-               deallocate( ireq_r, ifld_r, k_r, ireq_d )
-            end if
-         end if
-         if ( .not.allocated( ireq_r ) ) then
-            allocate( ireq_r(rreq), ifld_r(rreq), k_r(rreq), ireq_d(rreq) )
+            allocate( k_indx(maxcnt), ireq_r(maxcnt), ireq_d(maxcnt) )
          end if
 
-!        second pass
-!        calculate the number of requests for message passing
-!        also calculate averages
+         dreq = 0
          cnt = 0
+!        second pass
+!        create the array used to index histarray
          do ifld = 1,totflds
-
+            if ( .not. histinfo(ifld)%used ) then
+               cycle
+            end if
+            ave_type = histinfo(ifld)%ave_type
             nlev = histinfo(ifld)%nlevels
+
+!           Only write fixed variables in the first history set
+            if ( histset > 1 .and. ave_type == hist_fixed ) then
+               cycle
+            end if
+            if ( histinfo(ifld)%daily .and. .not.single_output .and. .not.endofday ) then
+               cycle
+            end if   
+            if ( histinfo(ifld)%sixhr .and. .not.single_output .and. .not.endof6hr ) then
+               cycle
+            end if 
+
             istart = histinfo(ifld)%ptr
             iend = istart + nlev - 1
-            if ( .not.writeout_test(ifld,endof6hr,endofday) ) then
 
-               if ( histinfo(ifld)%ave_type == hist_ave ) then
-                  ncount = histinfo(ifld)%count
-                  if ( hist_debug >= 4 ) then
-                     print*, "Raw history at point ", histinfo(ifld)%name, &
-                       histarray(ihdb,jhdb,istart+khdb-1), ncount
-                  end if
-                  where ( histarray(:,:,istart:iend) /= NF90_FILL_FLOAT )
-                     histarray(:,:,istart:iend) =   &
-                       histarray(:,:,istart:iend) / max( ncount, 1 )
-                  end where  
+!           Even multilevel variables are written one level at a time
+            do k = istart,iend
+               cnt = cnt + 1
+               k_indx(cnt) = k
+               rrank = ((cnt-1)*gap)/slab
+               if ( rrank==histinfo(ifld)%procid .or. &
+                    myid==histinfo(ifld)%procid .or.  &
+                    myid==rrank ) then
+                  dreq = dreq + 1 
                end if
-               if ( histinfo(ifld)%output_scale /= 0 ) then
-                  where ( histarray(:,:,istart:iend) /= NF90_FILL_FLOAT ) 
-                     histarray(:,:,istart:iend) = histarray(:,:,istart:iend) * &
-                      histinfo(ifld)%output_scale
-                  end where   
-               end if
-               if ( hist_debug >= 4 ) then
-                  print*, "History written at point ", histinfo(ifld)%name, &
-                    histarray(ihdb,jhdb,istart+khdb-1)
-               end if
-
-!              Even multilevel variables are written one level at a time
-               do k = istart,iend
-                  cnt = cnt + 1
-                  k_indx(cnt) = k
-               end do   ! k loop
-               
-            end if ! .not.writeoutput_test
+            end do   ! k loop
 
          end do ! Loop over fields
-         
-!        now distribute level data across processes to be interpolated
+      
+         ! reallocate MPI request and buffers if more memory is needed
+         maxdreq = dreq
+         if ( allocated( ireq ) ) then
+            if ( size(ireq) < maxdreq ) then
+               deallocate( htemp_buff, ireq )
+            end if
+         end if
+         if ( .not.allocated( ireq ) ) then
+            allocate( htemp_buff(nxhis,nyhis,maxdreq), ireq(maxdreq) )
+         end if      
+
+!        now do the gather wrap
          if ( slab > 0 ) then
             call gather_wrap(histarray,hist_a,slab,gap,maxcnt,k_indx)
          end if
-
-!        third pass
-!        perform the interpolation on level data and send to output process
+ 
          cnt = 0
-         sreq = 0
-         rreq = 0
+         nreq = 0
          dreq = 0
          sizehis = nxhis*nyhis
+!        third pass
+!        perform the interpolation
          do ifld = 1,totflds
-
+            if ( .not. histinfo(ifld)%used ) then
+               cycle
+            end if
+            ave_type = histinfo(ifld)%ave_type
             nlev = histinfo(ifld)%nlevels
+            vid = histinfo(ifld)%vid
+            
+!           Only write fixed variables in the first history set
+            if ( histset > 1 .and. ave_type == hist_fixed ) then
+               cycle
+            end if
+            if ( histinfo(ifld)%daily .and. .not.single_output .and. .not.endofday ) then
+               cycle
+            end if   
+            if ( histinfo(ifld)%sixhr .and. .not.single_output .and. .not.endof6hr ) then
+               cycle
+            end if 
+
             istart = histinfo(ifld)%ptr
             iend = istart + nlev - 1
-            if ( .not.writeout_test(ifld,endof6hr,endofday) ) then
 
-!              Even multilevel variables are written one level at a time
-               do k = istart, iend
-                  rrank = (cnt*gap)/slab
-                  cnt = cnt + 1
+!           Even multilevel variables are written one level at a time
+            do k = istart, iend
 
-                  ! interpolate data to output grid on this process
-                  if ( myid == rrank ) then
-                     do ip = 0,pnproc-1
-                        do n = 0,pnpan-1
-                           hist_g(1+ioff(ip,n):pil+ioff(ip,n),1+joff(ip,n)+n*pil_g:pjl+joff(ip,n)+n*pil_g) = &
-                              hist_a(1:pil,1+n*pjl:(n+1)*pjl,ip+1,cnt)
-                        end do
+               cnt = cnt + 1
+               rrank = ((cnt-1)*gap)/slab
+               if ( myid == rrank ) then
+                  do ip = 0,pnproc-1
+                     do n = 0,pnpan-1
+                        hist_g(1+ioff(ip,n):pil+ioff(ip,n),1+joff(ip,n)+n*pil_g:pjl+joff(ip,n)+n*pil_g) = &
+                           hist_a(1:pil,1+n*pjl:(n+1)*pjl,ip+1,cnt)
                      end do
-!                    Update fill if required         
-                     if ( histinfo(ifld)%fill ) then
-                        call fill_cc1(hist_g)
-                     end if
-                     if ( present(interp) ) then
-                        call interp ( hist_g, htemp, histinfo(ifld)%int_type )
-                     else
-                        htemp = hist_g(:,:)
-                     end if
-                     if ( histinfo(ifld)%all_positive ) then
-                        htemp = max( htemp, 0. )
-                     end if   
-                  end if ! myid==rrank
-
-                  ! send interpolated variable data to process responsible for writing data
-                  call START_LOG(mpisendrecv_begin)
-                  itag = 1000 + cnt
-                  if ( myid == histinfo(ifld)%procid_output ) then
-                     dreq = dreq + 1
-                     rreq = rreq + 1
-                     call MPI_IRecv(htemp_buff(:,:,dreq), sizehis, MPI_REAL, rrank, itag, comm_world, ireq_r(rreq), ierr)
-                     ireq_d(rreq) = dreq
-                     ifld_r(rreq) = ifld
-                     k_r(rreq) = k
-                  end if   
-                  if ( myid == rrank ) then
-                     dreq = dreq + 1 
-                     sreq = sreq + 1
-                     htemp_buff(:,:,dreq) = htemp
-                     call MPI_ISend(htemp_buff(:,:,dreq), sizehis, MPI_REAL, histinfo(ifld)%procid_output, itag, &
-                                    comm_world, ireq_s(sreq), ierr)
+                  end do
+!                 Update fill if required         
+                  if ( histinfo(ifld)%fill ) then
+                     call fill_cc1(hist_g)
                   end if
-                  call END_LOG(mpisendrecv_end)
+                  if ( present(interp) ) then
+                     call interp ( hist_g, htemp, histinfo(ifld)%int_type )
+                  else
+                     htemp = hist_g(:,:)
+                  end if
+                  if ( histinfo(ifld)%all_positive ) then
+                     htemp = max( htemp, 0. )
+                  end if   
+               end if
 
-               end do   ! k loop
-
-            end if ! .not.writeoutput_test
+               call START_LOG(mpisendrecv_begin)
+               itag = 1000 + cnt
+               rrank = ((cnt-1)*gap)/slab
+               if ( rrank /= histinfo(ifld)%procid ) then
+                  if ( myid == histinfo(ifld)%procid ) then
+                     dreq = dreq + 1 
+                     nreq = nreq + 1
+                     call MPI_IRecv(htemp_buff(:,:,dreq), sizehis, MPI_REAL, rrank, itag, comm_world, ireq(nreq), ierr)
+                     ireq_r(cnt) = nreq
+                     ireq_d(cnt) = dreq
+                  else if ( myid == rrank ) then
+                     dreq = dreq + 1 
+                     nreq = nreq + 1 
+                     htemp_buff(:,:,dreq) = htemp
+                     call MPI_ISend(htemp_buff(:,:,dreq), sizehis, MPI_REAL, histinfo(ifld)%procid, itag, comm_world, &
+                                    ireq(nreq), ierr)
+                  end if
+               else
+                  dreq = dreq + 1 
+                  htemp_buff(:,:,dreq) = htemp
+                  ireq_d(cnt) = dreq
+               end if
+               call END_LOG(mpisendrecv_end)
+            
+            end do   ! k loop
 
          end do ! Loop over fields
-
-         ! Recieve interpolated output and write to output file
-         rcount = rreq
-         do while ( rcount > 0 )
-            call START_LOG(mpisendrecv_begin) 
-            call MPI_WaitAny(rreq, ireq_r, req, MPI_STATUS_IGNORE, ierr )
-            call END_LOG(mpisendrecv_end)
-            rcount = rcount - 1
-            ifld = ifld_r(req)
-            istart = histinfo(ifld)%ptr
-            ncid = histinfo(ifld)%ncid
+      
+         cnt = 0
+!        fourth pass
+!        write the data
+         do ifld = 1,totflds
+            if ( .not. histinfo(ifld)%used ) then
+               cycle
+            end if
+            ave_type = histinfo(ifld)%ave_type
+            nlev = histinfo(ifld)%nlevels
             vid = histinfo(ifld)%vid
-            dreq = ireq_d(req)
-            k = k_r(req)
-            htemp = htemp_buff(:,:,dreq)
-            
-            if ( hbytes == 2 ) then
-               addoff = histinfo(ifld)%addoff
-               sf = histinfo(ifld)%scalef
-               umin = sf * vmin + addoff
-               umax = sf * vmax + addoff
-               where ( htemp == nf90_fill_float )
-                  htemp = NF90_FILL_SHORT
-               elsewhere
-                  ! Put the scaled array back in the original and let
-                  ! netcdf take care of conversion to int2
-                  htemp = nint((max(umin,min(umax,htemp))-addoff)/sf)
-               end where
-            else
-               where ( htemp == nf90_fill_float )
-                  htemp = missing_value_cordex 
-               end where    
-            end if    
-                   
-            call START_LOG(putvar_begin)
-            if ( histinfo(ifld)%daily .and. .not.single_output ) then
-               if ( endofday ) then
-                  if ( histinfo(ifld)%pop4d ) then
-                     start4D = (/ 1, 1, mod(k+1-istart-1,cptch)+1, 1+(k+1-istart-1)/cptch,  histset_daily /)
-                     count4D = (/ nxhis, nyhis, 1, 1, 1 /)
-                     ierr = nf90_put_var ( ncid, vid, htemp, start=start4D, count=count4D )
-                  else if ( nlev > 1 .or. histinfo(ifld)%multilev ) then
-                     start3D = (/ 1, 1, k+1-istart, histset_daily /)
-                     count3D = (/ nxhis, nyhis, 1, 1 /)
-                     ierr = nf90_put_var ( ncid, vid, htemp, start=start3D, count=count3D )
-                  else
-                     start2D = (/ 1, 1, histset_daily /)
-                     count2D = (/ nxhis, nyhis, 1 /)
-                     ierr = nf90_put_var ( ncid, vid, htemp, start=start2D, count=count2D )
-                  end if
-               end if    
-            else if ( histinfo(ifld)%sixhr .and. .not.single_output ) then
-               if ( endof6hr ) then
-                  if ( histinfo(ifld)%pop4d ) then
-                     start4D = (/ 1, 1, mod(k+1-istart-1,cptch)+1, 1+(k+1-istart-1)/cptch,  histset_6hr /)
-                     count4D = (/ nxhis, nyhis, 1, 1, 1 /)
-                     ierr = nf90_put_var ( ncid, vid, htemp, start=start4D, count=count4D )
-                  else if ( nlev > 1 .or. histinfo(ifld)%multilev ) then
-                     start3D = (/ 1, 1, k+1-istart, histset_6hr /)
-                     count3D = (/ nxhis, nyhis, 1, 1 /)
-                     ierr = nf90_put_var ( ncid, vid, htemp, start=start3D, count=count3D )
-                  else
-                     start2D = (/ 1, 1, histset_6hr /)
-                     count2D = (/ nxhis, nyhis, 1 /)
-                     ierr = nf90_put_var ( ncid, vid, htemp, start=start2D, count=count2D )
-                  end if
-               end if  
-            else    
-               if ( histinfo(ifld)%pop4d ) then
-                  start4D = (/ 1, 1, mod(k+1-istart-1,cptch)+1, 1+(k+1-istart-1)/cptch,  histset /)
-                  count4D = (/ nxhis, nyhis, 1, 1, 1 /)
-                  ierr = nf90_put_var ( ncid, vid, htemp, start=start4D, count=count4D )
-               else if ( nlev > 1 .or. histinfo(ifld)%multilev ) then
-                  start3D = (/ 1, 1, k+1-istart, histset /)
-                  count3D = (/ nxhis, nyhis, 1, 1 /)
-                  ierr = nf90_put_var ( ncid, vid, htemp, start=start3D, count=count3D )
-               else
-                  start2D = (/ 1, 1, histset /)
-                  count2D = (/ nxhis, nyhis, 1 /)
-                  ierr = nf90_put_var ( ncid, vid, htemp, start=start2D, count=count2D )
-               end if
+         
+!           Only write fixed variables in the first history set
+            if ( histset > 1 .and. ave_type == hist_fixed ) then
+               cycle
+            end if
+            if ( histinfo(ifld)%daily .and. .not.single_output .and. .not.endofday ) then
+               cycle
             end if   
-            call check_ncerr(ierr, "Error writing history variable "//histinfo(ifld)%name )
-            call END_LOG(putvar_end)
-            
-         end do ! while rcount > 0
+            if ( histinfo(ifld)%sixhr .and. .not.single_output .and. .not.endof6hr ) then
+               cycle
+            end if   
 
-         ! wait for meessages to be sent
+            istart = histinfo(ifld)%ptr
+            iend = istart + nlev - 1
+
+!           Even multilevel variables are written one level at a time
+            do k = istart, iend
+
+               cnt = cnt + 1
+
+               if ( myid == histinfo(ifld)%procid ) then
+               
+                  call START_LOG(mpisendrecv_begin) 
+                  rrank = ((cnt-1)*gap)/slab
+                  if ( rrank /= histinfo(ifld)%procid ) then
+                     rreq = ireq_r(cnt) 
+                     call MPI_Wait(ireq(rreq), MPI_STATUS_IGNORE, ierr)
+                  end if   
+                  dreq = ireq_d(cnt) 
+                  htemp = htemp_buff(:,:,dreq)
+                  call END_LOG(mpisendrecv_end)
+
+                  if ( hbytes == 2 ) then
+                     addoff = histinfo(ifld)%addoff
+                     sf = histinfo(ifld)%scalef
+                     umin = sf * vmin + addoff
+                     umax = sf * vmax + addoff
+                     where ( fpequal(htemp, nf90_fill_float) )
+                        htemp = NF90_FILL_SHORT
+                     elsewhere
+                        ! Put the scaled array back in the original and let
+                        ! netcdf take care of conversion to int2
+                        htemp = nint((max(umin,min(umax,htemp))-addoff)/sf)
+                     end where
+                  else
+                     where ( fpequal(htemp, nf90_fill_float) )
+                        htemp = missing_value_cordex 
+                     end where    
+                  end if    
+                   
+                  call START_LOG(putvar_begin)
+                  ncid = histinfo(ifld)%ncid
+                  if ( histinfo(ifld)%daily .and. .not.single_output ) then
+                     if ( endofday ) then
+                        if ( histinfo(ifld)%pop4d ) then
+                           start4D = (/ 1, 1, mod(k+1-istart-1,cptch)+1, 1+(k+1-istart-1)/cptch,  histset_daily /)
+                           count4D = (/ nxhis, nyhis, 1, 1, 1 /)
+                           ierr = nf90_put_var ( ncid, vid, htemp, start=start4D, count=count4D )
+                        else if ( nlev > 1 .or. histinfo(ifld)%multilev ) then
+                           start3D = (/ 1, 1, k+1-istart, histset_daily /)
+                           count3D = (/ nxhis, nyhis, 1, 1 /)
+                           ierr = nf90_put_var ( ncid, vid, htemp, start=start3D, count=count3D )
+                        else
+                           start2D = (/ 1, 1, histset_daily /)
+                           count2D = (/ nxhis, nyhis, 1 /)
+                           ierr = nf90_put_var ( ncid, vid, htemp, start=start2D, count=count2D )
+                        end if
+                     end if    
+                  else if ( histinfo(ifld)%sixhr .and. .not.single_output ) then
+                     if ( endof6hr ) then
+                        if ( histinfo(ifld)%pop4d ) then
+                           start4D = (/ 1, 1, mod(k+1-istart-1,cptch)+1, 1+(k+1-istart-1)/cptch,  histset_6hr /)
+                           count4D = (/ nxhis, nyhis, 1, 1, 1 /)
+                           ierr = nf90_put_var ( ncid, vid, htemp, start=start4D, count=count4D )
+                        else if ( nlev > 1 .or. histinfo(ifld)%multilev ) then
+                           start3D = (/ 1, 1, k+1-istart, histset_6hr /)
+                           count3D = (/ nxhis, nyhis, 1, 1 /)
+                           ierr = nf90_put_var ( ncid, vid, htemp, start=start3D, count=count3D )
+                        else
+                           start2D = (/ 1, 1, histset_6hr /)
+                           count2D = (/ nxhis, nyhis, 1 /)
+                           ierr = nf90_put_var ( ncid, vid, htemp, start=start2D, count=count2D )
+                        end if
+                     end if  
+                  else    
+                     if ( histinfo(ifld)%pop4d ) then
+                        start4D = (/ 1, 1, mod(k+1-istart-1,cptch)+1, 1+(k+1-istart-1)/cptch,  histset /)
+                        count4D = (/ nxhis, nyhis, 1, 1, 1 /)
+                        ierr = nf90_put_var ( ncid, vid, htemp, start=start4D, count=count4D )
+                     else if ( nlev > 1 .or. histinfo(ifld)%multilev ) then
+                        start3D = (/ 1, 1, k+1-istart, histset /)
+                        count3D = (/ nxhis, nyhis, 1, 1 /)
+                        ierr = nf90_put_var ( ncid, vid, htemp, start=start3D, count=count3D )
+                     else
+                        start2D = (/ 1, 1, histset /)
+                        count2D = (/ nxhis, nyhis, 1 /)
+                        ierr = nf90_put_var ( ncid, vid, htemp, start=start2D, count=count2D )
+                     end if
+                  end if   
+                  call check_ncerr(ierr, "Error writing history variable "//histinfo(ifld)%name )
+                  call END_LOG(putvar_end)
+
+               end if
+            end do   ! k loop
+               
+!           Zero ready for next set
+            histarray(:,:,istart:iend) = nf90_fill_float
+!           Reset the count variable
+            histinfo(ifld)%count = 0
+
+         end do ! Loop over fields
+      
          call START_LOG(mpisendrecv_begin)
-         if ( sreq > 0 ) then
-            call MPI_Waitall(sreq, ireq_s, MPI_STATUSES_IGNORE, ierr )
+         if ( nreq > 0 ) then
+            call MPI_Waitall(nreq, ireq, MPI_STATUSES_IGNORE, ierr )
          end if   
-         call END_LOG(mpisendrecv_end)
+         call END_LOG(mpisendrecv_end)       
 
-         ! deallocate memory
          deallocate(hist_a)
+         
+      end if ! maxcnt>0   
 
-      end if ! maxcnt>0
-
-      ! reset timers
-      histarray(:,:,:) = nf90_fill_float
-      histinfo(:)%count = 0
-      avetime = 0.
+      avetime = 0.0
       ! Initialisation so min/max work
       avetime_bnds(:) = (/huge(1.), -huge(1.)/)
       timecount = 0
@@ -2837,8 +2902,8 @@ contains
 !        Sync the file so that if the program crashes for some reason 
 !        there will still be useful output.
          call START_LOG(putvar_begin)
-         do i = 1,size(histfile) 
-            ncid = histfile(i)%id 
+         do i = 1,size(histid) 
+            ncid = histid(i) 
             ierr = nf90_sync ( ncid )
             call check_ncerr(ierr, "Error syncing history file")
          end do 
@@ -2853,36 +2918,6 @@ contains
       call END_LOG(writehist_end)
 
    end subroutine writehist
-
-   pure function writeout_test(ifld,endof6hr,endofday) result(ans)
-
-      ! determine if output should be written for this time-step
-
-      integer, intent(in) :: ifld
-      logical, intent(in) :: endof6hr, endofday
-
-      integer :: ave_type, nlev
-      logical :: ans
-
-      ave_type = histinfo(ifld)%ave_type
-      nlev = histinfo(ifld)%nlevels
-      ans = .false.
-
-      if ( .not. histinfo(ifld)%used ) then
-         ans = .true.
-      end if
-!     Only write fixed variables in the first history set
-      if ( histset > 1 .and. ave_type == hist_fixed ) then
-         ans = .true.
-      end if
-      if ( histinfo(ifld)%daily .and. .not.single_output .and. .not.endofday ) then
-         ans = .true.
-      end if   
-      if ( histinfo(ifld)%sixhr .and. .not.single_output .and. .not.endof6hr ) then
-         ans = .true.
-      end if 
-
-   end function writeout_test         
 
 !-------------------------------------------------------------------
 
@@ -2919,12 +2954,7 @@ contains
    subroutine gather_wrap(histarray,hist_a,slab,gap,maxcnt,k_indx)
       use mpidata_m, only : nproc, lproc, myid, pil, pjl, pnpan, comm_world
       use logging_m
-#ifdef usempimod
-      use mpi
-#endif
-#ifndef usempimod
       include 'mpif.h'
-#endif
       integer, intent(in) :: slab, gap, maxcnt
       integer :: istart, iend, ip, k, n, ierr, lsize, lp, iq
       integer, dimension(maxcnt), intent(in) :: k_indx
@@ -2945,7 +2975,7 @@ contains
       
       istart = 1 + slab*(myid/gap) 
       iend = min( istart + slab - 1, maxcnt )
-      if ( interpolate_test(myid,slab,gap,maxcnt) ) then
+      if ( mod( myid, gap ) == 0 .and. myid < gap*ceiling(real(maxcnt,8)/real(slab,8)) ) then
          lsize = pil*pjl*pnpan*lproc*(iend-istart+1)
          do ipr = 0,nproc-1
             nreq = nreq + 1
@@ -2960,7 +2990,7 @@ contains
       do ip = 0,nproc-1
          istart = 1 + slab*(ip/gap) 
          iend = min( istart + slab - 1, maxcnt )
-         if ( interpolate_test(ip,slab,gap,maxcnt) ) then
+         if ( mod( ip, gap ) == 0 .and. ip < gap*ceiling(real(maxcnt,8)/real(slab,8)) ) then
             do k = istart,iend
                histarray_tmp(:,:,:,k-istart+1,ip+1) = reshape( histarray(:,:,k_indx(k)), (/ pil,pjl*pnpan,lproc /) )
             end do   
@@ -2975,7 +3005,7 @@ contains
       
       istart = 1 + slab*(myid/gap)
       iend = min( slab*(myid/gap+1), maxcnt )          
-      if ( interpolate_test(myid,slab,gap,maxcnt) ) then
+      if ( mod( myid, gap ) == 0 .and. myid < gap*ceiling(real(maxcnt,8)/real(slab,8)) ) then
          rcount = rreq
          do while ( rcount > 0 )
             call START_LOG(mpigather_begin)
@@ -3004,65 +3034,6 @@ contains
       call END_LOG(gatherwrap_end)
    
    end subroutine gather_wrap
-   
-   subroutine interpolate_count(cnt,slab,gap,nproc,endof6hr,endofday)
-
-      integer, intent(out) :: cnt, slab, gap
-      integer, intent(in) :: nproc
-      logical, intent(in) :: endof6hr, endofday
-      integer :: ifld, nlev
-            
-      cnt = 0
-      do ifld = 1,totflds
-         if ( .not.writeout_test(ifld,endof6hr,endofday) ) then
-            nlev = histinfo(ifld)%nlevels
-            cnt = cnt + nlev
-         end if
-      end do
-      
-      slab = ceiling(real(cnt,8)/real(nproc,8))
-      gap = max( nproc/cnt, 1 )
-
-   end subroutine interpolate_count
-
-   subroutine interpolate_requests(sreq,rreq,slab,gap,myid,endof6hr,endofday)
-      
-      integer, intent(out) :: sreq, rreq
-      integer, intent(in) :: slab, gap, myid
-      logical, intent(in) :: endof6hr, endofday
-      integer :: ifld, nlev, k, istart, iend, rrank, cnt
-   
-      cnt = 0
-      sreq = 0
-      rreq = 0
-      do ifld = 1,totflds
-         nlev = histinfo(ifld)%nlevels
-         istart = histinfo(ifld)%ptr
-         iend = istart + nlev - 1
-         if ( .not.writeout_test(ifld,endof6hr,endofday) ) then
-            do k = istart,iend
-               rrank = (cnt*gap)/slab
-               cnt = cnt + 1
-               if ( myid==rrank ) then
-                  sreq = sreq + 1
-               end if
-               if ( myid==histinfo(ifld)%procid_output ) then
-                  rreq = rreq + 1
-               end if
-            end do
-         end if
-      end do
-
-   end subroutine interpolate_requests
-   
-   pure function interpolate_test(myid,slab,gap,maxcnt) result(ans)
-   
-      integer, intent(in) :: myid, gap, slab, maxcnt
-      logical :: ans
-      
-      ans = mod(myid,gap)==0 .and. myid<gap*ceiling(real(maxcnt,8)/real(slab,8))
-   
-   end function interpolate_test
 
 !-------------------------------------------------------------------
    function needfld ( name ) result (needed)
@@ -3072,7 +3043,7 @@ contains
 
 !     Check if name is in the list for any of the history files
       needed = .false.
-      ifld = bindex_hname ( name, inames(:,1:totflds), totflds)
+      ifld = qindex_hname ( name, inames(:,1:totflds), totflds)
       if ( ifld == 0 ) then
          ! Name not known at all in this case
          needed = .false.
@@ -3094,7 +3065,19 @@ contains
 !  Lookup "key" in "table" of integers using a binary search.
 !  This assumes that the list has been sorted but it doesn't test for this.
 
-      key = hashkey ( name )
+!      key = hashkey ( name )
+!     hashkey inlined by hand      
+      key(:) = 0
+!     This makes numerical order the same as alphabetical order
+      do k = 1,MAX_KEYINDEX
+         fac = 1 
+         do i=min(k*MAX_KEYLEN,len_trim(name)),(k-1)*MAX_KEYLEN+1,-1
+            ! Netcdf allowed characters for variables names are in 
+            ! range 48 to 122 (alphanumeric and _)
+            key(k) = key(k) + fac*(ichar(name(i:i))-48)
+            fac = fac * 75
+         end do   
+      end do
 
       ifld = 0
       lower = 1
@@ -3117,6 +3100,40 @@ contains
 
    end function bindex_hname
 !-------------------------------------------------------------------
+   function qindex_hname ( name, table, nflds ) result(ifld)
+      character(len=*), intent(in)    :: name
+      integer, intent(in) :: nflds
+      integer ( bigint ), intent(in), dimension(MAX_KEYINDEX,nflds) :: table
+      integer :: ifld
+!     Both of these are initially set to one because this is a safe value.
+!     It doesn't matter that this points to the wrong thing because it's
+!     always checked.
+!     Index of the previously found name
+      integer, save :: prev = 1
+!     Index of the successor of a given index
+      integer, save, dimension(nfmax) :: successor = 1
+
+!     First check the successor of the previous name. This will generally 
+!     work because things are done in a fixed order. It will only break on
+!     the first latitude of the radiation step.
+
+      ifld = successor(prev)
+      if ( histinfo(ifld)%name /= name ) then
+         ifld = bindex_hname ( name, table, nflds )
+         if ( ifld == 0 ) then
+            ! Name is not known, return without updating internal fields
+            return
+         end if
+!        Redefine the successor.
+         successor(prev) = ifld
+      end if
+
+!     Set this for next time
+      prev = ifld
+         
+
+   end function qindex_hname
+!-------------------------------------------------------------------
    function hashkey ( name ) result (key)
 !  Generate an integer from a string
       character(len=*), intent(in) :: name
@@ -3124,15 +3141,15 @@ contains
       integer :: i, k
       integer (bigint) :: fac
 
-      key(:) = int(0,kind=bigint)
+      key(:) = 0
       do k = 1,MAX_KEYINDEX
-         fac = int(1,kind=bigint) 
+         fac = 1 
          ! This makes numerical order the same as alphabetical order
          do i=min(k*MAX_KEYLEN,len_trim(name)),(k-1)*MAX_KEYLEN+1,-1
             ! Netcdf allowed characters for variables names are in 
             ! range 48 to 122 (alphanumeric and _)
-            key(k) = key(k) + fac*int(ichar(name(i:i))-48,kind=bigint)
-            fac = fac * int(75,kind=bigint) ! 122-48+1=75
+            key(k) = key(k) + fac*(ichar(name(i:i))-48)
+            fac = fac * 75
          end do   
       end do
       if (hist_debug > 2 ) then
