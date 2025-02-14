@@ -408,7 +408,7 @@ contains
                call savehist("sftlaf", dtmp)
             end if
          end if ! have_soilt    
-      end if
+      end if    ! first_in
 
       
       q = 0.
@@ -1747,6 +1747,7 @@ contains
                call height ( t, q, zs, psl, sig, zstd, plevs(1:nplevs) )
                if ( needfld("topoft") ) then
                   tmp3d = zstd*3.28028 ! convert from m to ft 
+                  if ( areps_compliant ) tmp3d = max( tmp3d, 0. ) ! no negative values allowed
                   call savehist ( "topoft", tmp3d ) 
                end if
                if ( needfld("zg") ) then
@@ -1758,6 +1759,7 @@ contains
                end do
                if ( needfld("topoft") ) then
                   tmp3d = zstd*3.28028 ! convert from m to ft 
+                  if ( areps_compliant ) tmp3d = max( tmp3d, 0. ) ! no negative values allowed
                   call savehist ( "topoft", tmp3d ) 
                end if
                if ( needfld("zg") ) then
@@ -1766,6 +1768,7 @@ contains
             else if ( use_theta .or. use_pvort ) then
                if ( needfld("topoft") ) then
                   tmp3d = hstd*3.28028 ! convert from m to ft 
+                  if ( areps_compliant ) tmp3d = max( tmp3d, 0. ) ! no negative values allowed
                   call savehist ( "topoft", tmp3d ) 
                end if
                if ( needfld("zg") ) then
@@ -1774,6 +1777,7 @@ contains
             else
                if ( needfld("topoft") ) then
                   tmp3d(:,:,minlev:maxlev) = hstd(:,:,minlev:maxlev)*3.28028 ! convert from m to ft  
+                  if ( areps_compliant ) tmp3d(:,:,minlev:maxlev) = max( tmp3d(:,:,minlev:maxlev), 0. ) ! no negative values allowed
                   call savehist ( "topoft", tmp3d(:,:,minlev:maxlev) ) 
                end if
                if ( needfld("zg") ) then
@@ -1831,6 +1835,7 @@ contains
          end if
          if ( needfld("direction") ) then
             tmp3d = atan2(u,v)*45./atan(1.) + 180.
+            tmp3d = max( tmp3d, 0. )
             call vsavehist ( "direction", tmp3d )
          end if
 
