@@ -87,14 +87,16 @@ program cc2hist
    include 'revision.h'
    
    integer :: kt, kdate, ktime, ierr, ieof, ntracers
-   integer :: mins
+   integer :: mins, lerr
    integer :: iyr, imon, iday, ihr, vid
    integer :: base_yr, base_mon, base_day, base_hr
    integer :: nvars
    integer :: veg_int, ncount
    integer :: natts, catts, ival, xtype, attlen, i
+   integer, dimension(16) :: dumi
    logical :: use_date, use_steps
    logical :: skip
+   logical, dimension(12) :: duml
    character(len=256) :: source, optionstring=""
    character(len=80)  :: basetime,calendar
    character(len=120) :: attname
@@ -104,6 +106,7 @@ program cc2hist
    real :: rval, dtime
    real, dimension(2) :: time_bnds
    real, dimension(:), allocatable :: xlevs, oxlevs
+   real, dimension(11) :: dumr
    type(input_var), dimension(:), pointer, contiguous :: varlist
    type(hist_att), dimension(:), allocatable :: extra_atts, extra_temp
 
@@ -227,9 +230,103 @@ program cc2hist
 
    ! Read namelist - allows overwriting of command line options
    if ( trim(cfile) == "" ) cfile = "cc.nml"
-   if ( myid==0 ) write(6,*) "reading ",trim(cfile)
-   open(1,file=trim(cfile))
-   read(1,input)   
+   if ( myid == 0 ) then
+      write(6,*) "reading ",trim(cfile)
+      open(1,file=trim(cfile))
+      read(1,input)
+   end if   
+   
+   call START_LOG(mpibcast_begin)
+   dumi(1) = kta
+   dumi(2) = ktb
+   dumi(3) = ktc
+   dumi(4) = ndate
+   dumi(5) = ntime
+   dumi(6) = lx
+   dumi(7) = ly
+   dumi(8) = minlev
+   dumi(9) = maxlev
+   dumi(10) = sdate
+   dumi(11) = edate
+   dumi(12) = stime
+   dumi(13) = etime
+   dumi(14) = int_default
+   dumi(15) = vextrap
+   dumi(16) = safe_max
+   call MPI_Bcast( dumi(:), size(dumi), MPI_INTEGER, 0, COMM_WORLD, lerr )
+   kta = dumi(1)
+   ktb = dumi(2)
+   ktc = dumi(3)
+   ndate = dumi(4)
+   ntime = dumi(5)
+   lx = dumi(6)
+   ly = dumi(7)
+   minlev = dumi(8)
+   maxlev = dumi(9)
+   sdate = dumi(10)
+   edate = dumi(11)
+   stime = dumi(12)
+   etime = dumi(13)
+   int_default = dumi(14)
+   vextrap = dumi(15)
+   safe_max = dumi(16)
+   dumr(1) = minlon
+   dumr(2) = maxlon
+   dumr(3) = dlon
+   dumr(4) = minlat
+   dumr(5) = maxlat
+   dumr(6) = dlat
+   dumr(7) = dx
+   dumr(8) = dy
+   dumr(9) = minsig
+   dumr(10) = maxsig
+   dumr(11) = hres
+   call MPI_Bcast( dumr(:), size(dumr), MPI_REAL, 0, COMM_WORLD, lerr )
+   minlon = dumr(1)
+   maxlon = dumr(2)
+   dlon = dumr(3)
+   minlat = dumr(4)
+   maxlat = dumr(5)
+   dlat = dumr(6)
+   dx = dumr(7)
+   dy = dumr(8)
+   minsig = dumr(9)
+   maxsig = dumr(10)
+   hres = dumr(11)
+   call MPI_Bcast( plevs, size(plevs), MPI_REAL, 0, COMM_WORLD, lerr )
+   call MPI_Bcast( mlevs, size(mlevs), MPI_REAL, 0, COMM_WORLD, lerr )
+   call MPI_Bcast( dlevs, size(dlevs), MPI_REAL, 0, COMM_WORLD, lerr )
+   call MPI_Bcast( tlevs, size(tlevs), MPI_REAL, 0, COMM_WORLD, lerr )
+   call MPI_Bcast( vlevs, size(vlevs), MPI_REAL, 0, COMM_WORLD, lerr )
+   duml(1) = use_plevs
+   duml(2) = use_meters
+   duml(3) = use_depth
+   duml(4) = use_theta
+   duml(5) = use_pvort
+   duml(6) = debug
+   duml(7) = cf_compliant
+   duml(8) = cordex_compliant
+   duml(9) = save_ccam_parameters
+   duml(10) = ran_compliant
+   duml(11) = areps_compliant
+   duml(12) = fao_potev
+   call MPI_Bcast( duml(:), size(duml), MPI_LOGICAL, 0, COMM_WORLD, lerr )
+   use_plevs = duml(1)
+   use_meters = duml(2)
+   use_depth = duml(3)
+   use_theta = duml(4)
+   use_pvort = duml(5)
+   debug = duml(6)
+   cf_compliant = duml(7)
+   cordex_compliant = duml(8)
+   save_ccam_parameters = duml(9)
+   ran_compliant = duml(10)
+   areps_compliant = duml(11)
+   fao_potev = duml(12)
+   call ccmpi_bcast(ifile,0,COMM_WORLD)
+   call ccmpi_bcast(ofile,0,COMM_WORLD)
+   call END_LOG(mpibcast_end)
+   
    
 !  If filenames were not set as options look for them as arguments
    if ( len_trim(ifile) == 0 .and. len_trim(ofile) == 0 ) then
@@ -243,7 +340,7 @@ program cc2hist
          call getarg(nopt+1,ofile)
       end if
    end if
-
+   
    if ( len_trim(ifile) == 0 .or. len_trim(ofile) == 0 ) then
       print*, "Error setting input/output filenames"
       call finishbanner
@@ -342,7 +439,9 @@ program cc2hist
    call get_var_list(varlist,nvars)
 
    call histnamelist(1)
-   close(1)
+   if ( myid == 0 ) then
+      close(1)
+   end if
 
 !  openhist has to be called before any data is read because it allocates
 !  the memory.
@@ -614,13 +713,11 @@ program cc2hist
 end program cc2hist
     
 subroutine finishbanner
+   implicit none
 
-implicit none
+   ! End banner
+   write(6,*) "=============================================================================="
+   write(6,*) "CCAM: Finished pcc2hist"
+   write(6,*) "=============================================================================="
 
-! End banner
-write(6,*) "=============================================================================="
-write(6,*) "CCAM: Finished pcc2hist"
-write(6,*) "=============================================================================="
-
-return
-end    
+end subroutine finishbanner

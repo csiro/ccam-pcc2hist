@@ -272,16 +272,17 @@ contains
       
       ierr = nf90_get_var( ncid, vid, ktau0, start=(/ 1 /) )
       call check_ncerr(ierr, "Error getting time")
-      kta = max(kta, ktau0 )
 
       ierr = nf90_get_var( ncid, vid, ktau1, start=(/ 2 /) )
       if ( ierr == nf90_noerr ) then
          diff = max( ktau1 - ktau0, 1 )
-         ktc = max( ktc, diff )
       else
          print *,"WARN: Cannot locate second time-step in input file" 
-         ktc = max( ktc, 1 )
+         diff = 1
       end if
+      
+      ktc = max( ktc, diff )
+      kta = max( kta, ktau0, ktc )
    
    end subroutine getstep
 
@@ -2155,6 +2156,7 @@ contains
       use xyzinfo_m
       use indices_m
       use latltoij_m
+      use logging_m
       use setxyz_m
       use interp_m
       use parm_m, only : rlong0, rlat0, schmidt ! Share with final_init
@@ -2436,7 +2438,9 @@ contains
       call allocshdata(i_s,ssize,(/ ifull /),is_win)
       call allocshdata(i_e,ssize,(/ ifull /),ie_win)
       call allocshdata(i_w,ssize,(/ ifull /),iw_win)
+      call START_LOG(mpibarrier_begin)
       call MPI_Barrier(node_comm,ierr)
+      call END_LOG(mpibarrier_end)
       if ( node_myid == 0 ) then
 #else
       allocate ( i_n(ifull), i_s(ifull), i_e(ifull), i_w(ifull) )
@@ -2450,12 +2454,16 @@ contains
 
 !     Communicate direction indices in case a fill is required in history.f90
 #ifdef share_ifullg
+      call START_LOG(mpibarrier_begin)
       call MPI_Barrier(node_comm,ierr)
+      call END_LOG(mpibarrier_end)
 #else
+      call START_LOG(mpibcast_begin)
       call MPI_Bcast( i_n, ifull, MPI_INTEGER, 0, comm_world, ierr )
       call MPI_Bcast( i_s, ifull, MPI_INTEGER, 0, comm_world, ierr )
       call MPI_Bcast( i_e, ifull, MPI_INTEGER, 0, comm_world, ierr )
       call MPI_Bcast( i_w, ifull, MPI_INTEGER, 0, comm_world, ierr )
+      call END_LOG(mpibcast_end)
 #endif
       
       if ( int_default == int_none ) then
@@ -2562,7 +2570,9 @@ contains
       call allocshdata(yg,ssize,(/ nxhis, nyhis /),yg_win)
       call allocshdata(nface,ssize,(/ nxhis, nyhis /),nface_win)
       
+      call START_LOG(mpibarrier_begin)
       call MPI_Barrier(node_comm,ierr)
+      call END_LOG(mpibarrier_end)
 #else
       allocate ( nface(nxhis,nyhis) )
       allocate ( xg(nxhis,nyhis), yg(nxhis,nyhis) )
@@ -2608,11 +2618,15 @@ contains
       end if   
 
 #ifdef share_ifull_g
+      call START_LOG(mpibarrier_begin)
       call MPI_Barrier(node_comm,ierr)
+      call END_LOG(mpibarrier_begin)
 #else
+      call START_LOG(mpibcast_begin)
       call MPI_Bcast( nface, nxhis*nyhis, MPI_INTEGER, 0, comm_world, ierr )
       call MPI_Bcast( xg, nxhis*nyhis, MPI_REAL, 0, comm_world, ierr )
       call MPI_Bcast( yg, nxhis*nyhis, MPI_REAL, 0, comm_world, ierr )
+      call END_LOG(mpibcast_end)
 #endif      
 
 
@@ -5534,7 +5548,9 @@ end function bisect
          if ( .not.allocated(resprocdata_inv) ) then
             allocate( resprocdata_inv(0:pnproc-1,2) )
          end if
+         call START_LOG(mpibcast_begin)
          call MPI_Bcast(resprocdata_inv, 2*pnproc, MPI_INTEGER, 0, comm_world, ier)
+         call END_LOG(mpibcast_end)
          do ip = 0,lproc-1
             rip = myid*lproc + ip
             prid_in(ip) = resprocdata_inv(rip,2) + 1

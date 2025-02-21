@@ -59,6 +59,11 @@ module history
               gsavehist2D, gsavehist3D, gsavehist4D
    private :: fill_cc1
    !private :: create_oldfile
+   
+   public :: ccmpi_bcast
+   interface ccmpi_bcast
+      module procedure ccmpi_bcast1s, ccmpi_bcast2s
+   end interface   
 
    character(len=50), public, parameter :: &
         history_revision = "$Revision: 7.10 $"
@@ -326,12 +331,22 @@ contains
 !     This routine uses local arrays for names etc, so it can control
 !     the overwriting of the module variables.
 !
+#ifdef usempimod
+      use mpi
+#endif
+      use logging_m
+      use mpidata_m
+#ifndef usempimod
+      include 'mpif.h'
+#endif      
       integer, intent(in) :: un      ! Unit no to read namelist
 !     Controls whether errors in reading the namelist should be fatal.
       logical, intent(in), optional :: iofatal 
       character(len=MAX_NAMELEN) :: htype
-      integer :: freq
-      integer :: bytes
+      integer :: freq, bytes
+      integer :: lerr
+      integer, dimension(7) :: dumi
+      logical, dimension(2) :: duml
       character(len=MAX_NAMELEN), dimension(nfmax) ::  &
          names, namesx
 
@@ -355,7 +370,36 @@ contains
       bytes = hbytes; hbytes = 4
       names = hnames; hnames = ""
       namesx = xnames; xnames = ""
-      read(un,histnl,iostat=ierr)
+      if ( myid == 0 ) then
+        read(un,histnl,iostat=ierr)
+      end if
+
+      call START_LOG(mpibcast_begin)
+      dumi(1) = ierr
+      dumi(2) = hfreq
+      dumi(3) = hbytes
+      dumi(4) = ihdb
+      dumi(5) = jhdb
+      dumi(6) = khdb
+      dumi(7) = chunk_grid
+      call MPI_BCAST( dumi(:), size(dumi), MPI_INTEGER, 0, COMM_WORLD, lerr )
+      ierr = dumi(1)
+      hfreq = dumi(2)
+      hbytes = dumi(3)
+      ihdb = dumi(4)
+      jhdb = dumi(5)
+      khdb = dumi(6)
+      chunk_grid = dumi(7)
+      duml(1) = hist_debug
+      duml(2) = amipnames
+      call MPI_BCAST( duml(:), size(duml), MPI_LOGICAL, 0, COMM_WORLD, lerr )
+      hist_debug = duml(1)
+      amipnames = duml(2)
+      call ccmpi_bcast(htype,0,COMM_WORLD)
+      call ccmpi_bcast(hnames,0,COMM_WORLD)
+      call ccmpi_bcast(xnames,0,COMM_WORLD)
+      call END_LOG(mpibcast_end)
+      
       if ( ierr /= 0 ) then
          if ( present(iofatal) ) then
             ! Error values > 0 are due to problems with the namelist section
@@ -996,26 +1040,28 @@ contains
             cptch_fld = 0
             cchrt_fld = 0
             do ifld = 1,totflds
-               if ( histinfo(ifld)%nlevels > 1 .or. histinfo(ifld)%multilev ) then
-                  multilev_fld = .true.
-               end if   
-               if ( .not.histinfo(ifld)%water .and. .not.histinfo(ifld)%soil .and.  &
-                    .not.histinfo(ifld)%pop2d .and. .not.histinfo(ifld)%pop3d .and. &
-                    .not.histinfo(ifld)%pop4d ) then
-                  nlevels_fld = size(sig) 
-               end if    
-               if ( histinfo(ifld)%water ) then
-                  ol_fld = ol
-               end if                
-               if ( histinfo(ifld)%soil ) then
-                  nsoil_fld = nsoil
-               end if    
-               if ( histinfo(ifld)%pop2d .or. histinfo(ifld)%pop3d .or. &
-                    histinfo(ifld)%pop4d ) then
-                  cptch_fld = cptch
-                  cchrt_fld = cchrt
-               end if
-            end do
+               if ( histinfo(ifld)%used ) then 
+                  if ( histinfo(ifld)%nlevels > 1 .or. histinfo(ifld)%multilev ) then
+                     multilev_fld = .true.
+                  end if   
+                  if ( .not.histinfo(ifld)%water .and. .not.histinfo(ifld)%soil .and.  &
+                       .not.histinfo(ifld)%pop2d .and. .not.histinfo(ifld)%pop3d .and. &
+                       .not.histinfo(ifld)%pop4d ) then
+                     nlevels_fld = size(sig) 
+                  end if    
+                  if ( histinfo(ifld)%water ) then
+                     ol_fld = ol
+                  end if                
+                  if ( histinfo(ifld)%soil ) then
+                     nsoil_fld = nsoil
+                  end if    
+                  if ( histinfo(ifld)%pop2d .or. histinfo(ifld)%pop3d .or. &
+                       histinfo(ifld)%pop4d ) then
+                     cptch_fld = cptch
+                     cchrt_fld = cchrt
+                  end if
+               end if ! histinfo(ifld)%used
+            end do    ! ifld = 1,totflds
             allocate( histfile(1), histdimvars(1) )
             call create_ncfile ( filename, nxhis, nyhis, nlevels_fld, ol_fld, cptch_fld, cchrt_fld, &
                  multilev_fld, use_plevs, use_meters, use_theta, use_pvort, use_depth, use_hyblevs, &
@@ -1766,7 +1812,7 @@ contains
          if ( hist_debug > 5 ) print*, "Created olev dimension, id", dims%oz
       end if
       if ( present(nsoil) ) then
-         if ( nsoil > 1 ) then
+         if ( nsoil > 0 ) then
             ierr = nf90_def_dim ( ncid, "depth", nsoil, dims%zsoil )
             call check_ncerr(ierr,"Error creating soil depth dimension")
             if ( hist_debug > 5 ) print*, "Created soil dimension, id",  dims%zsoil
@@ -3217,6 +3263,72 @@ contains
       
       call END_LOG(fillcc0_end)
       
-   end subroutine fill_cc1   
+   end subroutine fill_cc1
+   
+   subroutine ccmpi_bcast1s(ldat,host,comm)
+#ifdef usempimod
+      use mpi
+#endif
+#ifndef usempimod
+      include 'mpif.h'
+#endif   
+      integer, intent(in) :: host, comm
+      integer(kind=4) :: lcomm, lhost, lerr, lsize
+      character(len=*), intent(inout) :: ldat
+      integer i
+      integer(kind=1), dimension(:), allocatable :: dummy
+
+      ! MJT notes - MS Windows MPI_CHARACTER seems broken
+
+      lhost = host
+      lcomm = comm
+      lsize = len(ldat)
+      allocate( dummy(lsize) )
+      do i = 1,lsize
+         dummy(i) = int(iachar(ldat(i:i)),1)
+      end do
+      call MPI_Bcast(dummy,lsize,MPI_BYTE,lhost,lcomm,lerr)
+      do i = 1,lsize
+         ldat(i:i) = achar(dummy(i))
+      end do
+      deallocate( dummy )
+      
+   end subroutine ccmpi_bcast1s     
+   
+   subroutine ccmpi_bcast2s(ldat,host,comm)
+#ifdef usempimod
+      use mpi
+#endif
+#ifndef usempimod
+      include 'mpif.h'
+#endif   
+      integer, intent(in) :: host, comm
+      integer(kind=4) :: lcomm, lhost, lerr, llen, lsize, lnum
+      character(len=*), dimension(:), intent(inout) :: ldat
+      integer i, j
+      integer(kind=1), dimension(:,:), allocatable :: dummy
+
+      ! MJT notes - MS Windows MPI_CHARACTER seems broken
+
+      lhost = host
+      lcomm = comm
+      llen = len(ldat(1))
+      lnum = size(ldat)
+      lsize = llen*lnum
+      allocate( dummy(llen,lnum) )
+      do j = 1,lnum
+         do i = 1,llen
+            dummy(i,j) = int(iachar(ldat(j)(i:i)),1)
+         end do   
+      end do
+      call MPI_Bcast(dummy,lsize,MPI_BYTE,lhost,lcomm,lerr)
+      do j = 1,lnum
+         do i = 1,llen
+            ldat(j)(i:i) = achar(dummy(i,j))
+         end do   
+      end do
+      deallocate( dummy )
+      
+   end subroutine ccmpi_bcast2s
    
 end module history
