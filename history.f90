@@ -345,8 +345,7 @@ contains
       character(len=MAX_NAMELEN) :: htype
       integer :: freq, bytes
       integer :: lerr
-      integer, dimension(7) :: dumi
-      logical, dimension(2) :: duml
+      integer, dimension(9) :: dumi
       character(len=MAX_NAMELEN), dimension(nfmax) ::  &
          names, namesx
 
@@ -382,6 +381,12 @@ contains
       dumi(5) = jhdb
       dumi(6) = khdb
       dumi(7) = chunk_grid
+      dumi(8) = hist_debug
+      if ( amipnames ) then
+        dumi(9) = 1
+      else
+        dumi(9) = 0
+      end if
       call MPI_BCAST( dumi(:), size(dumi), MPI_INTEGER, 0, COMM_WORLD, lerr )
       ierr = dumi(1)
       hfreq = dumi(2)
@@ -390,11 +395,8 @@ contains
       jhdb = dumi(5)
       khdb = dumi(6)
       chunk_grid = dumi(7)
-      duml(1) = hist_debug
-      duml(2) = amipnames
-      call MPI_BCAST( duml(:), size(duml), MPI_LOGICAL, 0, COMM_WORLD, lerr )
-      hist_debug = duml(1)
-      amipnames = duml(2)
+      hist_debug = dumi(8)
+      amipnames = dumi(9)==1
       call ccmpi_bcast(htype,0,COMM_WORLD)
       call ccmpi_bcast(hnames,0,COMM_WORLD)
       call ccmpi_bcast(xnames,0,COMM_WORLD)
