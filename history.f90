@@ -1416,7 +1416,7 @@ contains
             ncid = histfile(i)%id 
             ierr = nf90_inq_varid(ncid, histfile(i)%coord_name(kc), vid)
             call check_ncerr(ierr,"Error getting vid for height coord")
-            ierr = nf90_put_var ( ncid, vid, real(histfile(i)%coord_height(kc)) )
+            ierr = nf90_put_var ( ncid, vid, histfile(i)%coord_height(kc) )
             call check_ncerr(ierr,"Error writing coordinate height")
          end do   
       end do

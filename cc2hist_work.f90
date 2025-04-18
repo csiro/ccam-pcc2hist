@@ -4245,7 +4245,8 @@ contains
          end if
          if ( cordex_compliant ) then    
             call addfld ( "sfcWind", "Near-Surface Wind Speed", "m s-1", 0., 100.0, 1, std_name="wind_speed",      &
-                          all_positive=.true. )  
+                          all_positive=.true., coord_height=10., coord_name="h10", coord_stdname="height",         &
+                          coord_units="m", coord_positive="up" )
          else
             call addfld ( "u10", "10m wind speed", "m s-1", 0., 100.0, 1, std_name="wind_speed", ran_type=.true.,  &
                           all_positive=.true. ) 
