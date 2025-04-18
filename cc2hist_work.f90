@@ -2791,6 +2791,7 @@ contains
       integer, parameter :: vmin=-32500, vmax=32500
       real :: xmin, xmax, aoff, sf, topsig, topheight, topheight_ft
       real :: coord_height
+      character(len=80) :: coord_name, coord_stdname, coord_units, coord_positive
 
       ierr = nf90_inquire(ncid, ndimensions=ndimensions, nvariables=nvariables)
       call check_ncerr(ierr, "nf90_inquire error")
@@ -3065,6 +3066,13 @@ contains
 
       do ivar = 1,nvars
 
+         ! disable coordinates attribute by default 
+         coord_height = -huge(1.) ! Acts as a null value  
+         coord_name = ""
+         coord_stdname = ""
+         coord_units = ""
+         coord_positive = ""
+          
          ! Check is variable is a component of a vector
          ! For now test both x-component and x-direction. Eventually
          ! only the former should be needed but older files use the
@@ -3457,6 +3465,11 @@ contains
                varlist(ivar)%instant = .true.
                xmin = 0.
                xmax = 0.06
+               coord_height = 2.
+               coord_name = "h2"
+               coord_stdname = "height"
+               coord_units = "m"
+               coord_positive = "up"
             else if ( varlist(ivar)%vname == "rgdc_ave" ) then
                varlist(ivar)%vname = "rldscs"
                varlist(ivar)%units = "W m-2"
@@ -3472,6 +3485,11 @@ contains
                varlist(ivar)%units = "%"
                varlist(ivar)%long_name = "Near-Surface Relative Humidity"
                varlist(ivar)%instant = .true.
+               coord_height = 2.
+               coord_name = "h2"
+               coord_stdname = "height"
+               coord_units = "m"
+               coord_positive = "up"
             else if ( varlist(ivar)%vname == "rnc" ) then
                varlist(ivar)%vname = "prc"
                varlist(ivar)%units = "kg m-2 s-1"
@@ -3600,17 +3618,32 @@ contains
                varlist(ivar)%long_name = "Daily Maximum Near-Surface Air Temperature"
                varlist(ivar)%daily = .true.
                varlist(ivar)%instant = .false.
+               coord_height = 2.
+               coord_name = "h2"
+               coord_stdname = "height"
+               coord_units = "m"
+               coord_positive = "up"
             else if ( varlist(ivar)%vname == "tminscr" ) then
                varlist(ivar)%vname = "tasmin"
                varlist(ivar)%units = "K"
                varlist(ivar)%long_name = "Daily Minimum Near-Surface Air Temperature"
                varlist(ivar)%daily = .true.
                varlist(ivar)%instant = .false.
+               coord_height = 2.
+               coord_name = "h2"
+               coord_stdname = "height"
+               coord_units = "m"
+               coord_positive = "up"
             else if ( varlist(ivar)%vname == "tscrn" ) then
                varlist(ivar)%vname = "tas"
                varlist(ivar)%units = "K"
                varlist(ivar)%long_name = "Near-Surface Air Temperature"
                varlist(ivar)%instant = .true.
+               coord_height = 2.
+               coord_name = "h2"
+               coord_stdname = "height"
+               coord_units = "m"
+               coord_positive = "up"
             else if ( varlist(ivar)%vname == "tsu" ) then
                varlist(ivar)%vname = "ts"
                varlist(ivar)%units = "K"
@@ -3622,6 +3655,11 @@ contains
                varlist(ivar)%long_name = "Near-Surface Wind Speed"
                varlist(ivar)%instant = .true.
                varlist(ivar)%all_positive = .true.
+               coord_height = 10.
+               coord_name = "h10"
+               coord_stdname = "height"
+               coord_units = "m"
+               coord_positive = "up"
             else if ( varlist(ivar)%vname == "u" ) then
                varlist(ivar)%vname = "ua"
                varlist(ivar)%units = "m s-1"
@@ -3631,6 +3669,11 @@ contains
                varlist(ivar)%long_name = "Eastward Near-Surface Wind"
                varlist(ivar)%units = "m s-1"
                varlist(ivar)%instant = .true.
+               coord_height = 10.
+               coord_name = "h10"
+               coord_stdname = "height"
+               coord_units = "m"
+               coord_positive = "up"
             else if ( varlist(ivar)%vname == "v" ) then
                varlist(ivar)%vname = "va"
                varlist(ivar)%units = "m s-1"
@@ -3640,6 +3683,17 @@ contains
                varlist(ivar)%long_name = "Northward Near-Surface Wind"
                varlist(ivar)%units = "m s-1"
                varlist(ivar)%instant = .true.
+               coord_height = 10.
+               coord_name = "h10"
+               coord_stdname = "height"
+               coord_units = "m"
+               coord_positive = "up"
+            else if ( varlist(ivar)%vname == "wsgsmax" ) then
+               coord_height = 10.
+               coord_name = "h10"
+               coord_stdname = "height"
+               coord_units = "m"
+               coord_positive = "up"
             else if ( varlist(ivar)%vname == "zolnd" ) then
                varlist(ivar)%vname = "z0"
                varlist(ivar)%long_name = "Surface Roughness Length"
@@ -3655,36 +3709,66 @@ contains
                   varlist(ivar)%long_name = "Eastward Wind"
                   varlist(ivar)%units = "m s-1"
                   varlist(ivar)%instant = .true.
+                  coord_height = real(press_level)
+                  call cordex_name(coord_name,"p",press_level)
+                  coord_stdname = "pressure"
+                  coord_units = "hPa"
+                  coord_positive = "down"
                end if
                call cordex_name(cname,"va",press_level)
                if ( varlist(ivar)%vname == trim(cname) ) then
                   varlist(ivar)%long_name = "Northward Wind"
                   varlist(ivar)%units = "m s-1"
                   varlist(ivar)%instant = .true.
+                  coord_height = real(press_level)
+                  call cordex_name(coord_name,"p",press_level)
+                  coord_stdname = "pressure"
+                  coord_units = "hPa"
+                  coord_positive = "down"
                end if
                call cordex_name(cname,"ta",press_level)
                if ( varlist(ivar)%vname == trim(cname) ) then
                   varlist(ivar)%long_name = "Air Temperature"
                   varlist(ivar)%units = "K"
                   varlist(ivar)%instant = .true.
+                  coord_height = real(press_level)
+                  call cordex_name(coord_name,"p",press_level)
+                  coord_stdname = "pressure"
+                  coord_units = "hPa"
+                  coord_positive = "down"
                end if
                call cordex_name(cname,"hus",press_level)
                if ( varlist(ivar)%vname == trim(cname) ) then
                   varlist(ivar)%long_name = "Specific Humidity"
                   varlist(ivar)%units = "1"
                   varlist(ivar)%instant = .true.
+                  coord_height = real(press_level)
+                  call cordex_name(coord_name,"p",press_level)
+                  coord_stdname = "pressure"
+                  coord_units = "hPa"
+                  coord_positive = "down"
                end if
                call cordex_name(cname,"zg",press_level)
                if ( varlist(ivar)%vname == trim(cname) ) then
                   varlist(ivar)%long_name = "Geopotential Height"
                   varlist(ivar)%units = "m"
                   varlist(ivar)%instant = .true.
+                  coord_height = real(press_level)
+                  call cordex_name(coord_name,"p",press_level)
+                  coord_stdname = "pressure"
+                  coord_units = "hPa"
+                  coord_positive = "down"
                end if
                call cordex_name(cname,"wa",press_level)
                if ( varlist(ivar)%vname == trim(cname) ) then
                   varlist(ivar)%long_name = "Upward Air Velocity"
                   varlist(ivar)%units = "m s-1"
                   varlist(ivar)%instant = .true.
+                  coord_height = real(press_level)
+                  call cordex_name(coord_name,"p",press_level)
+                  coord_stdname = "pressure"
+                  coord_units = "hPa"
+                  coord_positive = "down"
                end if               
             end do  
             do j = 1,height_levels
@@ -3694,51 +3778,79 @@ contains
                   call cordex_name(varlist(ivar)%long_name,"Eastward Wind at ",height_level,"m") 
                   varlist(ivar)%units = "m s-1"
                   varlist(ivar)%instant = .true.
+                  coord_height = real(height_level)
+                  call cordex_name(coord_name,"h",height_level)
+                  coord_stdname = "height"
+                  coord_units = "m"
+                  coord_positive = "up"
                end if
                call cordex_name(cname,"va",height_level,"m")
                if ( varlist(ivar)%vname == trim(cname) ) then
                   call cordex_name(varlist(ivar)%long_name,"Northward Wind at ",height_level,"m")
                   varlist(ivar)%units = "m s-1"
                   varlist(ivar)%instant = .true.
+                  coord_height = real(height_level)
+                  call cordex_name(coord_name,"h",height_level)
+                  coord_stdname = "height"
+                  coord_units = "m"
+                  coord_positive = "up"
                end if
             end do
          end if
          call cc_cfproperties(varlist(ivar), std_name, cell_methods)
          if ( varlist(ivar)%fixed ) then
-            call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name,     &
-                      varlist(ivar)%units, xmin, xmax, 1, ave_type="fixed", &
-                      int_type=int_type, std_name=std_name,                 &
+            call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name,       &
+                      varlist(ivar)%units, xmin, xmax, 1, ave_type="fixed",   &
+                      int_type=int_type, std_name=std_name,                   &
+                      coord_height=coord_height, coord_name=coord_name,       &
+                      coord_stdname=coord_stdname, coord_units=coord_units,   &
+                      coord_positive=coord_positive,                          &
                       ran_type=ran_type, areps_type=areps_type )
          else if ( varlist(ivar)%ndims == 2 ) then
             if ( varlist(ivar)%vname(1:3) == "max" ) then
                ! Special check for maximum rainfall rate
-               call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name, &
-                      varlist(ivar)%units, xmin, xmax, 1, ave_type="max",  &
-                      std_name=std_name, cell_methods=cell_methods,        &
-                      ran_type=ran_type, areps_type=areps_type,            &
-                      daily=varlist(ivar)%daily,                           &
+               call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name,    &
+                      varlist(ivar)%units, xmin, xmax, 1, ave_type="max",     &
+                      std_name=std_name,                                      &
+                      coord_height=coord_height, coord_name=coord_name,       &
+                      coord_stdname=coord_stdname, coord_units=coord_units,   &
+                      coord_positive=coord_positive,                          &
+                      cell_methods=cell_methods,                              &
+                      ran_type=ran_type, areps_type=areps_type,               &
+                      daily=varlist(ivar)%daily,                              &
                       instant=varlist(ivar)%instant )
             else
                ! Check for screen and 10m variables
-               coord_height = -huge(1.) ! Acts as a null value
+               
                if ( cf_compliant ) then
                   if ( index(varlist(ivar)%long_name, "screen") /= 0 .or. &
                        index(varlist(ivar)%long_name, "Screen") /= 0 ) then
                      coord_height = 2.
+                     coord_name = "h2"
+                     coord_stdname = "height"
+                     coord_units = "m"
+                     coord_positive = "up"
                   end if
                   if ( index(varlist(ivar)%long_name, "10m") /= 0 ) then
                      coord_height = 10.
+                     coord_name = "h10"
+                     coord_stdname = "height"
+                     coord_units = "m"
+                     coord_positive = "up"
                   end if
                end if
-               call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name,   &
-                      varlist(ivar)%units, xmin, xmax, 1, std_name=std_name, &
-                      coord_height=coord_height, cell_methods=cell_methods,  & 
-                      int_type=int_type, ran_type=ran_type,                  &
-                      areps_type=areps_type,                                 &
-                      pop2d=varlist(ivar)%pop2d, tn_type=tn_type,            &
-                      daily=varlist(ivar)%daily, sixhr=varlist(ivar)%sixhr,  &
-                      instant=varlist(ivar)%instant,                         &
-                      all_positive=varlist(ivar)%all_positive,               &
+               call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name,    &
+                      varlist(ivar)%units, xmin, xmax, 1, std_name=std_name,  &
+                      coord_height=coord_height, coord_name=coord_name,       &
+                      coord_stdname=coord_stdname, coord_units=coord_units,   &
+                      coord_positive=coord_positive,                          &
+                      cell_methods=cell_methods,                              & 
+                      int_type=int_type, ran_type=ran_type,                   &
+                      areps_type=areps_type,                                  &
+                      pop2d=varlist(ivar)%pop2d, tn_type=tn_type,             &
+                      daily=varlist(ivar)%daily, sixhr=varlist(ivar)%sixhr,   &
+                      instant=varlist(ivar)%instant,                          &
+                      all_positive=varlist(ivar)%all_positive,                &
                       tracer_type=varlist(ivar)%tracer )
             end if
          else if ( varlist(ivar)%ndims == 3 ) then  
@@ -3746,6 +3858,9 @@ contains
               call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name,         &
                         varlist(ivar)%units, xmin, xmax, onlev, multilev=.true.,  &
                         std_name=std_name, water=varlist(ivar)%water,             &
+                        coord_height=coord_height, coord_name=coord_name,         &
+                        coord_stdname=coord_stdname, coord_units=coord_units,     &
+                        coord_positive=coord_positive,                            &
                         cell_methods=cell_methods, int_type=int_type,             &
                         ran_type=ran_type, areps_type=areps_type,                 &
                         daily=varlist(ivar)%daily,                                &
@@ -3755,6 +3870,9 @@ contains
               call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name,        &
                         varlist(ivar)%units, xmin, xmax, cptch, multilev=.true., &
                         std_name=std_name, pop3d=varlist(ivar)%pop3d,            &
+                        coord_height=coord_height, coord_name=coord_name,        &
+                        coord_stdname=coord_stdname, coord_units=coord_units,    &
+                        coord_positive=coord_positive,                           &
                         cell_methods=cell_methods, int_type=int_type,            &
                         ran_type=ran_type, areps_type=areps_type,                &
                         tn_type=tn_type, daily=varlist(ivar)%daily,              &
@@ -3764,7 +3882,11 @@ contains
             else
               call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name,       &
                         varlist(ivar)%units, xmin, xmax, nlev, multilev=.true., &
-                        std_name=std_name, cell_methods=cell_methods,           &
+                        std_name=std_name,                                      &
+                        coord_height=coord_height, coord_name=coord_name,       &
+                        coord_stdname=coord_stdname, coord_units=coord_units,   &
+                        coord_positive=coord_positive,                          &
+                        cell_methods=cell_methods,                              &
                         int_type=int_type, ran_type=ran_type,                   &
                         areps_type=areps_type,                                  &
                         daily=varlist(ivar)%daily, sixhr=varlist(ivar)%sixhr,   &
@@ -3777,6 +3899,9 @@ contains
               call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name,              &
                         varlist(ivar)%units, xmin, xmax, cptch*cchrt, multilev=.true., &
                         std_name=std_name, pop4d=varlist(ivar)%pop4d,                  &
+                        coord_height=coord_height, coord_name=coord_name,              &
+                        coord_stdname=coord_stdname, coord_units=coord_units,          &
+                        coord_positive=coord_positive,                                 &
                         cell_methods=cell_methods, int_type=int_type,                  &
                         ran_type=ran_type, areps_type=areps_type, tn_type=tn_type,     &
                         daily=varlist(ivar)%daily, sixhr=varlist(ivar)%sixhr,          &
@@ -3857,10 +3982,13 @@ contains
             call addfld ( "pwc", "Precipitable water column", "kg m-2", 0.0, 100.0, 1, &
                            std_name="atmosphere_water_vapor_content", ran_type=.true. )           
          end if   
-         call addfld ( "uas", "Eastward Near-Surface Wind", "m s-1", -100.0, 100.0, 1, std_name="eastward_wind", ran_type=.true. )
-         call addfld ( "vas", "Northward Near-Surface Wind", "m s-1", -100.0, 100.0, 1, std_name="northward_wind", ran_type=.true. )
-         call addfld ( "sfcWindmax", "Maximum 10m wind speed", "m s-1", 0.0, 200.0, 1, std_name="wind_speed", ran_type=.true., &
-                       daily=.true., instant=.false., all_positive=.true. )
+         call addfld ( "uas", "Eastward Near-Surface Wind", "m s-1", -100.0, 100.0, 1, std_name="eastward_wind", ran_type=.true.,   &
+                       coord_height=10., coord_name="h10", coord_stdname="height", coord_units="m", coord_positive="up" )
+         call addfld ( "vas", "Northward Near-Surface Wind", "m s-1", -100.0, 100.0, 1, std_name="northward_wind", ran_type=.true., &
+                       coord_height=10., coord_name="h10", coord_stdname="height", coord_units="m", coord_positive="up" )
+         call addfld ( "sfcWindmax", "Maximum 10m wind speed", "m s-1", 0.0, 200.0, 1, std_name="wind_speed", ran_type=.true.,         &
+                       daily=.true., instant=.false., all_positive=.true., coord_height=10., coord_name="h10", coord_stdname="height", &
+                       coord_units="m", coord_positive="up" )
          ierr = nf90_inq_varid (ncid, "u10m_max", ivar )
          if ( ierr == nf90_noerr ) then
             call addfld ( "sfcWind_max", "Maximum 10m wind speed", "m s-1", 0.0, 200.0, 1, std_name="wind_speed", &
@@ -3966,28 +4094,46 @@ contains
             ! add cordex pressure levels
             do j = 1,cordex_levels
                press_level = cordex_level_data(j)
+               call cordex_name(coord_name,"p",press_level)
                call cordex_name(cname,"ua",press_level)
-               call addfld ( cname, "Eastward Wind", "m s-1", -130.0, 130.0, 1, instant=.true. )
+               call addfld ( cname, "Eastward Wind", "m s-1", -130.0, 130.0, 1, instant=.true.,  &
+                             coord_height=real(press_level), coord_name=coord_name,              &
+                             coord_stdname="pressure", coord_units = "hPa", coord_positive="down" )
                call cordex_name(cname,"va",press_level)
-               call addfld ( cname, "Northward Wind", "m s-1", -130.0, 130.0, 1, instant=.true. )
+               call addfld ( cname, "Northward Wind", "m s-1", -130.0, 130.0, 1, instant=.true., &
+                             coord_height=real(press_level), coord_name=coord_name,              &
+                             coord_stdname="pressure", coord_units = "hPa", coord_positive="down" )
                call cordex_name(cname,"ta",press_level)
-               call addfld ( cname, "Air Temperaure", "K", 100.0, 400.0, 1, instant=.true. )
+               call addfld ( cname, "Air Temperaure", "K", 100.0, 400.0, 1, instant=.true.,      &
+                             coord_height=real(press_level), coord_name=coord_name,              &
+                             coord_stdname="pressure", coord_units = "hPa", coord_positive="down" )
                call cordex_name(cname,"hus",press_level)
-               call addfld ( cname, "Specific Humidity", "1", 0.0, 0.06, 1, instant=.true. )
+               call addfld ( cname, "Specific Humidity", "1", 0.0, 0.06, 1, instant=.true.,      &
+                             coord_height=real(press_level), coord_name=coord_name,              &
+                             coord_stdname="pressure", coord_units = "hPa", coord_positive="down" )
                call cordex_name(cname,"zg",press_level)
-               call addfld ( cname, "Geopotential Height", "m", 0.0, 130000., 1, instant=.true. )
+               call addfld ( cname, "Geopotential Height", "m", 0.0, 130000., 1, instant=.true., &
+                             coord_height=real(press_level), coord_name=coord_name,              &
+                             coord_stdname="pressure", coord_units = "hPa", coord_positive="down" )
                call cordex_name(cname,"wa",press_level)
-               call addfld ( cname, "Upward Air Velocity", "m s-1", -130., 130., 1, instant=.true. )
+               call addfld ( cname, "Upward Air Velocity", "m s-1", -130., 130., 1, instant=.true., &
+                             coord_height=real(press_level), coord_name=coord_name,                 &
+                             coord_stdname="pressure", coord_units = "hPa", coord_positive="down" )
             end do
             ! add cordex height levels
             do j = 1,height_levels
                height_level = height_level_data(j)
+               call cordex_name(coord_name,"h",height_level)
                call cordex_name(cname,"ua",height_level,"m")
                call cordex_name(lname,"Eastward Wind at ",height_level,"m")
-               call addfld ( cname, lname, "m s-1", -130., 130., 1, instant=.true. )
+               call addfld ( cname, lname, "m s-1", -130., 130., 1, instant=.true.,       &
+                             coord_height=real(height_level), coord_name=coord_name,      &
+                             coord_stdname="height", coord_units = "m", coord_positive="up" )
                call cordex_name(cname,"va",height_level,"m")
                call cordex_name(lname,"Northward Wind at ",height_level,"m")
-               call addfld ( cname, lname, "m s-1", -130., 130., 1, instant=.true. )
+               call addfld ( cname, lname, "m s-1", -130., 130., 1, instant=.true.,       &
+                             coord_height=real(height_level), coord_name=coord_name,      &
+                             coord_stdname="height", coord_units = "m", coord_positive="up" )
             end do            
                
          else if ( cf_compliant ) then
@@ -4018,12 +4164,12 @@ contains
          
           ! add CAPE, CIN and LI
           call addfld ( "CAPE", "Convective Available Potential Energy", "J kg-1", 0., 20000., 1, &
-                     std_name="atmosphere_convective_available_potential_energy_wrt_surface",  &
+                     std_name="atmosphere_convective_available_potential_energy_wrt_surface",     &
                      instant=.true. )
           call addfld ( "CIN", "Convective Inhibition", "J kg-1", -20000., 0., 1,             &
                      std_name="atmosphere_convective_available_potential_energy_wrt_surface", &
                      instant=.true. )
-          call addfld ( "LI", "Lifted Index", "K", -100., 100., 1,             &
+          call addfld ( "LI", "Lifted Index", "K", -100., 100., 1,                                                        &
                      std_name="temperature_difference_between_ambient_air_and_air_lifted_adiabatically_from_the_surface", &
                      instant=.true. )   
       
@@ -4039,8 +4185,9 @@ contains
                call addfld ( "sftlf", "Land-sea mask", "%",  0.0, 100.0, 1, &
                               ave_type="fixed", int_type=int_nearest_local, &
                               std_name="land_area_fraction" )
-               call addfld ( "sfcWindmax", "Maximum 10m wind speed", "m s-1", 0.0, 200.0, 1, std_name="wind_speed", &
-                             daily=.true., instant=.false., all_positive=.true. )
+               call addfld ( "sfcWindmax", "Maximum 10m wind speed", "m s-1", 0.0, 200.0, 1, std_name="wind_speed",  &
+                             daily=.true., instant=.false., all_positive=.true., coord_height=10., coord_name="h10", &
+                             coord_stdname="height", coord_units="m", coord_positive="up" )
                call addfld ( "sftlaf", "Lake Area Fraction", "%", 0.0, 100.0, 1, ave_type="fixed", &
                              std_name="lake_area_fraction" )
             else    

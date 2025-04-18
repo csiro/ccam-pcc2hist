@@ -172,6 +172,10 @@ module history
       logical            :: pop4d
       ! For CF coordinate attribute
       real               :: coord_height
+      character(len=80)  :: coord_name
+      character(len=80)  :: coord_stdname
+      character(len=80)  :: coord_units
+      character(len=80)  :: coord_positive
       ! cell_methods appropriate for variable before any history processing is done
       character(len=30)  :: cell_methods
       ! for daily data
@@ -519,8 +523,10 @@ contains
    subroutine addfld(name, long_name, units, valid_min, valid_max,    &
                      nlevels, amip_name, ave_type, std, output_scale, &
                      int_type, multilev, std_name, soil, water,       &
-                     pop2d, pop3d, pop4d, coord_height, cell_methods, &
-                     ran_type, areps_type, tn_type, daily, sixhr,      &
+                     pop2d, pop3d, pop4d, coord_height, coord_name,   &
+                     coord_stdname, coord_units, coord_positive,      &
+                     cell_methods,                                    &
+                     ran_type, areps_type, tn_type, daily, sixhr,     &
                      instant, all_positive, tracer_type, fill )
 !
 !     Add a field to the master list of fields that may be saved.
@@ -544,6 +550,10 @@ contains
       logical, intent(in), optional   :: pop3d
       logical, intent(in), optional   :: pop4d
       real, intent(in), optional :: coord_height
+      character(len=*), intent(in), optional :: coord_name
+      character(len=*), intent(in), optional :: coord_stdname
+      character(len=*), intent(in), optional :: coord_units
+      character(len=*), intent(in), optional :: coord_positive
       character(len=*), intent(in), optional :: cell_methods
       logical, intent(in), optional   :: ran_type
       logical, intent(in), optional   :: areps_type
@@ -702,6 +712,26 @@ contains
       else
          histinfo(totflds)%coord_height = -huge(1.)
       end if
+      if ( present(coord_name) ) then
+         histinfo(totflds)%coord_name = coord_name
+      else
+         histinfo(totflds)%coord_name = ""
+      end if
+      if ( present(coord_stdname) ) then
+         histinfo(totflds)%coord_stdname = coord_stdname
+      else
+         histinfo(totflds)%coord_stdname = ""
+      end if
+      if ( present(coord_units) ) then
+         histinfo(totflds)%coord_units = coord_units
+      else
+         histinfo(totflds)%coord_units = ""
+      end if
+      if ( present(coord_positive) ) then
+         histinfo(totflds)%coord_positive = coord_positive
+      else
+         histinfo(totflds)%coord_positive = ""
+      end if
       if ( present(cell_methods) ) then
          histinfo(totflds)%cell_methods = cell_methods
       else
@@ -784,11 +814,17 @@ contains
       integer :: ncid, vid, ivar, istart, iend, ilev
       character(len=80) :: longname, units
       character(len=MAX_NAMELEN) :: vname
-      logical :: used, multilev, use_plevs, use_hyblevs, use_meters, use_depth
+      logical :: used, use_plevs, use_hyblevs, use_meters, use_depth
       logical :: use_theta, use_pvort
+      !logical :: multilev
       logical :: multilev_fld
-      integer :: nlevels, nlevels_fld
-      integer, dimension(totflds) :: coord_heights
+      !integer :: nlevels
+      integer :: nlevels_fld
+      real, dimension(totflds) :: coord_height
+      character(len=80), dimension(totflds) :: coord_name
+      character(len=80), dimension(totflds) :: coord_stdname
+      character(len=80), dimension(totflds) :: coord_units
+      character(len=80), dimension(totflds) :: coord_positive
       integer :: kc, ncoords, k, pkl
       integer :: ol_fld, nsoil_fld, cptch_fld, cchrt_fld
       logical :: osig_found
@@ -969,38 +1005,22 @@ contains
       else
          write(filename,"(a,i1,a,a)" ) "hist", trim(suffix), ".nc"
       end if
-      multilev = .false.
-      nlevels = 0
-      ncoords = 0
-      do ifld = 1,totflds
-         if ( hist_debug > 4 ) then
-            print*, "Checking variable properties", ifld, &
-                 histinfo(ifld)%name, histinfo(ifld)%used, &
-                 histinfo(ifld)%nlevels, histinfo(ifld)%soil
-         end if
-         if ( .not. histinfo(ifld)%used ) cycle
-
-         ! From here only considering variables that are used in this file
-
-         multilev = multilev .or. histinfo(ifld)%nlevels > 1 .or. &
-                    histinfo(ifld)%multilev
-         nlevels = max( nlevels, histinfo(ifld)%nlevels )
-
-         ! Get a list of the coordinate heights if any
-         if ( histinfo(ifld)%coord_height > -huge(1.) ) then
-            ! Check if it's already in list
-            do kc = 1,ncoords
-               if ( nint(histinfo(ifld)%coord_height) == coord_heights(kc) ) then
-                  exit
-               end if
-            end do
-            if ( kc > ncoords ) then
-               ! Value not found
-               ncoords = kc
-               coord_heights(ncoords) = histinfo(ifld)%coord_height
-            end if
-         end if
-      end do
+      !multilev = .false.
+      !nlevels = 0
+      !do ifld = 1,totflds
+      !   if ( hist_debug > 4 ) then
+      !      print*, "Checking variable properties", ifld, &
+      !           histinfo(ifld)%name, histinfo(ifld)%used, &
+      !           histinfo(ifld)%nlevels, histinfo(ifld)%soil
+      !   end if
+      !   if ( .not. histinfo(ifld)%used ) cycle
+      !
+      !   ! From here only considering variables that are used in this file
+      !
+      !   multilev = multilev .or. histinfo(ifld)%nlevels > 1 .or. &
+      !              histinfo(ifld)%multilev
+      !   nlevels = max( nlevels, histinfo(ifld)%nlevels )
+      !end do
 
       use_plevs = .false.
       if ( present(pressure) ) then
@@ -1042,6 +1062,26 @@ contains
             cptch_fld = 0
             cchrt_fld = 0
             do ifld = 1,totflds
+               ! Get a list of the coordinate heights if any
+               ncoords = 0
+               if ( histinfo(ifld)%coord_height > -huge(1.) ) then
+                  ! Check if it's already in list
+                  do kc = 1,ncoords
+                     if ( histinfo(ifld)%coord_name == coord_name(kc) ) then 
+                        exit
+                     end if
+                  end do
+                  if ( kc > ncoords ) then
+                     ! Value not found
+                     ncoords = kc
+                     coord_height(ncoords) = histinfo(ifld)%coord_height
+                     coord_name(ncoords) = histinfo(ifld)%coord_name
+                     coord_stdname(ncoords) = histinfo(ifld)%coord_stdname
+                     coord_units(ncoords) = histinfo(ifld)%coord_units
+                     coord_positive(ncoords) = histinfo(ifld)%coord_positive
+                  end if
+               end if
+               ! check dimensons and other file properties
                if ( histinfo(ifld)%used ) then 
                   if ( histinfo(ifld)%nlevels > 1 .or. histinfo(ifld)%multilev ) then
                      multilev_fld = .true.
@@ -1065,9 +1105,10 @@ contains
                end if ! histinfo(ifld)%used
             end do    ! ifld = 1,totflds
             allocate( histfile(1), histdimvars(1) )
-            call create_ncfile ( filename, nxhis, nyhis, nlevels_fld, ol_fld, cptch_fld, cchrt_fld, &
-                 multilev_fld, use_plevs, use_meters, use_theta, use_pvort, use_depth, use_hyblevs, &
-                 basetime, coord_heights(1:ncoords), ncid, dims, dimvars, source, extra_atts,       &
+            call create_ncfile ( filename, nxhis, nyhis, nlevels_fld, ol_fld, cptch_fld, cchrt_fld,  &
+                 multilev_fld, use_plevs, use_meters, use_theta, use_pvort, use_depth, use_hyblevs,  &
+                 basetime, coord_name(1:ncoords), coord_stdname(1:ncoords), coord_units(1:ncoords),  &
+                 coord_positive(1:ncoords), ncid, dims, dimvars, source, extra_atts,                 &
                  calendar, nsoil_fld, osig_found, instant=.false. )
             histfile(1)%id = ncid
             histfile(1)%day = .false.
@@ -1124,6 +1165,26 @@ contains
          allocate( histfile(i), histdimvars(i) )
          i = 0
          do ifld = 1,totflds
+            ! Get a list of the coordinate heights if any
+            ncoords = 0
+            if ( histinfo(ifld)%coord_height > -huge(1.) ) then
+               ! Check if it's already in list
+               do kc = 1,ncoords
+                  if ( histinfo(ifld)%coord_name == coord_name(kc) ) then 
+                     exit
+                  end if
+               end do
+               if ( kc > ncoords ) then
+                  ! Value not found
+                  ncoords = kc
+                  coord_height(ncoords) = histinfo(ifld)%coord_height
+                  coord_name(ncoords) = histinfo(ifld)%coord_name
+                  coord_stdname(ncoords) = histinfo(ifld)%coord_stdname
+                  coord_units(ncoords) = histinfo(ifld)%coord_units
+                  coord_positive(ncoords) = histinfo(ifld)%coord_positive
+               end if
+            end if
+            ! Determine sizes of dimensions for this file 
             multilev_fld = histinfo(ifld)%nlevels > 1 .or. &
                            histinfo(ifld)%multilev
             if ( histinfo(ifld)%water .or. histinfo(ifld)%soil .or.  &
@@ -1157,12 +1218,14 @@ contains
                if ( histinfo(ifld)%ave_type == hist_fixed ) then
                   call create_ncfile ( singlefilename, nxhis, nyhis, nlevels_fld, ol_fld, cptch_fld, cchrt_fld, &
                        multilev_fld, use_plevs, use_meters, use_theta, use_pvort, use_depth, use_hyblevs,       &
-                       "none", coord_heights(1:ncoords), ncid, dims, dimvars, source, extra_atts, calendar,     &
+                       "none", coord_name(1:ncoords), coord_stdname(1:ncoords), coord_units(1:ncoords),         &
+                       coord_positive(1:ncoords), ncid, dims, dimvars, source, extra_atts, calendar,            &
                        nsoil_fld, osig_found, instant=histinfo(ifld)%instant )
                else    
                   call create_ncfile ( singlefilename, nxhis, nyhis, nlevels_fld, ol_fld, cptch_fld, cchrt_fld, &
                        multilev_fld, use_plevs, use_meters, use_theta, use_pvort, use_depth, use_hyblevs,       &
-                       basetime, coord_heights(1:ncoords), ncid, dims, dimvars, source, extra_atts, calendar,   &
+                       basetime, coord_name(1:ncoords), coord_stdname(1:ncoords), coord_units(1:ncoords),       &
+                       coord_positive(1:ncoords), ncid, dims, dimvars, source, extra_atts, calendar,            &
                        nsoil_fld, osig_found, instant=histinfo(ifld)%instant )
                end if
                histfile(i)%id = ncid
@@ -1255,46 +1318,44 @@ contains
             end do   
          end if
       end if
-      if ( multilev ) then
+      do i = 1,size(histfile)
+         if ( histfile(i)%nlevels > 1 ) then
+            ncid = histfile(i)%id 
+            dimvars = histdimvars(i)
+            ierr = nf90_put_var ( ncid, dimvars%z, sig )
+            call check_ncerr(ierr,"Error writing levels")
+         end if
+      end do   
+      if ( use_hyblevs ) then
+         if ( .not. present(anf) ) then
+            print*, "Error, missing anf argument"
+            stop
+         end if
          do i = 1,size(histfile)
             if ( histfile(i)%nlevels > 1 ) then
                ncid = histfile(i)%id 
-               dimvars = histdimvars(i)
-               ierr = nf90_put_var ( ncid, dimvars%z, sig )
-               call check_ncerr(ierr,"Error writing levels")
-            end if
+               ierr = nf90_inq_varid(ncid, "anf", vid)
+               call check_ncerr(ierr,"Error getting vid for anf")
+               ierr = nf90_put_var(ncid, vid, anf)
+               call check_ncerr(ierr,"Error writing anf")
+               if ( .not. present(bnf) ) then
+                  print*, "Error, missing bnf argument"
+                  stop
+               end if
+               ierr = nf90_inq_varid(ncid, "bnf", vid)
+               call check_ncerr(ierr,"Error getting vid for bnf")
+               ierr = nf90_put_var(ncid, vid, bnf)
+               call check_ncerr(ierr,"Error writing bnf")
+               if ( .not. present(p0) ) then
+                  print*, "Error, missing p0 argument"
+                  stop
+               end if
+               ierr = nf90_inq_varid(ncid, "P0", vid)
+               call check_ncerr(ierr,"Error getting vid for p0")
+               ierr = nf90_put_var(ncid, vid, p0)
+               call check_ncerr(ierr,"Error writing p0")
+            end if   
          end do   
-         if ( use_hyblevs ) then
-            if ( .not. present(anf) ) then
-               print*, "Error, missing anf argument"
-               stop
-            end if
-            do i = 1,size(histfile)
-               if ( histfile(i)%nlevels > 1 ) then
-                  ncid = histfile(i)%id 
-                  ierr = nf90_inq_varid(ncid, "anf", vid)
-                  call check_ncerr(ierr,"Error getting vid for anf")
-                  ierr = nf90_put_var(ncid, vid, anf)
-                  call check_ncerr(ierr,"Error writing anf")
-                  if ( .not. present(bnf) ) then
-                     print*, "Error, missing bnf argument"
-                     stop
-                  end if
-                  ierr = nf90_inq_varid(ncid, "bnf", vid)
-                  call check_ncerr(ierr,"Error getting vid for bnf")
-                  ierr = nf90_put_var(ncid, vid, bnf)
-                  call check_ncerr(ierr,"Error writing bnf")
-                  if ( .not. present(p0) ) then
-                     print*, "Error, missing p0 argument"
-                     stop
-                  end if
-                  ierr = nf90_inq_varid(ncid, "P0", vid)
-                  call check_ncerr(ierr,"Error getting vid for p0")
-                  ierr = nf90_put_var(ncid, vid, p0)
-                  call check_ncerr(ierr,"Error writing p0")
-               end if   
-            end do   
-         end if
       end if
       if ( ol > 0 ) then
          do i = 1,size(histfile)
@@ -1370,16 +1431,11 @@ contains
       end if
 
       do kc = 1,ncoords
-         if ( coord_heights(kc) < 10 ) then
-            write(vname, "(a,i1.1)") "height", coord_heights(kc)
-         else
-            write(vname, "(a,i2.2)") "height", coord_heights(kc)
-         end if
          do i = 1,size(histfile)
             ncid = histfile(i)%id 
             ierr = nf90_inq_varid(ncid, vname, vid)
             call check_ncerr(ierr,"Error getting vid for height coord")
-            ierr = nf90_put_var ( ncid, vid, real(coord_heights(kc)))
+            ierr = nf90_put_var ( ncid, vid, real(coord_height(kc)))
             call check_ncerr(ierr,"Error writing coordinate height")
          end do   
       end do
@@ -1538,7 +1594,8 @@ contains
       type(dimarray), intent(in) :: dims
 
       character(len=MAX_NAMELEN) :: local_name, new_name
-      character(len=80) :: cell_methods, coord_name
+      character(len=80) :: cell_methods
+      !character(len=80) :: coord_name
       integer :: ierr, vtype, vid, zdim, wdim
       integer :: ndims
       integer, dimension(5) :: chunks
@@ -1703,13 +1760,8 @@ contains
       end if
 
       if ( vinfo%coord_height > -huge(1.) ) then
-         ! This will cover 2m and 10m. No other likely values?
-         if ( vinfo%coord_height < 10. ) then
-            write(coord_name, "(a,i1.1)") "height", nint(vinfo%coord_height)
-         else
-            write(coord_name, "(a,i2.2)") "height", nint(vinfo%coord_height)
-         end if
-         ierr = nf90_put_att ( ncid, vid, "coordinates", coord_name )
+         ! This will cover 2m and 10m. CORDEX also has 1000hPa, 925hPa, 800hPa, etc
+         ierr = nf90_put_att ( ncid, vid, "coordinates", vinfo%coord_name )
          call check_ncerr(ierr,"Error with coordinates attribute")
       end if
 
@@ -1720,8 +1772,8 @@ contains
 !---------------------------------------------------------------------------
    subroutine create_ncfile ( filename, nxhis, nyhis, nlev, ol, cptch, cchrt, multilev,         &
                  use_plevs, use_meters, use_theta, use_pvort, use_depth, use_hyblevs, basetime, &
-                 coord_heights, ncid, dims, dimvars, source, extra_atts, calendar,              &
-                 nsoil, osig_found, instant )
+                 coord_name, coord_stdname, coord_units, coord_positive, ncid, dims, dimvars,   &
+                 source, extra_atts, calendar, nsoil, osig_found, instant )
 
       use mpidata_m
       use newmpar_m, only : il
@@ -1732,7 +1784,10 @@ contains
       logical, intent(in) :: multilev, use_plevs, use_meters, use_theta, use_pvort, use_depth, use_hyblevs
       logical, intent(in) :: osig_found
       character(len=*), intent(in) :: basetime
-      integer, dimension(:), intent(in) :: coord_heights
+      character(len=*), dimension(:), intent(in) :: coord_name
+      character(len=*), dimension(:), intent(in) :: coord_stdname
+      character(len=*), dimension(:), intent(in) :: coord_units
+      character(len=*), dimension(:), intent(in) :: coord_positive
       integer, intent(out) :: ncid
       type(dimarray), intent(out) :: dims, dimvars
       character(len=*), intent(in), optional :: source
@@ -2119,23 +2174,21 @@ contains
       end if
 
       ! Define variables for coordinate heights
-      do k = 1,size(coord_heights)
-         ! This code is repeated several times. Could do better
-         if ( coord_heights(k) < 10. ) then
-            write(tmpname, "(a,i1.1)") "height", coord_heights(k)
-         else
-            write(tmpname, "(a,i2.2)") "height", coord_heights(k)
-         end if
-         ierr = nf90_def_var ( ncid, tmpname, NF90_FLOAT, vid )
-         call check_ncerr(ierr)
-         ierr = nf90_put_att ( ncid, vid, "standard_name",  "height")
-         ierr = nf90_put_att ( ncid, vid, "units",  "m")
-         call check_ncerr(ierr)
-         call check_ncerr(ierr)
-         ierr = nf90_put_att ( ncid, vid, "axis",  "Z")
-         call check_ncerr(ierr)
-         ierr = nf90_put_att ( ncid, vid, "positive",  "up")
-         call check_ncerr(ierr)
+      do k = 1,size(coord_name)
+         if ( coord_name(k) /= "" ) then 
+            ierr = nf90_def_var ( ncid,  coord_name(k), NF90_FLOAT, vid )
+            call check_ncerr(ierr)
+            ierr = nf90_put_att ( ncid, vid, "standard_name",  coord_stdname(k))
+            call check_ncerr(ierr)
+            ierr = nf90_put_att ( ncid, vid, "long_name",  coord_stdname(k))
+            call check_ncerr(ierr)            
+            ierr = nf90_put_att ( ncid, vid, "units",  coord_units(k))
+            call check_ncerr(ierr)
+            ierr = nf90_put_att ( ncid, vid, "axis",  "Z")
+            call check_ncerr(ierr)
+            ierr = nf90_put_att ( ncid, vid, "positive",  coord_positive(k))
+            call check_ncerr(ierr)
+         end if   
       end do
       
       ! Define grid mapping for CF-1.11
@@ -2927,7 +2980,7 @@ contains
 
 !-------------------------------------------------------------------
 
-   subroutine clearhist ()
+   subroutine clearhist()
 
       ! Reset the history outside the normal process
 
