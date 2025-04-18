@@ -1127,7 +1127,7 @@ contains
             histinfo(ifld)%procid = (cnt*gap)/slab
             cnt = cnt + histinfo(ifld)%nlevels
          end do   
-         ! second pass - daily variables
+         ! second pass - time-vary
          cnt = 0
          do ifld = 1,totflds
             if ( .not. histinfo(ifld)%used ) then
@@ -1136,39 +1136,6 @@ contains
             if ( histinfo(ifld)%ave_type == hist_fixed ) then
                cycle
             end if
-            histinfo(ifld)%procid = (cnt*gap)/slab
-            cnt = cnt + histinfo(ifld)%nlevels
-         end do   
-         ! third pass - six hourly variables
-         cnt = 0
-         do ifld = 1,totflds
-            if ( .not. histinfo(ifld)%used ) then
-               cycle
-            end if  
-            if ( histinfo(ifld)%ave_type == hist_fixed ) then
-               cycle
-            end if
-            if ( histinfo(ifld)%daily ) then
-               cycle
-            end if   
-            histinfo(ifld)%procid = (cnt*gap)/slab
-            cnt = cnt + histinfo(ifld)%nlevels
-         end do  
-         ! fourth pass - sub-6hr variables (usually hourly)
-         cnt = 0
-         do ifld = 1,totflds
-            if ( .not. histinfo(ifld)%used ) then
-               cycle
-            end if  
-            if ( histinfo(ifld)%ave_type == hist_fixed ) then
-               cycle
-            end if
-            if ( histinfo(ifld)%daily ) then
-               cycle
-            end if   
-            if ( histinfo(ifld)%sixhr ) then  
-               cycle
-            end if   
             histinfo(ifld)%procid = (cnt*gap)/slab
             cnt = cnt + histinfo(ifld)%nlevels
          end do 
