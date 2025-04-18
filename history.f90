@@ -1008,22 +1008,6 @@ contains
       else
          write(filename,"(a,i1,a,a)" ) "hist", trim(suffix), ".nc"
       end if
-      !multilev = .false.
-      !nlevels = 0
-      !do ifld = 1,totflds
-      !   if ( hist_debug > 4 ) then
-      !      print*, "Checking variable properties", ifld, &
-      !           histinfo(ifld)%name, histinfo(ifld)%used, &
-      !           histinfo(ifld)%nlevels, histinfo(ifld)%soil
-      !   end if
-      !   if ( .not. histinfo(ifld)%used ) cycle
-      !
-      !   ! From here only considering variables that are used in this file
-      !
-      !   multilev = multilev .or. histinfo(ifld)%nlevels > 1 .or. &
-      !              histinfo(ifld)%multilev
-      !   nlevels = max( nlevels, histinfo(ifld)%nlevels )
-      !end do
 
       use_plevs = .false.
       if ( present(pressure) ) then
@@ -1123,30 +1107,77 @@ contains
          end if  
       else
          ! count number of output variables to be interpolated
-         cnt = 0
+         maxcnt = 0
          do ifld = 1,totflds
            if ( .not. histinfo(ifld)%used ) then
                cycle
             end if  
-            nlev = histinfo(ifld)%nlevels
-            cnt = cnt + nlev
+            maxcnt = maxcnt + histinfo(ifld)%nlevels
          end do
          ! calculate slab and gap to distribute interpolation across processes
-         maxcnt = cnt
          slab = ceiling(real(maxcnt,8)/real(nproc,8))
          gap = max( nproc/maxcnt, 1 )
-         ! assign process id for each output process (writing a file)
+         ! assign process id for each output file
+         ! first pass - fixed variables
          cnt = 0
          do ifld = 1,totflds
             if ( .not. histinfo(ifld)%used ) then
                cycle
             end if  
-            ave_type = histinfo(ifld)%ave_type
-            rrank = (cnt*gap)/slab
-            histinfo(ifld)%procid = rrank
-            nlev = histinfo(ifld)%nlevels
-            cnt = cnt + nlev            
+            if ( histinfo(ifld)%ave_type == hist_fixed ) then
+               histinfo(ifld)%procid = (cnt*gap)/slab
+            end if   
+            cnt = cnt + histinfo(ifld)%nlevels
          end do   
+         ! second pass - daily variables
+         cnt = 0
+         do ifld = 1,totflds
+            if ( .not. histinfo(ifld)%used ) then
+               cycle
+            end if  
+            if ( histinfo(ifld)%ave_type == hist_fixed ) then
+               cycle
+            end if
+            if ( histinfo(ifld)%daily ) then
+               histinfo(ifld)%procid = (cnt*gap)/slab
+            end if   
+            cnt = cnt + histinfo(ifld)%nlevels
+         end do   
+         ! third pass - six hourly variables
+         cnt = 0
+         do ifld = 1,totflds
+            if ( .not. histinfo(ifld)%used ) then
+               cycle
+            end if  
+            if ( histinfo(ifld)%ave_type == hist_fixed ) then
+               cycle
+            end if
+            if ( histinfo(ifld)%daily ) then
+               cycle
+            end if   
+            if ( histinfo(ifld)%sixhr ) then   
+               histinfo(ifld)%procid = (cnt*gap)/slab
+            end if   
+            cnt = cnt + histinfo(ifld)%nlevels
+         end do  
+         ! fourth pass - sub-6hr variables (usually hourly)
+         cnt = 0
+         do ifld = 1,totflds
+            if ( .not. histinfo(ifld)%used ) then
+               cycle
+            end if  
+            if ( histinfo(ifld)%ave_type == hist_fixed ) then
+               cycle
+            end if
+            if ( histinfo(ifld)%daily ) then
+               cycle
+            end if   
+            if ( histinfo(ifld)%sixhr ) then  
+               cycle
+            end if   
+            histinfo(ifld)%procid = (cnt*gap)/slab
+            cnt = cnt + histinfo(ifld)%nlevels
+         end do 
          ! create output files
          i = 0
          do ifld = 1,totflds
@@ -2433,7 +2464,7 @@ contains
       integer, dimension(4) :: start3D, count3D
       integer, dimension(3) :: start2D, count2D
       integer :: istart, iend
-      integer :: ave_type, nlev, ncount, ncid
+      integer :: nlev, ncount, ncid
       integer :: k
       real :: umin, umax, addoff, sf, timeout
 !     Temporary for interpolated output
@@ -2664,7 +2695,7 @@ contains
             istart = histinfo(ifld)%ptr
             iend = istart + nlev - 1
             
-            if ( ave_type == hist_ave ) then    
+            if ( histinfo(ifld)%ave_type == hist_ave ) then    
                if ( hist_debug >= 4 ) then
                   print*, "Raw history at point ", histinfo(ifld)%name, &
                     histarray(ihdb,jhdb,istart+khdb-1), ncount
@@ -2999,7 +3030,7 @@ contains
 
       integer :: ifld
       integer :: istart, iend
-      integer :: ave_type, nlev
+      integer :: nlev
 
       if ( hist_debug > 0 ) then
          print*, "Resetting history"
@@ -3009,7 +3040,6 @@ contains
          if ( .not. histinfo(ifld)%used ) then
             cycle
          end if
-         ave_type = histinfo(ifld)%ave_type
          nlev = histinfo(ifld)%nlevels
          istart = histinfo(ifld)%ptr
          iend = istart + nlev - 1
@@ -3058,7 +3088,7 @@ contains
             nreq = nreq + 1
             call START_LOG(mpigather_begin)
             call MPI_IRecv( hist_a_tmp(lsize*ipr+1:lsize*(ipr+1)), lsize, MPI_REAL, ipr, &
-                 itag, comm_world, ireq(nreq), ierr )
+                            itag, comm_world, ireq(nreq), ierr )
             call END_LOG(mpigather_end)
          end do    
       end if
@@ -3075,7 +3105,7 @@ contains
             nreq = nreq + 1
             call START_LOG(mpigather_begin)
             call MPI_ISend( histarray_tmp(:,:,:,:,ip+1), lsize, MPI_REAL, ip, &
-                 itag, comm_world, ireq(nreq), ierr )
+                            itag, comm_world, ireq(nreq), ierr )
             call END_LOG(mpigather_end)
          end if
       end do
