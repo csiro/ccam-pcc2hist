@@ -1124,9 +1124,7 @@ contains
             if ( .not. histinfo(ifld)%used ) then
                cycle
             end if  
-            if ( histinfo(ifld)%ave_type == hist_fixed ) then
-               histinfo(ifld)%procid = (cnt*gap)/slab
-            end if   
+            histinfo(ifld)%procid = (cnt*gap)/slab
             cnt = cnt + histinfo(ifld)%nlevels
          end do   
          ! second pass - daily variables
@@ -1138,9 +1136,7 @@ contains
             if ( histinfo(ifld)%ave_type == hist_fixed ) then
                cycle
             end if
-            if ( histinfo(ifld)%daily ) then
-               histinfo(ifld)%procid = (cnt*gap)/slab
-            end if   
+            histinfo(ifld)%procid = (cnt*gap)/slab
             cnt = cnt + histinfo(ifld)%nlevels
          end do   
          ! third pass - six hourly variables
@@ -1155,9 +1151,7 @@ contains
             if ( histinfo(ifld)%daily ) then
                cycle
             end if   
-            if ( histinfo(ifld)%sixhr ) then   
-               histinfo(ifld)%procid = (cnt*gap)/slab
-            end if   
+            histinfo(ifld)%procid = (cnt*gap)/slab
             cnt = cnt + histinfo(ifld)%nlevels
          end do  
          ! fourth pass - sub-6hr variables (usually hourly)
@@ -1247,9 +1241,9 @@ contains
                histfile(i)%cablepatch = cptch_fld > 0
                histfile(i)%cablecohort = cchrt_fld > 0
                histfile(i)%ncoords = ncoords
-               allocate( histfile(1)%coord_height(1:ncoords) )
+               allocate( histfile(i)%coord_height(1:ncoords) )
                histfile(i)%coord_height(1:ncoords) = coord_height(1:ncoords)
-               allocate( histfile(1)%coord_name(1:ncoords) )
+               allocate( histfile(i)%coord_name(1:ncoords) )
                histfile(i)%coord_name(1:ncoords) = coord_name(1:ncoords)
                histinfo(ifld)%ncid = ncid
                histdims(ifld) = dims
