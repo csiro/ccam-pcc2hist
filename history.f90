@@ -1118,7 +1118,6 @@ contains
          slab = ceiling(real(maxcnt,8)/real(nproc,8))
          gap = max( nproc/maxcnt, 1 )
          ! assign process id for each output file
-         ! first pass - fixed variables
          cnt = 0
          do ifld = 1,totflds
             if ( .not. histinfo(ifld)%used ) then
@@ -1127,18 +1126,6 @@ contains
             histinfo(ifld)%procid = (cnt*gap)/slab
             cnt = cnt + histinfo(ifld)%nlevels
          end do   
-         ! second pass - time-vary
-         cnt = 0
-         do ifld = 1,totflds
-            if ( .not. histinfo(ifld)%used ) then
-               cycle
-            end if  
-            if ( histinfo(ifld)%ave_type == hist_fixed ) then
-               cycle
-            end if
-            histinfo(ifld)%procid = (cnt*gap)/slab
-            cnt = cnt + histinfo(ifld)%nlevels
-         end do 
          ! create output files
          i = 0
          do ifld = 1,totflds
