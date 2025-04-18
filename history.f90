@@ -232,6 +232,9 @@ module history
       logical :: soil
       logical :: cablepatch
       logical :: cablecohort
+      integer :: ncoords
+      real, dimension(:), allocatable :: coord_height
+      character(len=80), dimension(:), allocatable :: coord_name
    end type hfile
 
 !  Array for accumulating history data.
@@ -1063,24 +1066,8 @@ contains
             cchrt_fld = 0
             do ifld = 1,totflds
                ! Get a list of the coordinate heights if any
-               ncoords = 0
-               if ( histinfo(ifld)%coord_height > -huge(1.) ) then
-                  ! Check if it's already in list
-                  do kc = 1,ncoords
-                     if ( histinfo(ifld)%coord_name == coord_name(kc) ) then 
-                        exit
-                     end if
-                  end do
-                  if ( kc > ncoords ) then
-                     ! Value not found
-                     ncoords = kc
-                     coord_height(ncoords) = histinfo(ifld)%coord_height
-                     coord_name(ncoords) = histinfo(ifld)%coord_name
-                     coord_stdname(ncoords) = histinfo(ifld)%coord_stdname
-                     coord_units(ncoords) = histinfo(ifld)%coord_units
-                     coord_positive(ncoords) = histinfo(ifld)%coord_positive
-                  end if
-               end if
+               call coord_list(ifld,ncoords,coord_height,coord_name, &
+                               coord_stdname,coord_units,coord_positive)
                ! check dimensons and other file properties
                if ( histinfo(ifld)%used ) then 
                   if ( histinfo(ifld)%nlevels > 1 .or. histinfo(ifld)%multilev ) then
@@ -1121,6 +1108,11 @@ contains
             histfile(1)%soil = nsoil_fld > 0
             histfile(1)%cablepatch = cptch_fld > 0
             histfile(1)%cablecohort = cchrt_fld > 0
+            histfile(1)%ncoords = ncoords
+            allocate( histfile(1)%coord_height(1:ncoords) )
+            histfile(1)%coord_height(1:ncoords) = coord_height(1:ncoords)
+            allocate( histfile(1)%coord_name(1:ncoords) )
+            histfile(1)%coord_name(1:ncoords) = coord_name(1:ncoords)
             do ifld = 1,totflds
                histinfo(ifld)%ncid = ncid
                histinfo(ifld)%procid = 0
@@ -1166,24 +1158,8 @@ contains
          i = 0
          do ifld = 1,totflds
             ! Get a list of the coordinate heights if any
-            ncoords = 0
-            if ( histinfo(ifld)%coord_height > -huge(1.) ) then
-               ! Check if it's already in list
-               do kc = 1,ncoords
-                  if ( histinfo(ifld)%coord_name == coord_name(kc) ) then 
-                     exit
-                  end if
-               end do
-               if ( kc > ncoords ) then
-                  ! Value not found
-                  ncoords = kc
-                  coord_height(ncoords) = histinfo(ifld)%coord_height
-                  coord_name(ncoords) = histinfo(ifld)%coord_name
-                  coord_stdname(ncoords) = histinfo(ifld)%coord_stdname
-                  coord_units(ncoords) = histinfo(ifld)%coord_units
-                  coord_positive(ncoords) = histinfo(ifld)%coord_positive
-               end if
-            end if
+            call coord_list(ifld,ncoords,coord_height,coord_name, &
+                            coord_stdname,coord_units,coord_positive)
             ! Determine sizes of dimensions for this file 
             multilev_fld = histinfo(ifld)%nlevels > 1 .or. &
                            histinfo(ifld)%multilev
@@ -1239,6 +1215,11 @@ contains
                histfile(i)%soil = nsoil_fld > 0
                histfile(i)%cablepatch = cptch_fld > 0
                histfile(i)%cablecohort = cchrt_fld > 0
+               histfile(i)%ncoords = ncoords
+               allocate( histfile(1)%coord_height(1:ncoords) )
+               histfile(i)%coord_height(1:ncoords) = coord_height(1:ncoords)
+               allocate( histfile(1)%coord_name(1:ncoords) )
+               histfile(i)%coord_name(1:ncoords) = coord_name(1:ncoords)
                histinfo(ifld)%ncid = ncid
                histdims(ifld) = dims
             end if   
@@ -1430,12 +1411,12 @@ contains
          end if
       end if
 
-      do kc = 1,ncoords
-         do i = 1,size(histfile)
+      do i = 1,size(histfile)      
+         do kc = 1,histfile(i)%ncoords
             ncid = histfile(i)%id 
-            ierr = nf90_inq_varid(ncid, vname, vid)
+            ierr = nf90_inq_varid(ncid, histfile(i)%coord_name(kc), vid)
             call check_ncerr(ierr,"Error getting vid for height coord")
-            ierr = nf90_put_var ( ncid, vid, real(coord_height(kc)))
+            ierr = nf90_put_var ( ncid, vid, real(histfile(i)%coord_height(kc)) )
             call check_ncerr(ierr,"Error writing coordinate height")
          end do   
       end do
@@ -1584,6 +1565,38 @@ contains
        end do
     
     end function hash_gt
+
+    subroutine coord_list(ifld,ncoords,coord_height,coord_name, &
+                          coord_stdname,coord_units,coord_positive)
+       integer, intent(in) :: ifld
+       integer, intent(out) :: ncoords
+       integer :: kc
+       real, dimension(:), intent(inout) :: coord_height
+       character(len=*), dimension(:), intent(inout) :: coord_name
+       character(len=*), dimension(:), intent(inout) :: coord_stdname
+       character(len=*), dimension(:), intent(inout) :: coord_units
+       character(len=*), dimension(:), intent(inout) :: coord_positive
+    
+       ncoords = 0
+       if ( histinfo(ifld)%coord_height > -huge(1.) ) then
+          ! Check if it's already in list
+          do kc = 1,ncoords
+             if ( histinfo(ifld)%coord_name == coord_name(kc) ) then 
+                exit
+             end if
+          end do
+          if ( kc > ncoords ) then
+             ! Value not found
+             ncoords = kc
+             coord_height(ncoords) = histinfo(ifld)%coord_height
+             coord_name(ncoords) = histinfo(ifld)%coord_name
+             coord_stdname(ncoords) = histinfo(ifld)%coord_stdname
+             coord_units(ncoords) = histinfo(ifld)%coord_units
+             coord_positive(ncoords) = histinfo(ifld)%coord_positive
+          end if
+       end if
+    
+    end subroutine coord_list   
     
 !-------------------------------------------------------------------
    subroutine create_ncvar(vinfo, ncid, dims)
