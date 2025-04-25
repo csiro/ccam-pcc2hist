@@ -3167,7 +3167,9 @@ contains
          end if
 
          
-         if ( varlist(ivar)%vname == "u10" .or. varlist(ivar)%vname == "uscrn" ) then
+         if ( varlist(ivar)%vname == "u10" .or. varlist(ivar)%vname == "uscrn" .or. &
+              varlist(ivar)%vname == "rnd" .or. varlist(ivar)%vname == "rnc" .or.   &
+              varlist(ivar)%vname == "maxrnd" .or. varlist(ivar)%vname == "sno" ) then
             varlist(ivar)%all_positive = .true. 
          else 
             varlist(ivar)%all_positive = .false. 
