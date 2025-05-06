@@ -3377,7 +3377,7 @@ contains
                varlist(ivar)%long_name = "Anthropogenic heat flux"
                varlist(ivar)%instant = .false.
                xmin = 0.
-               xmax = 650.               
+               xmax = 640.               
             else if ( varlist(ivar)%vname == "cld" ) then
                varlist(ivar)%vname = "clt"
                varlist(ivar)%units = "%"
@@ -3448,7 +3448,7 @@ contains
                varlist(ivar)%long_name = "Surface Runoff"
                varlist(ivar)%instant = .false.
                xmin = 0.
-               xmax = 0.013
+               xmax = 0.0128
             else if ( varlist(ivar)%vname == "pblh" ) then
                varlist(ivar)%vname = "zmla"
                varlist(ivar)%units = "m"
@@ -3498,14 +3498,14 @@ contains
                varlist(ivar)%long_name = "Convective Precipitation"
                varlist(ivar)%instant = .false.
                xmin = 0.
-               xmax = 0.013
+               xmax = 0.0128
             else if ( varlist(ivar)%vname == "rnd" ) then
                varlist(ivar)%vname = "pr"
                varlist(ivar)%units = "kg m-2 s-1"
                varlist(ivar)%long_name = "Precipitation"
                varlist(ivar)%instant = .false.
                xmin = 0.
-               xmax = 0.013
+               xmax = 0.0128
             else if ( varlist(ivar)%vname == "maxrnd" ) then
                varlist(ivar)%vname = "prmax"
                varlist(ivar)%units = "kg m-2 s-1"
@@ -3513,7 +3513,7 @@ contains
                varlist(ivar)%daily = .true.
                varlist(ivar)%instant = .false.
                xmin = 0.
-               xmax = 0.013
+               xmax = 0.0128
             else if ( varlist(ivar)%vname == "ocheight" ) then
                varlist(ivar)%vname = "ssh"
                varlist(ivar)%units = "m"
@@ -3525,7 +3525,7 @@ contains
                varlist(ivar)%long_name = "Total Runoff"
                varlist(ivar)%instant = .false.
                xmin = 0.
-               xmax = 0.013
+               xmax = 0.0128
             else if ( varlist(ivar)%vname == "rtc_ave" ) then
                varlist(ivar)%vname = "rlutcs"
                varlist(ivar)%units = "W m-2"
@@ -3574,14 +3574,14 @@ contains
                varlist(ivar)%long_name = "Snowmelt"
                varlist(ivar)%instant = .false.
                xmin = 0.
-               xmax = 0.013
+               xmax = 0.0128
             else if ( varlist(ivar)%vname == "sno" ) then
                varlist(ivar)%vname = "prsn"
                varlist(ivar)%units = "kg m-2 s-1"
                varlist(ivar)%long_name = "Snowfall Flux"
                varlist(ivar)%instant = .false.
                xmin = 0.
-               xmax = 0.013
+               xmax = 0.0128
             else if ( varlist(ivar)%vname == "soc_ave" ) then
                varlist(ivar)%vname = "rsutcs"
                varlist(ivar)%units = "W m-2"
