@@ -1082,7 +1082,16 @@ contains
                else if ( match ( varlist(ivar)%vname, (/ "wb?"/) ) .or.        &
                          match ( varlist(ivar)%vname, (/ "wb?_ave"/) ) .or.    &
                          match ( varlist(ivar)%vname, (/ "wbice?_ave"/) ) .or. &
-                         match ( varlist(ivar)%vname, (/ "wetfrac?"/) ) ) then
+                         match ( varlist(ivar)%vname, (/ "wetfrac?"/) ) .or.   &
+                         match ( varlist(ivar)%vname, (/ "cplant?"/) ) .or.    &
+                         match ( varlist(ivar)%vname, (/ "nplant?"/) ) .or.    &
+                         match ( varlist(ivar)%vname, (/ "pplant?"/) ) .or.    &
+                         match ( varlist(ivar)%vname, (/ "clitter?"/) ) .or.   &
+                         match ( varlist(ivar)%vname, (/ "nlitter?"/) ) .or.   &
+                         match ( varlist(ivar)%vname, (/ "plitter?"/) ) .or.   &
+                         match ( varlist(ivar)%vname, (/ "csoil?"/) ) .or.     &
+                         match ( varlist(ivar)%vname, (/ "nsoil?"/) ) .or.     &
+                         match ( varlist(ivar)%vname, (/ "psoil?"/) ) ) then
                   if ( needfld(varlist(ivar)%vname) ) then                             
                      call vread( varlist(ivar)%vname, ctmp ) 
                      where ( soilt < 0.5 )

@@ -1686,7 +1686,7 @@ contains
       if ( hbytes == 2 ) then
          ! 32500/3200 = 1.015625, so with this scaling, end values should
          ! be exactly representable.
-         vinfo%scalef = 1.015625 * (vinfo%valid_max - vinfo%valid_min) / float(vmax - vmin)
+         vinfo%scalef = 1.015625 * (vinfo%valid_max - vinfo%valid_min) / real(vmax - vmin)
          vinfo%addoff = 0.5*(vinfo%valid_min+vinfo%valid_max)
          ierr  = nf90_put_att ( ncid, vid, "add_offset", vinfo%addoff )
          call check_ncerr(ierr)
