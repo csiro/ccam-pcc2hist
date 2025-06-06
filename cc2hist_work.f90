@@ -689,8 +689,8 @@ contains
                   end where
                   call savehist(varlist(ivar)%vname, ctmp)
                end if    
-            case ( "ocheight", "ssh" )
-               if ( needfld("ocheight") .or. needfld("ssh") ) then 
+            case ( "ocheight", "zos" )
+               if ( needfld("ocheight") .or. needfld("zos") ) then 
                   call vread( "ocheight", dtmp )
                   where ( soilt > 0.5 )
                      dtmp = nf90_fill_float ! flag for land
@@ -1882,8 +1882,8 @@ contains
          
          ! cordex pressure levels
          do k = 1,kk
-            ! vertical velocity 
-            tmp3d(:,:,k) = -(rdry/grav)*t(:,:,k)/(sig(k)*100.*psl) * &
+            ! calculate vertical velocity (wa)
+            tmp3d(:,:,k) = -(rdry/grav)*t(:,:,k)/(sig(k)*100.*psl(:,:)) * &
                            ( omega(:,:,k) - sig(k)*dpsdt/864. ) ! Convert dpsdt to Pa/s
          end do
          do j = 1,cordex_levels
@@ -3524,9 +3524,9 @@ contains
                xmin = 0.
                xmax = 0.0128
             else if ( varlist(ivar)%vname == "ocheight" ) then
-               varlist(ivar)%vname = "ssh"
+               varlist(ivar)%vname = "zos"
                varlist(ivar)%units = "m"
-               varlist(ivar)%long_name = "water surface height"
+               varlist(ivar)%long_name = "Sea Surface Height Above Geoid"
                varlist(ivar)%instant = .true.               
             else if ( varlist(ivar)%vname == "runoff" ) then
                varlist(ivar)%vname = "mrro"
@@ -5194,8 +5194,6 @@ end function bisect
          stdname = "sea_water_salinity"
       case ("sos")
          stdname = "sea_surface_salinity"
-      case ("ssh")
-         stdname = "sea_surface_height_above_sea_level"          
       case ("sund")
          stdname = "duration_of_sunshine"
          cell_methods = "time: sum (interval: 1 day)"
@@ -5288,6 +5286,8 @@ end function bisect
          stdname = "atmosphere_boundary_layer_thickness" 
       case ("zolnd")
          stdname = "surface_roughness_length" 
+      case ("zos")
+         stdname = "sea_surface_height_above_geoid"          
       case ("zs")
          stdname = "surface_altitude"
       end select
