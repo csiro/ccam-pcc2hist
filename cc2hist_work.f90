@@ -1210,6 +1210,38 @@ contains
                         call savehist("mrfsol", tgg) ! water
                      end if                      
                   end if    
+                  ierr = nf90_inq_varid (ncid, "wbice1", var_dum ) 
+                  if ( ierr == nf90_noerr ) then
+                     do k = 1,ksoil
+                        write(name,'(a,i1)') 'wbice', k
+                        call vread(name,tgg(:,:,k)) ! water
+                        where ( tgg(:,:,k)/=nf90_fill_float )
+                           mrfso = mrfso + tgg(:,:,k)*zse(k)*330.
+                           mrfsos = mrfsos + tgg(:,:,k)*shallow_zse(k)*330.
+                           tgg(:,:,k) = tgg(:,:,k)*zse(k)*330.
+                        elsewhere
+                           mrfso = nf90_fill_float
+                           mrfsos = nf90_fill_float
+                        end where    
+                        where ( soilt <= 0.5 ) 
+                           tgg(:,:,k) = nf90_fill_float ! water
+                           mrfso = nf90_fill_float
+                           mrfsos = nf90_fill_float
+                        end where  
+                     end do
+                     if ( needfld("mrfso") .and. kk>1 ) then
+                        call savehist("mrfso", mrfso)
+                     end if
+                     if ( needfld("mrfsos") .and. kk>1 ) then
+                        call savehist("mrfsos", mrfsos)
+                     endif
+                     if ( needfld("mrsfl") ) then
+                        call savehist("mrsfl", tgg) ! water
+                     end if   
+                     if ( needfld("mrfsol") ) then ! mrfsol has been depreciated
+                        call savehist("mrfsol", tgg) ! water
+                     end if                      
+                  end if    
                end if 
             case ( "mrsol" )   
                if ( needfld("mrsol") .or. (kk>1.and.(needfld("mrso").or.needfld("mrsos"))) ) then 
@@ -3060,6 +3092,9 @@ contains
          if ( ierr/=nf90_noerr ) then
            ierr = nf90_inq_varid (ncid, "wbice1_ave", ivar ) 
          end if
+         if ( ierr/=nf90_noerr ) then
+           ierr = nf90_inq_varid (ncid, "wbice1", ivar ) 
+         end if
          if ( ierr==nf90_noerr .and. ksoil>0 ) then
             nvars = nvars + 1
             varlist(nvars)%vname = "mrsfl"
@@ -4097,6 +4132,9 @@ contains
                call addfld('mrsol','Total Water Content of Soil Layer','kg m-2',0.,1.,ksoil,soil=.true.) 
             end if    
             ierr = nf90_inq_varid (ncid, "wbice1_ave", ivar ) 
+            if ( ierr/=nf90_noerr ) then
+               ierr = nf90_inq_varid (ncid, "wbice1", ivar )
+            end if
             if ( ierr==nf90_noerr .and. ksoil>0 ) then
                call addfld('mrsfl','Frozen Water Content of Soil Layer','kg m-2',0.,1.,ksoil,soil=.true.)
                ! mrfsol has been depreciated
@@ -4167,7 +4205,10 @@ contains
             if ( ierr==nf90_noerr .and. ksoil>0 ) then
                call addfld('wbice','Soil ice','frac',0.,1.,ksoil,soil=.true.)
             end if
-            ierr = nf90_inq_varid (ncid, "wbice1_ave", ivar ) 
+            ierr = nf90_inq_varid (ncid, "wbice1_ave", ivar )
+            if ( ierr/=nf90_noerr ) then
+               ierr = nf90_inq_varid (ncid, "wbice1", ivar )
+            end if
             if ( ierr==nf90_noerr .and. ksoil>0 ) then
                call addfld('wbice_ave','Avg soil ice','frac',0.,1.,ksoil,soil=.true.)
             end if   
