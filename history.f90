@@ -1889,8 +1889,13 @@ contains
          ierr = nf90_put_att ( ncid, NF90_GLOBAL, "source", source )
          call check_ncerr(ierr)
       end if
-      ierr = nf90_put_att ( ncid, NF90_GLOBAL, "Conventions", "CF-1.7" )
-      call check_ncerr(ierr)
+      if ( cordex_compliant ) then
+         ierr = nf90_put_att ( ncid, NF90_GLOBAL, "Conventions", "CF-1.11" )
+         call check_ncerr(ierr)
+      else
+         ierr = nf90_put_att ( ncid, NF90_GLOBAL, "Conventions", "CF-1.7" )
+         call check_ncerr(ierr)
+      end if
       ierr = nf90_put_att ( ncid, NF90_GLOBAL, "title", "CCAM simulation data" )
       call check_ncerr(ierr)
       !ierr = nf90_put_att ( ncid, NF90_GLOBAL, "contact", "ccam@csiro.au" )
