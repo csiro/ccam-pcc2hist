@@ -1757,7 +1757,9 @@ contains
          call check_ncerr(ierr,"Error with coordinates attribute")
       end if
 
-      ierr = nf90_put_att ( ncid, vid, "grid_mapping", "crs" )      
+      if ( cordex_compliant ) then
+         ierr = nf90_put_att( ncid, vid, "grid_mapping", "crs" )      
+      end if   
       
    end subroutine create_ncvar
   
@@ -2183,15 +2185,17 @@ contains
          end if   
       end do
       
-      ! Define grid mapping for CF-1.11
-      ierr = nf90_def_var ( ncid, "crs", NF90_INT, vid )
-      call check_ncerr(ierr)
-      ierr = nf90_put_att ( ncid, vid, "grid_mapping_name", "latitude_longitude" )
-      call check_ncerr(ierr)
-      ierr = nf90_put_att ( ncid, vid, "semi_major_axis", 6371000. )
-      call check_ncerr(ierr)
-      ierr = nf90_put_att ( ncid, vid, "inverse_flattening", 0. )
-      call check_ncerr(ierr)      
+      if ( cordex_compliant ) then
+         ! Define grid mapping for CF-1.11
+         ierr = nf90_def_var ( ncid, "crs", NF90_INT, vid )
+         call check_ncerr(ierr)
+         ierr = nf90_put_att ( ncid, vid, "grid_mapping_name", "latitude_longitude" )
+         call check_ncerr(ierr)
+         ierr = nf90_put_att ( ncid, vid, "semi_major_axis", 6371000. )
+         call check_ncerr(ierr)
+         ierr = nf90_put_att ( ncid, vid, "inverse_flattening", 0. )
+         call check_ncerr(ierr)      
+      end if   
 
    end subroutine create_ncfile
    
