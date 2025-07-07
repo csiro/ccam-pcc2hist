@@ -338,7 +338,7 @@ contains
       real, dimension(pil,pjl*pnpan*lproc) :: uten, uastmp, vastmp
       real, dimension(pil,pjl*pnpan*lproc) :: mrso, mrfso
       real, dimension(pil,pjl*pnpan*lproc) :: mrsos, mrfsos
-      real, dimension(pil,pjl*pnpan*lproc) :: sndw, dpsdt
+      real, dimension(pil,pjl*pnpan*lproc) :: sndw
       real, dimension(pil,pjl*pnpan*lproc) :: tauxtmp, tauytmp
       real, dimension(pil,pjl*pnpan*lproc) :: rgn, rgd, sgn, sgd
       real, dimension(pil,pjl*pnpan*lproc) :: rgncs, rgdcs, sgncs, sgdcs
@@ -573,11 +573,11 @@ contains
                   end if
                   call savehist ( varlist(ivar)%vname, dtmp )
                end if   
-            case ( "dpsdt" )
-                call vread( "dpsdt", dpsdt )
-                if ( needfld("dpsdt") ) then
-                   call savehist ( "dpsdt", dpsdt )
-                end if   
+            !case ( "dpsldt" ) ! not avaliable in history
+            !    call vread( "dpsldt", dpsldt )
+            !    if ( needfld("dpsldt") ) then
+            !       call savehist ( "dpsldt", dpsldt )
+            !    end if   
             case ( "evspsbl" )
                if ( needfld("evspsbl") ) then
                   call vread( "evspsbl", dtmp )  
@@ -1770,16 +1770,20 @@ contains
          
          if ( needfld("w") ) then
             do k = 1,kk
-               tmp3d(:,:,k) = -(rdry/grav)*t(:,:,k)/(sig(k)*100.*psl) * &
-                              ( omega(:,:,k) - sig(k)*dpsdt/864. ) ! Convert dpsdt to Pa/s
+               !tmp3d(:,:,k) = -(rdry/grav)*t(:,:,k)/(sig(k)*100.*psl) * &
+               !               ( omega(:,:,k) - sig(k)*dpsldt(:,:)/864. ) ! Convert dpsldt to Pa/s
+               ! MJT replace with NCAR equation as dpsldt is not avaliable
+               tmp3d(:,:,k) = -(rdry/grav)*t(:,:,k)/(sig(k)*100.*psl) * omega(:,:,k)
             end do
             call vsavehist ( "w", tmp3d )
          end if
 
          if ( needfld("wa") ) then
             do k = 1,kk
-               tmp3d(:,:,k) = -(rdry/grav)*t(:,:,k)/(sig(k)*100.*psl) * &
-                              ( omega(:,:,k) - sig(k)*dpsdt/864. ) ! Convert dpsdt to Pa/s
+               !tmp3d(:,:,k) = -(rdry/grav)*t(:,:,k)/(sig(k)*100.*psl) * &
+               !               ( omega(:,:,k) - sig(k)*dpsldt/864. ) ! Convert dpsldt to Pa/s
+               ! MJT replace with NCAR equation as dpsldt is not avaliable
+               tmp3d(:,:,k) = -(rdry/grav)*t(:,:,k)/(sig(k)*100.*psl) * omega(:,:,k)
             end do
             call vsavehist ( "wa", tmp3d )
          end if
@@ -1915,8 +1919,10 @@ contains
          ! cordex pressure levels
          do k = 1,kk
             ! calculate vertical velocity (wa)
-            tmp3d(:,:,k) = -(rdry/grav)*t(:,:,k)/(sig(k)*100.*psl(:,:)) * &
-                           ( omega(:,:,k) - sig(k)*dpsdt/864. ) ! Convert dpsdt to Pa/s
+            !tmp3d(:,:,k) = -(rdry/grav)*t(:,:,k)/(sig(k)*100.*psl(:,:)) * &
+            !               ( omega(:,:,k) - sig(k)*dpsldt/864. ) ! Convert dpsldt to Pa/s
+            ! MJT replace with NCAR equation as dpsldt is not avaliable
+            tmp3d(:,:,k) = -(rdry/grav)*t(:,:,k)/(sig(k)*100.*psl(:,:)) * omega(:,:,k)
          end do
          do j = 1,cordex_levels
             press_level = cordex_level_data(j)
@@ -1949,6 +1955,7 @@ contains
             end if
             call cordex_name( cname, "wa", press_level )
             if ( needfld( cname ) ) then
+               ! tmp3d holds vertical velocity in m/s calculated above 
                call cordex_interpolate( ctmp, tmp3d, press_level, psl, sig )
                call savehist( cname, ctmp )
             end if
