@@ -4035,13 +4035,15 @@ contains
             call addfld ( "pwc", "Precipitable water column", "kg m-2", 0.0, 100.0, 1, &
                            std_name="atmosphere_water_vapor_content", ran_type=.true. )           
          end if   
-         call addfld ( "uas", "Eastward Near-Surface Wind", "m s-1", -100.0, 100.0, 1, std_name="eastward_wind", ran_type=.true.,   &
-                       coord_height=10., coord_name="h10", coord_stdname="height", coord_units="m", coord_positive="up" )
-         call addfld ( "vas", "Northward Near-Surface Wind", "m s-1", -100.0, 100.0, 1, std_name="northward_wind", ran_type=.true., &
-                       coord_height=10., coord_name="h10", coord_stdname="height", coord_units="m", coord_positive="up" )
-         call addfld ( "sfcWindmax", "Maximum 10m wind speed", "m s-1", 0.0, 200.0, 1, std_name="wind_speed", ran_type=.true.,         &
-                       daily=.true., instant=.false., all_positive=.true., coord_height=10., coord_name="h10", coord_stdname="height", &
-                       coord_units="m", coord_positive="up" )
+         call addfld ( "uas", "Eastward Near-Surface Wind", "m s-1", -100.0, 100.0, 1, std_name="eastward_wind",      &
+                       ran_type=.true., coord_height=10., coord_name="h10", coord_stdname="height", coord_units="m",  &
+                       coord_positive="up" )
+         call addfld ( "vas", "Northward Near-Surface Wind", "m s-1", -100.0, 100.0, 1, std_name="northward_wind",    &
+                       ran_type=.true., coord_height=10., coord_name="h10", coord_stdname="height", coord_units="m",  &
+                       coord_positive="up" )
+         call addfld ( "sfcWindmax", "Maximum 10m wind speed", "m s-1", 0.0, 200.0, 1, std_name="wind_speed",         &
+                       ran_type=.true., daily=.true., instant=.false., all_positive=.true., coord_height=10.,         &
+                       coord_name="h10", coord_stdname="height", coord_units="m", coord_positive="up" )
          ierr = nf90_inq_varid (ncid, "u10m_max", ivar )
          if ( ierr == nf90_noerr ) then
             call addfld ( "sfcWind_max", "Maximum 10m wind speed", "m s-1", 0.0, 200.0, 1, std_name="wind_speed", &
