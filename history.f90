@@ -1727,14 +1727,16 @@ contains
          end if
       end if
 
-      if ( len_trim(cell_methods) > 0 ) then
-         ierr = nf90_put_att ( ncid, vid, "cell_methods", cell_methods )
-         call check_ncerr(ierr,"Error with cell_methods attribute")
-      else
-         ! Default to time point if otherwise not defined 
-         ierr = nf90_put_att ( ncid, vid, "cell_methods", "time: point" )
-         call check_ncerr(ierr,"Error with cell_methods attribute")
-      end if
+      if ( cordex_compliant ) then
+         if ( len_trim(cell_methods) > 0 ) then
+            ierr = nf90_put_att ( ncid, vid, "cell_methods", cell_methods )
+            call check_ncerr(ierr,"Error with cell_methods attribute")
+         else
+            ! Default to time point if otherwise not defined 
+            ierr = nf90_put_att ( ncid, vid, "cell_methods", "time: point" )
+            call check_ncerr(ierr,"Error with cell_methods attribute")
+         end if
+      end if   
          
       if ( vtype == NF90_INT2 ) then
          ! Ugly work around to ensure attributes have the correct type on SX6

@@ -3416,7 +3416,7 @@ contains
             else if ( varlist(ivar)%vname == "tscrn" ) then
                varlist(ivar)%vname = "tempc2m"
                varlist(ivar)%units = "degree_C"
-               varlist(ivar)%long_name = "Near-Surface Air Temperature"
+               varlist(ivar)%long_name = "Screen temperature"
                varlist(ivar)%instant = .true.
                areps_type = .true.
             end if   
