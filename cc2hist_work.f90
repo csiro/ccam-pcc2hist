@@ -886,7 +886,9 @@ contains
                   if ( needfld("snd") ) then
                      if ( cordex_compliant ) then
                         where ( sndw /= nf90_fill_float ) 
-                          dtmp = sndw/1000. 
+                           dtmp = sndw/1000. 
+                        elsewhere
+                           dtmp = nf90_fill_float
                         end where  
                         call savehist ( "snd", dtmp )
                      else  
@@ -4093,23 +4095,23 @@ contains
                            multilev=.true., std_name="relative_humidity",           &
                            ran_type=.true. )
          end if   
-         call addfld ( "theta", "Potential temperature", "K", 150., 1200., nlev, &
-                        multilev=.true., std_name="potential_temperature",       &
+         call addfld ( "theta", "Potential temperature", "K", 150., 1200., nlev,    &
+                        multilev=.true., std_name="potential_temperature",          &
                         ran_type=.true. )
          if ( cordex_compliant ) then
-            call addfld ( "wa", "Upward Air Velocity", "m s-1", -1., 1., nlev,   &
+            call addfld ( "wa", "Upward Air Velocity", "m s-1", -1., 1., nlev,      &
                            multilev=.true., std_name="upward_air_velocity" )
          else
-            call addfld ( "w", "Vertical velocity", "m s-1", -1., 1., nlev,      &
+            call addfld ( "w", "Vertical velocity", "m s-1", -1., 1., nlev,         &
                            multilev=.true., std_name="vertical_velocity" )
          end if
-         call addfld ( "td", "Dew point temperature", "K", 100.0, 400.0, nlev,   &
+         call addfld ( "td", "Dew point temperature", "K", 100.0, 400.0, nlev,      &
                         multilev=.true., ran_type=.true. ) 
          if ( areps_compliant ) then
-            call addfld ( "direction", "Wind Direction", "degrees", 0., 360.,     &
-                          nlev, multilev=.true., areps_type=.true.,               &
+            call addfld ( "direction", "Wind Direction", "degrees", 0., 360.,       &
+                          nlev, multilev=.true., areps_type=.true.,                 &
                           int_type=int_direction_local )
-            call addfld ( "speed", "Wind Speed", "m/s", 0., 150.,                 &
+            call addfld ( "speed", "Wind Speed", "m/s", 0., 150.,                   &
                           nlev, multilev=.true., areps_type=.true. )
          end if
          
