@@ -1795,7 +1795,7 @@ contains
                call height ( t, q, zs, psl, sig, zstd, plevs(1:nplevs) )
                if ( needfld("topoft") ) then
                   tmp3d = zstd*3.28028 ! convert from m to ft 
-                  if ( areps_compliant ) tmp3d = max( tmp3d, 0. ) ! no negative values allowed
+                  !if ( areps_compliant ) tmp3d = max( tmp3d, 0. ) ! no negative values allowed
                   call savehist ( "topoft", tmp3d ) 
                end if
                if ( needfld("zg") ) then
@@ -1807,7 +1807,7 @@ contains
                end do
                if ( needfld("topoft") ) then
                   tmp3d = zstd*3.28028 ! convert from m to ft 
-                  if ( areps_compliant ) tmp3d = max( tmp3d, 0. ) ! no negative values allowed
+                  !if ( areps_compliant ) tmp3d = max( tmp3d, 0. ) ! no negative values allowed
                   call savehist ( "topoft", tmp3d ) 
                end if
                if ( needfld("zg") ) then
@@ -1816,7 +1816,7 @@ contains
             else if ( use_theta .or. use_pvort ) then
                if ( needfld("topoft") ) then
                   tmp3d = hstd*3.28028 ! convert from m to ft 
-                  if ( areps_compliant ) tmp3d = max( tmp3d, 0. ) ! no negative values allowed
+                  !if ( areps_compliant ) tmp3d = max( tmp3d, 0. ) ! no negative values allowed
                   call savehist ( "topoft", tmp3d ) 
                end if
                if ( needfld("zg") ) then
@@ -1825,7 +1825,7 @@ contains
             else
                if ( needfld("topoft") ) then
                   tmp3d(:,:,minlev:maxlev) = hstd(:,:,minlev:maxlev)*3.28028 ! convert from m to ft  
-                  if ( areps_compliant ) tmp3d(:,:,minlev:maxlev) = max( tmp3d(:,:,minlev:maxlev), 0. ) ! no negative values allowed
+                  !if ( areps_compliant ) tmp3d(:,:,minlev:maxlev) = max( tmp3d(:,:,minlev:maxlev), 0. ) ! no negative values allowed
                   call savehist ( "topoft", tmp3d(:,:,minlev:maxlev) ) 
                end if
                if ( needfld("zg") ) then
@@ -1883,7 +1883,7 @@ contains
          end if
          if ( needfld("direction") ) then
             tmp3d = atan2(u,v)*45./atan(1.) + 180.
-            tmp3d = max( tmp3d, 0. )
+            !tmp3d = max( tmp3d, 0. )
             call vsavehist ( "direction", tmp3d )
          end if
 
@@ -2830,7 +2830,7 @@ contains
       integer :: ierr, ndimensions, nvariables, ndims, ivar, int_type, xtype
       integer :: londim, latdim, levdim, olevdim, procdim, timedim, vid, ihr, ind
       integer :: cptchdim, cchrtdim, tn_type, j, press_level, height_level
-      integer :: idim, int_nearest_local, int_direction_local
+      integer :: idim, int_nearest_local, int_direction_local, int_lin_local
       integer, dimension(nf90_max_var_dims) :: dimids
       logical :: procformat, ran_type, areps_type
       character(len=10) :: substr
@@ -3335,9 +3335,11 @@ contains
          if ( int_default == int_none ) then
             int_nearest_local = int_default 
             int_direction_local = int_default
+            int_lin_local = int_default
          else   
             int_nearest_local = int_nearest
             int_direction_local = int_lin_d10
+            int_lin_local = int_lin
          end if   
          
 
@@ -3361,7 +3363,7 @@ contains
                   "cll                 ", "clm                 ", "clh                 ", &
                   "cld                 ", "rnd                 ", "rnc                 "  &
                /)) .and. int_default /= int_none ) then
-            int_type = int_lin
+            int_type = int_lin_local
          end if   
          
          if ( match ( varlist(ivar)%vname, &
@@ -4088,12 +4090,12 @@ contains
          end if   
          if ( areps_compliant ) then
             call addfld ( "relhum", "Relative humidity", "%", 0., 110., nlev,       &
-                           multilev=.true., std_name="relative_humidity",           &
-                           areps_type=.true. )
+                           multilev=.true., int_type=int_lin_local,                 &
+                           std_name="relative_humidity", areps_type=.true. )
          else    
             call addfld ( "rh", "Relative humidity", "%", 0., 110., nlev,           &
-                           multilev=.true., std_name="relative_humidity",           &
-                           ran_type=.true. )
+                           multilev=.true., int_type=int_lin_local,                 &
+                           std_name="relative_humidity", ran_type=.true. )
          end if   
          call addfld ( "theta", "Potential temperature", "K", 150., 1200., nlev,    &
                         multilev=.true., std_name="potential_temperature",          &
@@ -4112,7 +4114,8 @@ contains
                           nlev, multilev=.true., areps_type=.true.,                 &
                           int_type=int_direction_local )
             call addfld ( "speed", "Wind Speed", "m/s", 0., 150.,                   &
-                          nlev, multilev=.true., areps_type=.true. )
+                          nlev, multilev=.true., areps_type=.true.,                 &
+                          int_type=int_lin_local )
          end if
          
          ! If the output uses pressure levels save the lowest sigma level of

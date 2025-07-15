@@ -243,7 +243,10 @@ contains
          if ( name=="qlg" .or. name=="qfg" .or. name=="mixr" .or. name=="hus" ) then
             ! special fix 
             parray = max( parray, 0. )
-         else if ( name=="rh" ) then
+         else if ( name=="speed" ) then
+            ! special fix 
+            parray = max( parray, 0. )
+         else if ( name=="rh" .or. name=="relhum" ) then
             ! special fix 
             parray = min( max( parray, 0. ), 100. )
          else if ( name=="cfrac" .or. name=="stratcf" ) then
