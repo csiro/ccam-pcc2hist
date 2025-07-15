@@ -282,7 +282,7 @@ contains
       end if
       
       ktc = max( ktc, diff )
-      kta = max( kta, ktau0, ktc )
+      kta = max( kta, ktau0 )
    
    end subroutine getstep
 
