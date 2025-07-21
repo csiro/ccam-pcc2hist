@@ -320,10 +320,12 @@ contains
    
    subroutine infile ( varlist, nvars, skip, mins )
       ! For netcdf input
-      use history, only : savehist, needfld, cordex_compliant, areps_compliant, spval
+      use history, only : savehist, needfld, cordex_compliant, areps_compliant, spval, &
+                          int_default
       use physparams, only : grav, rdry, cp, pi
       use s2p_m
       use height_m
+      use interp_m, only : int_tapm
       use newmpar_m, only : ol, cptch, cchrt
       use sitop_m
       use logging_m
@@ -2057,18 +2059,25 @@ contains
       end if
       
       
-      ! only for TAPM output
+      ! calculate zenith angle
       if ( needfld("cos_zen") ) then
-         ! calculate zenith angle
          dhr = 1./3600.
          fjd = float(mod(mins, 525600))/1440. ! restrict to 365 day calendar
          ierr = nf90_get_att(ncid, nf90_global, "bpyear", bpyear )
          if ( ierr/=nf90_noerr ) bpyear = 0.
          call solargh(fjd,bpyear,r1,dlt,alp,slag)
-         rlat_a(1) = rlat0
-         rlong_a(1) = rlong0
-         call zenith(fjd,r1,dlt,slag,rlat_a(1:1),rlong_a(1:1),dhr,1,cos_zen(1:1),frac(1:1))
-         dtmp(:,:) = cos_zen(1)
+         if ( int_default == int_tapm ) then
+            ! TAPM version
+            rlat_a(1) = rlat0
+            rlong_a(1) = rlong0
+            call zenith(fjd,r1,dlt,slag,rlat_a(1:1),rlong_a(1:1),dhr,1,cos_zen(1:1),frac(1:1))
+            dtmp(:,:) = cos_zen(1) ! single value for all grid points
+         else   
+            ! CCAM version 
+            do j = 1,pjl*pnpan*lproc
+               call zenith(fjd,r1,dlt,slag,rlat_l(:,j),rlong_l(:,j),dhr,pil,dtmp(:,j),ctmp(:,j))
+            end do
+         end if   
          call savehist( "cos_zen", dtmp )
       end if
       
@@ -4228,21 +4237,17 @@ contains
             end if   
          end if
          
-          ! add CAPE, CIN and LI
-          call addfld ( "CAPE", "Convective Available Potential Energy", "J kg-1", 0., 20000., 1, &
-                     std_name="atmosphere_convective_available_potential_energy_wrt_surface",     &
-                     instant=.true. )
-          call addfld ( "CIN", "Convective Inhibition", "J kg-1", -20000., 0., 1,             &
-                     std_name="atmosphere_convective_available_potential_energy_wrt_surface", &
-                     instant=.true. )
-          call addfld ( "LI", "Lifted Index", "K", -100., 100., 1,                                                        &
-                     std_name="temperature_difference_between_ambient_air_and_air_lifted_adiabatically_from_the_surface", &
-                     instant=.true. )   
-      
-         if ( int_default == int_tapm ) then
-            call addfld('cos_zen', 'Cosine of solar zenith angle', 'none', -1., 1., 1 )
-         end if
-         
+         ! add CAPE, CIN and LI
+         call addfld ( "CAPE", "Convective Available Potential Energy", "J kg-1", 0., 20000., 1, &
+                    std_name="atmosphere_convective_available_potential_energy_wrt_surface",     &
+                    instant=.true. )
+         call addfld ( "CIN", "Convective Inhibition", "J kg-1", -20000., 0., 1,             &
+                    std_name="atmosphere_convective_available_potential_energy_wrt_surface", &
+                    instant=.true. )
+         call addfld ( "LI", "Lifted Index", "K", -100., 100., 1,                                                        &
+                    std_name="temperature_difference_between_ambient_air_and_air_lifted_adiabatically_from_the_surface", &
+                    instant=.true. )
+
       else
          ! high-frequency output
          ierr = nf90_inq_varid (ncid, "soilt", ivar )
@@ -4338,6 +4343,8 @@ contains
       end if ! kk>1 ..else..
       
       call addfld ( "d10", "10m wind direction", "deg", 0.0, 360.0, 1, ran_type=.true., int_type=int_direction_local )
+
+      call addfld( "cos_zen", "Cosine of solar zenith angle", "none", -1., 1., 1 )
       
       if ( ok > 1 ) then
          call addfld( "uos", "x-component surface current", "m s-1", -100., 100., 1 )
