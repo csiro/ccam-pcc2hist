@@ -1075,6 +1075,11 @@ contains
                   end if
                end if ! histinfo(ifld)%used
             end do    ! ifld = 1,totflds
+            ! patch for AREPS
+            if ( areps_compliant ) then
+               ! force soil depth output for AREPS 
+               nsoil_fld = nsoil 
+            end if
             allocate( histfile(1), histdimvars(1) )
             call create_ncfile ( filename, nxhis, nyhis, nlevels_fld, ol_fld, cptch_fld, cchrt_fld,  &
                  multilev_fld, use_plevs, use_meters, use_theta, use_pvort, use_depth, use_hyblevs,  &
