@@ -1818,7 +1818,7 @@ contains
       end if
       if ( areps_compliant ) then
          ! AREPS must use netcdf3 
-         ierr = nf90_create(filename, nf90_64bit_offset, ncid) 
+         ierr = nf90_create(filename, nf90_clobber, ncid) 
       else    
 #ifdef usenc3
          ierr = nf90_create(filename, nf90_64bit_offset, ncid)
