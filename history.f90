@@ -2558,7 +2558,7 @@ contains
                   timeout = real(histset*hfreq)
                end if
                if ( cordex_compliant .and. .not.histfile(i)%inst .and. &
-                    ihtype == hist_ave ) then
+                    ihtype==hist_inst ) then
                   timeout = timeout - 720. 
                end if   
                ierr = nf90_put_var ( ncid, vid, timeout, start=(/histset_daily/) )
@@ -2594,7 +2594,7 @@ contains
                   timeout = real(histset*hfreq) 
                end if
                if ( cordex_compliant .and. .not.histfile(i)%inst .and. &
-                    ihtype==hist_ave ) then
+                    ihtype==hist_inst ) then
                   timeout = timeout - 180.
                end if
                ierr = nf90_put_var ( ncid, vid, timeout, start=(/histset_6hr/) )
@@ -2629,7 +2629,7 @@ contains
                timeout = real(histset*hfreq)
             end if
             if ( cordex_compliant .and. .not.histfile(i)%inst .and. present(dtime) .and. &
-                 ihtype/=hist_ave ) then
+                 ihtype==hist_inst ) then
                timeout = timeout - 0.5*dtime 
             end if
             ierr = nf90_put_var ( ncid, vid, timeout, start=(/histset/) )
