@@ -1817,7 +1817,7 @@ contains
          print*, "Creating file ", filename
       end if
       if ( areps_compliant ) then
-         ! AREPS must use netcdf3 
+         ! AREPS must use classic netcdf3 
          ierr = nf90_create(filename, nf90_clobber, ncid) 
       else    
 #ifdef usenc3
@@ -2557,7 +2557,8 @@ contains
                else
                   timeout = real(histset*hfreq)
                end if
-               if ( cordex_compliant .and. .not.histfile(i)%inst ) then
+               if ( cordex_compliant .and. .not.histfile(i)%inst .and. &
+                    ihtype == hist_ave ) then
                   timeout = timeout - 720. 
                end if   
                ierr = nf90_put_var ( ncid, vid, timeout, start=(/histset_daily/) )
@@ -2592,7 +2593,8 @@ contains
                else
                   timeout = real(histset*hfreq) 
                end if
-               if ( cordex_compliant .and. .not.histfile(i)%inst ) then
+               if ( cordex_compliant .and. .not.histfile(i)%inst .and. &
+                    ihtype==hist_ave ) then
                   timeout = timeout - 180.
                end if
                ierr = nf90_put_var ( ncid, vid, timeout, start=(/histset_6hr/) )
@@ -2626,7 +2628,8 @@ contains
             else
                timeout = real(histset*hfreq)
             end if
-            if ( cordex_compliant .and. .not.histfile(i)%inst .and. present(dtime) ) then
+            if ( cordex_compliant .and. .not.histfile(i)%inst .and. present(dtime) .and. &
+                 ihtype/=hist_ave ) then
                timeout = timeout - 0.5*dtime 
             end if
             ierr = nf90_put_var ( ncid, vid, timeout, start=(/histset/) )

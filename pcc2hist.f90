@@ -19,7 +19,7 @@
 
 !------------------------------------------------------------------------------
     
-program cc2hist
+program pcc2hist
 
 !  This program generates a netcdf history file from the conformal-cubic
 !  output file.
@@ -556,7 +556,7 @@ program cc2hist
    call getstep( kta, ktc )
 
    ! calculate time interval
-   call getdtime( dtime, ktc )
+   dtime = getdtime( ktc )
    if ( cf_compliant ) then
       dtime = dtime/1440. ! Days
    else if ( areps_compliant ) then
@@ -710,7 +710,7 @@ program cc2hist
    
    call MPI_Finalize(ierr)
 
-end program cc2hist
+end program pcc2hist
     
 subroutine finishbanner
    implicit none

@@ -238,11 +238,11 @@ contains
 
    end subroutine getdate
    
-   subroutine getdtime( dtime, ktc )
+   function getdtime( ktc ) result(dtime)
 
       integer, intent(in) :: ktc
       integer :: ierr, vid
-      real, intent(out) :: dtime
+      real :: dtime
       character(len=80) :: datestring
    
       ierr = nf90_inq_varid (ncid, "time", vid )
@@ -259,8 +259,8 @@ contains
          write(6,*) "Expecting seconds or minutes"
          stop
       end if    
-   
-   end subroutine getdtime
+      
+   end function getdtime
    
    subroutine getstep(kta,ktc)
    
@@ -575,11 +575,6 @@ contains
                   end if
                   call savehist ( varlist(ivar)%vname, dtmp )
                end if   
-            !case ( "dpsldt" ) ! not avaliable in history
-            !    call vread( "dpsldt", dpsldt )
-            !    if ( needfld("dpsldt") ) then
-            !       call savehist ( "dpsldt", dpsldt )
-            !    end if   
             case ( "evspsbl" )
                if ( needfld("evspsbl") ) then
                   call vread( "evspsbl", dtmp )  
