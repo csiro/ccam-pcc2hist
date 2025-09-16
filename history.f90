@@ -2395,23 +2395,21 @@ contains
    end subroutine savehist_work
 
 !-------------------------------------------------------------------
-   subroutine writehist( istep, endofrun, year, month, interp, time, time_bnds, &
-                         dtime )
+   subroutine writehist( istep, time, dtime, endofrun, year, month, interp, time_bnds )
 
       use mpidata_m
       use newmpar_m, only : cptch, cchrt
       use logging_m
 #ifdef usempimod
       use mpi
-#endif
-#ifndef usempimod
+#else
       include 'mpif.h'
 #endif
       
       integer, intent(in) :: istep
       logical, intent(in), optional :: endofrun
       integer, intent(in), optional :: year, month !  For old format files
-      real, intent(in), optional :: time, dtime
+      real, intent(in) :: time, dtime
       real, dimension(2), intent(in), optional :: time_bnds
       interface
          subroutine interp ( a, b, flag )
@@ -2444,6 +2442,8 @@ contains
       integer :: nreq, dreq, rreq, maxdreq, maxrreq
       integer, dimension(:), allocatable, save :: ireq, ireq_r, ireq_d
       real, dimension(:,:,:), allocatable, save :: htemp_buff
+      logical :: do_time_bnds, do_adj_avetime
+      real :: adj_day, adj_6hr
       
       if ( require_interp .and. .not. present(interp) ) then
          print*, " Error, interp argument required for writehist "
@@ -2462,10 +2462,10 @@ contains
       if ( present(endofrun) ) then
          doinc = .not. endofrun
       end if
-      if ( doinc .and. ihtype == hist_ave .and. present(time) ) then
+      if ( doinc .and. ihtype == hist_ave ) then
          avetime = avetime + time
          timecount = timecount + 1
-         if ( cordex_compliant .and. present(dtime) ) then
+         if ( cordex_compliant ) then
             avetime = avetime - 0.5*dtime
          end if
          if ( hist_debug > 0 ) then
@@ -2510,29 +2510,20 @@ contains
 
       histset = histset + 1
       if ( cf_compliant ) then
-         if ( present(time) ) then
-            endofday = modulo(nint(time*1440.),1440) == 0  
-            endof6hr = modulo(nint(time*1440.),360) == 0
-         else
-            endofday = modulo(nint(real(histset)*hfreq*1440.),1440) == 0
-            endof6hr = modulo(nint(real(histset)*hfreq*1440.),360) == 0
-         end if    
+         endofday = modulo(nint(time*1440.),1440) == 0  
+         endof6hr = modulo(nint(time*1440.),360) == 0
+         adj_day = 1.         
+         adj_6hr = 0.25
       else if ( areps_compliant ) then
-         if ( present(time) ) then
-            endofday = modulo(nint(time*60.),1440) == 0  
-            endof6hr = modulo(nint(time*60.),360) == 0
-         else
-            endofday = modulo(nint(real(histset)*hfreq*60.),1440) == 0
-            endof6hr = modulo(nint(real(histset)*hfreq*60.),360) == 0
-         end if    
+         endofday = modulo(nint(time*60.),1440) == 0  
+         endof6hr = modulo(nint(time*60.),360) == 0
+         adj_day = 24.         
+         adj_6hr = 6.
       else    
-         if ( present(time) ) then
-            endofday = modulo(nint(time),1440) == 0  
-            endof6hr = modulo(nint(time),360) == 0
-         else
-            endofday = modulo(nint(real(histset)*hfreq),1440) == 0
-            endof6hr = modulo(nint(real(histset)*hfreq),360) == 0
-         end if    
+         endofday = modulo(nint(time),1440) == 0  
+         endof6hr = modulo(nint(time),360) == 0
+         adj_day = 1440.         
+         adj_6hr = 360.
       end if   
       if ( endofday ) histset_daily = histset_daily + 1  
       if ( endof6hr ) histset_6hr = histset_6hr + 1
@@ -2540,39 +2531,39 @@ contains
       ! write time
       call START_LOG(putvar_begin)
       do i = 1,size(histfile)
+          
+         do_time_bnds = (cf_compliant.or.cordex_compliant) .and. present(time_bnds) .and. &
+                        .not.(histfile(i)%inst.and.ihtype==hist_inst) .and.               &
+                        .not.(ihtype==hist_fixed)
+         do_adj_avetime = cordex_compliant .and. .not.histfile(i)%inst .and. &
+                          ihtype==hist_inst
+          
          if ( histfile(i)%fix ) then
             ! do nothing 
          else if ( histfile(i)%day ) then
             ! output only contains daily data 
-            ncid = histfile(i)%id
-            ierr = nf90_inq_varid (ncid, "time", vid )
-            call check_ncerr(ierr, "Error getting time id")
             if ( endofday ) then
-               if ( present(time) ) then
-                  if ( ihtype == hist_ave) then
-                     timeout = avetime/timecount
-                  else
-                     timeout = time 
-                  end if
+               ncid = histfile(i)%id
+               ierr = nf90_inq_varid (ncid, "time", vid )
+               call check_ncerr(ierr, "Error getting time id")       
+               if ( ihtype == hist_ave) then
+                  timeout = avetime/timecount
                else
-                  timeout = real(histset*hfreq)
+                  timeout = time 
                end if
-               if ( cordex_compliant .and. .not.histfile(i)%inst .and. &
-                    ihtype==hist_inst ) then
-                  timeout = timeout - 720. 
+               if ( do_adj_avetime ) then
+                  timeout = timeout - 0.5*adj_day
                end if   
                ierr = nf90_put_var ( ncid, vid, timeout, start=(/histset_daily/) )
                call check_ncerr(ierr, "Error writing time")
-               if ( (cf_compliant.or.cordex_compliant) .and. present(time_bnds) .and. &
-                    .not.(histfile(i)%inst.and.ihtype==hist_inst) .and.                    &
-                    .not.(ihtype==hist_fixed) ) then
+               if ( do_time_bnds ) then
                   ierr = nf90_inq_varid (ncid, "time_bnds", vid )
                   call check_ncerr(ierr, "Error getting time_bnds id")
                   if ( ihtype == hist_ave) then
                      ierr = nf90_put_var ( ncid, vid, avetime_bnds(:), start=(/1,histset_daily/) )
                   else
                      time_bnds_local(2) = time_bnds(2)
-                     time_bnds_local(1) = time_bnds(2) - 1440.
+                     time_bnds_local(1) = time_bnds(2) - adj_day
                      ierr = nf90_put_var ( ncid, vid, time_bnds_local, start=(/1,histset_daily/) )
                   end if
                   call check_ncerr(ierr, "Error writing time_bnds")
@@ -2580,35 +2571,28 @@ contains
             end if 
          else if ( histfile(i)%sixhr ) then
             ! output only contains 6-hourly data 
-            ncid = histfile(i)%id
-            ierr = nf90_inq_varid (ncid, "time", vid )
-            call check_ncerr(ierr, "Error getting time id")
             if ( endof6hr ) then
-               if ( present(time) ) then
-                  if ( ihtype == hist_ave) then
-                     timeout = avetime/timecount
-                  else
-                     timeout = time
-                  end if
+               ncid = histfile(i)%id
+               ierr = nf90_inq_varid (ncid, "time", vid )
+               call check_ncerr(ierr, "Error getting time id")       
+               if ( ihtype == hist_ave) then
+                  timeout = avetime/timecount
                else
-                  timeout = real(histset*hfreq) 
+                  timeout = time
                end if
-               if ( cordex_compliant .and. .not.histfile(i)%inst .and. &
-                    ihtype==hist_inst ) then
-                  timeout = timeout - 180.
+               if ( do_adj_avetime ) then
+                  timeout = timeout - 0.5*adj_6hr
                end if
                ierr = nf90_put_var ( ncid, vid, timeout, start=(/histset_6hr/) )
                call check_ncerr(ierr, "Error writing time")
-               if ( (cf_compliant.or.cordex_compliant) .and. present(time_bnds) .and. &
-                    .not.(histfile(i)%inst.and.ihtype==hist_inst) .and.                    &
-                    .not.(ihtype==hist_fixed) ) then
+               if ( do_time_bnds ) then
                   ierr = nf90_inq_varid (ncid, "time_bnds", vid )
                   call check_ncerr(ierr, "Error getting time_bnds id")
                   if ( ihtype == hist_ave) then
                      ierr = nf90_put_var ( ncid, vid, avetime_bnds(:), start=(/1,histset_6hr/) )
                   else
                      time_bnds_local(2) = time_bnds(2)
-                     time_bnds_local(1) = time_bnds(2) - 360.
+                     time_bnds_local(1) = time_bnds(2) - adj_6hr
                      ierr = nf90_put_var ( ncid, vid, time_bnds_local, start=(/1,histset_6hr/) )
                   end if
                   call check_ncerr(ierr, "Error writing time_bnds")
@@ -2619,24 +2603,17 @@ contains
             ncid = histfile(i)%id
             ierr = nf90_inq_varid (ncid, "time", vid )
             call check_ncerr(ierr, "Error getting time id")
-            if ( present(time) ) then
-               if ( ihtype == hist_ave) then
-                  timeout = avetime/timecount
-               else
-                  timeout = time
-               end if
+            if ( ihtype == hist_ave) then
+               timeout = avetime/timecount
             else
-               timeout = real(histset*hfreq)
+               timeout = time
             end if
-            if ( cordex_compliant .and. .not.histfile(i)%inst .and. present(dtime) .and. &
-                 ihtype==hist_inst ) then
+            if ( do_adj_avetime ) then
                timeout = timeout - 0.5*dtime 
             end if
             ierr = nf90_put_var ( ncid, vid, timeout, start=(/histset/) )
             call check_ncerr(ierr, "Error writing time")
-            if ( (cf_compliant.or.cordex_compliant) .and. present(time_bnds) .and. &
-                 .not.(histfile(i)%inst.and.ihtype==hist_inst) .and.                    &
-                 .not.(ihtype==hist_fixed) ) then
+            if ( do_time_bnds ) then
                ierr = nf90_inq_varid (ncid, "time_bnds", vid )
                call check_ncerr(ierr, "Error getting time_bnds id")
                if ( ihtype == hist_ave) then

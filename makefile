@@ -79,6 +79,17 @@ PPFLAG90 = -fpp
 DEBUGFLAG = -check all -debug all -fpe0
 endif
 
+ifeq ($(NVFORTRAN),yes)
+FC = mpifort
+FHOST =
+MPIFLAG =
+FFLAGS = -fast -tp=host -O4
+INC = -I $(NETCDF_ROOT)/include
+LIBS = -L $(NETCDF_ROOT)/lib -lnetcdf -lnetcdff
+PPFLAG90 = -cpp
+DEBUGFLAG = -g -Mbounds
+endif
+
 
 # Options for building with VAMPIRTrace
 ifeq ($(VT),yes)

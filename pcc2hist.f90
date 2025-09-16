@@ -674,17 +674,17 @@ program pcc2hist
       if ( cf_compliant ) then 
          time = time/1440. ! Days
          time_bnds = (/time_prev,time/)
-         call writehist ( ktau, interp=ints, time=time, time_bnds=time_bnds, dtime=dtime )
+         call writehist ( ktau, time, dtime, interp=ints, time_bnds=time_bnds )
          time_prev = time
       else if ( areps_compliant ) then
          time = time/60. ! Hours
-         call writehist ( ktau, interp=ints, time=time, dtime=dtime ) 
+         call writehist ( ktau, time, dtime, interp=ints ) 
       else if ( cordex_compliant ) then
          time_bnds = (/time_prev,time/)   
-         call writehist ( ktau, interp=ints, time=time, time_bnds=time_bnds, dtime=dtime )   
+         call writehist ( ktau, time, dtime, interp=ints, time_bnds=time_bnds )   
          time_prev = time   
       else
-         call writehist ( ktau, interp=ints, time=time, dtime=dtime )
+         call writehist ( ktau, time, dtime, interp=ints )
       end if
 
    end do timeloop
@@ -692,7 +692,7 @@ program pcc2hist
    call END_LOG(timeloop_end)
    call log_off()
 
-   call writehist( ktau, interp=ints, time=time, dtime=dtime, endofrun=.true. )
+   call writehist( ktau, time, dtime, interp=ints, endofrun=.true. )
    call closehist
    call paraclose
 
