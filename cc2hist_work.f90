@@ -2879,14 +2879,9 @@ contains
             ierr = nf90_inquire_variable (ncid, ivar, name=vname, ndims=ndims, dimids=dimids, xtype=xtype)
             call check_ncerr(ierr, "nf90_inquire_variable error")
             if ( ndims/=idim ) cycle
-            ! remove old sfcWindmax data
-            if ( vname == "sfcWindmax" ) then  ! .or. vname == "sfcWindmax_stn"
-               cycle
-            end if  
-            ! remove old CAPE and CIN
-            if ( kk>1 .and. (vname == "CAPE" .or. vname == "CIN" ) ) then
-               cycle 
-            end if
+            ! remove old data
+            if ( vname == "sfcWindmax" ) cycle  ! .or. vname == "sfcWindmax_stn"
+            if ( kk>1 .and. (vname == "CAPE" .or. vname == "CIN" ) ) cycle 
             if ( ndims == 6 .and. procformat ) then   
                ! Should be lon, lat, lev, proc, time
                if ( match ( dimids(1:ndims), (/ londim, latdim, cptchdim, cchrtdim, procdim, timedim /) ) ) then
@@ -4115,11 +4110,11 @@ contains
                         multilev=.true., ran_type=.true. ) 
          if ( areps_compliant ) then
             call addfld ( "direction", "Wind Direction", "degrees", 0., 360.,       &
-                          nlev, multilev=.true., areps_type=.true.,                 &
-                          int_type=int_direction_local )
+                          nlev, multilev=.true., std_name="wind_direction",         &
+                          areps_type=.true., int_type=int_direction_local )
             call addfld ( "speed", "Wind Speed", "m/s", 0., 150.,                   &
-                          nlev, multilev=.true., areps_type=.true.,                 &
-                          int_type=int_lin_local )
+                          nlev, multilev=.true., std_name="wind_speed",             &
+                          areps_type=.true., int_type=int_lin_local )
          end if
          
          ! If the output uses pressure levels save the lowest sigma level of
@@ -5274,6 +5269,10 @@ end function bisect
          stdname = "surface_downward_eastward_stress"
       case ("tauy")
          stdname = "surface_downward_northward_stress"
+      case ("tempc")
+         stdname = "air_temperature" 
+      case ("tempc2m")
+         stdname = "screen_temperature"  
       case ("tdew")
          stdname = "dew_point_temperature" 
       case ("thetao")
@@ -6044,11 +6043,11 @@ end function bisect
          call check_ncerr(ierr, "Error getting vid for "//name)
 
          if ( resprocformat ) then
-            ierr = nf90_get_var ( ncid_in(ip), vid, inarray3,                  &
+            ierr = nf90_get_var ( ncid_in(ip), vid, inarray3,             &
                                   start=(/ 1, 1, 1, prid_in(ip), nrec /), &
                                   count=(/ pil, pjl*pnpan, pkl, 1, 1 /) )
          else
-            ierr = nf90_get_var ( ncid_in(ip), vid, inarray3,                  &
+            ierr = nf90_get_var ( ncid_in(ip), vid, inarray3,             &
                                   start=(/ 1, 1, 1, nrec /),              &
                                   count=(/ pil, pjl*pnpan, pkl, 1 /) )
          end if
@@ -6099,11 +6098,11 @@ end function bisect
          call check_ncerr(ierr, "Error getting vid for "//name)
 
          if ( resprocformat ) then
-            ierr = nf90_get_var ( ncid_in(ip), vid, inarray4,                     &
+            ierr = nf90_get_var ( ncid_in(ip), vid, inarray4,                &
                                   start=(/ 1, 1, 1, 1, prid_in(ip), nrec /), &
                                   count=(/ pil, pjl*pnpan, pkl, pll, 1, 1 /) )
          else
-            ierr = nf90_get_var ( ncid_in(ip), vid, inarray4,                     &
+            ierr = nf90_get_var ( ncid_in(ip), vid, inarray4,                &
                                   start=(/ 1, 1, 1, 1, nrec /),              &
                                   count=(/ pil, pjl*pnpan, pkl, pll, 1 /) )
          end if
