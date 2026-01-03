@@ -376,6 +376,7 @@ contains
       bytes = hbytes; hbytes = 4
       names = hnames; hnames = ""
       namesx = xnames; xnames = ""
+      ierr = 0
       if ( myid == 0 ) then
         read(un,histnl,iostat=ierr)
       end if

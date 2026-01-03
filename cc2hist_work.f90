@@ -123,6 +123,7 @@ contains
       allocate ( soilt(pil,pjl_long), u(pil,pjl_long,kl),  v(pil,pjl_long,kl) )
       allocate ( t(pil,pjl_long,kl) )
       allocate ( q(pil,pjl_long,kl),  ql(pil,pjl_long,kl), qf(pil,pjl_long,kl) )
+      ! qg is graupel
       allocate ( qs(pil,pjl_long,kl), qg(pil,pjl_long,kl), omega(pil,pjl_long,kl) )
       allocate ( tgg(pil,pjl_long,ksoil) )
       allocate ( urban_frac(pil,pjl_long), f_cor(pil,pjl_long) )
@@ -1767,24 +1768,22 @@ contains
             end if   
          end if
          
-         if ( needfld("w") ) then
+         if ( needfld("w") .or. needfld("wa") ) then
             do k = 1,kk
                !tmp3d(:,:,k) = -(rdry/grav)*t(:,:,k)/(sig(k)*100.*psl) * &
                !               ( omega(:,:,k) - sig(k)*dpsldt(:,:)/864. ) ! Convert dpsldt to Pa/s
                ! MJT replace with NCAR equation as dpsldt is not avaliable
-               tmp3d(:,:,k) = -(rdry/grav)*t(:,:,k)/(sig(k)*100.*psl) * omega(:,:,k)
+               where ( omega(:,:,k) /= nf90_fill_float )
+                  tmp3d(:,:,k) = -(rdry/grav)*t(:,:,k)/(sig(k)*100.*psl) * omega(:,:,k)
+               elsewhere
+                  tmp3d(:,:,k) = nf90_fill_float  
+               end where
             end do
-            call vsavehist ( "w", tmp3d )
-         end if
-
-         if ( needfld("wa") ) then
-            do k = 1,kk
-               !tmp3d(:,:,k) = -(rdry/grav)*t(:,:,k)/(sig(k)*100.*psl) * &
-               !               ( omega(:,:,k) - sig(k)*dpsldt/864. ) ! Convert dpsldt to Pa/s
-               ! MJT replace with NCAR equation as dpsldt is not avaliable
-               tmp3d(:,:,k) = -(rdry/grav)*t(:,:,k)/(sig(k)*100.*psl) * omega(:,:,k)
-            end do
-            call vsavehist ( "wa", tmp3d )
+            if ( needfld("w") ) then
+              call vsavehist ( "w", tmp3d )
+            else if ( needfld("wa") ) then
+              call vsavehist ( "wa", tmp3d )
+            end if
          end if
          
          if ( needfld("zg") .or. needfld("topoft") ) then
@@ -1921,7 +1920,11 @@ contains
             !tmp3d(:,:,k) = -(rdry/grav)*t(:,:,k)/(sig(k)*100.*psl(:,:)) * &
             !               ( omega(:,:,k) - sig(k)*dpsldt/864. ) ! Convert dpsldt to Pa/s
             ! MJT replace with NCAR equation as dpsldt is not avaliable
-            tmp3d(:,:,k) = -(rdry/grav)*t(:,:,k)/(sig(k)*100.*psl(:,:)) * omega(:,:,k)
+            where ( omega(:,:,k) /= nf90_fill_float )
+               tmp3d(:,:,k) = -(rdry/grav)*t(:,:,k)/(sig(k)*100.*psl(:,:)) * omega(:,:,k)
+            elsewhere
+               tmp3d(:,:,k) = nf90_fill_float
+            end where   
          end do
          do j = 1,cordex_levels
             press_level = cordex_level_data(j)
@@ -4587,13 +4590,21 @@ contains
       do j = 1,pjl*pnpan*lproc
          do i = 1,pil
             if ( tempmode .and. (real(press_level) > psl(i,j)*sig(1)) ) then
-               utmp(i,j) = u(i,j,1)*(real(press_level)/(psl(i,j)*sig(1)))**(6.5e-3*rdry/grav)
+               if ( u(i,j,1) /= nf90_fill_float ) then  
+                  utmp(i,j) = u(i,j,1)*(real(press_level)/(psl(i,j)*sig(1)))**(6.5e-3*rdry/grav)
+               else
+                  utmp(i,j) = nf90_fill_float
+               end if   
             else    
                n = bisect(real(press_level), psl(i,j), sig) 
                xx = (real(press_level) - psl(i,j)*sig(n)) / &
                     (psl(i,j)*(sig(n+1)-sig(n)))
                xx = min( max( xx, 0. ), 1. )    
-               utmp(i,j) = u(i,j,n)*(1.-xx) + u(i,j,n+1)*xx   
+               if ( u(i,j,n)/=nf90_fill_float .and. u(i,j,n+1)/=nf90_fill_float ) then
+                  utmp(i,j) = u(i,j,n)*(1.-xx) + u(i,j,n+1)*xx   
+               else
+                  utmp(i,j) = nf90_fill_float
+               end if
             end if   
          end do
       end do   
@@ -4887,12 +4898,12 @@ end function bisect
                   if ( wflag(i,j) ) then
                      ! initial guess
                      tovtheta = (press/1.e5)**(rdry/cp)
-                     ptK = srcthetaeK(i,j)/exp(hl*.012/(cp*295.))*tovtheta
+                     ptK = srcthetaeK(i,j)*exp(-hl*.012/(cp*295.))*tovtheta
                      found = .false.
                      do iter = 1,105
                         if ( .not.found ) then  
                            smixr = qsat(press,ptK)
-                           thetaK = srcthetaeK(i,j)/exp(hl*smixr/(cp*ptK)) ! Holton 1972
+                           thetaK = srcthetaeK(i,j)*exp(-hl*smixr/(cp*ptK)) ! Holton 1972
                            tcheck = thetaK*tovtheta
                            if ( abs(ptK-tcheck) < .05 ) then
                               found = .true.
@@ -4903,7 +4914,7 @@ end function bisect
                      end do   ! iter loop
                      pw = qsat(press,ptK)
                      ptvK = ptK*(1.+(srcq(i,j)/0.622))/(1.+srcq(i,j))
-                     tvK = t(i,j,k)*(1.+(qg(i,j,k)/0.622))/(1.+qg(i,j,k))
+                     tvK = t(i,j,k)*(1.+(q(i,j,k)/0.622))/(1.+q(i,j,k))
                      freeze = 0.033 * ( 263.15 - pTvK )
                      freeze = min( freeze, 1. )
                      freeze = max( freeze, 0. )
@@ -4913,14 +4924,14 @@ end function bisect
                   else
                      ptK = srctheta(i,j)/((1.e5/press)**(rdry/cp))
                      ptvK = ptK*(1.+(srcq(i,j)/0.622))/(1.+srcq(i,j))
-                     tvK = t(i,j,k)*(1.+(qg(i,j,k)/0.622))/(1.+qg(i,j,k))
+                     tvK = t(i,j,k)*(1.+(q(i,j,k)/0.622))/(1.+q(i,j,k))
                      dTvK(i,j,k) = ptvK - tvK
                      wflag(i,j) = .true.
                   end if
                else
                   ptK = srctheta(i,j)/((1.e5/press)**(rdry/cp))
                   ptvK = ptK*(1.+(srcq(i,j)/0.622))/(1.+srcq(i,j))
-                  tvK = t(i,j,k)*(1.+(qg(i,j,k)/0.622))/(1.+qg(i,j,k))
+                  tvK = t(i,j,k)*(1.+(q(i,j,k)/0.622))/(1.+q(i,j,k))
                   dTvK(i,j,k) = ptvK - tvK
                end if   
             end do ! i loop
