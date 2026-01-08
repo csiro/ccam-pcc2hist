@@ -1,6 +1,6 @@
 ! Conformal Cubic Atmospheric Model
     
-! Copyright 2015-2025 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+! Copyright 2015-2026 Commonwealth Scientific Industrial Research Organisation (CSIRO)
     
 ! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
 !
@@ -2843,7 +2843,9 @@ contains
       character(len=10) :: substr
       character(len=60) :: vname
       character(len=60) :: cname, lname
-      character(len=100) :: long_name, tmpname, valid_att, std_name, cell_methods
+      character(len=80) :: cell_methods
+      character(len=100) :: long_name, tmpname, valid_att
+      character(len=120) :: std_name
       ! Perhaps should read these from the input?
       integer, parameter :: vmin=-32500, vmax=32500
       real :: xmin, xmax, aoff, sf, topsig, topheight, topheight_ft
@@ -3325,12 +3327,16 @@ contains
          end if   
          ! preferred method              
          cell_methods = ""
-         ierr = nf90_get_att(ncid, varlist(ivar)%vid, 'cell_methods',cell_methods)
+         ierr = nf90_get_att(ncid, varlist(ivar)%vid, 'cell_methods', cell_methods)
          if ( ierr == nf90_noerr ) then
-            varlist(ivar)%instant = cell_methods == "time: point"
-            varlist(ivar)%fixed = cell_methods == "time: fixed"
+            varlist(ivar)%instant = index(cell_methods,"time: point")>0
+            varlist(ivar)%fixed = index(cell_methods,"time: fixed")>0
          else
-            cell_methods = ""
+            if ( varlist(ivar)%fixed ) then 
+               cell_methods = "time: fixed"
+            else
+               cell_methods = "" 
+            end if
          end if   
          
          
@@ -3859,59 +3865,45 @@ contains
          call cc_cfproperties(varlist(ivar), std_name, cell_methods)
          if ( varlist(ivar)%fixed ) then
             call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name,       &
-                      varlist(ivar)%units, xmin, xmax, 1, ave_type="fixed",   &
+                      varlist(ivar)%units, xmin, xmax, 1,                     &
                       int_type=int_type, std_name=std_name,                   &
                       coord_height=coord_height, coord_name=coord_name,       &
                       coord_stdname=coord_stdname, coord_units=coord_units,   &
                       coord_positive=coord_positive,                          &
-                      ran_type=ran_type, areps_type=areps_type )
-         else if ( varlist(ivar)%ndims == 2 ) then
-            if ( varlist(ivar)%vname(1:3) == "max" ) then
-               ! Special check for maximum rainfall rate
-               call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name,    &
-                      varlist(ivar)%units, xmin, xmax, 1, ave_type="max",     &
-                      std_name=std_name,                                      &
-                      coord_height=coord_height, coord_name=coord_name,       &
-                      coord_stdname=coord_stdname, coord_units=coord_units,   &
-                      coord_positive=coord_positive,                          &
                       cell_methods=cell_methods,                              &
-                      ran_type=ran_type, areps_type=areps_type,               &
-                      daily=varlist(ivar)%daily,                              &
-                      instant=varlist(ivar)%instant )
-            else
-               ! Check for screen and 10m variables
-               
-               if ( cf_compliant ) then
-                  if ( index(varlist(ivar)%long_name, "screen") /= 0 .or. &
-                       index(varlist(ivar)%long_name, "Screen") /= 0 ) then
-                     coord_height = 2.
-                     coord_name = "h2"
-                     coord_stdname = "height"
-                     coord_units = "m"
-                     coord_positive = "up"
-                  end if
-                  if ( index(varlist(ivar)%long_name, "10m") /= 0 ) then
-                     coord_height = 10.
-                     coord_name = "h10"
-                     coord_stdname = "height"
-                     coord_units = "m"
-                     coord_positive = "up"
-                  end if
+                      ran_type=ran_type, areps_type=areps_type)
+         else if ( varlist(ivar)%ndims == 2 ) then
+            ! Check for screen and 10m variables
+            if ( cf_compliant ) then
+               if ( index(varlist(ivar)%long_name, "screen") /= 0 .or. &
+                    index(varlist(ivar)%long_name, "Screen") /= 0 ) then
+                  coord_height = 2.
+                  coord_name = "h2"
+                  coord_stdname = "height"
+                  coord_units = "m"
+                  coord_positive = "up"
                end if
-               call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name,    &
-                      varlist(ivar)%units, xmin, xmax, 1, std_name=std_name,  &
-                      coord_height=coord_height, coord_name=coord_name,       &
-                      coord_stdname=coord_stdname, coord_units=coord_units,   &
-                      coord_positive=coord_positive,                          &
-                      cell_methods=cell_methods,                              & 
-                      int_type=int_type, ran_type=ran_type,                   &
-                      areps_type=areps_type,                                  &
-                      pop2d=varlist(ivar)%pop2d, tn_type=tn_type,             &
-                      daily=varlist(ivar)%daily, sixhr=varlist(ivar)%sixhr,   &
-                      instant=varlist(ivar)%instant,                          &
-                      all_positive=varlist(ivar)%all_positive,                &
-                      tracer_type=varlist(ivar)%tracer )
+               if ( index(varlist(ivar)%long_name, "10m") /= 0 ) then
+                  coord_height = 10.
+                  coord_name = "h10"
+                  coord_stdname = "height"
+                  coord_units = "m"
+                  coord_positive = "up"
+               end if
             end if
+            call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name,    &
+                   varlist(ivar)%units, xmin, xmax, 1, std_name=std_name,  &
+                   coord_height=coord_height, coord_name=coord_name,       &
+                   coord_stdname=coord_stdname, coord_units=coord_units,   &
+                   coord_positive=coord_positive,                          &
+                   cell_methods=cell_methods,                              & 
+                   int_type=int_type, ran_type=ran_type,                   &
+                   areps_type=areps_type,                                  &
+                   pop2d=varlist(ivar)%pop2d, tn_type=tn_type,             &
+                   daily=varlist(ivar)%daily, sixhr=varlist(ivar)%sixhr,   &
+                   instant=varlist(ivar)%instant,                          &
+                   all_positive=varlist(ivar)%all_positive,                &
+                   tracer_type=varlist(ivar)%tracer )
          else if ( varlist(ivar)%ndims == 3 ) then  
             if ( varlist(ivar)%water ) then
               call addfld ( varlist(ivar)%vname, varlist(ivar)%long_name,         &
@@ -3972,88 +3964,105 @@ contains
 
       ! Extra fields are handled explicitly
       if ( kk > 1 ) then
-         call addfld ( "grid", "Grid resolution", "km", 0., 1000., 1, ave_type="fixed" )
+         call addfld ( "grid", "Grid resolution", "km", 0., 1000., 1, &
+                       cell_methods="area: mean time: fixed" )
          if ( areps_compliant ) then
             call addfld ( "sst", "Sea surface temperature", "degree_C", -123., 77., 1, &
                            std_name="sea_surface_temperature", areps_type=.true.,      &
-                           fill=.true. )
+                           fill=.true., cell_methods="area: mean where sea time: point" )
          else    
             call addfld ( "tsea", "Sea surface temperature", "K", 150., 350., 1, &
                            std_name="sea_surface_temperature", ran_type=.true.,  &
-                           fill=.true. )
+                           fill=.true., cell_methods="area: mean where sea time: point" )
          end if
-         call addfld ( "tdew", "Dew point screen temperature", "K", 100.0, 400.0, 1 )
+         call addfld ( "tdew", "Dew point screen temperature", "K", 100.0, 400.0, 1, &
+                       cell_methods="area: mean time: point" )
          if ( cordex_compliant ) then
             ierr = nf90_inq_varid (ncid, "evspsbl", ivar )
             if ( ierr /= nf90_noerr ) then
               call addfld ( "evspsbl", "Evaporation", "kg m-2 s-1", 0., 0.001, 1, std_name="water_evaporation_flux", &
-                            instant=.false. )  
+                            instant=.false., cell_methods="area: mean time: point" )  
             end if    
-            call addfld ( "mrso", "Total soil moisture content", "kg m-2", 0., 100.0, 1, &
-                          std_name="mass_content_of_water_in_soil", int_type = int_nearest_local )          
-            call addfld ( "mrsos", "Moisture in Upper Portion of Soil Column", "kg m-2", 0., 100.0, 1, &
-                          std_name="mass_content_of_water_in_soil_layer", int_type = int_nearest_local )
-            call addfld ( "mrfso", "Soil frozen water content", "kg m-2", 0., 100.0, 1, &
-                          std_name="soil_frozen_water_content", int_type = int_nearest_local )
+            call addfld ( "mrso", "Total soil moisture content", "kg m-2", 0., 100.0, 1,          &
+                          std_name="mass_content_of_water_in_soil", int_type=int_nearest_local,   &
+                          cell_methods="area: mean where land time: point" )          
+            call addfld ( "mrsos", "Moisture in Upper Portion of Soil Column", "kg m-2", 0., 100.0, 1,  &
+                          std_name="mass_content_of_water_in_soil_layer", int_type=int_nearest_local,   &
+                          cell_methods="area: mean where land time: point" )
+            call addfld ( "mrfso", "Soil frozen water content", "kg m-2", 0., 100.0, 1,       &
+                          std_name="soil_frozen_water_content", int_type=int_nearest_local,   &
+                          cell_methods="area: mean where land time: point" )
             call addfld ( "mrfsos", "Frozen Water Content in Upper Portion of Soil Column", "kg m-2", 0., 100.0, 1, &
-                          std_name="frozen_water_content_of_soil_layer", int_type = int_nearest_local )
+                          std_name="frozen_water_content_of_soil_layer", int_type=int_nearest_local,                &
+                          cell_methods="area: mean where land time: point" )
             call addfld ( "prw", "Water Vapor Path", "kg m-2", 0.0, 100.0, 1,  &
-                           std_name="atmosphere_water_vapor_content" )
+                          std_name="atmosphere_water_vapor_content",           &
+                          cell_methods="area: mean time: point" )
             call addfld ( "clwvi", "Condensed Water Path", "kg m-2", 0.0, 100.0, 1,  &
-                           std_name="atmosphere_cloud_condensed_water_content" )
+                          std_name="atmosphere_cloud_condensed_water_content",       &
+                          cell_methods="area: mean time: point" )
             call addfld ( "clivi", "Ice Water Path", "kg m-2", 0.0, 100.0, 1,  &
-                           std_name="atmosphere_cloud_condensed_ice_content" )
+                          std_name="atmosphere_cloud_condensed_ice_content",   &
+                          cell_methods="area: mean time: point" )
             call addfld ( "ps", "Surface Air Pressure", "Pa", 0., 120000., 1, &
-                           std_name="surface_air_pressure" )
+                          std_name="surface_air_pressure",                    &
+                          cell_methods="area: mean time: point" ) 
             call addfld ( "rlus", "Surface Upwelling Longwave Radiation", "W m-2", -1000., 1000., 1, &
-                          std_name="surface_upwelling_longwave_flux_in_air", instant=.false. )
+                          std_name="surface_upwelling_longwave_flux_in_air", instant=.false.,        &
+                          cell_methods="area: mean time: mean" )
             call addfld ( "rsus", "Surface Upwelling Shortwave Radiation", "W m-2", -1000., 1000., 1, &
-                          std_name="surface_upwelling_shortwave_flux_in_air", instant=.false. ) 
+                          std_name="surface_upwelling_shortwave_flux_in_air", instant=.false.,        &
+                          cell_methods="area: mean time: mean" )
             call addfld ( "rluscs", "Surface Upwelling Clear-Sky Longwave Radiation", "W m-2", -1000., 1000., 1, &
-                          std_name="surface_upwelling_longwave_flux_in_air_assuming_clear_sky", instant=.false. )
+                          std_name="surface_upwelling_longwave_flux_in_air_assuming_clear_sky", instant=.false., &
+                          cell_methods="area: mean time: mean" )
             call addfld ( "rsuscs", "Surface Upwelling Clear-Sky Shortwave Radiation", "W m-2", -1000., 1000., 1, &
-                          std_name="surface_upwelling_shortwave_flux_in_air_assuming_clear_sky", instant=.false. ) 
+                          std_name="surface_upwelling_shortwave_flux_in_air_assuming_clear_sky", instant=.false., &
+                          cell_methods="area: mean time: mean" ) 
             if ( int_type /= int_none ) then
-               call addfld ( "sftlf", "Land-sea mask", "%",  0.0, 100.0, 1, &
-                              ave_type="fixed", int_type=int_nearest,       &
-                              std_name="land_area_fraction" )
+               call addfld ( "sftlf", "Land-sea mask", "%",  0.0, 100.0, 1, int_type=int_nearest, &
+                             std_name="land_area_fraction", cell_methods="area: mean time: fixed" )
             else
-               call addfld ( "sftlf", "Land-sea mask", "%",  0.0, 100.0, 1, &
-                              ave_type="fixed", int_type=int_none,          &
-                              std_name="land_area_fraction" )
+               call addfld ( "sftlf", "Land-sea mask", "%",  0.0, 100.0, 1, int_type=int_none, &
+                              std_name="land_area_fraction", cell_methods="area: mean time: fixed" )
             end if
-            call addfld ( "snc",  "Snow area fraction", "%", 0., 6.5, 1, std_name="surface_snow_area_fraction" )
-            call addfld ( "snw",  "Surface Snow Amount", "kg m-2", 0., 6.5, 1, std_name="surface_snow_amount" )
-            call addfld ( "sftlaf", "Lake Area Fraction", "%", 0.0, 100.0, 1, ave_type="fixed", &
-                          std_name="lake_area_fraction" )
+            call addfld ( "snc",  "Snow area fraction", "%", 0., 6.5, 1, std_name="surface_snow_area_fraction", &
+                          cell_methods="area: mean where land time: point" )
+            call addfld ( "snw",  "Surface Snow Amount", "kg m-2", 0., 6.5, 1, std_name="surface_snow_amount",  &
+                          cell_methods="area: mean where land time: point" )
+            call addfld ( "sftlaf", "Lake Area Fraction", "%", 0.0, 100.0, 1, &
+                          std_name="lake_area_fraction", cell_methods="area: mean time: fixed" )
          else    
             if ( areps_compliant ) then 
-               call addfld ( "land", "Land-sea mask", "",  0.0, 1.0, 1,                                               &
-                              ave_type="fixed", int_type=int_nearest_local, std_name="land_area_fraction",            &
-                              ran_type=.true., areps_type=.true. )
+               call addfld ( "land", "Land-sea mask", "",  0.0, 1.0, 1, int_type=int_nearest_local, &
+                             std_name="land_area_fraction", ran_type=.true., areps_type=.true.,     &
+                             cell_methods="area: mean time: fixed" )
             else    
-               call addfld ( "land_mask", "Land-sea mask", "",  0.0, 1.0, 1,                                          &
-                              ave_type="fixed", int_type=int_nearest_local, std_name="land_area_fraction",            &
-                              ran_type=.true. )
+               call addfld ( "land_mask", "Land-sea mask", "",  0.0, 1.0, 1, int_type=int_nearest_local, &
+                             std_name="land_area_fraction", ran_type=.true.,                             &
+                             cell_methods="area: mean time: fixed" )
             end if   
             call addfld ( "ps", "Surface Air Pressure", "hPa", 0., 1200., 1, &
-                           std_name="surface_air_pressure", ran_type=.true. )
+                          std_name="surface_air_pressure", ran_type=.true.,  &
+                          cell_methods="area: mean time: point" )
             call addfld ( "pwc", "Precipitable water column", "kg m-2", 0.0, 100.0, 1, &
-                           std_name="atmosphere_water_vapor_content", ran_type=.true. )           
+                          std_name="atmosphere_water_vapor_content", ran_type=.true.,  &
+                          cell_methods="area: mean time: point" )
          end if   
          call addfld ( "uas", "Eastward Near-Surface Wind", "m s-1", -100.0, 100.0, 1, std_name="eastward_wind",      &
                        ran_type=.true., coord_height=10., coord_name="h10", coord_stdname="height", coord_units="m",  &
-                       coord_positive="up" )
+                       coord_positive="up", cell_methods="area: mean time: point" )
          call addfld ( "vas", "Northward Near-Surface Wind", "m s-1", -100.0, 100.0, 1, std_name="northward_wind",    &
                        ran_type=.true., coord_height=10., coord_name="h10", coord_stdname="height", coord_units="m",  &
-                       coord_positive="up" )
+                       coord_positive="up", cell_methods="area: mean time: point" )
          call addfld ( "sfcWindmax", "Maximum 10m wind speed", "m s-1", 0.0, 200.0, 1, std_name="wind_speed",         &
                        ran_type=.true., daily=.true., instant=.false., all_positive=.true., coord_height=10.,         &
-                       coord_name="h10", coord_stdname="height", coord_units="m", coord_positive="up" )
+                       coord_name="h10", coord_stdname="height", coord_units="m", coord_positive="up",                &
+                       cell_methods="area: mean time: maximum" )
          ierr = nf90_inq_varid (ncid, "u10m_max", ivar )
          if ( ierr == nf90_noerr ) then
             call addfld ( "sfcWind_max", "Maximum 10m wind speed", "m s-1", 0.0, 200.0, 1, std_name="wind_speed", &
-                          all_positive=.true. )
+                          all_positive=.true., cell_methods="area: mean time: maximum" )
          end if   
          ! Packing is not going to work well in this case
          ! For height, estimate the height of the top level and use that
@@ -4075,69 +4084,89 @@ contains
          topheight = 1000.*(floor(0.001*topheight)+1.)
          if ( areps_compliant ) then
             call addfld ( "topoft", "Geopotential Height", "ft", -400.,             &
-                           topheight_ft, nlev,                                      &
-                           multilev=.true., std_name="geopotential_height",         &
-                           areps_type=.true. )
+                          topheight_ft, nlev,                                       &
+                          multilev=.true., std_name="geopotential_height",          &
+                          areps_type=.true.,                                        &
+                          cell_methods="area: mean time: point" )
             call addfld ( "press", "Air pressure", "mb", 0., 1500., nlev,           &
-                           multilev=.true., std_name="air_pressure",                &
-                           ran_type=.true., areps_type=.true. )
+                          multilev=.true., std_name="air_pressure",                 &
+                          ran_type=.true., areps_type=.true.,                       &
+                          cell_methods="area: mean time: point" )
          else    
             call addfld ( "zg", "Geopotential Height", "m", -100.,                  &
-                           topheight, nlev,                                         &
-                           multilev=.true., std_name="geopotential_height",         &
-                           ran_type=.true. )
+                          topheight, nlev,                                          &
+                          multilev=.true., std_name="geopotential_height",          &
+                          ran_type=.true.,                                          &
+                          cell_methods="area: mean time: point" )
             call addfld ( "press", "Air pressure", "hPa", 0., 1500., nlev,          &
-                           multilev=.true., std_name="air_pressure",                &
-                           ran_type=.true., areps_type=.true. )
+                          multilev=.true., std_name="air_pressure",                 &
+                          ran_type=.true., areps_type=.true.,                       &
+                          cell_methods="area: mean time: point" )
          end if   
          if ( areps_compliant ) then
             call addfld ( "relhum", "Relative humidity", "%", 0., 110., nlev,       &
-                           multilev=.true., int_type=int_lin_local,                 &
-                           std_name="relative_humidity", areps_type=.true. )
+                          multilev=.true., int_type=int_lin_local,                  &
+                          std_name="relative_humidity", areps_type=.true.,          &
+                          cell_methods="area: mean time: point" )
          else    
             call addfld ( "rh", "Relative humidity", "%", 0., 110., nlev,           &
-                           multilev=.true., int_type=int_lin_local,                 &
-                           std_name="relative_humidity", ran_type=.true. )
+                          multilev=.true., int_type=int_lin_local,                  &
+                          std_name="relative_humidity", ran_type=.true.,            &
+                          cell_methods="area: mean time: point" )
          end if   
          call addfld ( "theta", "Potential temperature", "K", 150., 1200., nlev,    &
-                        multilev=.true., std_name="potential_temperature",          &
-                        ran_type=.true. )
+                       multilev=.true., std_name="potential_temperature",           &
+                       ran_type=.true., cell_methods="area: mean time: point" )
          if ( cordex_compliant ) then
             call addfld ( "wa", "Upward Air Velocity", "m s-1", -1., 1., nlev,      &
-                           multilev=.true., std_name="upward_air_velocity" )
+                          multilev=.true., std_name="upward_air_velocity",          &
+                          cell_methods="area: mean time: point" )
          else
             call addfld ( "w", "Vertical velocity", "m s-1", -1., 1., nlev,         &
-                           multilev=.true., std_name="vertical_velocity" )
+                          multilev=.true., std_name="vertical_velocity",            &
+                          cell_methods="area: mean time: point" )
          end if
          call addfld ( "td", "Dew point temperature", "K", 100.0, 400.0, nlev,      &
-                        multilev=.true., ran_type=.true. ) 
+                       multilev=.true., ran_type=.true.,                            &
+                       cell_methods="area: mean time: point" ) 
          if ( areps_compliant ) then
             call addfld ( "direction", "Wind Direction", "degrees", 0., 360.,       &
                           nlev, multilev=.true., std_name="wind_direction",         &
-                          areps_type=.true., int_type=int_direction_local )
+                          areps_type=.true., int_type=int_direction_local,          &
+                          cell_methods="area: mean time: point" )
             call addfld ( "speed", "Wind Speed", "m/s", 0., 150.,                   &
                           nlev, multilev=.true., std_name="wind_speed",             &
-                          areps_type=.true., int_type=int_lin_local )
+                          areps_type=.true., int_type=int_lin_local,                &
+                          cell_methods="area: mean time: point" )
          end if
          
          ! If the output uses pressure levels save the lowest sigma level of
          ! the basic fields.
-         call addfld ( "tbot", "Air temperature at lowest sigma level", "K", 100., 400., 1, std_name="air_temperature" )
-         call addfld ( "ubot", "Eastward wind at lowest sigma level", "m s-1", -100., 100., 1, std_name="eastward_wind" )
-         call addfld ( "vbot", "Northward wind at lowest sigma level", "m s-1", -100., 100., 1, std_name="northward_wind" )
+         call addfld ( "tbot", "Air temperature at lowest sigma level", "K", 100., 400., 1, std_name="air_temperature", &
+                       cell_methods="area: mean time: point" )
+         call addfld ( "ubot", "Eastward wind at lowest sigma level", "m s-1", -100., 100., 1, std_name="eastward_wind", &
+                       cell_methods="area: mean time: point" )
+         call addfld ( "vbot", "Northward wind at lowest sigma level", "m s-1", -100., 100., 1, std_name="northward_wind", &
+                       cell_methods="area: mean time: point" )
          call addfld ( "qbot", "Specific humidity at lowest sigma level", "kg kg-1", 0., 0.1, 1, &
-                       std_name="specific_humidity", ran_type=.true. )
+                       std_name="specific_humidity", ran_type=.true.,                            &
+                       cell_methods="area: mean time: point" )
          ! Vertical averaged fluxes. Note that these are NOT vertical integrals
-         call addfld ( "vaveuq", "Vertical average of zonal humidity flux", "m s-1 kg kg-1", -0.5, 0.5, 1, std_name=std_name )
-         call addfld ( "vavevq", "Vertical average of meridional humidity flux", "m s-1 kg kg-1", -0.5, 0.5, 1, std_name=std_name )
-         call addfld ( "vaveut", "Vertical average of zonal temperature flux", "m s-1 K", -1e4, 1e4, 1, std_name=std_name )
-         call addfld ( "vavevt", "Vertical average of meridional temperature flux", "m s-1 K", -1e4, 2e4, 1, std_name=std_name )
+         call addfld ( "vaveuq", "Vertical average of zonal humidity flux", "m s-1 kg kg-1", -0.5, 0.5, 1, std_name=std_name, &
+                       cell_methods="area: mean time: point" )
+         call addfld ( "vavevq", "Vertical average of meridional humidity flux", "m s-1 kg kg-1", -0.5, 0.5, 1, std_name=std_name, &
+                       cell_methods="area: mean time: point" )
+         call addfld ( "vaveut", "Vertical average of zonal temperature flux", "m s-1 K", -1e4, 1e4, 1, std_name=std_name, &
+                       cell_methods="area: mean time: point" )
+         call addfld ( "vavevt", "Vertical average of meridional temperature flux", "m s-1 K", -1e4, 2e4, 1, std_name=std_name, &
+                       cell_methods="area: mean tiem: point")
 
          if ( cordex_compliant ) then
             ! add cordex soil 
             ierr = nf90_inq_varid (ncid, "tgg1", ivar ) 
             if ( ierr==nf90_noerr .and. ksoil>0 ) then             
-               call addfld('tsl','Soil temperature','K',100.,425.,ksoil,soil=.true.)
+               call addfld('tsl','Soil temperature','K',100.,425.,ksoil,soil=.true., &
+                           cell_methods='area: mean where land time: point')
             end if
             ierr = nf90_inq_varid (ncid, "wb1", ivar ) 
             if ( ierr/=nf90_noerr ) then
@@ -4145,45 +4174,54 @@ contains
                ierr = nf90_inq_varid (ncid, "wb1_ave", ivar )     
             end if   
             if ( ierr==nf90_noerr .and. ksoil>0 ) then
-               call addfld('mrsol','Total Water Content of Soil Layer','kg m-2',0.,1.,ksoil,soil=.true.) 
+               call addfld('mrsol','Total Water Content of Soil Layer','kg m-2',0.,1.,ksoil,soil=.true., &
+                           cell_methods='area: mean where land time: point') 
             end if    
             ierr = nf90_inq_varid (ncid, "wbice1_ave", ivar ) 
             if ( ierr/=nf90_noerr ) then
                ierr = nf90_inq_varid (ncid, "wbice1", ivar )
             end if
             if ( ierr==nf90_noerr .and. ksoil>0 ) then
-               call addfld('mrsfl','Frozen Water Content of Soil Layer','kg m-2',0.,1.,ksoil,soil=.true.)
+               call addfld('mrsfl','Frozen Water Content of Soil Layer','kg m-2',0.,1.,ksoil,soil=.true., &
+                           cell_methods='area: mean where land time: point')
                ! mrfsol has been depreciated
-               call addfld('mrfsol','Frozen Water Content of Soil Layer','kg m-2',0.,1.,ksoil,soil=.true.)
+               call addfld('mrfsol','Frozen Water Content of Soil Layer','kg m-2',0.,1.,ksoil,soil=.true., &
+                           cell_methods='area: mean where land time: point')
             end if 
             ! add cordex pressure levels
             do j = 1,cordex_levels
                press_level = cordex_level_data(j)
                call cordex_name(coord_name,"p",press_level)
                call cordex_name(cname,"ua",press_level)
-               call addfld ( cname, "Eastward Wind", "m s-1", -130.0, 130.0, 1, instant=.true.,  &
-                             coord_height=real(press_level), coord_name=coord_name,              &
-                             coord_stdname="pressure", coord_units = "hPa", coord_positive="down" )
+               call addfld ( cname, "Eastward Wind", "m s-1", -130.0, 130.0, 1, instant=.true.,    &
+                             coord_height=real(press_level), coord_name=coord_name,                &
+                             coord_stdname="pressure", coord_units = "hPa", coord_positive="down", &
+                             cell_methods="area: mean time: point" )
                call cordex_name(cname,"va",press_level)
-               call addfld ( cname, "Northward Wind", "m s-1", -130.0, 130.0, 1, instant=.true., &
-                             coord_height=real(press_level), coord_name=coord_name,              &
-                             coord_stdname="pressure", coord_units = "hPa", coord_positive="down" )
+               call addfld ( cname, "Northward Wind", "m s-1", -130.0, 130.0, 1, instant=.true.,   &
+                             coord_height=real(press_level), coord_name=coord_name,                &
+                             coord_stdname="pressure", coord_units = "hPa", coord_positive="down", &
+                             cell_methods="area: mean time: point" )
                call cordex_name(cname,"ta",press_level)
-               call addfld ( cname, "Air Temperaure", "K", 100.0, 400.0, 1, instant=.true.,      &
-                             coord_height=real(press_level), coord_name=coord_name,              &
-                             coord_stdname="pressure", coord_units = "hPa", coord_positive="down" )
+               call addfld ( cname, "Air Temperaure", "K", 100.0, 400.0, 1, instant=.true.,        &
+                             coord_height=real(press_level), coord_name=coord_name,                &
+                             coord_stdname="pressure", coord_units = "hPa", coord_positive="down", &
+                             cell_methods="area: mean time: point" )
                call cordex_name(cname,"hus",press_level)
-               call addfld ( cname, "Specific Humidity", "1", 0.0, 0.06, 1, instant=.true.,      &
-                             coord_height=real(press_level), coord_name=coord_name,              &
-                             coord_stdname="pressure", coord_units = "hPa", coord_positive="down" )
+               call addfld ( cname, "Specific Humidity", "1", 0.0, 0.06, 1, instant=.true.,        &
+                             coord_height=real(press_level), coord_name=coord_name,                &
+                             coord_stdname="pressure", coord_units = "hPa", coord_positive="down", &
+                             cell_methods="area: mean time: point" )
                call cordex_name(cname,"zg",press_level)
-               call addfld ( cname, "Geopotential Height", "m", 0.0, 130000., 1, instant=.true., &
-                             coord_height=real(press_level), coord_name=coord_name,              &
-                             coord_stdname="pressure", coord_units = "hPa", coord_positive="down" )
+               call addfld ( cname, "Geopotential Height", "m", 0.0, 130000., 1, instant=.true.,   &
+                             coord_height=real(press_level), coord_name=coord_name,                &
+                             coord_stdname="pressure", coord_units = "hPa", coord_positive="down", &
+                             cell_methods="area: mean time: point" )
                call cordex_name(cname,"wa",press_level)
                call addfld ( cname, "Upward Air Velocity", "m s-1", -130., 130., 1, instant=.true., &
                              coord_height=real(press_level), coord_name=coord_name,                 &
-                             coord_stdname="pressure", coord_units = "hPa", coord_positive="down" )
+                             coord_stdname="pressure", coord_units = "hPa", coord_positive="down",  &
+                             cell_methods="area: mean time: point" )
             end do
             ! add cordex height levels
             do j = 1,height_levels
@@ -4191,159 +4229,186 @@ contains
                call cordex_name(coord_name,"h",height_level)
                call cordex_name(cname,"ua",height_level,"m")
                call cordex_name(lname,"Eastward Wind at ",height_level,"m")
-               call addfld ( cname, lname, "m s-1", -130., 130., 1, instant=.true.,       &
-                             coord_height=real(height_level), coord_name=coord_name,      &
-                             coord_stdname="height", coord_units = "m", coord_positive="up" )
+               call addfld ( cname, lname, "m s-1", -130., 130., 1, instant=.true.,          &
+                             coord_height=real(height_level), coord_name=coord_name,         &
+                             coord_stdname="height", coord_units = "m", coord_positive="up", &
+                             cell_methods="area: mean time: point" )
                call cordex_name(cname,"va",height_level,"m")
                call cordex_name(lname,"Northward Wind at ",height_level,"m")
-               call addfld ( cname, lname, "m s-1", -130., 130., 1, instant=.true.,       &
-                             coord_height=real(height_level), coord_name=coord_name,      &
-                             coord_stdname="height", coord_units = "m", coord_positive="up" )
+               call addfld ( cname, lname, "m s-1", -130., 130., 1, instant=.true.,          &
+                             coord_height=real(height_level), coord_name=coord_name,         &
+                             coord_stdname="height", coord_units = "m", coord_positive="up", &
+                             cell_methods="area: mean time: point" )
             end do            
                
          else if ( cf_compliant ) then
             ! Define as an extra field for now
             ierr = nf90_inq_varid (ncid, "tgg1", ivar ) 
             if ( ierr==nf90_noerr .and. ksoil>0 ) then             
-               call addfld('tgg','Soil temperature','K',100.,350.,ksoil,soil=.true.)
+               call addfld('tgg','Soil temperature','K',100.,350.,ksoil,soil=.true., &
+                           cell_methods="area: mean where land time: point")
             end if    
             ! Should have std_name = volume_fraction_of_water_in_soil, units=1
             ! Mentioned in Gregory email 2005-12-01. In official list?
             ierr = nf90_inq_varid (ncid, "wb1", ivar ) 
             if ( ierr==nf90_noerr .and. ksoil>0 ) then            
-               call addfld('wb','Soil moisture','frac',0.,1.,ksoil,soil=.true.)
+               call addfld('wb','Soil moisture','frac',0.,1.,ksoil,soil=.true., &
+                           cell_methods="area: mean where land time: point")
             end if
             ierr = nf90_inq_varid (ncid, "wb1", ivar ) 
             if ( ierr==nf90_noerr .and. ksoil>0 ) then
-               call addfld('wb_ave','Avg soil moisture','frac',0.,1.,ksoil,soil=.true.)
+               call addfld('wb_ave','Avg soil moisture','frac',0.,1.,ksoil,soil=.true., &
+                           cell_methods="area: mean where land time: point")
             end if
             ierr = nf90_inq_varid (ncid, "wbice1", ivar ) 
             if ( ierr==nf90_noerr .and. ksoil>0 ) then
-               call addfld('wbice','Soil ice','frac',0.,1.,ksoil,soil=.true.)
+               call addfld('wbice','Soil ice','frac',0.,1.,ksoil,soil=.true., &
+                           cell_methods="area: mean where land time: point")
             end if
             ierr = nf90_inq_varid (ncid, "wbice1_ave", ivar )
             if ( ierr/=nf90_noerr ) then
                ierr = nf90_inq_varid (ncid, "wbice1", ivar )
             end if
             if ( ierr==nf90_noerr .and. ksoil>0 ) then
-               call addfld('wbice_ave','Avg soil ice','frac',0.,1.,ksoil,soil=.true.)
+               call addfld('wbice_ave','Avg soil ice','frac',0.,1.,ksoil,soil=.true., &
+                           cell_methods="area: mean where land time: point")
             end if   
          end if
          
          ! add CAPE, CIN and LI
          call addfld ( "CAPE", "Convective Available Potential Energy", "J kg-1", 0., 20000., 1, &
                     std_name="atmosphere_convective_available_potential_energy_wrt_surface",     &
-                    instant=.true. )
+                    instant=.true., cell_methods="area: mean time: point" )
          call addfld ( "CIN", "Convective Inhibition", "J kg-1", -20000., 0., 1,             &
                     std_name="atmosphere_convective_available_potential_energy_wrt_surface", &
-                    instant=.true. )
+                    instant=.true., cell_methods="area: mean time: point" )
          call addfld ( "LI", "Lifted Index", "K", -100., 100., 1,                                                        &
                     std_name="temperature_difference_between_ambient_air_and_air_lifted_adiabatically_from_the_surface", &
-                    instant=.true. )
+                    instant=.true., cell_methods="area: mean time: point" )
 
       else
          ! high-frequency output
          ierr = nf90_inq_varid (ncid, "soilt", ivar )
          if ( ierr == nf90_noerr ) then
             if ( cordex_compliant ) then
-               call addfld ( "sftlf", "Land-sea mask", "%",  0.0, 100.0, 1, &
-                              ave_type="fixed", int_type=int_nearest_local, &
-                              std_name="land_area_fraction" )
+               call addfld ( "sftlf", "Land-sea mask", "%",  0.0, 100.0, 1, int_type=int_nearest_local, &
+                              std_name="land_area_fraction", cell_methods="area: mean time: fixed" )
                call addfld ( "sfcWindmax", "Maximum 10m wind speed", "m s-1", 0.0, 200.0, 1, std_name="wind_speed",  &
                              daily=.true., instant=.false., all_positive=.true., coord_height=10., coord_name="h10", &
-                             coord_stdname="height", coord_units="m", coord_positive="up" )
-               call addfld ( "sftlaf", "Lake Area Fraction", "%", 0.0, 100.0, 1, ave_type="fixed", &
-                             std_name="lake_area_fraction" )
+                             coord_stdname="height", coord_units="m", coord_positive="up",                           &
+                             cell_methods="area: mean time: maximum" )
+               call addfld ( "sftlaf", "Lake Area Fraction", "%", 0.0, 100.0, 1, &
+                             std_name="lake_area_fraction",                      &
+                             cell_methods="area: mean time: fixed" )
             else    
-               call addfld ( "land_mask", "Land-sea mask", "",  0.0, 1.0, 1, &
-                              ave_type="fixed", int_type=int_nearest_local,  &
-                              std_name="land_area_fraction", ran_type=.true. )
+               call addfld ( "land_mask", "Land-sea mask", "",  0.0, 1.0, 1, int_type=int_nearest_local,  &
+                              std_name="land_area_fraction", ran_type=.true.,                             &
+                              cell_methods="area: mean time: fixed" )
             end if   
          end if  
          ierr = nf90_inq_varid (ncid, "u10m_max", ivar )
          if ( ierr == nf90_noerr ) then
             call addfld ( "sfcWind_max", "Maximum 10m wind speed", "m s-1", 0.0, 200.0, 1, std_name="wind_speed", &
-                          all_positive=.true. )
+                          all_positive=.true., cell_methods="area: mean time: maximum" )
          end if  
          ierr = nf90_inq_varid (ncid, "snd", ivar )
          if ( ierr == nf90_noerr ) then
             if ( cordex_compliant ) then 
                ierr = nf90_get_att(ncid, ivar, 'valid_time',valid_att)
                if ( ierr==nf90_noerr .and. valid_att=="6hr" ) then
-                  call addfld ( "snc",  "Snow area fraction", "%", 0., 6.5, 1, &
-                                std_name="surface_snow_area_fraction", sixhr=.true. )
+                  call addfld ( "snc",  "Snow area fraction", "%", 0., 6.5, 1,       &
+                                std_name="surface_snow_area_fraction", sixhr=.true., &
+                                cell_methods="area: mean where land time: point" )
                   call addfld ( "snw",  "Surface Snow Amount", "kg m-2", 0., 6.5, 1, &
-                                std_name="surface_snow_amount", sixhr=.true. ) 
+                                std_name="surface_snow_amount", sixhr=.true.,        &
+                                cell_methods="area: mean where land time: point" ) 
                else
                   call addfld ( "snc",  "Snow area fraction", "%", 0., 6.5, 1, &
-                                std_name="surface_snow_area_fraction" )
+                                std_name="surface_snow_area_fraction",         &
+                                cell_methods="area: mean where land time: point" )
                   call addfld ( "snw",  "Surface Snow Amount", "kg m-2", 0., 6.5, 1, &
-                                std_name="surface_snow_amount" ) 
+                                std_name="surface_snow_amount",                      &
+                                cell_methods="area: mean where land time: point" ) 
                end if    
             end if      
          end if   
          ierr = nf90_inq_varid (ncid, "psf", ivar )
          if ( ierr==nf90_noerr ) then
-            call addfld ( "tdew", "Dew point screen temperature", "K", 100.0, 400.0, 1 )
+            call addfld ( "tdew", "Dew point screen temperature", "K", 100.0, 400.0, 1, &
+                          cell_methods="area: mean time: point" )
             if ( cordex_compliant ) then
-               call addfld ( "ps", "Surface Air Pressure", "Pa", 0., 120000., 1, std_name="surface_air_pressure" ) 
+               call addfld ( "ps", "Surface Air Pressure", "Pa", 0., 120000., 1, std_name="surface_air_pressure", &
+                             cell_methods="area: mean time: point" ) 
             else
-               call addfld ( "ps", "Surface Air Pressure", "hPa", 0., 1200., 1, std_name="surface_air_pressure", ran_type=.true. )
+               call addfld ( "ps", "Surface Air Pressure", "hPa", 0., 1200., 1, std_name="surface_air_pressure", ran_type=.true., &
+                             cell_methods="area: mean time: point" )
             end if
          end if
          ierr = nf90_inq_varid (ncid, "sgn_ave", ivar )
          if ( ierr==nf90_noerr ) then
             call addfld ( "rlus", "Surface Upwelling Longwave Radiation", "W m-2", -1000., 1000., 1, &
-                          std_name="surface_upwelling_longwave_flux_in_air", instant=.false. )
+                          std_name="surface_upwelling_longwave_flux_in_air", instant=.false.,        &
+                          cell_methods="area: mean time: mean" )
             call addfld ( "rsus", "Surface Upwelling Shortwave Radiation", "W m-2", -1000., 1000., 1, &
-                          std_name="surface_upwelling_shortwave_flux_in_air", instant=.false.  ) 
+                          std_name="surface_upwelling_shortwave_flux_in_air", instant=.false.,        &
+                          cell_methods="area: mean tiem: mean" ) 
          end if
          ierr = nf90_inq_varid (ncid, "sgc_ave", ivar )
          if ( ierr==nf90_noerr ) then
             call addfld ( "rluscs", "Surface Upwelling Clear-Sky Longwave Radiation", "W m-2", -1000., 1000., 1, &
                           std_name="surface_upwelling_longwave_flux_in_air_assuming_clear_sky", daily=.true.,    &
-                          instant=.false. )
+                          instant=.false., cell_methods="area: mean time: mean" )
             call addfld ( "rsuscs", "Surface Upwelling Clear-Sky Shortwave Radiation", "W m-2", -1000., 1000., 1, &
                           std_name="surface_upwelling_shortwave_flux_in_air_assuming_clear_sky", daily=.true.,    &
-                          instant=.false. ) 
+                          instant=.false., cell_methods="area: mean time: mean" ) 
          end if
          if ( cordex_compliant ) then    
             call addfld ( "sfcWind", "Near-Surface Wind Speed", "m s-1", 0., 100.0, 1, std_name="wind_speed",      &
                           all_positive=.true., coord_height=10., coord_name="h10", coord_stdname="height",         &
-                          coord_units="m", coord_positive="up" )
+                          coord_units="m", coord_positive="up", cell_methods="area: mean time: point" )
          else
             call addfld ( "u10", "10m wind speed", "m s-1", 0., 100.0, 1, std_name="wind_speed", ran_type=.true.,  &
-                          all_positive=.true. ) 
+                          all_positive=.true., cell_methods="area: mean time: mean" ) 
          end if   
          
          if ( cordex_compliant ) then
             ierr = nf90_inq_varid (ncid, "tgg1", ivar ) 
             if ( ierr==nf90_noerr .and. ksoil>0 ) then    
-               call addfld('tsl','Temperature of Soil','K',100.,425.,ksoil,soil=.true.,sixhr=.true.) 
+               call addfld('tsl','Temperature of Soil','K',100.,425.,ksoil,soil=.true.,sixhr=.true., &
+                           cell_methods="area: mean where land time: point" ) 
             end if
             ierr = nf90_inq_varid (ncid, "mrsol1", ivar ) 
             if ( ierr==nf90_noerr .and. ksoil>0 ) then
-               call addfld('mrsol','Total Water Content of Soil Layer','kg m-2',0.,1.,ksoil,soil=.true.,sixhr=.true.) 
+               call addfld('mrsol','Total Water Content of Soil Layer','kg m-2',0.,1.,ksoil,soil=.true.,sixhr=.true., &
+                           cell_methods="area: mean where land time: point" ) 
             end if    
             ierr = nf90_inq_varid (ncid, "mrfsol1", ivar ) 
             if ( ierr==nf90_noerr .and. ksoil>0 ) then
-               call addfld('mrsfl','Frozen Water Content of Soil Layer','kg m-2',0.,1.,ksoil,soil=.true.,sixhr=.true.)
+               call addfld('mrsfl','Frozen Water Content of Soil Layer','kg m-2',0.,1.,ksoil,soil=.true.,sixhr=.true., &
+                           cell_methods="area: mean where land time: point" )
                ! mrfsol has been depreciated
-               call addfld('mrfsol','Frozen Water Content of Soil Layer','kg m-2',0.,1.,ksoil,soil=.true.,sixhr=.true.)
+               call addfld('mrfsol','Frozen Water Content of Soil Layer','kg m-2',0.,1.,ksoil,soil=.true.,sixhr=.true., &
+                           cell_methods="area: mean where land time: point" )
             end if 
          end if
          
       end if ! kk>1 ..else..
       
-      call addfld ( "d10", "10m wind direction", "deg", 0.0, 360.0, 1, ran_type=.true., int_type=int_direction_local )
+      call addfld ( "d10", "10m wind direction", "deg", 0.0, 360.0, 1, ran_type=.true., int_type=int_direction_local, &
+                    cell_methods="area: mean time: point" )
 
-      call addfld( "cos_zen", "Cosine of solar zenith angle", "none", -1., 1., 1 )
+      call addfld( "cos_zen", "Cosine of solar zenith angle", "none", -1., 1., 1, &
+                   cell_methods="area: mean time: point" )
       
       if ( ok > 1 ) then
-         call addfld( "uos", "x-component surface current", "m s-1", -100., 100., 1 )
-         call addfld( "vos", "y-component surface current", "m s-1", -100., 100., 1 )
-         call addfld( "sos", "Surface ocean salinity", "PSU", 0., 100., 1 )
-         call addfld( "tos", "Surface ocean temperature", "K", 150., 350., 1 )
+         call addfld( "uos", "x-component surface current", "m s-1", -100., 100., 1, &
+                      cell_methods="area: mean where sea time: point" )
+         call addfld( "vos", "y-component surface current", "m s-1", -100., 100., 1, &
+                      cell_methods="area: mean where sea time: point" )
+         call addfld( "sos", "Surface ocean salinity", "PSU", 0., 100., 1, &
+                      cell_methods="area: mean where sea time: point" )
+         call addfld( "tos", "Surface ocean temperature", "K", 150., 350., 1, &
+                      cell_methods="area: mean where sea time: point" )
       end if
 
    end subroutine get_var_list
@@ -4664,9 +4729,8 @@ contains
       end if
       ans = min( ans, kx-1 )
 
-end function bisect
+   end function bisect
    
-
    subroutine capecalc(cape_d,cin_d,t,q,ps,sig)
       use logging_m
       use moistfuncs   
@@ -4898,7 +4962,7 @@ end function bisect
                   if ( wflag(i,j) ) then
                      ! initial guess
                      tovtheta = (press/1.e5)**(rdry/cp)
-                     ptK = srcthetaeK(i,j)*exp(-hl*.012/(cp*295.))*tovtheta
+                     ptK = srcthetaeK(i,j)/exp(hl*.012/(cp*295.))*tovtheta
                      found = .false.
                      do iter = 1,105
                         if ( .not.found ) then  
@@ -4958,7 +5022,6 @@ end function bisect
       
    end subroutine licalc
 
-
    subroutine check_cc2histfile()
       ! Check whether the input file was created by cc2hist. Without this
       ! check the error message that this gives rise to is rather obscure.
@@ -4985,8 +5048,8 @@ end function bisect
       use history, only : cf_compliant
       type(input_var), intent(in) :: vinfo
       integer :: j, press_level, height_level
-      character(len=80), intent(out) :: stdname
-      character(len=80), intent(inout) :: cell_methods ! may already be defined by CCAM
+      character(len=120), intent(out) :: stdname
+      character(len=*), intent(inout) :: cell_methods ! may already be defined by CCAM
       character(len=60) :: vname, cname
 
       ! Some fields like rnd03 can't really be made CF compliant. Their time
@@ -5009,41 +5072,41 @@ end function bisect
          stdname = "surface_albedo"
       case ("anth_ave")
          stdname = "anthropogenic_heatflux"
-         cell_methods = "time: mean"
+         cell_methods = "area: mean where land time: mean"
       case ("anthroheat")
          stdname = "anthropogenic_heatflux"
-         cell_methods = "time: mean"
+         cell_methods = "area: mean where land time: mean"
       case ("areacella")
          stdname = "cell_area"
       case ("CAPE")   
          stdname = "atmosphere_convective_available_potential_energy_wrt_surface" 
       case ("cape_ave")
          stdname = "atmosphere_convective_available_potential_energy"
-         cell_methods = "time: mean"
+         cell_methods = "area: mean time: mean"
       case ("cape_max")
          stdname = "atmosphere_convective_available_potential_energy"
-         cell_methods = "time: maximum (interval: 1 day)"
+         cell_methods = "area: mean time: maximum (interval: 1 day)"
       case ("cbas_ave")
          stdname = "air_pressure_at_cloud_base"
       case ("CIN")
          stdname = "atmosphere_convective_inhibition_wrt_surface" 
       case ("cld")
          stdname = "cloud_area_fraction"
-         cell_methods = "time: mean"
+         cell_methods = "area: mean time: mean"
       case ("clh")
          stdname = "cloud_area_fraction_in_atmosphere_layer"         
-         cell_methods = "time: mean"
+         cell_methods = "area: mean time: mean"
       case ("clivi")
          stdname = "atmosphere_cloud_ice_content"
       case ("cll")
          stdname = "cloud_area_fraction_in_atmosphere_layer"
-         cell_methods = "time: mean"
+         cell_methods = "area: mean time: mean"
       case ("clm")
          stdname = "cloud_area_fraction_in_atmosphere_layer"
-         cell_methods = "time: mean"
+         cell_methods = "area: mean time: mean"
       case ("clt")
          stdname = "cloud_area_fraction"
-         cell_methods = "time: mean"
+         cell_methods = "area: mean time: mean"
       case ("clwvi")
          stdname = "atmosphere_cloud_condensed_water_content"
       case ("cfrac")
@@ -5060,30 +5123,30 @@ end function bisect
          stdname = "wind_from_direction" 
       case ("dni")
          stdname = "surface_downwelling_shortwave_flux_in_air"
-         cell_methods = "time: mean"
+         cell_methods = "area: mean time: mean"
       case ("dtb")
          stdname = "bedrock_depth" 
       case ("eg")
          stdname = "surface_upward_latent_heat_flux"
-         cell_methods = "time: mean"
+         cell_methods = "area: mean time: point"
       case ("evap")
          ! Over what period?
          stdname = "water_evaporation_amount"
       case ("evspsbl")
          stdname = "water_evaporation_flux" 
-         cell_methods = "time: mean"
+         cell_methods = "area: mean time: mean"
       case ("evspsblpot")
          stdname = "water_potential_evaporation_flux" 
-         cell_methods = "time: mean"
+         cell_methods = "area: mean time: mean"
       case ("fg")
          stdname = "surface_upward_sensible_heat_flux"
-         cell_methods = "time: mean"
+         cell_methods = "area: mean time: point"
       case ("hfls")
          stdname = "surface_upward_latent_heat_flux"
-         cell_methods = "time: mean"
+         cell_methods = "area: mean time: mean"
       case ("hfss")
          stdname = "surface_upward_sensible_heat_flux"
-         cell_methods = "time: mean"
+         cell_methods = "area: mean time: mean"
       case ("hus")
          stdname = "specific_humidity"
       case ("huss")
@@ -5096,7 +5159,7 @@ end function bisect
          stdname = "humidity_mixing_ratio"
       case ("mrro")
          stdname = "runoff_flux" 
-         cell_methods = "time: mean"
+         cell_methods = "area: mean where land time: mean"
       case ("mrso")
          stdname = "mass_content_of_water_in_soil" 
       case ("mrsol")
@@ -5115,7 +5178,7 @@ end function bisect
          stdname = "mass_content_of_water_in_soil_layer" 
       case ("mrros")
          stdname = "surface_runoff_flux" 
-         cell_methods = "time: mean"
+         cell_methods = "area: mean where land time: mean"
       case ("od550aer")
          stdname = "atmospheric_optical_thickness_due_to_ambient_aerosol_particles" 
       case ("ocheight")
@@ -5128,16 +5191,16 @@ end function bisect
          stdname = "atmosphere_boundary_layer_thickness"
       case ("pr")
          stdname = "precipitation_flux" 
-         cell_methods = "time: mean"
+         cell_methods = "area: mean time: mean"
       case ("prc")
          stdname = "convective_precipitation_flux"
-         cell_methods = "time: mean"
+         cell_methods = "area: mean time: mean"
       case ("prmax")
          stdname = "precipitation_flux" 
-         cell_methods = "time: maximum (interval: 1 day)"
+         cell_methods = "area: mean time: maximum (interval: 1 day)"
       case ("prhmax")
          stdname = "precipitation_flux" 
-         cell_methods = "time: maximum (interval: 1 day)"
+         cell_methods = "area: mean time: maximum (interval: 1 day)"
       case ("prw")
          stdname = "atmosphere_water_vapor_content"
       case ("ps")
@@ -5158,64 +5221,64 @@ end function bisect
          stdname = "relative_humidity"
       case ("rlds")
          stdname = "surface_downwelling_longwave_flux_in_air"
-         cell_methods = "time: mean"
+         cell_methods = "area: mean time: mean"
       case ("rldscs")
          stdname = "surface_downwelling_longwave_flux_in_air_assuming_clear_sky"
-         cell_methods = "time: mean"
+         cell_methods = "area: mean time: mean"
       case ("rlus")
          stdname = "surface_upwelling_longwave_flux_in_air"
-         cell_methods = "time: mean"
+         cell_methods = "area: mean time: mean"
       case ("rluscs")
          stdname = "surface_upwelling_longwave_flux_in_air_assuming_clear_sky"
-         cell_methods = "time: mean"
+         cell_methods = "area: mean time: mean"
       case ("rlut")
          stdname = "toa_outgoing_longwave_flux"
-         cell_methods = "time: mean"
+         cell_methods = "area: mean time: mean"
       case ("rlutcs")
          stdname = "toa_outgoing_longwave_flux_assuming_clear_sky"
-         cell_methods = "time: mean"
+         cell_methods = "area: mean time: mean"
       case ("rnc")
          stdname = "convective_precipitation_flux"
-         cell_methods = "time: mean"
+         cell_methods = "area: mean time: mean"
       case ("rnd")
          stdname = "precipitation_flux"
-         cell_methods = "time: mean"
+         cell_methods = "area: mean time: mean"
       case ("rnd24")
          stdname = "precipitation_flux"
-         cell_methods = "time: mean"
+         cell_methods = "area: mean time: mean"
       case ("rootd")
          stdname = "root_depth" 
       case ("rsds")
          stdname = "surface_downwelling_shortwave_flux_in_air"
-         cell_methods = "time: mean"
+         cell_methods = "area: mean time: mean"
       case ("rsdscs")
          stdname = "surface_downwelling_shortwave_flux_in_air_assuming_clear_sky"
-         cell_methods = "time: mean"
+         cell_methods = "area: mean time: mean"
       case ("rsdsdir")
          stdname = "surface_direct_downwelling_shortwave_flux_in_air"
-         cell_methods = "time: mean"
+         cell_methods = "area: mean time: mean"
       case ("rsdt")
          stdname = "toa_incoming_shortwave_flux"
-         cell_methods = "time: mean"
+         cell_methods = "area: mean time: mean"
       case ("rsus")
          stdname = "surface_upwelling_shortwave_flux_in_air"
-         cell_methods = "time: mean"         
+         cell_methods = "area: mean time: mean"         
       case ("rsuscs")
          stdname = "surface_upwelling_shortwave_flux_in_air_assuming_clear_sky"
-         cell_methods = "time: mean"         
+         cell_methods = "area: mean time: mean"         
       case ("rsut")
          stdname = "toa_outgoing_shortwave_flux"
-         cell_methods = "time: mean"
+         cell_methods = "area: mean time: mean"
       case ("rsutcs")
          stdname = "toa_outgoing_shortwave_flux_assuming_clear_sky"
-         cell_methods = "time: mean"
+         cell_methods = "area: mean time: mean"
       case ("runoff")
          stdname = "surface_runoff_flux"
       case ("sfcWind")
          stdname = "wind_speed"
       case ("sfcWindmax")
          stdname = "wind_speed"
-         cell_methods = "time: maximum (interval: 1 day)"
+         cell_methods = "area: mean time: maximum (interval: 1 day)"
       case ("sftlf")
          stdname = "land_area_fraction" 
       case ("sftgif")
@@ -5234,7 +5297,7 @@ end function bisect
          stdname = "sea_ice_area_fraction" 
       case ("siconca")
          stdname = "sea_ice_area_fraction"
-         cell_methods = "time: point"
+         cell_methods = "area: mean time: point"
       case ("siced")
          stdname = "sea_ice_thickness"
       case ("sigmf")
@@ -5259,17 +5322,17 @@ end function bisect
          stdname = "sea_surface_salinity"
       case ("sund")
          stdname = "duration_of_sunshine"
-         cell_methods = "time: sum (interval: 1 day)"
+         cell_methods = "area: mean time: sum (interval: 1 day)"
       case ("ta")
         stdname = "air_temperature"  
       case ("tas")
          stdname = "air_temperature"
       case ("tasmax")
          stdname = "air_temperature"
-         cell_methods = "time: maximum (interval: 1 day)"
+         cell_methods = "area: mean time: maximum (interval: 1 day)"
       case ("tasmin")
          stdname = "air_temperature"
-         cell_methods = "time: minimum (interval: 1 day)"
+         cell_methods = "area: mean time: minimum (interval: 1 day)"
       case ("tsskin")
          stdname = "skin_temperature"
       case ("tauu")
@@ -5290,10 +5353,10 @@ end function bisect
          stdname = "sea_water_potential_temperature" 
       case ("tminscr")
          stdname = "air_temperature" 
-         cell_methods = "time: minimum (interval: 1 day)"
+         cell_methods = "area: mean time: minimum (interval: 1 day)"
       case ("tmaxscr")
          stdname = "air_temperature" 
-         cell_methods = "time: maximum (interval: 1 day)"
+         cell_methods = "area: mean time: maximum (interval: 1 day)"
       case ("tos")
          stdname = "sea_surface_temperature" 
       case ("ts")
@@ -5308,7 +5371,7 @@ end function bisect
          stdname = "roof_surface_temperaure"
       case ("tscr_ave")
          stdname = "air_temperature" 
-         cell_methods = "time: mean"
+         cell_methods = "area: mean time: mean"
       case ("tscrn")
          stdname = "air_temperature" 
       case ("tsu")
@@ -5343,10 +5406,10 @@ end function bisect
          stdname = "northward_sea_water_velocity"
       case ("wsgsmax")
          stdname = "wind_speed_of_gust"
-         cell_methods = "time: maximum (interval: 1 day)"
+         cell_methods = "area: mean time: maximum (interval: 1 day)"
       case ("z0")
          stdname = "surface_roughness_length"   
-         cell_methods = "time: point"
+         cell_methods = "area: mean time: point"
       case ("zg")
          stdname = "geopotential_height"
       case ("zmla")

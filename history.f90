@@ -1,6 +1,6 @@
 ! Conformal Cubic Atmospheric Model
     
-! Copyright 2015-2025 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+! Copyright 2015-2026 Commonwealth Scientific Industrial Research Organisation (CSIRO)
     
 ! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
 !
@@ -133,7 +133,7 @@ module history
       character(len=MAX_NAMELEN)   :: name      ! Mnemonic name
       character(len=MAX_NAMELEN)   :: amip_name ! Mnemonic name (AMIP standard)
       character(len=80)  :: long_name           ! Full name
-      character(len=80)  :: std_name            ! IPCC/CF standard name
+      character(len=120) :: std_name            ! IPCC/CF standard name
       character(len=30)  :: units
       real               :: valid_min
       real               :: valid_max
@@ -177,7 +177,7 @@ module history
       character(len=80)  :: coord_units
       character(len=80)  :: coord_positive
       ! cell_methods appropriate for variable before any history processing is done
-      character(len=30)  :: cell_methods
+      character(len=80)  :: cell_methods
       ! for daily data
       logical            :: daily
       ! for 6hr data
@@ -525,7 +525,7 @@ contains
 
 !---------------------------------------------------------------------------
    subroutine addfld(name, long_name, units, valid_min, valid_max,    &
-                     nlevels, amip_name, ave_type, std, output_scale, &
+                     nlevels, amip_name, std, output_scale,           &
                      int_type, multilev, std_name, soil, water,       &
                      pop2d, pop3d, pop4d, coord_height, coord_name,   &
                      coord_stdname, coord_units, coord_positive,      &
@@ -542,7 +542,6 @@ contains
       real, intent(in)                :: valid_max
       integer, intent(in)             :: nlevels
       character(len=*), intent(in), optional :: amip_name
-      character(len=*), intent(in), optional :: ave_type   ! Full name
       logical, intent(in), optional          :: std
       real, intent(in), optional             :: output_scale
       integer, intent(in), optional   :: int_type
@@ -582,29 +581,14 @@ contains
          print*, ' Increase nfmax in history module '
          stop
       end if
-
-      if ( present(ave_type) ) then
-         select case (adjustl(ave_type))
-         case ("ave")
-            atype = hist_ave
-         !case ("oave")
-         !   atype = hist_oave
-         case ("max")
-            atype = hist_max
-         case ("min")
-            atype = hist_min
-         case ("inst")
-            atype = hist_inst
-         case ("fixed")
+      
+      if ( present(cell_methods) ) then
+         if ( index(cell_methods,"time: fixed")>0 ) then
             atype = hist_fixed
-         case default
-            print*, " Error: average type set incorrectly"
-            print*, " Variable ", name, " ave type ", ave_type
-            stop
-         end select
-      else
+         else 
 !        This is essentially a missing value which will be overridden later.
-         atype = 0
+            atype = 0
+         end if   
       end if
       
       if ( present(amip_name) ) then
@@ -739,7 +723,8 @@ contains
       if ( present(cell_methods) ) then
          histinfo(totflds)%cell_methods = cell_methods
       else
-         histinfo(totflds)%cell_methods = ""
+         write(6,*) "Error: cell_methods must be defined for ",trim(name)
+         stop
       end if
       if ( present(daily) ) then
          histinfo(totflds)%daily = daily
@@ -750,7 +735,7 @@ contains
          histinfo(totflds)%sixhr = sixhr
       else
          histinfo(totflds)%sixhr = .false.
-      end if      
+      end if
       if ( present(instant) ) then
          histinfo(totflds)%instant = instant
       else
@@ -1710,7 +1695,7 @@ contains
 
       select case (vinfo%ave_type)
       !case (hist_ave, hist_oave)
-      case (hist_ave )    
+      case (hist_ave)    
          cell_methods = "time: mean"
       case (hist_max)
          cell_methods = "time: maximum"
@@ -1725,23 +1710,28 @@ contains
          print*, " History internal error: average type set incorrectly"
          stop
       end select
-
-      if ( len_trim(vinfo%cell_methods) > 0 ) then
-         ! Doesn't make sense to compose time: mean methods
-         if ( .not. (cell_methods == "time: mean" .and. vinfo%cell_methods == "time: mean") ) then
-            cell_methods = trim(vinfo%cell_methods) // " " // trim(cell_methods)
+      if ( cordex_compliant ) then
+         if ( index(vinfo%cell_methods,"time")==0 .and. cell_methods=="" ) then
+             cell_methods = "time: point"
          end if
       end if
-
-      if ( cordex_compliant ) then
-         if ( len_trim(cell_methods) > 0 ) then
-            ierr = nf90_put_att ( ncid, vid, "cell_methods", cell_methods )
-            call check_ncerr(ierr,"Error with cell_methods attribute")
+      
+      if ( len_trim(cell_methods) > 0 ) then
+         ! Doesn't make sense to compose time: mean methods
+         if ( len_trim(vinfo%cell_methods) > 0 ) then
+            if ( .not.(index(vinfo%cell_methods,cell_methods)>0) ) then
+               vinfo%cell_methods = trim(vinfo%cell_methods) // " " // trim(cell_methods)
+            end if
          else
-            ! Default to time point if otherwise not defined 
-            ierr = nf90_put_att ( ncid, vid, "cell_methods", "time: point" )
-            call check_ncerr(ierr,"Error with cell_methods attribute")
+            vinfo%cell_methods = trim(cell_methods) 
          end if
+      end if
+             
+      if ( cordex_compliant ) then       
+         if ( len_trim(vinfo%cell_methods) > 0 ) then 
+            ierr = nf90_put_att ( ncid, vid, "cell_methods", vinfo%cell_methods )
+            call check_ncerr(ierr,"Error with cell_methods attribute")
+         end if   
       end if   
          
       if ( vtype == NF90_INT2 ) then
@@ -2338,28 +2328,28 @@ contains
       istart = histinfo(ifld)%ptr
       iend = istart + nl - 1
 
-      select case ( histinfo(ifld)%ave_type)
+      select case ( histinfo(ifld)%ave_type )
       case ( hist_ave )
          where ( array /= nf90_fill_float .and. histarray(:,1:jlat2,istart:iend) /= nf90_fill_float ) 
             histarray(:,1:jlat2,istart:iend) =  &
                  histarray(:,1:jlat2,istart:iend) + array
          elsewhere ( array /= nf90_fill_float )
             histarray(:,1:jlat2,istart:iend) = array
-         end where    
+         end where
       case ( hist_max ) 
          where ( array /= nf90_fill_float .and. histarray(:,1:jlat2,istart:iend) /= nf90_fill_float )  
             histarray(:,1:jlat2,istart:iend) =  &
                  max ( histarray(:,1:jlat2,istart:iend), array )
          elsewhere ( array /= nf90_fill_float )
             histarray(:,1:jlat2,istart:iend) = array
-         end where 
+         end where
       case ( hist_min )
          where ( array /= nf90_fill_float .and. histarray(:,1:jlat2,istart:iend) /= nf90_fill_float )     
             histarray(:,1:jlat2,istart:iend) =  &
                  min ( histarray(:,1:jlat2,istart:iend), array )
          elsewhere ( array /= nf90_fill_float )
             histarray(:,1:jlat2,istart:iend) = array
-         end where 
+         end where
       case ( hist_inst, hist_fixed ) 
          histarray(:,1:jlat2,istart:iend) = array
       case default
