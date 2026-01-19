@@ -5058,10 +5058,10 @@ contains
       stdname = ""
       if ( cell_methods == "" ) then
          if ( vinfo%instant ) then
-            cell_methods = "time: point"
+            cell_methods = "area: mean time: point"
          else
             ! assume mean, if not defined by CCAM
-            cell_methods = "time: mean"
+            cell_methods = "area: mean time: mean"
          end if
       end if
       ! Would some sort of external table be better
