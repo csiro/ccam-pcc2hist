@@ -867,7 +867,7 @@ contains
                      call savehist( "sgn_ave", sgn )
                   end if   
                end if
-            case ( "sicedep" )
+            case ( "siced", "sithick" )
                if ( needfld(varlist(ivar)%vname) ) then 
                   call vread2( varlist(ivar)%vname, dtmp )
                   where ( soilt>0.5 )
@@ -2887,6 +2887,7 @@ contains
             ! remove old data
             if ( vname == "sfcWindmax" ) cycle  ! .or. vname == "sfcWindmax_stn"
             if ( kk>1 .and. (vname == "CAPE" .or. vname == "CIN" ) ) cycle 
+            if ( match ( vname, (/ "p_?plant? ", "p_?litter?", "p_?soil?  " /) ) ) cycle
             if ( ndims == 6 .and. procformat ) then   
                ! Should be lon, lat, lev, proc, time
                if ( match ( dimids(1:ndims), (/ londim, latdim, cptchdim, cchrtdim, procdim, timedim /) ) ) then
@@ -3222,8 +3223,8 @@ contains
             varlist(ivar)%pop3d = .false.
             varlist(ivar)%pop4d = .false.
          end if
-
          
+
          if ( varlist(ivar)%vname == "u10" .or. varlist(ivar)%vname == "uscrn" .or. &
               varlist(ivar)%vname == "rnd" .or. varlist(ivar)%vname == "rnc" .or.   &
               varlist(ivar)%vname == "maxrnd" .or. varlist(ivar)%vname == "sno" ) then
@@ -3603,6 +3604,11 @@ contains
                varlist(ivar)%units = "kg m-2 s-1"
                xmin = -0.001
                xmax = 0.001
+            else if ( varlist(ivar)%vname == "siced" ) then
+               varlist(ivar)%vname = "sithick"
+               varlist(ivar)%units = "m"
+               varlist(ivar)%long_name = "Sea Ice Thickness"
+               varlist(ivar)%instant = .true.
             else if ( varlist(ivar)%vname == "sgdc_ave" ) then
                varlist(ivar)%vname = "rsdscs"
                varlist(ivar)%units = "W m-2"
@@ -5298,7 +5304,7 @@ contains
       case ("siconca")
          stdname = "sea_ice_area_fraction"
          cell_methods = "area: mean time: point"
-      case ("siced")
+      case ("sithick")
          stdname = "sea_ice_thickness"
       case ("sigmf")
          stdname = "vegetation_area_fraction"
