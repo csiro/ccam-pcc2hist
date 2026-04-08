@@ -403,7 +403,7 @@ contains
             endif
             if ( needfld("sftlaf") ) then
                where ( soilt == -1 )
-                 dtmp = 100.  
+                  dtmp = 100.  
                elsewhere ( soilt > 0.5 )
                   dtmp = 0.
                elsewhere
@@ -869,7 +869,7 @@ contains
                end if
             case ( "siced", "sithick" )
                if ( needfld(varlist(ivar)%vname) ) then 
-                  call vread2( varlist(ivar)%vname, dtmp )
+                  call vread2( "siced", dtmp )
                   where ( soilt>0.5 )
                      dtmp = nf90_fill_float
                   end where   
@@ -2999,8 +2999,9 @@ contains
             end if
 
             varlist(nvars)%vname = vname
-            ierr = nf90_inq_varid(ncid, vname, varlist(nvars)%vid)
-            call check_ncerr(ierr, "Error getting vid for "//trim(vname))
+            varlist(nvars)%vid = ivar
+            !ierr = nf90_inq_varid(ncid, vname, varlist(nvars)%vid)
+            !call check_ncerr(ierr, "Error getting vid for "//trim(vname))
 
             ierr = nf90_get_att(ncid, varlist(nvars)%vid, 'long_name', &
                                 varlist(nvars)%long_name)
@@ -3370,7 +3371,8 @@ contains
          if ( match ( varlist(ivar)%vname,                                                &
                (/ "cfrac               ", "stratcf             ", "clt                 ", &
                   "cll                 ", "clm                 ", "clh                 ", &
-                  "cld                 ", "rnd                 ", "rnc                 "  &
+                  "cld                 ", "rnd                 ", "rnc                 ", &
+                  "runoff              ", "mrros               ", "wb?                 "  &
                /)) .and. int_default /= int_none ) then
             int_type = int_lin_local
          end if   
