@@ -341,7 +341,6 @@ contains
       real, dimension(pil,pjl*pnpan*lproc) :: uten, uastmp, vastmp
       real, dimension(pil,pjl*pnpan*lproc) :: mrso, mrfso
       real, dimension(pil,pjl*pnpan*lproc) :: mrsos, mrfsos
-      real, dimension(pil,pjl*pnpan*lproc) :: sndw
       real, dimension(pil,pjl*pnpan*lproc) :: tauxtmp, tauytmp
       real, dimension(pil,pjl*pnpan*lproc) :: rgn, rgd, sgn, sgd
       real, dimension(pil,pjl*pnpan*lproc) :: rgncs, rgdcs, sgncs, sgdcs
@@ -877,22 +876,40 @@ contains
                end if   
             case ( "snd" )
                if ( needfld("snd") .or. needfld("snc") .or. needfld("snw") ) then
-                  call vread( "snd", sndw )
+                  call vread( "snd", dtmp )
                   where ( soilt<0.5 )
-                     sndw = nf90_fill_float
+                     dtmp = nf90_fill_float
                   end where   
                   if ( needfld("snd") ) then
                      if ( cordex_compliant ) then
-                        where ( sndw /= nf90_fill_float ) 
-                           dtmp = sndw/1000. 
+                        where ( dtmp /= nf90_fill_float ) 
+                           ctmp = dtmp/1000. 
                         elsewhere
-                           dtmp = nf90_fill_float
+                           ctmp = nf90_fill_float
                         end where  
-                        call savehist ( "snd", dtmp )
+                        call savehist ( "snd", ctmp )
                      else  
-                        call savehist ( "snd", sndw )
+                        call savehist ( "snd", dtmp )
                      end if   
                   end if   
+                  if ( needfld("snc") ) then
+                     where ( dtmp==nf90_fill_float )
+                        ctmp = nf90_fill_float 
+                     elsewhere ( dtmp>1.e-6 ) ! mm
+                        ctmp = 100.
+                     elsewhere
+                        ctmp = 0.
+                     end where
+                     call savehist( "snc", ctmp )
+                  end if
+                  if ( needfld("snw") ) then
+                     where ( dtmp /= nf90_fill_float )  
+                        ctmp = dtmp*10. ! change from equiv water to equiv snow
+                     elsewhere
+                        ctmp = nf90_fill_float 
+                     end where   
+                     call savehist( "snw", ctmp )
+                  end if
                end if   
             case ( "snm" )
                if ( needfld("snm") ) then 
@@ -1387,9 +1404,15 @@ contains
             case ( "qlg" )
                call vread( "qlg", ql )
                ql = max( ql, 0. )
+               if ( needfld("qlg") ) then
+                  call vsavehist ( "qlg", ql )
+               end if   
             case ( "qfg" )
                call vread( "qfg", qf )
                qf = max( qf, 0. )
+               if ( needfld("qfg") ) then
+                  call vsavehist ( "qfg", qf )
+               end if         
             case ( "qsng" )
                call vread( "qsng", qs )
                qs = max( qs, 0. )
@@ -1534,6 +1557,7 @@ contains
 
       end do
       
+      ! special treatment of q due to being read with temp
       if ( needfld("hus") ) then
          where ( q /= nf90_fill_float ) 
             tmp3d = q/(1.+q)
@@ -1545,16 +1569,9 @@ contains
       
       if ( needfld("mixr") ) then
          call vsavehist ( "mixr", q ) 
-      end if       
+      end if        
       
-      if ( needfld("qlg") ) then
-         call vsavehist ( "qlg", ql )
-      end if         
-      
-      if ( needfld("qfg") ) then
-         call vsavehist ( "qfg", qf )
-      end if         
-
+      ! output that depends on multiple variables
       if ( needfld("rlus") ) then
          where ( rgd /= nf90_fill_float .and. &
                  rgn /= nf90_fill_float ) 
@@ -1593,27 +1610,7 @@ contains
             dtmp = nf90_fill_float 
          end where    
          call savehist( "rsuscs", dtmp )
-      end if
-      
-      if ( needfld("snc") ) then
-         where ( sndw==nf90_fill_float )
-            dtmp = nf90_fill_float 
-         elsewhere ( sndw>1.e-6 ) ! mm
-            dtmp = 100.
-         elsewhere
-            dtmp = 0.
-         end where
-         call savehist( "snc", dtmp )
-      end if
-      
-      if ( needfld("snw") ) then
-         where ( sndw /= nf90_fill_float )  
-            dtmp = sndw*10. ! change from equiv water to equiv snow
-         elsewhere
-            dtmp = nf90_fill_float 
-         end where   
-         call savehist( "snw", dtmp )
-      end if   
+      end if  
       
       if ( needfld("tauu") .or. needfld("tauv") .or. &
            needfld("taux") .or. needfld("tauy") ) then
@@ -4279,10 +4276,6 @@ contains
             call addfld ( "clivi", "Ice Water Path", "kg m-2", 0.0, 100.0, 1,  &
                           std_name="atmosphere_cloud_condensed_ice_content",   &
                           cell_methods="area: mean time: point" )
-            call addfld ( "snc",  "Snow area fraction", "%", 0., 6.5, 1, std_name="surface_snow_area_fraction", &
-                          cell_methods="area: mean where land time: point" )
-            call addfld ( "snw",  "Surface Snow Amount", "kg m-2", 0., 6.5, 1, std_name="surface_snow_amount",  &
-                          cell_methods="area: mean where land time: point" )
 
          else
             call addfld ( "w", "Vertical velocity", "m s-1", -1., 1., nlev,         &
