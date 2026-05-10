@@ -29,7 +29,7 @@ module setxyz_m
    implicit none
    private
 
-   public :: setxyz, setaxu
+   public :: setxyz !, setaxu
    private :: norm, cross3, vecpanel
 
 !  emu and emv have to be contiguous for the out of bounds indexing to work.
@@ -91,12 +91,11 @@ subroutine setxyz ( il, jl, kl, npanels, ifull, iquad, diag, id, jd,        &
 
 !  Allocate all the public arrays
    allocate ( xx4(iquad,iquad), yy4(iquad,iquad) )
-   allocate ( i_wu(ifull), i_sv(ifull), i_eu2(ifull), i_nv2(ifull) )
-   allocate ( i_eu(ifull), i_nv(ifull) )
+   !allocate ( i_eu2(ifull), i_nv2(ifull) )
 
    allocate ( em(ifull),                                                   &
-              f(ifull), fu(ifull), fv(ifull),                              &
-              dmdx(ifull), dmdy(ifull), dmdxv(ifull), dmdyu(ifull) )
+              f(ifull) ) !, fu(ifull), fv(ifull) )
+   !allocate( dmdx(ifull), dmdy(ifull), dmdxv(ifull), dmdyu(ifull) )
    allocate ( x(ifull), y(ifull), z(ifull), rlat(ifull), rlong(ifull),     &
               wts(ifull) )
    
@@ -141,54 +140,30 @@ subroutine setxyz ( il, jl, kl, npanels, ifull, iquad, diag, id, jd,        &
    endif
 
 !  Use for unstaggered u,v in hordifg
-   do iq = 1,ifull
-      i_eu2(iq) = i_e(iq)
-      i_nv2(iq) = i_n(iq)
-   end do   
+   !do iq = 1,ifull
+   !   i_eu2(iq) = i_e(iq)
+   !   i_nv2(iq) = i_n(iq)
+   !end do   
 
-!  Use for staguv3
-   do iq = 1,ifull
-      i_eu(iq) = i_e(iq)
-      i_nv(iq) = i_n(iq)
-   end do   
-
-   do n = 0, npanels 
-!     following treats unusual panel boundaries
-!     print *,"ina il/2,n ",i_n(ind(il/2,il,n)),n
-      if (npann(n) >= 100) then 
-         do i = 1, il 
-            iq = ind(i,il,n) 
-            i_nv2(iq) = i_n(iq) - ifull     ! converts 2D v array into u array 
-            i_nv(iq) = i_n(iq) - ijk        ! converts 3D v array into u array 
-         end do
-      endif
-!     print *,"inb il/2,n ",i_n(ind(il/2,il,n)),n
-!     print *,"iea il/2,n ",i_e(ind(il,il/2,n)),n
-      if (npane(n) >= 100) then 
-         do j = 1, il 
-            iq = ind(il,j,n) 
-            i_eu2(iq) = i_e(iq) + ifull     ! converts 2D u array into v array 
-            i_eu(iq) = i_e(iq) + ijk        ! converts 3D u array into v array 
-         end do
-      endif
-!     print *,"ieb il/2,n ",i_e(ind(il,il/2,n)),n
-!     print *,"iwa il/2,n ",i_w(ind(1,il/2,n)),n
-      if (npanw(n) >= 100) then 
-         do j = 1, il 
-            iq = ind(1,j,n) 
-            i_wu(iq) = i_w(iq) + ijk        ! converts 3D u array into v array 
-         end do! j loop 
-      endif
-!     print *,"iwb il/2,n ",i_w(ind(1,il/2,n)),n
-!     print *,"isa il/2,n ",i_s(ind(il/2,1,n)),n
-      if (npans(n) >= 100) then
-         do i = 1, il 
-            iq = ind(i,1,n) 
-            i_sv(iq) = i_s(iq) - ijk        ! converts 3D v array into u array 
-         end do
-      end if
-!     print *,"isb il/2,n ",i_s(ind(il/2,1,n)),n
-   end do! n loop 
+!   do n = 0, npanels 
+!!     following treats unusual panel boundaries
+!!     print *,"ina il/2,n ",i_n(ind(il/2,il,n)),n
+!      if (npann(n) >= 100) then 
+!         do i = 1, il 
+!            iq = ind(i,il,n) 
+!            i_nv2(iq) = i_n(iq) - ifull     ! converts 2D v array into u array 
+!         end do
+!      endif
+!!     print *,"inb il/2,n ",i_n(ind(il/2,il,n)),n
+!!     print *,"iea il/2,n ",i_e(ind(il,il/2,n)),n
+!      if (npane(n) >= 100) then 
+!         do j = 1, il 
+!            iq = ind(il,j,n) 
+!            i_eu2(iq) = i_e(iq) + ifull     ! converts 2D u array into v array 
+!         end do
+!      endif
+!!     print *,"ieb il/2,n ",i_e(ind(il,il/2,n)),n
+!   end do! n loop 
  
 !   print *,"lsw a  ",lsw
 !   print *,"lnw a  ",lnw
@@ -740,32 +715,32 @@ subroutine setxyz ( il, jl, kl, npanels, ifull, iquad, diag, id, jd,        &
    end if
 
 !  set up Coriolis
-   do iq = 1,ifull
+   !do iq = 1,ifull
 !  ok: [2,il-1;2,jl]  u point
-      dmdx(iq) = ( em(i_e(iq)) - em(iq) ) / ds 
+      !dmdx(iq) = ( em(i_e(iq)) - em(iq) ) / ds 
 ! ok: [2,il;2,jl-1]  v point
-      dmdy(iq) = ( em(i_n(iq)) - em(iq) ) / ds 
-      fu(iq) = ( f(iq) + f(i_e(iq)) ) * 0.5_rx
-      fv(iq) = ( f(iq) + f(i_n(iq)) ) * 0.5_rx 
+      !dmdy(iq) = ( em(i_n(iq)) - em(iq) ) / ds 
+      !fu(iq) = ( f(iq) + f(i_e(iq)) ) * 0.5_rx
+      !fv(iq) = ( f(iq) + f(i_n(iq)) ) * 0.5_rx 
 !  may need more thought  $$$
-      dmdx(iq) = abs ( emu(i_wu2(iq))-emu(iq) ) + abs ( emv(i_sv2(iq))-emv(iq) ) 
-      dmdyu(iq) = ( em(i_n(i_e(iq))) - em(i_s(i_e(iq))) + em(i_n(iq)) - em(i_s(iq)) ) / (4.0*ds) 
-      dmdxv(iq) = ( em(i_e(i_n(iq))) - em(i_w(i_n(iq))) + em(i_e(iq)) - em(i_w(iq)) ) / (4.0*ds) 
-   end do  
+      !dmdx(iq) = abs ( emu(i_wu2(iq))-emu(iq) ) + abs ( emv(i_sv2(iq))-emv(iq) ) 
+      !dmdyu(iq) = ( em(i_n(i_e(iq))) - em(i_s(i_e(iq))) + em(i_n(iq)) - em(i_s(iq)) ) / (4.0*ds) 
+      !dmdxv(iq) = ( em(i_e(i_n(iq))) - em(i_w(i_n(iq))) + em(i_e(iq)) - em(i_w(iq)) ) / (4.0*ds) 
+   !end do  
 
-   if ( diag /= 0 ) then
-      print *, &
-         "On each panel abs(demu..demv) for (1,1),(1,2),(1,3),(2,2),(3,2)" 
-      do n = 0, npanels 
-         iq11 = ind(1,1,n) 
-         iq12 = ind(1,2,n) 
-         iq13 = ind(1,3,n) 
-         iq22 = ind(2,2,n) 
-         iq32 = ind(3,2,n) 
-         write(unit=*, fmt="(i3,5f8.3)" )                                    &
-            n, dmdx(iq11), dmdx(iq12), dmdx(iq13), dmdx(iq22), dmdx(iq32) 
-      end do
-   end if
+   !if ( diag /= 0 ) then
+   !   print *, &
+   !      "On each panel abs(demu..demv) for (1,1),(1,2),(1,3),(2,2),(3,2)" 
+   !   do n = 0, npanels 
+   !      iq11 = ind(1,1,n) 
+   !      iq12 = ind(1,2,n) 
+   !      iq13 = ind(1,3,n) 
+   !      iq22 = ind(2,2,n) 
+   !      iq32 = ind(3,2,n) 
+   !      write(unit=*, fmt="(i3,5f8.3)" )                                    &
+   !         n, dmdx(iq11), dmdx(iq12), dmdx(iq13), dmdx(iq22), dmdx(iq32) 
+   !   end do
+   !end if
    
    deallocate( axx, ayy, azz, bxx, byy, bzz )
    deallocate( em4, ax4, ay4, az4, zz4 )
@@ -1008,62 +983,62 @@ end subroutine cross3
 !!$      return  
 !!$      end function crossmod 
 
-!--------------------------------------------
-   subroutine setaxu(ifull)
-      use indices_m
-!     Set up vectors for the A grid 
-      integer, intent(in) :: ifull
-      integer iq
-!     Pointer trick to make these contiguous
-      real(kind=rx), allocatable, dimension(:), target  :: wcuva, wcuvd
-      real(kind=rx), dimension(:), pointer, contiguous :: wcua, wcva, wcud, wcvd
-!-----------------------------------------------
-
-!     These are just working arrays
-      allocate ( wcuva(-ifull+1:ifull), wcuvd(-ifull+1:ifull) )
-      wcua => wcuva(-ifull+1:ifull)
-      wcva => wcuva
-      wcud => wcuvd(-ifull+1:ifull)
-      wcvd => wcuvd
-      allocate ( axu(ifull), bxv(ifull), ayu(ifull), byv(ifull), &
-                 azu(ifull), bzv(ifull) )
-
-!  ax, bx etc are overdimensioned via pointer trick so have to use 1:ifull
-!  explicitly here
-
-!  convert ax,bx to staggered positions
-      do iq = 1,ifull
-         wcua(iq) = 0.5_rx*(ax(i_eu2(iq))+ax(iq))
-         wcud(iq) = ax(i_eu2(iq)) - ax(iq)
-         wcva(iq) = 0.5_rx*(bx(i_nv2(iq))+bx(iq))
-         wcvd(iq) = bx(i_nv2(iq)) - bx(iq)
-
-!  store ax,bx at staggered positions
-         axu(iq) = wcua(iq) - (wcud(i_eu2(iq))-wcud(i_wu2(iq)))/16.0
-         bxv(iq) = wcva(iq) - (wcvd(i_nv2(iq))-wcvd(i_sv2(iq)))/16.0
-
-!  convert ay,by to staggered positions
-         wcua(iq) = 0.5_rx*(ay(i_eu2(iq))+ay(iq))
-         wcud(iq) = ay(i_eu2(iq)) - ay(iq)
-         wcva(iq) = 0.5_rx*(by(i_nv2(iq))+by(iq))
-         wcvd(iq) = by(i_nv2(iq)) - by(iq)
-
-!  store ay,by at staggered positions
-         ayu(iq) = wcua(iq) - (wcud(i_eu2(iq))-wcud(i_wu2(iq)))/16.0
-         byv(iq) = wcva(iq) - (wcvd(i_nv2(iq))-wcvd(i_sv2(iq)))/16.0
-
-!  convert az,bz to staggered positions
-         wcua(iq) = 0.5_rx*(az(i_eu2(iq))+az(iq))
-         wcud(iq) = az(i_eu2(iq)) - az(iq)
-         wcva(iq) = 0.5_rx*(bz(i_nv2(iq))+bz(iq))
-         wcvd(iq) = bz(i_nv2(iq)) - bz(iq)
-
-!  store az,bz at staggered positions
-         azu(iq) = wcua(iq) - (wcud(i_eu2(iq))-wcud(i_wu2(iq)))/16.0
-         bzv(iq) = wcva(iq) - (wcvd(i_nv2(iq))-wcvd(i_sv2(iq)))/16.0
-      end do  
-
-      deallocate ( wcuva, wcuvd )
-   end subroutine setaxu
+!!--------------------------------------------
+!   subroutine setaxu(ifull)
+!      use indices_m
+!!     Set up vectors for the A grid 
+!      integer, intent(in) :: ifull
+!      integer iq
+!!     Pointer trick to make these contiguous
+!      real(kind=rx), allocatable, dimension(:), target  :: wcuva, wcuvd
+!      real(kind=rx), dimension(:), pointer, contiguous :: wcua, wcva, wcud, wcvd
+!!-----------------------------------------------
+!
+!!     These are just working arrays
+!      allocate ( wcuva(-ifull+1:ifull), wcuvd(-ifull+1:ifull) )
+!      wcua => wcuva(-ifull+1:ifull)
+!      wcva => wcuva
+!      wcud => wcuvd(-ifull+1:ifull)
+!      wcvd => wcuvd
+!      allocate ( axu(ifull), bxv(ifull), ayu(ifull), byv(ifull), &
+!                 azu(ifull), bzv(ifull) )
+!
+!!  ax, bx etc are overdimensioned via pointer trick so have to use 1:ifull
+!!  explicitly here
+!
+!!  convert ax,bx to staggered positions
+!      do iq = 1,ifull
+!         wcua(iq) = 0.5_rx*(ax(i_eu2(iq))+ax(iq))
+!         wcud(iq) = ax(i_eu2(iq)) - ax(iq)
+!         wcva(iq) = 0.5_rx*(bx(i_nv2(iq))+bx(iq))
+!         wcvd(iq) = bx(i_nv2(iq)) - bx(iq)
+!
+!!  store ax,bx at staggered positions
+!         axu(iq) = wcua(iq) - (wcud(i_eu2(iq))-wcud(i_wu2(iq)))/16.0
+!         bxv(iq) = wcva(iq) - (wcvd(i_nv2(iq))-wcvd(i_sv2(iq)))/16.0
+!
+!!  convert ay,by to staggered positions
+!         wcua(iq) = 0.5_rx*(ay(i_eu2(iq))+ay(iq))
+!         wcud(iq) = ay(i_eu2(iq)) - ay(iq)
+!         wcva(iq) = 0.5_rx*(by(i_nv2(iq))+by(iq))
+!         wcvd(iq) = by(i_nv2(iq)) - by(iq)
+!
+!!  store ay,by at staggered positions
+!         ayu(iq) = wcua(iq) - (wcud(i_eu2(iq))-wcud(i_wu2(iq)))/16.0
+!         byv(iq) = wcva(iq) - (wcvd(i_nv2(iq))-wcvd(i_sv2(iq)))/16.0
+!
+!!  convert az,bz to staggered positions
+!         wcua(iq) = 0.5_rx*(az(i_eu2(iq))+az(iq))
+!         wcud(iq) = az(i_eu2(iq)) - az(iq)
+!         wcva(iq) = 0.5_rx*(bz(i_nv2(iq))+bz(iq))
+!         wcvd(iq) = bz(i_nv2(iq)) - bz(iq)
+!
+!!  store az,bz at staggered positions
+!         azu(iq) = wcua(iq) - (wcud(i_eu2(iq))-wcud(i_wu2(iq)))/16.0
+!         bzv(iq) = wcva(iq) - (wcvd(i_nv2(iq))-wcvd(i_sv2(iq)))/16.0
+!      end do  
+!
+!      deallocate ( wcuva, wcuvd )
+!   end subroutine setaxu
 
 end module setxyz_m

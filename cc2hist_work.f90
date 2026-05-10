@@ -2547,7 +2547,8 @@ contains
 #endif
 !        To save memory de-allocate a number of arrays defined by setxyz
 !        that aren't needed by cc2hist.
-         deallocate ( f, fu, fv, dmdx, dmdy, dmdxv, dmdyu )
+         deallocate ( f ) !, fu, fv )
+         !deallocate( dmdx, dmdy, dmdxv, dmdyu )
       end if
       
       allocate ( hlon(nxhis), hlat(nyhis) )
@@ -2686,7 +2687,7 @@ contains
       if ( myid == 0 ) then
 #endif
          deallocate ( em )
-         deallocate ( i_wu, i_sv, i_eu, i_nv )
+         !deallocate ( i_wu, i_sv, i_eu, i_nv )
       end if
       
       allocate( rlong_l(pil,pjl*pnpan*lproc), rlat_l(pil,pjl*pnpan*lproc) )

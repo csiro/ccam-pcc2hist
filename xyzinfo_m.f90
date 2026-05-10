@@ -37,8 +37,8 @@ module xyzinfo_m
 !  map
    real(kind=rx), public, dimension(:), pointer, contiguous :: emu, emv
    real(kind=rx), public, dimension(:), allocatable :: em,                   &
-                                                      f, fu, fv,             &
-                                                      dmdx, dmdy, dmdxv, dmdyu 
+                                                      f !, fu, fv
+   !real(kind=rx), public, dimension(:), allocatable :: dmdx, dmdy, dmdxv, dmdyu 
 
 !  vecsuv
    real(kind=rx), public, dimension(:), pointer, contiguous :: ax, ay, az, bx, by, bz
