@@ -1,6 +1,6 @@
 ! Conformal Cubic Atmospheric Model
     
-! Copyright 2015-2024 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+! Copyright 2015-2026 Commonwealth Scientific Industrial Research Organisation (CSIRO)
     
 ! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
 !
@@ -82,36 +82,27 @@ subroutine setxyz ( il, jl, kl, npanels, ifull, iquad, diag, id, jd,        &
          eps, dx2, dy2, sumwts, coslong, sinlong, coslat, sinlat, zz, demu11, &
          demv11, demu21, demv21, demu31, demv31 
 
-   integer, dimension(ifull) :: i_nw, i_sw, i_es, i_ws 
-   real(kind=rx), dimension(ifull) :: axx, ayy, azz, bxx, byy, bzz
-   real(kind=rx), dimension(iquad,iquad) :: em4, ax4, ay4, az4, zz4
-   real(kind=rx), dimension(ifull) :: cosa
+   real(kind=rx), dimension(:), allocatable :: axx, ayy, azz, bxx, byy, bzz
+   real(kind=rx), dimension(:,:), allocatable :: em4, ax4, ay4, az4, zz4
 
    integer :: ijk
 !  If abs(cos(lat)) < polelim than assume point is exactly at pole.
-   real(kind=rx), parameter :: polelim = 10*epsilon(1.0)
+   real(kind=rx), parameter :: polelim = 10.*epsilon(1.0)
 
 !  Allocate all the public arrays
    allocate ( xx4(iquad,iquad), yy4(iquad,iquad) )
-   allocate ( i_nn(ifull),                                                    &
-              i_ss(ifull), i_ww(ifull), i_ee(ifull), i_ne(ifull),             &
-              i_se(ifull), i_en(ifull), i_wn(ifull), i_wu(ifull),             &
-              i_sv(ifull), i_wu2(ifull), i_sv2(ifull), i_eu2(ifull),          &
-              i_nv2(ifull), i_ev2(ifull), i_nu2(ifull), i_eu(ifull),          &
-              i_nv(ifull) )
+   allocate ( i_wu(ifull), i_sv(ifull), i_eu2(ifull), i_nv2(ifull) )
+   allocate ( i_eu(ifull), i_nv(ifull) )
 
-   allocate ( lwws(0:npanels), lws(0:npanels), lwss(0:npanels),            &
-              les(0:npanels), lees(0:npanels), less(0:npanels),            &
-              lwwn(0:npanels), lwnn(0:npanels), leen(0:npanels),           &
-              lenn(0:npanels), lsww(0:npanels), lsw(0:npanels),            &
-              lssw(0:npanels), lsee(0:npanels), lsse(0:npanels),           &
-              lnww(0:npanels), lnw(0:npanels), lnnw(0:npanels),            &
-              lnee(0:npanels), lnne(0:npanels) )
    allocate ( em(ifull),                                                   &
               f(ifull), fu(ifull), fv(ifull),                              &
               dmdx(ifull), dmdy(ifull), dmdxv(ifull), dmdyu(ifull) )
    allocate ( x(ifull), y(ifull), z(ifull), rlat(ifull), rlong(ifull),     &
               wts(ifull) )
+   
+   allocate( axx(ifull), ayy(ifull), azz(ifull), bxx(ifull), byy(ifull), bzz(ifull) )
+   allocate( em4(iquad,iquad), ax4(iquad,iquad), ay4(iquad,iquad), az4(iquad,iquad), zz4(iquad,iquad) )
+   
 
 !  Pointer trick to mimic the effect of common.
    allocate ( emuv(-ifull+1:ifull) )
@@ -134,12 +125,6 @@ subroutine setxyz ( il, jl, kl, npanels, ifull, iquad, diag, id, jd,        &
 !  a, b denote unit vectors in the direction of x, y (e & n) respectively
 
    idjd = id + il*(jd - 1) 
-   do iq = 1, ifull 
-      i_n(iq) = iq + il 
-      i_s(iq) = iq - il 
-      i_e(iq) = iq + 1 
-      i_w(iq) = iq - 1 
-   end do
  
    allocate ( npann(0:npanels), npane(0:npanels), npanw(0:npanels), &
               npans(0:npanels) )
@@ -154,80 +139,18 @@ subroutine setxyz ( il, jl, kl, npanels, ifull, iquad, diag, id, jd,        &
       npanw = npanwo 
       npans = npanso 
    endif
- 
-   do n = 0, npanels 
-!     print *,"ina il/2,n ",i_n(ind(il/2,il,n)),n
-      if (npann(n) < 100) then 
-         do ii = 1, il 
-            i_n(ind(ii,il,n)) = ind(ii,1,npann(n)) 
-         end do
-      else 
-         do ii = 1, il 
-            i_n(ind(ii,il,n)) = ind(1,il + 1 - ii,npann(n)-100) 
-         end do
-      endif
-!     print *,"inb il/2,n ",i_n(ind(il/2,il,n)),n
-!     print *,"iea il/2,n ",i_e(ind(il,il/2,n)),n
-      if (npane(n) < 100) then 
-         do ii = 1, il 
-            i_e(ind(il,ii,n)) = ind(1,ii,npane(n)) 
-         end do
-      else 
-         do ii = 1, il 
-            i_e(ind(il,ii,n)) = ind(il + 1 - ii,1,npane(n)-100) 
-         end do
-      endif
-!     print *,"ieb il/2,n ",i_e(ind(il,il/2,n)),n
-!     print *,"iwa il/2,n ",i_w(ind(1,il/2,n)),n
-      if (npanw(n) < 100) then 
-         do ii = 1, il 
-            i_w(ind(1,ii,n)) = ind(il,ii,npanw(n)) 
-         end do
-      else 
-         do ii = 1, il 
-            i_w(ind(1,ii,n)) = ind(il + 1 - ii,il,npanw(n)-100) 
-         end do
-      endif
-!     print *,"iwb il/2,n ",i_w(ind(1,il/2,n)),n
-!     print *,"isa il/2,n ",is(ind(il/2,1,n)),n
-      if (npans(n) < 100) then 
-         do ii = 1, il 
-            i_s(ind(ii,1,n)) = ind(ii,il,npans(n)) 
-         end do
-      else 
-         do ii = 1, il 
-            i_s(ind(ii,1,n)) = ind(il,il + 1 - ii,npans(n)-100) 
-         end do
-      endif
-!     print *,"isb il/2,n ",is(ind(il/2,1,n)),n
-   end do! n loop 
- 
-   i_nn = i_n(i_n) 
-   i_ss = i_s(i_s) 
-   i_ee = i_e(i_e) 
-   i_ww = i_w(i_w) 
-   i_ne = i_n(i_e) 
-   i_se = i_s(i_e) 
-   i_en = i_e(i_n) 
-   i_wn = i_w(i_n) 
-   i_wu = i_w 
-   i_sv = i_s 
 
-!  Use for unstaggered u,v in hordifg 
-   i_wu2 = i_w      
-   i_sv2 = i_s         
-   i_eu2 = i_e         
-   i_nv2 = i_n      
+!  Use for unstaggered u,v in hordifg
+   do iq = 1,ifull
+      i_eu2(iq) = i_e(iq)
+      i_nv2(iq) = i_n(iq)
+   end do   
 
 !  Use for staguv3
-   i_eu = i_e
-   i_nv = i_n
-
-!  Following are extras not needed in model, just here for bdy values
-   i_nw = i_n(i_w)               ! in temporary arrays 
-   i_sw = i_s(i_w)               ! in temporary arrays 
-   i_es = i_e(i_s)               ! in temporary arrays 
-   i_ws = i_w(i_s)               ! in temporary arrays 
+   do iq = 1,ifull
+      i_eu(iq) = i_e(iq)
+      i_nv(iq) = i_n(iq)
+   end do   
 
    do n = 0, npanels 
 !     following treats unusual panel boundaries
@@ -235,9 +158,6 @@ subroutine setxyz ( il, jl, kl, npanels, ifull, iquad, diag, id, jd,        &
       if (npann(n) >= 100) then 
          do i = 1, il 
             iq = ind(i,il,n) 
-            i_nn(iq) = i_e(i_n(iq)) 
-            i_en(iq) = i_s(i_n(iq)) 
-            i_wn(iq) = i_n(i_n(iq)) 
             i_nv2(iq) = i_n(iq) - ifull     ! converts 2D v array into u array 
             i_nv(iq) = i_n(iq) - ijk        ! converts 3D v array into u array 
          end do
@@ -247,9 +167,6 @@ subroutine setxyz ( il, jl, kl, npanels, ifull, iquad, diag, id, jd,        &
       if (npane(n) >= 100) then 
          do j = 1, il 
             iq = ind(il,j,n) 
-            i_ee(iq) = i_n(i_e(iq)) 
-            i_ne(iq) = i_w(i_e(iq)) 
-            i_se(iq) = i_e(i_e(iq)) 
             i_eu2(iq) = i_e(iq) + ifull     ! converts 2D u array into v array 
             i_eu(iq) = i_e(iq) + ijk        ! converts 3D u array into v array 
          end do
@@ -259,10 +176,6 @@ subroutine setxyz ( il, jl, kl, npanels, ifull, iquad, diag, id, jd,        &
       if (npanw(n) >= 100) then 
          do j = 1, il 
             iq = ind(1,j,n) 
-            i_ww(iq) = i_s(i_w(iq)) 
-            i_nw(iq) = i_w(i_w(iq))         ! in temporary arrays 
-            i_sw(iq) = i_e(i_w(iq))         ! in temporary arrays 
-            i_wu2(iq) = i_w(iq) + ifull     ! converts 2D u array into v array 
             i_wu(iq) = i_w(iq) + ijk        ! converts 3D u array into v array 
          end do! j loop 
       endif
@@ -271,10 +184,6 @@ subroutine setxyz ( il, jl, kl, npanels, ifull, iquad, diag, id, jd,        &
       if (npans(n) >= 100) then
          do i = 1, il 
             iq = ind(i,1,n) 
-            i_ss(iq) = i_w(i_s(iq)) 
-            i_es(iq) = i_s(i_s(iq))         ! in temporary arrays 
-            i_ws(iq) = i_n(i_s(iq))         ! in temporary arrays 
-            i_sv2(iq) = i_s(iq) - ifull     ! converts 2D v array into u array 
             i_sv(iq) = i_s(iq) - ijk        ! converts 3D v array into u array 
          end do
       end if
@@ -301,52 +210,12 @@ subroutine setxyz ( il, jl, kl, npanels, ifull, iquad, diag, id, jd,        &
 !   print *,"lwss a  ",lwss
 !   print *,"lees a  ",lees
 !   print *,"less a  ",less
-   do n = 0, npanels 
-      lsw(n) = i_sw(ind(1,1,n)) 
-      lnw(n) = i_nw(ind(1,il,n)) 
-      lws(n) = i_ws(ind(1,1,n)) 
-      les(n) = i_es(ind(il,1,n)) 
-      leen(n) = i_ee(i_n(ind(il,il,n))) 
-      lenn(n) = i_en(i_n(ind(il,il,n))) 
-      lwnn(n) = i_wn(i_n(ind(1,il,n))) 
-      lsee(n) = i_se(i_e(ind(il,1,n))) 
-      lnee(n) = i_ne(i_e(ind(il,il,n))) 
-      lnne(n) = i_nn(i_e(ind(il,il,n))) 
-      lsww(n) = i_sw(i_w(ind(1,1,n))) 
-      lssw(n) = i_ss(i_w(ind(1,1,n))) 
-      lnww(n) = i_nw(i_w(ind(1,il,n))) 
-      lwws(n) = i_ww(i_s(ind(1,1,n))) 
-      lwss(n) = i_ws(i_s(ind(1,1,n))) 
-      less(n) = i_es(i_s(ind(il,1,n))) 
-      lwwn(n) = i_ww(i_n(ind(1,il,n))) 
-      lsse(n) = i_ss(i_e(ind(il,1,n))) 
-      lnnw(n) = i_nn(i_w(ind(1,il,n))) 
-      lees(n) = i_ee(i_s(ind(il,1,n))) 
-      if ( npann(n) >= 100 ) then 
-         leen(n) = i_ss(i_n(ind(il,il,n))) 
-         lenn(n) = i_se(i_n(ind(il,il,n))) 
-         lwnn(n) = i_ne(i_n(ind(1,il,n))) 
-         lwwn(n) = i_nn(i_n(ind(1,il,n))) 
-      endif! (npann(n).ge.100) 
-      if ( npane(n) >= 100 ) then 
-         lsee(n) = i_en(i_e(ind(il,1,n))) 
-         lnee(n) = i_wn(i_e(ind(il,il,n))) 
-         lnne(n) = i_ww(i_e(ind(il,il,n))) 
-         lsse(n) = i_ee(i_e(ind(il,1,n))) 
-      endif! (npane(n).ge.100) 
-      if ( npanw(n) >= 100 ) then 
-         lsww(n) = i_es(i_w(ind(1,1,n))) 
-         lssw(n) = i_ee(i_w(ind(1,1,n))) 
-         lnww(n) = i_ws(i_w(ind(1,il,n))) 
-         lnnw(n) = i_ww(i_w(ind(1,il,n))) 
-      endif! (npanw(n).ge.100) 
-      if ( npans(n) >= 100 ) then
-         lwws(n) = i_nn(i_s(ind(1,1,n))) 
-         lwss(n) = i_nw(i_s(ind(1,1,n))) 
-         less(n) = i_sw(i_s(ind(il,1,n))) 
-         lees(n) = i_ss(i_s(ind(il,1,n))) 
-      end if
-   end do                                     ! n loop 
+   !do n = 0, npanels 
+   !   lsw(n) = i_sw(ind(1,1,n)) 
+   !   lnw(n) = i_nw(ind(1,il,n)) 
+   !   lws(n) = i_ws(ind(1,1,n)) 
+   !   les(n) = i_es(ind(il,1,n)) 
+   !end do                                     ! n loop 
 !   print *,"lsw b  ",lsw
 !   print *,"lnw b  ",lnw
 !   print *,"lws b  ",lws
@@ -367,7 +236,8 @@ subroutine setxyz ( il, jl, kl, npanels, ifull, iquad, diag, id, jd,        &
 !   print *,"lwss b  ",lwss
 !   print *,"lees b  ",lees
 !   print *,"less b  ",less
- 
+   
+   
    if (diag == 3) then 
       do n = 0, npanels 
          do j = 1, il 
@@ -633,8 +503,10 @@ subroutine setxyz ( il, jl, kl, npanels, ifull, iquad, diag, id, jd,        &
       if (ntang /= 2) then 
 !        With schmidt must average em to get emu & emv
 !        Note that explicit ranges required here because of the pointer trick.
-         emu(1:ifull) = 0.5_rx * ( em + em(i_e) ) 
-         emv(1:ifull) = 0.5_rx * ( em + em(i_n) ) 
+         do iq = 1,ifull 
+            emu(iq) = 0.5_rx * ( em(iq) + em(i_e(iq)) ) 
+            emv(iq) = 0.5_rx * ( em(iq) + em(i_n(iq)) ) 
+         end do   
       endif
    endif!  (schmidt.ne.1.0) 
  
@@ -706,7 +578,9 @@ subroutine setxyz ( il, jl, kl, npanels, ifull, iquad, diag, id, jd,        &
 ! based on inverse values of emu & emv
 !        Note that the explicit ranges 1:ifull are required here because
 !        the pointer trick has extended the arrays.
-         em = 4.0 / ( emu(i_wu2) + emu(1:ifull) + emv(i_sv2) + emv(1:ifull) ) 
+         do iq = 1,ifull
+            em(iq) = 4.0 / ( emu(i_wu2(iq)) + emu(iq) + emv(i_sv2(iq)) + emv(iq) ) 
+         end do  
 !        experimental option follows - only tiniest difference for il=20
 !        em(iq) = 2.0 / sqrt( (emu(i_wu2)+emu(1:ifull))*(emv(isv2)+emv(1:ifull)) )
 !        emu = 1.0 / emu
@@ -746,8 +620,8 @@ subroutine setxyz ( il, jl, kl, npanels, ifull, iquad, diag, id, jd,        &
    sumwts = sum(wts) 
 !  cosa is dot product of unit vectors
 !  *** only useful as diagnostic for gnew
-   cosa = ax(1:ifull)*bx(1:ifull) + ay(1:ifull)*by(1:ifull) +  &
-          az(1:ifull)*bz(1:ifull) 
+   !cosa = ax(1:ifull)*bx(1:ifull) + ay(1:ifull)*by(1:ifull) +  &
+   !       az(1:ifull)*bz(1:ifull) 
 !       call printp("dx  ",dx)
 !       call printp("dy  ",dy)
 !!$   if (diag == 2) then 
@@ -866,16 +740,18 @@ subroutine setxyz ( il, jl, kl, npanels, ifull, iquad, diag, id, jd,        &
    end if
 
 !  set up Coriolis
+   do iq = 1,ifull
 !  ok: [2,il-1;2,jl]  u point
-   dmdx = ( em(i_e) - em ) / ds 
+      dmdx(iq) = ( em(i_e(iq)) - em(iq) ) / ds 
 ! ok: [2,il;2,jl-1]  v point
-   dmdy = ( em(i_n) - em ) / ds 
-   fu = ( f + f(i_e) ) * 0.5_rx
-   fv = ( f + f(i_n) ) * 0.5_rx 
+      dmdy(iq) = ( em(i_n(iq)) - em(iq) ) / ds 
+      fu(iq) = ( f(iq) + f(i_e(iq)) ) * 0.5_rx
+      fv(iq) = ( f(iq) + f(i_n(iq)) ) * 0.5_rx 
 !  may need more thought  $$$
-   dmdx = abs ( emu(i_wu2)-emu(1:ifull) ) + abs ( emv(i_sv2)-emv(1:ifull) ) 
-   dmdyu = ( em(i_n(i_e)) - em(i_s(i_e)) + em(i_n) - em(i_s) ) / (4.0*ds) 
-   dmdxv = ( em(i_e(i_n)) - em(i_w(i_n)) + em(i_e) - em(i_w) ) / (4.0*ds) 
+      dmdx(iq) = abs ( emu(i_wu2(iq))-emu(iq) ) + abs ( emv(i_sv2(iq))-emv(iq) ) 
+      dmdyu(iq) = ( em(i_n(i_e(iq))) - em(i_s(i_e(iq))) + em(i_n(iq)) - em(i_s(iq)) ) / (4.0*ds) 
+      dmdxv(iq) = ( em(i_e(i_n(iq))) - em(i_w(i_n(iq))) + em(i_e(iq)) - em(i_w(iq)) ) / (4.0*ds) 
+   end do  
 
    if ( diag /= 0 ) then
       print *, &
@@ -890,6 +766,9 @@ subroutine setxyz ( il, jl, kl, npanels, ifull, iquad, diag, id, jd,        &
             n, dmdx(iq11), dmdx(iq12), dmdx(iq13), dmdx(iq22), dmdx(iq32) 
       end do
    end if
+   
+   deallocate( axx, ayy, azz, bxx, byy, bzz )
+   deallocate( em4, ax4, ay4, az4, zz4 )
 
 !   For calculating zonal and meridional wind components, use the
 !   following information, where theta is the angle between the
@@ -1134,6 +1013,7 @@ end subroutine cross3
       use indices_m
 !     Set up vectors for the A grid 
       integer, intent(in) :: ifull
+      integer iq
 !     Pointer trick to make these contiguous
       real(kind=rx), allocatable, dimension(:), target  :: wcuva, wcuvd
       real(kind=rx), dimension(:), pointer, contiguous :: wcua, wcva, wcud, wcvd
@@ -1152,34 +1032,36 @@ end subroutine cross3
 !  explicitly here
 
 !  convert ax,bx to staggered positions
-      wcua(1:ifull) = 0.5_rx*(ax(i_eu2)+ax(1:ifull))
-      wcud(1:ifull) = ax(i_eu2) - ax(1:ifull)
-      wcva(1:ifull) = 0.5_rx*(bx(i_nv2)+bx(1:ifull))
-      wcvd(1:ifull) = bx(i_nv2) - bx(1:ifull)
+      do iq = 1,ifull
+         wcua(iq) = 0.5_rx*(ax(i_eu2(iq))+ax(iq))
+         wcud(iq) = ax(i_eu2(iq)) - ax(iq)
+         wcva(iq) = 0.5_rx*(bx(i_nv2(iq))+bx(iq))
+         wcvd(iq) = bx(i_nv2(iq)) - bx(iq)
 
 !  store ax,bx at staggered positions
-      axu = wcua(1:ifull) - (wcud(i_eu2)-wcud(i_wu2))/16.0
-      bxv = wcva(1:ifull) - (wcvd(i_nv2)-wcvd(i_sv2))/16.0
+         axu(iq) = wcua(iq) - (wcud(i_eu2(iq))-wcud(i_wu2(iq)))/16.0
+         bxv(iq) = wcva(iq) - (wcvd(i_nv2(iq))-wcvd(i_sv2(iq)))/16.0
 
 !  convert ay,by to staggered positions
-      wcua(1:ifull) = 0.5_rx*(ay(i_eu2)+ay(1:ifull))
-      wcud(1:ifull) = ay(i_eu2) - ay(1:ifull)
-      wcva(1:ifull) = 0.5_rx*(by(i_nv2)+by(1:ifull))
-      wcvd(1:ifull) = by(i_nv2) - by(1:ifull)
+         wcua(iq) = 0.5_rx*(ay(i_eu2(iq))+ay(iq))
+         wcud(iq) = ay(i_eu2(iq)) - ay(iq)
+         wcva(iq) = 0.5_rx*(by(i_nv2(iq))+by(iq))
+         wcvd(iq) = by(i_nv2(iq)) - by(iq)
 
 !  store ay,by at staggered positions
-      ayu = wcua(1:ifull) - (wcud(i_eu2)-wcud(i_wu2))/16.0
-      byv = wcva(1:ifull) - (wcvd(i_nv2)-wcvd(i_sv2))/16.0
+         ayu(iq) = wcua(iq) - (wcud(i_eu2(iq))-wcud(i_wu2(iq)))/16.0
+         byv(iq) = wcva(iq) - (wcvd(i_nv2(iq))-wcvd(i_sv2(iq)))/16.0
 
 !  convert az,bz to staggered positions
-      wcua(1:ifull) = 0.5_rx*(az(i_eu2)+az(1:ifull))
-      wcud(1:ifull) = az(i_eu2) - az(1:ifull)
-      wcva(1:ifull) = 0.5_rx*(bz(i_nv2)+bz(1:ifull))
-      wcvd(1:ifull) = bz(i_nv2) - bz(1:ifull)
+         wcua(iq) = 0.5_rx*(az(i_eu2(iq))+az(iq))
+         wcud(iq) = az(i_eu2(iq)) - az(iq)
+         wcva(iq) = 0.5_rx*(bz(i_nv2(iq))+bz(iq))
+         wcvd(iq) = bz(i_nv2(iq)) - bz(iq)
 
 !  store az,bz at staggered positions
-      azu = wcua(1:ifull) - (wcud(i_eu2)-wcud(i_wu2))/16.0
-      bzv = wcva(1:ifull) - (wcvd(i_nv2)-wcvd(i_sv2))/16.0
+         azu(iq) = wcua(iq) - (wcud(i_eu2(iq))-wcud(i_wu2(iq)))/16.0
+         bzv(iq) = wcva(iq) - (wcvd(i_nv2(iq))-wcvd(i_sv2(iq)))/16.0
+      end do  
 
       deallocate ( wcuva, wcuvd )
    end subroutine setaxu

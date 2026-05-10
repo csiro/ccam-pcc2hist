@@ -939,8 +939,8 @@ contains
             ifld = bindex_hname ( hnames(ivar), &
                                   inames(:,1:totflds), totflds )
             if ( ifld == 0 ) then
-               print*, "Error - history variable ", hnames(ivar),  &
-                       " is not known. "
+               print*, "Error - history variable ", trim(hnames(ivar)),  &
+                       " is not known."
                stop
             end if
             histinfo(ifld)%used = .true.

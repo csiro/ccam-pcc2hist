@@ -2199,10 +2199,10 @@ contains
 
    end subroutine readsave3
    
-   subroutine initialise ( hres, minlon, maxlon, dlon, minlat, maxlat, dlat,  &
-                           dx, dy, lx, ly,                                    &
-                           kdate, ktime, ntracers, ksoil, kice, debug,        &
-                           nqg )
+   subroutine initialise( hres, minlon, maxlon, dlon, minlat, maxlat, dlat,  &
+                          dx, dy, lx, ly,                                    &
+                          kdate, ktime, ntracers, ksoil, kice, debug,        &
+                          nqg )
 
       use netcdf_m
       use newmpar_m
@@ -2484,41 +2484,14 @@ contains
 
 #ifdef share_ifullg
       if ( node_myid == 0 ) then
-         ssize = ifull
-      else
-         ssize = 0
-      end if
-      call allocshdata(i_n,ssize,(/ ifull /),in_win)
-      call allocshdata(i_s,ssize,(/ ifull /),is_win)
-      call allocshdata(i_e,ssize,(/ ifull /),ie_win)
-      call allocshdata(i_w,ssize,(/ ifull /),iw_win)
-      call START_LOG(mpibarrier_begin)
-      call MPI_Barrier(node_comm,ierr)
-      call END_LOG(mpibarrier_end)
-      if ( node_myid == 0 ) then
 #else
-      allocate ( i_n(ifull), i_s(ifull), i_e(ifull), i_w(ifull) )
       if ( myid == 0 ) then
 #endif
-
           call setxyz ( il, jl, kl, npanels, ifull, iquad, idiag, id, jd,        &
                         rlong0, rlat0, schmidt, schm13, ntang, erad )
-                    
       end if
 
 !     Communicate direction indices in case a fill is required in history.f90
-#ifdef share_ifullg
-      call START_LOG(mpibarrier_begin)
-      call MPI_Barrier(node_comm,ierr)
-      call END_LOG(mpibarrier_end)
-#else
-      call START_LOG(mpibcast_begin)
-      call MPI_Bcast( i_n, ifull, MPI_INTEGER, 0, comm_world, ierr )
-      call MPI_Bcast( i_s, ifull, MPI_INTEGER, 0, comm_world, ierr )
-      call MPI_Bcast( i_e, ifull, MPI_INTEGER, 0, comm_world, ierr )
-      call MPI_Bcast( i_w, ifull, MPI_INTEGER, 0, comm_world, ierr )
-      call END_LOG(mpibcast_end)
-#endif
       
       if ( int_default == int_none ) then
          nxhis = il
@@ -2886,7 +2859,7 @@ contains
             if ( kk>1 .and. (vname == "CAPE" .or. vname == "CIN" ) ) cycle 
             if ( match ( vname, (/ "p_?plant? ", "p_?litter?", "p_?soil?  " /) ) ) cycle
             if ( ndims == 6 .and. procformat ) then   
-               ! Should be lon, lat, lev, proc, time
+               ! Should be lon, lat, indx1, indx2, proc, time
                if ( match ( dimids(1:ndims), (/ londim, latdim, cptchdim, cchrtdim, procdim, timedim /) ) ) then
                   nvars = nvars + 1
                   varlist(nvars)%fixed = .false.
@@ -2896,7 +2869,7 @@ contains
                   stop
                end if
             else if ( ndims == 5 .and. .not.procformat ) then   
-               ! Should be lon, lat, lev, time
+               ! Should be lon, lat, indx1, indx2, time
                if ( match ( dimids(1:ndims), (/ londim, latdim, cptchdim, cchrtdim, timedim /) ) ) then
                   nvars = nvars + 1
                   varlist(nvars)%fixed = .false.
@@ -2910,15 +2883,15 @@ contains
                if ( match ( dimids(1:ndims), (/ londim, latdim, levdim, procdim, timedim /) ) ) then
                   nvars = nvars + 1
                   varlist(nvars)%fixed = .false.
-                  varlist(nvars)%ndims = 3  ! Space only
+                  varlist(nvars)%ndims = 3  ! Atmosphere
                else if ( match ( dimids(1:ndims), (/ londim, latdim, olevdim, procdim, timedim /) ) ) then
                   nvars = nvars + 1
                   varlist(nvars)%fixed = .false.
-                  varlist(nvars)%ndims = 3
+                  varlist(nvars)%ndims = 3  ! Ocean
                else if ( match ( dimids(1:ndims), (/ londim, latdim, cptchdim, procdim, timedim /) ) ) then
                   nvars = nvars + 1
                   varlist(nvars)%fixed = .false.
-                  varlist(nvars)%ndims = 3
+                  varlist(nvars)%ndims = 3  ! CABLE/CASA-CNP
                else
                   print*, "Error, unexpected dimensions in input variable", vname
                   stop
@@ -2928,15 +2901,15 @@ contains
                if ( match ( dimids(1:ndims), (/ londim, latdim, levdim, timedim /) ) ) then
                   nvars = nvars + 1
                   varlist(nvars)%fixed = .false.
-                  varlist(nvars)%ndims = 3  ! Space only
+                  varlist(nvars)%ndims = 3  ! Atmosphere
                else if ( match ( dimids(1:ndims), (/ londim, latdim, olevdim, timedim /) ) ) then
                   nvars = nvars + 1
                   varlist(nvars)%fixed = .false.
-                  varlist(nvars)%ndims = 3
+                  varlist(nvars)%ndims = 3  ! Ocean
                else if ( match ( dimids(1:ndims), (/ londim, latdim, cptchdim, timedim /) ) ) then
                   nvars = nvars + 1
                   varlist(nvars)%fixed = .false.
-                  varlist(nvars)%ndims = 3
+                  varlist(nvars)%ndims = 3  ! CABLE/CASA-CNP
                else
                   print*, "Error, unexpected dimensions in input variable", vname
                   stop
@@ -2946,10 +2919,11 @@ contains
                if ( (cf_compliant.or.cordex_compliant) .and. is_soil_var(vname) ) then
                   cycle
                end if
+               ! Should be lon, lat, proc, time
                if ( match( dimids(1:ndims), (/ londim, latdim, procdim, timedim /) ) ) then
                   nvars = nvars + 1
                   varlist(nvars)%fixed = .false.
-                  varlist(nvars)%ndims = 2  ! Space only
+                  varlist(nvars)%ndims = 2
                else
                   ! 3D variables fixed in time aren't supported at the moment
                   ! though there's no reason why they couldn't be
@@ -2961,6 +2935,7 @@ contains
                if ( (cf_compliant.or.cordex_compliant) .and. is_soil_var(vname) ) then
                   cycle
                end if
+               ! Should be lon, lat, time
                if ( match( dimids(1:ndims), (/ londim, latdim, timedim /) ) ) then
                   nvars = nvars + 1
                   varlist(nvars)%fixed = .false.
@@ -2972,6 +2947,7 @@ contains
                   stop
                end if
             else if ( ndims == 3 .and. procformat ) then
+               ! Should be lon, lat, proc 
                if ( match( dimids(1:ndims), (/ londim, latdim, procdim /) ) ) then
                   nvars = nvars + 1
                   varlist(nvars)%fixed = .true.
@@ -2983,6 +2959,7 @@ contains
             else if ( ndims == 2 .and. procformat ) then
                cycle
             else if ( ndims == 2 ) then
+               ! Should be lon, lat 
                if ( match( dimids(1:ndims), (/ londim, latdim /) ) ) then
                   nvars = nvars + 1
                   varlist(nvars)%fixed = .true.
@@ -6351,18 +6328,10 @@ contains
    call freeshdata(nface_win)
    nullify(xg,yg)
    nullify(nface)
-   call freeshdata(in_win)
-   call freeshdata(is_win)
-   call freeshdata(ie_win)
-   call freeshdata(iw_win)
-   nullify(i_n, i_s, i_e, i_w)
 #else
    if ( allocated(xg) ) then
       deallocate(xg,yg)
       deallocate(nface)
-   end if   
-   if ( allocated(i_n) ) then
-      deallocate( i_n, i_s, i_e, i_w )   
    end if   
 #endif
   
