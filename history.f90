@@ -299,10 +299,16 @@ module history
    real, dimension(:,:,:,:), allocatable, save, private :: hist_a
    
 ! chunk size
-   integer, public, save :: chunk_grid = -1 ! recommend 24
+   integer, public, save :: chunk_grid = -1 ! recommend 48
    
 ! flush output file buffers
    integer, public, save :: safe_max = 3
+   
+! text for vegetation and urban description
+   character(len=4096), public, save :: vegt_description
+   
+! text for soil description
+   character(len=4096), public, save :: soilt_description
 
 contains
 
@@ -939,8 +945,8 @@ contains
             ifld = bindex_hname ( hnames(ivar), &
                                   inames(:,1:totflds), totflds )
             if ( ifld == 0 ) then
-               print*, "Error - history variable ", trim(hnames(ivar)),  &
-                       " is not known."
+               print*, "Error - history variable ", hnames(ivar),  &
+                       " is not known. "
                stop
             end if
             histinfo(ifld)%used = .true.
@@ -1757,7 +1763,22 @@ contains
 
       if ( cordex_compliant ) then
          ierr = nf90_put_att( ncid, vid, "grid_mapping", "crs" )      
+         call check_ncerr(ierr,"Error with grid_mapping attribute")
       end if   
+      
+      if ( local_name == "vegt" ) then
+         if ( vegt_description /= "" ) then 
+            ierr = nf90_put_att( ncid, NF90_GLOBAL, "vegt_description", vegt_description )
+            call check_ncerr(ierr,"Error with vegt_description attribute")
+         end if   
+      end if
+      
+      if ( local_name == "soilt" ) then
+         if ( soilt_description /= "" ) then 
+            ierr = nf90_put_att( ncid, NF90_GLOBAL, "soilt_description", soilt_description )
+            call check_ncerr(ierr,"Error with soilt_description attribute")
+         end if   
+      end if
       
    end subroutine create_ncvar
   
@@ -1805,7 +1826,7 @@ contains
       end if
       
       if ( hist_debug > 0 ) then
-         print*, "Creating file ", filename
+         print*, "Creating file ", trim(filename)
       end if
       if ( areps_compliant ) then
          ! AREPS must use classic netcdf3 

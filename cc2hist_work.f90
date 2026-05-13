@@ -5612,6 +5612,7 @@ contains
 !   end subroutine fill_cc0
    
    subroutine paraopen(ifile,nmode,ncid)
+      use history, only : vegt_description, soilt_description
       use mpidata_m
       use logging_m
 #ifdef usempimod
@@ -5625,11 +5626,12 @@ contains
       integer, intent(out) :: ncid
       integer, dimension(5) :: jdum
       integer, dimension(54) :: int_header
-      integer :: ier, ip, n, rip, ierr
+      integer :: ier, ip, n, rip, ierr, i
       integer :: colour, vid
       integer, dimension(:,:), allocatable, save :: resprocdata_inv
       integer, dimension(:), allocatable, save :: resprocmap_inv
       integer, dimension(:), allocatable, save :: procfileowner
+      integer(kind=1), dimension(:), allocatable :: dummy
       character(len=*), intent(in) :: ifile
       character(len=266) :: pfile, old_pfile
       character(len=8) :: sdecomp
@@ -5912,7 +5914,7 @@ contains
          else
             ! backwards compatibility option -------- 
             !  Get dimensions from int_header
-            ier = nf90_get_att(ncid_in(0), nf90_global, "int_header", int_header)
+            ier = nf90_get_att(ncid, nf90_global, "int_header", int_header)
             call check_ncerr(ier, "int_header")
             ! Only a few values are used
             pil_g = int_header(1)
@@ -5922,7 +5924,7 @@ contains
          !  Calculate il, jl from these
          if ( .not. singlefile ) then
             sdecomp = ''
-            ier = nf90_get_att(ncid_in(0), nf90_global, "decomp", sdecomp)
+            ier = nf90_get_att(ncid, nf90_global, "decomp", sdecomp)
             call check_ncerr(ier, "decomp")
          else   
             sdecomp = 'face'
@@ -5949,12 +5951,22 @@ contains
                print *,"ERROR: Unknown decomposition ",trim(sdecomp)
                stop
          end select
-      
+
          jdum(1) = pil
          jdum(2) = pjl
          jdum(3) = pnpan
          jdum(4) = pil_g
          jdum(5) = pjl_g
+         
+         ier = nf90_get_att(ncid, nf90_global, "vegt_description", vegt_description)
+         if ( ier /= nf90_noerr ) then
+            vegt_description = ""
+         end if
+
+         ier = nf90_get_att(ncid, nf90_global, "soilt_description", soilt_description)
+         if ( ier /= nf90_noerr ) then
+            soilt_description = ""
+         end if
       
       end if ! myid/=0 ..else..
       
@@ -5968,6 +5980,31 @@ contains
       pnpan = jdum(3)
       pil_g = jdum(4)
       pjl_g = jdum(5)
+      
+      allocate( dummy(4096) )
+      if ( myid == 0 ) then
+         do i = 1,4096
+            dummy(i) = int(iachar(vegt_description(i:i)),1)
+         end do   
+      end if   
+      call START_LOG(mpibcast_begin)
+      call MPI_Bcast(dummy,4096,MPI_BYTE,0,comm_world,ier)
+      call END_LOG(mpibcast_end)
+      do i = 1,4096
+         vegt_description(i:i) = achar(dummy(i))
+      end do
+      if ( myid == 0 ) then
+         do i = 1,4096
+            dummy(i) = int(iachar(soilt_description(i:i)),1)
+         end do   
+      end if   
+      call START_LOG(mpibcast_begin)
+      call MPI_Bcast(dummy,4096,MPI_BYTE,0,comm_world,ier)
+      call END_LOG(mpibcast_end)
+      do i = 1,4096
+         soilt_description(i:i) = achar(dummy(i))
+      end do
+      deallocate( dummy )
       
       call END_LOG(paraopen_end)
       

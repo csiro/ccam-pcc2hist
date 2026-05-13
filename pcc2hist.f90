@@ -1,6 +1,6 @@
 ! Conformal Cubic Atmospheric Model
     
-! Copyright 2015-2025 Commonwealth Scientific Industrial Research Organisation (CSIRO)
+! Copyright 2015-2026 Commonwealth Scientific Industrial Research Organisation (CSIRO)
     
 ! This file is part of the Conformal Cubic Atmospheric Model (CCAM)
 !
@@ -480,7 +480,9 @@ program pcc2hist
       if ( attname/="il_g"       .and. attname/="jl_g"        .and. &
            attname/="il"         .and. attname/="kl"          .and. &
            attname/="procmode"   .and. attname/="decomp"      .and. &
-           attname/="nproc"      .and. attname/="nrun" ) then
+           attname/="nproc"      .and. attname/="nrun"        .and. &
+           attname/="vegt_description"                        .and. &
+           attname/="soilt_description" ) then
          ierr = nf90_inquire_attribute(ncid, nf90_global, attname, xtype=xtype, len=attlen )
          call check_ncerr(ierr, "Error getting attribute type and len")
          select case (xtype)
@@ -680,6 +682,7 @@ program pcc2hist
          time = time/60. ! Hours
          call writehist ( ktau, time, dtime, interp=ints ) 
       else if ( cordex_compliant ) then
+         ! Mins 
          time_bnds = (/time_prev,time/)   
          call writehist ( ktau, time, dtime, interp=ints, time_bnds=time_bnds )   
          time_prev = time   
