@@ -140,6 +140,7 @@ pcc2hist.o: parm_m.o checkver_m.o interp_m.o s2p_m.o height_m.o usage_m.o cc2his
 cc2hist_work.o: moistfuncs.o vertutils_m.o parm_m.o interp_m.o setxyz_m.o latltoij_m.o indices_m.o xyzinfo_m.o newmpar_m.o sitop_m.o height_m.o physparams.o s2p_m.o history.o gldata_m.o ncutils_m.o precis_m.o mpidata_m.o shdata_m.o logging_m.o netcdf_m.o zenith.o
 height_m.o: netcdf_m.o utils_m.o physparams.o s2p_m.o
 ind_m.o: newmpar_m.o 
+indices_.o: newmpar_m.o
 interp_m.o: ind_m.o indices_m.o newmpar_m.o precis_m.o logging_m.o netcdf_m.o
 jimcc_m.o: parm_m.o precis_m.o 
 jimco_m.o: precis_m.o jim_utils.o nfft_m.o 

@@ -697,7 +697,7 @@ contains
             case ( "pr" )
                if ( needfld("pr") ) then 
                   call vread( "rnd", dtmp )
-                  where ( dtmp /= nf90_fill_float
+                  where ( dtmp /= nf90_fill_float )
                      dtmp = dtmp/86400.
                   end where   
                   call savehist ( "pr", dtmp )
