@@ -493,7 +493,7 @@ contains
                   else if ( needfld("sigmu") ) then
                      call savehist("sigmu", dtmp)
                   end if
-               case ( "urbant" )
+               case ( "urbant" ) ! depreciate - now combined with vegt
                   call vread( "urbant", dtmp ) 
                   where ( soilt < 0.5 )
                      dtmp = nf90_fill_float
@@ -699,7 +699,7 @@ contains
                   call vread( "rnd", dtmp )
                   where ( dtmp /= nf90_fill_float )
                      dtmp = dtmp/86400.
-                  end where   
+                  end where  
                   call savehist ( "pr", dtmp )
                end if   
             case ( "prc" )
@@ -1414,7 +1414,13 @@ contains
                qf = max( qf, 0. )
                if ( needfld("qfg") ) then
                   call vsavehist ( "qfg", qf )
-               end if         
+               end if
+            case ( "qrg" )
+               call vread( "qrg", qs )
+               qs = max( qs, 0. )
+               if ( needfld("qrg") ) then
+                  call vsavehist ( "qrg", qs )
+               end if                 
             case ( "qsng" )
                call vread( "qsng", qs )
                qs = max( qs, 0. )
@@ -4362,7 +4368,7 @@ contains
                           cell_methods="area: mean time: point" )
          end do            
          
-      end if
+      end if ! ierr==nf90_noerr
       
       ierr = nf90_inq_varid (ncid, "uo", ivar )
       if ( ierr == nf90_noerr ) then

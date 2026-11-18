@@ -240,7 +240,8 @@ contains
             call sitop ( array, parray, vextrap )
          end if
          ! correct for cubic-spline generating values that are out-of-range
-         if ( name=="qlg" .or. name=="qfg" .or. name=="mixr" .or. name=="hus" ) then
+         if ( name=="qlg" .or. name=="qfg" .or. name=="mixr" .or. name=="hus" .or. &
+              name=="qrg" .or. name=="qsng" .or. name=="qgrg" ) then
             ! special fix 
             parray = max( parray, 0. )
          else if ( name=="speed" ) then
